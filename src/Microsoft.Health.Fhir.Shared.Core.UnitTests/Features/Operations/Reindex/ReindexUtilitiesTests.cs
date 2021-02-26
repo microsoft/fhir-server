@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private readonly IResourceWrapperFactory _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
 
         private readonly ITestOutputHelper _output;
         private IReadOnlyDictionary<string, string> _searchParameterHashMap;
@@ -46,14 +47,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
             Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator);
-            _reindexUtilities = new ReindexUtilities(fhirDataStoreScope, _searchIndexer, _resourceDeserializer, _searchParameterDefinitionManager, _searchParameterStatusManager);
+            _reindexUtilities = new ReindexUtilities(fhirDataStoreScope, _searchIndexer, _resourceDeserializer, _searchParameterDefinitionManager, _searchParameterStatusManager, _resourceWrapperFactory);
         }
 
         [Fact]
         public async Task GivenResourcesWithUnchangedOrChangedIndices_WhenResultsProcessed_ThenCorrectResourcesHaveIndicesUpdated()
         {
-            var searchIndexEntry1 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param1"), new StringSearchValue("value1"));
-            var searchIndexEntry2 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param2"), new StringSearchValue("value2"));
+            var searchIndexEntry1 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param1", "param1"), new StringSearchValue("value1"));
+            var searchIndexEntry2 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param2", "param2"), new StringSearchValue("value2"));
 
             var searchIndices1 = new List<SearchIndexEntry>() { searchIndexEntry1 };
             var searchIndices2 = new List<SearchIndexEntry>() { searchIndexEntry2 };
@@ -83,7 +84,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var searchParam = new SearchParameterInfo(
                 "test",
-                "String",
+                "test",
+                ValueSets.SearchParamType.String,
                 new Uri("http://searchParam"));
 
             _searchParameterDefinitionManager.GetSearchParameter(Arg.Any<Uri>()).Returns(searchParam);

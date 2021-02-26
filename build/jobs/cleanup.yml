@@ -2,7 +2,8 @@ jobs:
 - job: DeleteResourceGroup
   displayName: 'Delete resource group'
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - task: AzurePowerShell@4
     displayName: 'Delete resource group'
@@ -15,7 +16,7 @@ jobs:
 - job: cleanupAad
   displayName: 'Cleanup Azure Active Directory'
   pool:
-    vmImage: $(WindowsVmImage)
+    vmImage: '$(WindowsVmImage)'
   steps:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
@@ -58,13 +59,14 @@ jobs:
 - job: deleteImage
   displayName: 'Delete Image'
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - task: AzureCLI@2
     displayName: 'Delete Image'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      scriptType: ps
+      scriptType: pscore
       scriptLocation: InlineScript
       inlineScript: |
         az acr repository delete --name $(azureContainerRegistryName) --image 'r4_fhir-server:$(ImageTag)' --yes

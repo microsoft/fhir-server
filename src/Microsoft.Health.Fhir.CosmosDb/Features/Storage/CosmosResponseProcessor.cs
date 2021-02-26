@@ -44,11 +44,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="response">The response that has errored</param>
         public Task ProcessErrorResponse(ResponseMessage response)
         {
-            if (_fhirRequestContextAccessor.FhirRequestContext == null)
-            {
-                return Task.CompletedTask;
-            }
-
             if (!response.IsSuccessStatusCode)
             {
                 ProcessErrorResponse(response.StatusCode, response.Headers, response.ErrorMessage);
@@ -59,15 +54,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public void ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage)
         {
-            if (_fhirRequestContextAccessor.FhirRequestContext == null)
-            {
-                return;
-            }
-
             if (statusCode == HttpStatusCode.TooManyRequests)
             {
-                string retryHeader = headers["Retry-After"];
-                throw new RequestRateExceededException(TimeSpan.TryParse(retryHeader, out TimeSpan timeSpan) ? timeSpan : (TimeSpan?)null);
+                string retryHeader = headers["x-ms-retry-after-ms"];
+                throw new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : (TimeSpan?)null);
             }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
@@ -116,15 +106,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             IFhirRequestContext requestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-            // If there has already been a request to the database for this request, then we want to append a second charge header.
+            // If there has already been a request to the database for this request, then we want to add to it.
             if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingHeaderValue))
             {
-                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = StringValues.Concat(existingHeaderValue, responseRequestCharge.ToString(CultureInfo.InvariantCulture));
+                if (double.TryParse(existingHeaderValue.ToString(), out double existing))
+                {
+                    responseRequestCharge += existing;
+                }
+                else
+                {
+                    _logger.LogWarning("Unable to parse request charge header: {request change}", existingHeaderValue);
+                }
             }
-            else
-            {
-                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
-            }
+
+            requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
 
             var cosmosMetrics = new CosmosStorageRequestMetricsNotification(requestContext.AuditEventType, requestContext.ResourceType)
             {

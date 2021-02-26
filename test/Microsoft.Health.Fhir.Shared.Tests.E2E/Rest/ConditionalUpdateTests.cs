@@ -63,6 +63,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResourceAndProvenanceHeader_WhenUpsertingConditionallyWithNoIdAndNoExisting_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = null;
+
+            using FhirResponse<Observation> updateResponse = await _client.ConditionalUpdateAsync(
+                observation,
+                $"identifier={Guid.NewGuid().ToString()}",
+                provenanceHeader: Samples.GetProvenanceHeader());
+
+            Assert.Equal(HttpStatusCode.Created, updateResponse.StatusCode);
+
+            Observation updatedResource = updateResponse.Resource;
+
+            Assert.NotNull(updatedResource);
+            Assert.NotNull(updatedResource.Id);
+
+            using var provenanceResponse = await _client.SearchAsync(ResourceType.Provenance, $"target={observation.Id}");
+            Assert.Equal(HttpStatusCode.OK, provenanceResponse.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResourceAndMalformedProvenanceHeader_WhenUpsertingConditionallyWithNoSearchCriteria_ThenAnErrorShouldBeReturned()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
+                observation,
+                null,
+                "Jibberish"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenUpsertingConditionallyWithAnIdAndNoExisting_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();

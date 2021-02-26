@@ -1,6 +1,6 @@
 [
   {
-    "name": "_id",
+    "code": "_id",
     "type": "Token",
     "value": {
       "system": null,
@@ -10,7 +10,7 @@
     }
   },
   {
-    "name": "authenticator",
+    "code": "authenticator",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -21,7 +21,7 @@
     }
   },
   {
-    "name": "author",
+    "code": "author",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -32,7 +32,7 @@
     }
   },
   {
-    "name": "class",
+    "code": "class",
     "type": "Token",
     "value": {
       "system": "http://ihe.net/xds/connectathon/classCodes",
@@ -42,16 +42,18 @@
     }
   },
   {
-    "name": "created",
+    "code": "created",
     "type": "Date",
     "value": {
       "start": "2005-12-23T22:35:00+00:00",
       "end": "2005-12-23T22:35:00.9999999+00:00",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
-    "name": "custodian",
+    "code": "custodian",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -62,7 +64,7 @@
     }
   },
   {
-    "name": "description",
+    "code": "description",
     "type": "String",
     "value": {
       "string": "Physical",
@@ -72,7 +74,7 @@
     }
   },
   {
-    "name": "encounter",
+    "code": "encounter",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -83,7 +85,7 @@
     }
   },
   {
-    "name": "event",
+    "code": "event",
     "type": "Token",
     "value": {
       "system": "http://ihe.net/xds/connectathon/eventCodes",
@@ -93,7 +95,7 @@
     }
   },
   {
-    "name": "facility",
+    "code": "facility",
     "type": "Token",
     "value": {
       "system": "http://www.ihe.net/xds/connectathon/healthcareFacilityTypeCodes",
@@ -103,7 +105,7 @@
     }
   },
   {
-    "name": "format",
+    "code": "format",
     "type": "Token",
     "value": {
       "system": "urn:oid:1.3.6.1.4.1.19376.1.2.3",
@@ -113,7 +115,7 @@
     }
   },
   {
-    "name": "identifier",
+    "code": "identifier",
     "type": "Token",
     "value": {
       "system": "urn:ietf:rfc:3986",
@@ -123,7 +125,7 @@
     }
   },
   {
-    "name": "identifier",
+    "code": "identifier",
     "type": "Token",
     "value": {
       "system": "urn:ietf:rfc:3986",
@@ -133,16 +135,18 @@
     }
   },
   {
-    "name": "indexed",
+    "code": "indexed",
     "type": "Date",
     "value": {
       "start": "2005-12-23T22:43:41+00:00",
       "end": "2005-12-23T22:43:41+00:00",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
-    "name": "language",
+    "code": "language",
     "type": "Token",
     "value": {
       "system": null,
@@ -152,15 +156,18 @@
     }
   },
   {
-    "name": "location",
+    "code": "location",
     "type": "Uri",
     "value": {
       "uri": "http://example.org/xds/mhd/Binary/07a6483f-732b-461e-86b6-edb665c45510",
+      "version": null,
+      "fragment": null,
+      "isCanonical": false,
       "isValidAsCompositeComponent": true
     }
   },
   {
-    "name": "patient",
+    "code": "patient",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -171,16 +178,18 @@
     }
   },
   {
-    "name": "period",
+    "code": "period",
     "type": "Date",
     "value": {
       "start": "2004-12-22T21:00:00+00:00",
       "end": "2004-12-22T21:01:00.9999999+00:00",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
-    "name": "related-id",
+    "code": "related-id",
     "type": "Token",
     "value": {
       "system": "urn:ietf:rfc:3986",
@@ -190,7 +199,7 @@
     }
   },
   {
-    "name": "related-ref",
+    "code": "related-ref",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -201,7 +210,7 @@
     }
   },
   {
-    "name": "relatesto",
+    "code": "relatesto",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -212,7 +221,7 @@
     }
   },
   {
-    "name": "relatesto",
+    "code": "relatesto",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -223,7 +232,7 @@
     }
   },
   {
-    "name": "relation",
+    "code": "relation",
     "type": "Token",
     "value": {
       "system": "http://hl7.org/fhir/document-relationship-type",
@@ -233,7 +242,7 @@
     }
   },
   {
-    "name": "relation",
+    "code": "relation",
     "type": "Token",
     "value": {
       "system": "http://hl7.org/fhir/document-relationship-type",
@@ -243,7 +252,7 @@
     }
   },
   {
-    "name": "relationship",
+    "code": "relationship",
     "type": "Composite",
     "value": {
       "components": [
@@ -269,7 +278,7 @@
     }
   },
   {
-    "name": "relationship",
+    "code": "relationship",
     "type": "Composite",
     "value": {
       "components": [
@@ -295,7 +304,7 @@
     }
   },
   {
-    "name": "securitylabel",
+    "code": "securitylabel",
     "type": "Token",
     "value": {
       "system": "http://hl7.org/fhir/v3/Confidentiality",
@@ -305,7 +314,7 @@
     }
   },
   {
-    "name": "setting",
+    "code": "setting",
     "type": "Token",
     "value": {
       "system": "http://www.ihe.net/xds/connectathon/practiceSettingCodes",
@@ -315,7 +324,7 @@
     }
   },
   {
-    "name": "status",
+    "code": "status",
     "type": "Token",
     "value": {
       "system": "http://hl7.org/fhir/document-reference-status",
@@ -325,7 +334,7 @@
     }
   },
   {
-    "name": "subject",
+    "code": "subject",
     "type": "Reference",
     "value": {
       "kind": "InternalOrExternal",
@@ -336,7 +345,7 @@
     }
   },
   {
-    "name": "type",
+    "code": "type",
     "type": "Token",
     "value": {
       "system": "http://loinc.org",

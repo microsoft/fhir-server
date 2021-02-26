@@ -13,9 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// <summary>
     /// Represents a string search value.
     /// </summary>
-#pragma warning disable CA1036 // Override methods on comparable types
+    [SuppressMessage("ReSharper", "CA1036", Justification = "Used for sort comparison.")]
     public class StringSearchValue : ISearchValue, ISupportSortSearchValue
-#pragma warning restore CA1036 // Override methods on comparable types
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="StringSearchValue"/> class.
@@ -64,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         }
 
         /// <inheritdoc />
-        public int CompareTo(ISupportSortSearchValue supportSortSearchValue)
+        public int CompareTo(ISupportSortSearchValue supportSortSearchValue, ComparisonRange range)
         {
             if (supportSortSearchValue == null)
             {

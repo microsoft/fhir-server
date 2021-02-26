@@ -26,8 +26,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     public class FhirCosmosSearchService : SearchService
     {
-        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new SearchParameterInfo(SearchValueConstants.TypeIdCompositeSearchParameterName);
-        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new SearchParameterInfo(SearchValueConstants.WildcardReferenceSearchParameterName);
+        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new SearchParameterInfo(SearchValueConstants.TypeIdCompositeSearchParameterName, SearchValueConstants.TypeIdCompositeSearchParameterName);
+        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new SearchParameterInfo(SearchValueConstants.WildcardReferenceSearchParameterName, SearchValueConstants.WildcardReferenceSearchParameterName);
 
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
@@ -57,6 +57,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
+            // we're going to mutate searchOptions, so clone it first so the caller of this method does not see the changes.
+            searchOptions = searchOptions.Clone();
+
+            // rewrite DateTime range expressions to be more efficient
+            searchOptions.Expression = searchOptions.Expression?.AcceptVisitor(DateTimeEqualityRewriter.Instance);
+
             // pull out the _include and _revinclude expressions.
             bool hasIncludeOrRevIncludeExpressions = ExtractIncludeExpressions(
                 searchOptions.Expression,
@@ -66,8 +72,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (hasIncludeOrRevIncludeExpressions)
             {
-                // we're going to mutate searchOptions, so clone it first so the caller of this method does not see the changes.
-                searchOptions = searchOptions.Clone();
                 searchOptions.Expression = expressionWithoutIncludes;
 
                 if (includeExpressions.Any(e => e.Iterate) || revIncludeExpressions.Any(e => e.Iterate))

@@ -10,5 +10,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         public const string IfNoneExist = "If-None-Exist";
         public const string PartiallyIndexedParamsHeaderName = "x-ms-use-partial-indices";
         public const string RetryAfterMilliseconds = "x-ms-retry-after-ms";
+        public const string RetryAfter = "Retry-After";
+        public const string ProvenanceHeader = "X-Provenance";
     }
 }

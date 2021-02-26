@@ -22,14 +22,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _sqlServerFhirModel = sqlServerFhirModel;
         }
 
-        public Task Handle(SchemaUpgradedNotification notification, CancellationToken cancellationToken)
+        public async Task Handle(SchemaUpgradedNotification notification, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
             // If it is a snapshot upgrade, then we need to run initialization for all schema versions up to the current version.
-            _sqlServerFhirModel.Initialize(notification.Version, notification.IsFullSchemaSnapshot);
-
-            return Task.CompletedTask;
+            await _sqlServerFhirModel.Initialize(notification.Version, notification.IsFullSchemaSnapshot, cancellationToken);
         }
     }
 }

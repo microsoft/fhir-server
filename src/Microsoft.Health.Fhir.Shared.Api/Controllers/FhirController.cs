@@ -135,7 +135,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                             Diagnostics = diagnosticInfo,
                         },
                     },
-                }.ToResourceElement(), returnCode);
+                }.ToResourceElement(),
+                returnCode);
         }
 
         /// <summary>
@@ -359,7 +360,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
-        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery]bool hardDelete)
+        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete, HttpContext.RequestAborted);
 

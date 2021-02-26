@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// Companion interface to <see cref="ISearchValue"/>. Represents properties of a search
     /// value that determine its sort order amongst other search values.
     /// </summary>
-    public interface ISupportSortSearchValue : IComparable<ISupportSortSearchValue>
+    public interface ISupportSortSearchValue : IRangedComparable
     {
         /// <summary>
         /// Determines whether this current value is the minimum when compared to
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
         /// <summary>
         /// Determines whether this current value is the maximum when compared to
-        /// a collection of search values for the same paramter.
+        /// a collection of search values for the same parameter.
         /// </summary>
         bool IsMax { get; set; }
     }

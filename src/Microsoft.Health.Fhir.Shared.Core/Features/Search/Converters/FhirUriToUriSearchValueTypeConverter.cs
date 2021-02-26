@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 yield break;
             }
 
-            yield return new UriSearchValue(value.Value);
+            yield return new UriSearchValue(value.Value, false);
         }
     }
 }

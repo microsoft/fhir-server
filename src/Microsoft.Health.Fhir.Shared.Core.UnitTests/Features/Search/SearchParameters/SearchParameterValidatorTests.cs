@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _searchParameterDefinitionManager.When(s => s.GetSearchParameter(Arg.Is<Uri>(uri => uri != new Uri("http://duplicate")))).
                 Do(x => throw new SearchParameterNotSupportedException("message"));
-            _searchParameterDefinitionManager.GetSearchParameter(new Uri("http://duplicate")).Returns(new SearchParameterInfo("duplicate"));
+            _searchParameterDefinitionManager.GetSearchParameter(new Uri("http://duplicate")).Returns(new SearchParameterInfo("duplicate", "duplicate"));
 
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
         }
@@ -78,11 +78,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var missingUrl = new SearchParameter();
             var duplicateUrl = new SearchParameter() { Url = "http://duplicate" };
+            var brokenUrl = new SearchParameter() { Url = "BrokenUrl" };
             var uniqueUrl = new SearchParameter() { Url = "http://unique" };
 
             var data = new List<object[]>();
             data.Add(new object[] { missingUrl, "POST" });
             data.Add(new object[] { duplicateUrl, "POST" });
+            data.Add(new object[] { brokenUrl, "POST" });
             data.Add(new object[] { uniqueUrl, "PUT" });
             data.Add(new object[] { uniqueUrl, "DELETE" });
 

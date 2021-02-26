@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             StringSearchValue originalValue = new StringSearchValue(original);
             StringSearchValue givenValue = new StringSearchValue(given);
 
-            int result = originalValue.CompareTo(givenValue);
+            int result = originalValue.CompareTo(givenValue, ComparisonRange.Max);
 
             Assert.Equal(expectedResult, result);
         }
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         {
             StringSearchValue value = new StringSearchValue("string");
 
-            Assert.Throws<ArgumentException>(() => value.CompareTo(null));
+            Assert.Throws<ArgumentException>(() => value.CompareTo(null, ComparisonRange.Max));
         }
     }
 }

@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             foreach (SearchParameterInfo searchParameter in searchParameters)
             {
-                if (searchParameter.Name == SearchParameterNames.ResourceType)
+                if (searchParameter.Code == SearchParameterNames.ResourceType)
                 {
                     // We don't index the resource type value. We just use the property on the root document.
 

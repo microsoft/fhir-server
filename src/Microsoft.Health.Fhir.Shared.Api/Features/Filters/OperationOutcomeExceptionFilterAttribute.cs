@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Net;
 using EnsureThat;
@@ -60,7 +59,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     {
                         Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
                         Issue = fhirException.Issues.Select(x => x.ToPoco()).ToList(),
-                    }, HttpStatusCode.BadRequest);
+                    },
+                    HttpStatusCode.BadRequest);
 
                 switch (fhirException)
                 {
@@ -104,6 +104,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case BadRequestException _:
                     case RequestNotValidException _:
                     case BundleEntryLimitExceededException _:
+                    case ProvenanceHeaderException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
                     case ResourceConflictException _:
@@ -164,9 +165,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         if (ex.RetryAfter != null)
                         {
-                            healthExceptionResult.Headers.Add(
-                                KnownHeaders.RetryAfterMilliseconds,
-                                ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
+                            healthExceptionResult.Headers.AddRetryAfterHeaders(ex.RetryAfter.Value);
                         }
 
                         break;
@@ -191,7 +190,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             new OperationOutcome
                             {
                                 Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                            }, HttpStatusCode.InternalServerError);
+                            },
+                            HttpStatusCode.InternalServerError);
                         break;
                 }
 
@@ -232,7 +232,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             Diagnostics = message,
                         },
                     },
-                }, httpStatusCode);
+                },
+                httpStatusCode);
         }
     }
 }

@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Param {Parameter.Name} {Expression})";
+            return $"(Param {Parameter.Code} {Expression})";
         }
     }
 }

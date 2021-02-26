@@ -108,12 +108,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (string.IsNullOrWhiteSpace(query.Item2))
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.InvalidTypeParameter, query.Item2));
+                    }
+
                     var types = query.Item2.SplitByOrSeparator();
                     var badTypes = types.Where(type => !ModelInfoProvider.IsKnownResource(type)).ToHashSet();
 
                     if (badTypes.Count != 0)
                     {
-                        _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(
                             new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.NotSupported,
@@ -187,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 
-                    _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                    _contextAccessor.FhirRequestContext?.BundleIssues.Add(
                         new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,
@@ -347,7 +352,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (SearchParameterNotSupportedException)
                     {
                         sortingsValid = false;
-                        _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Warning,
                             OperationOutcomeConstants.IssueType.NotSupported,
                             string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, string.Join(", ", resourceTypesString))));
@@ -367,7 +372,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         foreach (var errorMessage in errorMessages)
                         {
-                            _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                            _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.NotSupported,
                                 errorMessage));
@@ -413,7 +418,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // See https://www.hl7.org/fhir/search.html#revinclude.
                     if (expression.Iterate && expression.CircularReference)
                     {
-                        _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(
                         new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,

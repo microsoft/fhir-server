@@ -63,11 +63,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 _searchIndexer,
                 _claimsExtractor,
                 _compartmentIndexer,
-                _searchParameterDefinitionManager);
+                _searchParameterDefinitionManager,
+                Deserializers.ResourceDeserializer);
 
-            _nameSearchParameterInfo = new SearchParameterInfo("name", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/name"));
-            _addressSearchParameterInfo = new SearchParameterInfo("address-city", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/address-city"));
-            _ageSearchParameterInfo = new SearchParameterInfo("age", ValueSets.SearchParamType.Number, new Uri("https://localhost/searchParameter/age"));
+            _nameSearchParameterInfo = new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/name"));
+            _addressSearchParameterInfo = new SearchParameterInfo("address-city", "address-city", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/address-city"));
+            _ageSearchParameterInfo = new SearchParameterInfo("age", "age", ValueSets.SearchParamType.Number, new Uri("https://localhost/searchParameter/age"));
         }
 
         [Fact]

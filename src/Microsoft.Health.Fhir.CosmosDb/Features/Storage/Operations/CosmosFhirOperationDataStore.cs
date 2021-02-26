@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                var replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                var replaceResult = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     () => _containerScope.Value.ReplaceItemAsync(
                         cosmosExportJob,
                         jobRecord.Id,
@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         {
             try
             {
-                var response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                var response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _acquireExportJobs.ExecuteAsync(
                         _containerScope.Value.Scripts,
                         maximumNumberOfConcurrentJobsAllowed,
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         {
             try
             {
-                StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosReindexJobRecordWrapper>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosReindexJobRecordWrapper>> response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _acquireReindexJobs.ExecuteAsync(
                         _containerScope.Value.Scripts,
                         maximumNumberOfConcurrentJobsAllowed,
@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        public async Task<(bool, string)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
+        public async Task<(bool found, string id)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -387,7 +387,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                var replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                var replaceResult = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     () => _containerScope.Value.ReplaceItemAsync(
                         cosmosReindexJob,
                         jobRecord.Id,

@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly ICompartmentIndexer _compartmentIndexer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IResourceDeserializer _resourceDeserializer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResourceWrapperFactory"/> class.
@@ -37,13 +39,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="claimsExtractor">The claims extractor used to extract claims.</param>
         /// <param name="compartmentIndexer">The compartment indexer.</param>
         /// <param name="searchParameterDefinitionManager"> The search parameter definition manager.</param>
+        /// <param name="resourceDeserializer">Resource deserializer</param>
         public ResourceWrapperFactory(
             IRawResourceFactory rawResourceFactory,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             ISearchIndexer searchIndexer,
             IClaimsExtractor claimsExtractor,
             ICompartmentIndexer compartmentIndexer,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IResourceDeserializer resourceDeserializer)
         {
             EnsureArg.IsNotNull(rawResourceFactory, nameof(rawResourceFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
@@ -51,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(compartmentIndexer, nameof(compartmentIndexer));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _rawResourceFactory = rawResourceFactory;
             _searchIndexer = searchIndexer;
@@ -58,6 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             _claimsExtractor = claimsExtractor;
             _compartmentIndexer = compartmentIndexer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _resourceDeserializer = resourceDeserializer;
         }
 
         /// <inheritdoc />
@@ -82,6 +88,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 searchParamHash);
         }
 
+        /// <inheritdoc />
+        public void Update(ResourceWrapper resourceWrapper)
+        {
+            var resourceElement = _resourceDeserializer.Deserialize(resourceWrapper);
+            var newIndices = _searchIndexer.Extract(resourceElement);
+            ExtractMinAndMaxValues(newIndices);
+            resourceWrapper.UpdateSearchIndices(newIndices);
+        }
+
         // A given search parameter can have multiple values. We want to keep track of which
         // of these values are the min and max for each parameter and mark the corresponding
         // SearchValue object appropriately.
@@ -92,8 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             foreach (SearchIndexEntry currentEntry in searchIndices)
             {
-                // Currently we are tracking the min/max values only for string type parameters.
-                ISupportSortSearchValue currentValue = currentEntry.Value as ISupportSortSearchValue;
+                var currentValue = currentEntry.Value as ISupportSortSearchValue;
                 if (currentValue == null)
                 {
                     continue;
@@ -101,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                 if (minValues.TryGetValue(currentEntry.SearchParameter.Url, out ISupportSortSearchValue existingMinValue))
                 {
-                    if (currentValue.CompareTo(existingMinValue) < 0)
+                    if (currentValue.CompareTo(existingMinValue, ComparisonRange.Min) < 0)
                     {
                         minValues[currentEntry.SearchParameter.Url] = currentValue;
                     }
@@ -113,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                 if (maxValues.TryGetValue(currentEntry.SearchParameter.Url, out ISupportSortSearchValue existingMaxValue))
                 {
-                    if (currentValue.CompareTo(existingMaxValue) > 0)
+                    if (currentValue.CompareTo(existingMaxValue, ComparisonRange.Max) > 0)
                     {
                         maxValues[currentEntry.SearchParameter.Url] = currentValue;
                     }
@@ -124,7 +138,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 }
             }
 
-            // Update the actual StringSearchValue objects with the appropriate IsMin/IsMax value
             foreach (KeyValuePair<Uri, ISupportSortSearchValue> kvp in minValues)
             {
                 kvp.Value.IsMin = true;

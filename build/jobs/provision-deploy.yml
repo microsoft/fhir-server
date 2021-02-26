@@ -29,7 +29,8 @@ parameters:
 jobs:
 - job: provisionEnvironment
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
@@ -88,3 +89,6 @@ jobs:
         Write-Host "Setting Key Vault access"
         Set-AzKeyVaultAccessPolicy -VaultName $webAppName -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
 
+  - template: ./provision-healthcheck.yml
+    parameters: 
+      webAppName: ${{ parameters.webAppName }}

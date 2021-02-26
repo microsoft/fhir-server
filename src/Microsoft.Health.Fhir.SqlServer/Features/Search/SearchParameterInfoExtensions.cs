@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <returns>The location enum value. Note this is a flags enum</returns>
         public static SearchParameterColumnLocation ColumnLocation(this SearchParameterInfo searchParameter)
         {
-            switch (searchParameter.Name)
+            switch (searchParameter.Code)
             {
                 case SearchParameterNames.LastUpdated:
                 case SqlSearchParameters.ResourceSurrogateIdParameterName:

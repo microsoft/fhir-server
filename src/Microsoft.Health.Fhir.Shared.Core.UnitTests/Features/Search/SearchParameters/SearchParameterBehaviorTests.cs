@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public class SearchParameterBehaviorTests
     {
-        private readonly ISearchParameterUtilities _searchParameterUtilities = Substitute.For<ISearchParameterUtilities>();
+        private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly IResourceWrapperFactory _resourceWrapperFactory;
         private readonly IFhirDataStore _fhirDataStore;
@@ -50,11 +50,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterUtilities);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
             await behavior.Handle(request, CancellationToken.None, async () => await Task.Run(() => response));
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
-            await _searchParameterUtilities.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>());
+            await _searchParameterOperations.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>());
         }
 
         [Fact]
@@ -68,10 +68,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterUtilities);
+            var behavior = new CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterOperations, _fhirDataStore);
             await behavior.Handle(request, CancellationToken.None, async () => await Task.Run(() => response));
 
-            await _searchParameterUtilities.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>());
+            await _searchParameterOperations.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>());
         }
 
         [Fact]
@@ -87,11 +87,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterUtilities, _fhirDataStore);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
             await behavior.Handle(request, CancellationToken.None, async () => await Task.Run(() => response));
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
-            await _searchParameterUtilities.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>());
+            await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>());
         }
 
         [Fact]
@@ -108,10 +108,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterUtilities, _fhirDataStore);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
             await behavior.Handle(request, CancellationToken.None, async () => await Task.Run(() => response));
 
-            await _searchParameterUtilities.Received().DeleteSearchParameterAsync(Arg.Any<RawResource>());
+            await _searchParameterOperations.Received().DeleteSearchParameterAsync(Arg.Any<RawResource>());
         }
 
         [Fact]
@@ -128,10 +128,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new DeleteResourceResponse(key);
 
-            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterUtilities, _fhirDataStore);
+            var behavior = new DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>(_searchParameterOperations, _fhirDataStore);
             await behavior.Handle(request, CancellationToken.None, async () => await Task.Run(() => response));
 
-            await _searchParameterUtilities.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>());
+            await _searchParameterOperations.DidNotReceive().DeleteSearchParameterAsync(Arg.Any<RawResource>());
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

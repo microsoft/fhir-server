@@ -1,26 +1,29 @@
 <Project>
 
   <PropertyGroup>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Product>Microsoft FHIR Server for Azure</Product>
+    <RepositoryUrl>https://github.com/microsoft/fhir-server/</RepositoryUrl>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <!-- allow pre-release dependencies -->
     <NoWarn>$(NoWarn);NU5104</NoWarn>
     <DebugType>Portable</DebugType>
-    <LangVersion>8.0</LangVersion>
+    <LangVersion>9.0</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
-    <EnableSourceLink Condition="$([MSBuild]::IsOSPlatform('osx'))">false</EnableSourceLink>
-    <EnableSourceControlManagerQueries>$(EnableSourceLink)</EnableSourceControlManagerQueries>
-    <!--This will target the latest patch release of the runtime released with the current SDK.  -->
-    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
-    <SdkPackageVersion>3.1.11</SdkPackageVersion>
-    <HealthcareSharedPackageVersion>1.1.1</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(EnableSourceLink)' == 'true' ">
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Authors>Microsot Health Team</Authors>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <Company>Microsoft Corporation</Company>
+    <Copyright>Copyright © Microsoft Corporation. All rights reserved.</Copyright>
+    <Deterministic>true</Deterministic>
+    <!--This will target the latest patch release of the runtime released with the current SDK.  -->
+    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+    <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
+    <AspNetPackageVersion>5.0.3</AspNetPackageVersion>
+    <HealthcareSharedPackageVersion>1.1.9</HealthcareSharedPackageVersion>
+    <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
   </PropertyGroup>
 
   <Choose>
@@ -43,14 +46,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" />
-    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.321" PrivateAssets="All" />
   </ItemGroup>
 
   <Choose>
     <When Condition="$(MSBuildProjectName)!='SmartLauncher' AND !$(MSBuildProjectName.Contains('Test'))">
       <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" />
+        <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" PrivateAssets="All" />
       </ItemGroup>
     </When>
   </Choose>

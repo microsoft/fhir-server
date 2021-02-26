@@ -11,7 +11,8 @@ parameters:
 jobs:
 - job: provisionEnvironment
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:  
   - task: AzureRmWebAppDeployment@4
     displayName: 'Azure App Service Deploy'
@@ -22,3 +23,7 @@ jobs:
       DockerNamespace: $(azureContainerRegistry)
       DockerRepository: '${{ parameters.version }}_fhir-server'
       DockerImageTag: ${{ parameters.imageTag }}
+
+  - template: ./provision-healthcheck.yml
+    parameters: 
+      webAppName: ${{ parameters.webAppName }}
