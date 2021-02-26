@@ -92,6 +92,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
+            var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
 
             _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
@@ -100,10 +101,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // Optimistically try to create this as a new resource
                 try
                 {
-                    ItemResponse<FhirCosmosResourceWrapper> itemResponse = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                    await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                         async ct => await _containerScope.Value.CreateItemAsync(
                             cosmosWrapper,
-                            new PartitionKey(cosmosWrapper.PartitionKey),
+                            partitionKey,
                             cancellationToken: ct,
                             requestOptions: new ItemRequestOptions { EnableContentResponseOnWrite = false }),
                         cancellationToken);
@@ -123,7 +124,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 FhirCosmosResourceWrapper existingItemResource;
                 try
                 {
-                    ItemResponse<FhirCosmosResourceWrapper> existingItem = await _containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, new PartitionKey(cosmosWrapper.PartitionKey), cancellationToken: cancellationToken);
+                    ItemResponse<FhirCosmosResourceWrapper> existingItem = await _containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, partitionKey, cancellationToken: cancellationToken);
                     existingItemResource = existingItem.Resource;
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
@@ -163,7 +164,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 if (keepHistory)
                 {
-                    TransactionalBatchResponse transactionalBatchResponse = await _containerScope.Value.CreateTransactionalBatch(new PartitionKey(cosmosWrapper.PartitionKey))
+                    TransactionalBatchResponse transactionalBatchResponse = await _containerScope.Value.CreateTransactionalBatch(partitionKey)
                         .ReplaceItem(cosmosWrapper.Id, cosmosWrapper, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag })
                         .CreateItem(existingItemResource, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false })
                         .ExecuteAsync(cancellationToken);
@@ -172,7 +173,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     {
                         if (transactionalBatchResponse.StatusCode == HttpStatusCode.PreconditionFailed)
                         {
-                            // someone else beat us to it
+                            // someone else beat us to it, re-read and try again
                             continue;
                         }
 
@@ -183,11 +184,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     try
                     {
-                        await _containerScope.Value.ReplaceItemAsync(cosmosWrapper, cosmosWrapper.Id, new PartitionKey(cosmosWrapper.PartitionKey), new ItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag }, cancellationToken);
+                        await _containerScope.Value.ReplaceItemAsync(cosmosWrapper, cosmosWrapper.Id, partitionKey, new ItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag }, cancellationToken);
                     }
                     catch (CosmosException e) when (e.StatusCode == HttpStatusCode.PreconditionFailed)
                     {
-                        // someone else beat us to it
+                        // someone else beat us to it, re-read and try again
                         continue;
                     }
                 }
