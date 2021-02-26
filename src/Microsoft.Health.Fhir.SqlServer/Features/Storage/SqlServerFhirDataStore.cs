@@ -302,12 +302,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     switch (e.Number)
                     {
+                        // TODO: we should attempt to reindex resources that failed to be reindexed
                         case SqlErrorCodes.PreconditionFailed:
-                            // TODO: create new error message
-                            // throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflict));
                         case SqlErrorCodes.NotFound:
-                            // TODO: create new error message
-                            // throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFound, resource.ResourceTypeName, resource.ResourceId));
+                            throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
                         default:
                             _logger.LogError(e, "Error from SQL database on reindex");
                             throw;
@@ -370,9 +369,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                            // TODO: we should attempt to reindex the resource
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflict));
                         case SqlErrorCodes.NotFound:
-                            throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, resource.ResourceTypeName, resource.ResourceId));
+                            throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
                         default:
                             _logger.LogError(e, "Error from SQL database on reindex");
                             throw;

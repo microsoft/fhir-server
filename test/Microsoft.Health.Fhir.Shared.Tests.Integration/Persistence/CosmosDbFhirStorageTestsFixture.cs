@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private ISearchService _searchService;
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
+        private SearchParameterStatusManager _searchParameterStatusManager;
         private CosmosClient _cosmosClient;
 
         public CosmosDbFhirStorageTestsFixture()
@@ -96,6 +98,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
+            IMediator mediator = Substitute.For<IMediator>();
+
             var updaters = new ICollectionUpdater[]
             {
                 new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
@@ -103,7 +107,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CosmosDbSearchParameterStatusInitializer(
                     () => _filebasedSearchParameterStatusDataStore,
                     new CosmosQueryFactory(
-                        new CosmosResponseProcessor(fhirRequestContextAccessor, Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance),
+                        new CosmosResponseProcessor(fhirRequestContextAccessor, mediator, NullLogger<CosmosResponseProcessor>.Instance),
                         NullFhirCosmosQueryLogger.Instance)),
             };
 
@@ -114,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
-            var responseProcessor = new CosmosResponseProcessor(fhirRequestContextAccessor, Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance);
+            var responseProcessor = new CosmosResponseProcessor(fhirRequestContextAccessor, mediator, NullLogger<CosmosResponseProcessor>.Instance);
             var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, fhirRequestContextAccessor, responseProcessor);
             var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, () => new[] { handler }, NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
@@ -172,6 +176,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new QueryBuilder(),
                 _searchParameterDefinitionManager,
                 fhirRequestContextAccessor);
+
+            ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+            searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
+
+            _searchParameterStatusManager = new SearchParameterStatusManager(
+                _searchParameterStatusDataStore,
+                _searchParameterDefinitionManager,
+                searchParameterSupportResolver,
+                mediator);
 
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container);
         }
@@ -231,6 +244,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(SupportedSearchParameterDefinitionManager))
             {
                 return _supportedSearchParameterDefinitionManager;
+            }
+
+            if (serviceType == typeof(SearchParameterStatusManager))
+            {
+                return _searchParameterStatusManager;
             }
 
             return null;

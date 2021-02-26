@@ -92,6 +92,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public SupportedSearchParameterDefinitionManager SupportedSearchParameterDefinitionManager => _fixture.GetRequiredService<SupportedSearchParameterDefinitionManager>();
 
+        public SearchParameterStatusManager SearchParameterStatusManager => _fixture.GetRequiredService<SearchParameterStatusManager>();
+
         public void Dispose()
         {
             (_fixture as IDisposable)?.Dispose();
