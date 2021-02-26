@@ -9,20 +9,19 @@ using System.Net;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
     public static class HttpContextExtensions
     {
-        public static SummaryType GetSummaryType(this HttpContext context, ILogger logger)
+        public static SummaryType GetSummaryTypeOrDefault(this HttpContext context)
         {
             var query = context.Request.Query[KnownQueryParameterNames.Summary].FirstOrDefault();
 
             if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
             {
-                if (!Enum.TryParse<SummaryType>(query, true, out var summary))
+                if (Enum.TryParse<SummaryType>(query, true, out var summary))
                 {
                     return summary;
                 }
@@ -31,23 +30,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             return SummaryType.False;
         }
 
-        public static string[] GetElementsSearchParameter(this HttpContext context, ILogger logger)
+        public static string[] GetElementsOrDefault(this HttpContext context)
         {
             var query = context.Request.Query[KnownQueryParameterNames.Elements].FirstOrDefault();
 
             if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
             {
                 var elements = query.Split(new char[1] { ',' });
-
-                logger.LogDebug("Setting elements to return: '{0}'", string.Join(", ", elements));
-
                 return elements;
             }
 
             return null;
         }
 
-        public static bool GetIsPretty(this HttpContext context)
+        public static bool GetPrettyOrDefault(this HttpContext context)
         {
             var query = context.Request.Query[KnownQueryParameterNames.Pretty].FirstOrDefault();
 
@@ -55,7 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 if (!bool.TryParse(query, out bool isPretty))
                 {
-                    // ContentTypeService validates the _pretty parameter. This is reached if other errors are encountered when parsing the query string.
                     isPretty = default;
                 }
 

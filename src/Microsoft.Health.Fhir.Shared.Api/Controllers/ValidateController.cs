@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]
+    [ServiceFilter(typeof(ValidateFormatParametersAttribute))]
     [ServiceFilter(typeof(ValidationQueryFilterAndParameterParserAttribute))]
     [ValidateResourceTypeFilter(true)]
     [ValidateModelState]

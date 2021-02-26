@@ -349,4 +349,12 @@
     <value>The container registry '{0}' is not configured.</value>
     <comment>{0}: the container registry login server</comment>
   </data>
+  <data name="InvalidSummaryParameter" xml:space="preserve">
+    <value>The requested "_summary" parameter is invalid.</value>
+    <comment>{NumberedPlaceHolder="_summary"}</comment>
+  </data>
+  <data name="InvalidElementsParameter" xml:space="preserve">
+    <value>The requested "_elements" parameter is invalid.</value>
+    <comment>{NumberedPlaceHolder=”_elements”}</comment>
+  </data>
 </root>
