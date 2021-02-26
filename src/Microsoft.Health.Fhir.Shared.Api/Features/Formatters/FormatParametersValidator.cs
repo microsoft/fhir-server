@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             var summaryParameterValue = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Summary);
 
-            if (summaryParameterValue != null && !Enum.TryParse<SummaryType>(summaryParameterValue, out _))
+            if (summaryParameterValue != null && !Enum.TryParse<SummaryType>(summaryParameterValue, true, out _))
             {
                 throw new BadRequestException(Api.Resources.InvalidSummaryParameter);
             }
