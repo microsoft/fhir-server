@@ -126,6 +126,7 @@
     <None Remove="TestFiles\Normative\PatientWithMinimalData.json" />
     <None Remove="TestFiles\Normative\Weight.json" />
     <None Remove="TestFiles\Normative\WeightInGrams.json" />
+    <None Remove="TestFiles\R5\CarePlan.json" />
     <None Remove="TestFiles\R5\Condition-For-Patient-f001.json" />
     <None Remove="TestFiles\R5\conversion_templates.tar.gz" />
     <None Remove="TestFiles\R5\Device-d1.json" />
@@ -233,7 +234,7 @@
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
-    <EmbeddedResource Include="TestFiles\Normative\CarePlan.json" />
+    <EmbeddedResource Include="TestFiles\R4\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Batch.json" />
@@ -302,6 +303,7 @@
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\R5\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\R5\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\conversion_templates.tar.gz" />
     <EmbeddedResource Include="TestFiles\R5\Device-d1.json" />
