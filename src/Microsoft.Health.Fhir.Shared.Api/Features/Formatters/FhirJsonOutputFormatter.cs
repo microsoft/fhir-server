@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             HttpResponse response = context.HttpContext.Response;
 
             var elementsSearchParameter = context.HttpContext.GetElementsSearchParameter(_logger);
-
+            var pretty = context.HttpContext.GetIsPretty();
             Resource resource = null;
 
             if (context.Object is Hl7.Fhir.Model.Bundle)
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 }
                 else
                 {
-                    await _bundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
+                    await _bundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body, pretty);
                     return;
                 }
             }
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 jsonWriter.ArrayPool = _charPool;
 
-                if (context.HttpContext.GetIsPretty())
+                if (pretty)
                 {
                     jsonWriter.Formatting = Formatting.Indented;
                 }

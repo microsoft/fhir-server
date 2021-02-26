@@ -22,19 +22,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
             {
-                try
+                if (!Enum.TryParse<SummaryType>(query, true, out var summary))
                 {
-                    var summary = Enum.Parse<SummaryType>(query, true);
-
-                    logger.LogDebug("Changing response summary to '{0}'", summary);
-
                     return summary;
-                }
-                catch (Exception ex)
-                {
-                    // SearchOptionsFactory validates the _summary option before this method is called from the Formatters so this _shouldn't_ be called
-                    logger.LogWarning(ex, ex.Message);
-                    throw;
                 }
             }
 
