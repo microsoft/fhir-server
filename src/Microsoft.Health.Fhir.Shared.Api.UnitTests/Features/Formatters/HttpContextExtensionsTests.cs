@@ -3,11 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Xunit;
 
@@ -15,11 +12,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 {
     public class HttpContextExtensionsTests
     {
-        private readonly ILogger<string> _logger;
-
         public HttpContextExtensionsTests()
         {
-            _logger = new NullLogger<string>();
         }
 
         [Fact]
@@ -45,12 +39,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         }
 
         [Fact]
-        public void GivenARequestWithUnknownSummaryType_WhenSerializingTheResponse_ThenExceptionIsThrown()
+        public void GivenARequestWithUnknownSummaryType_WhenSerializingTheResponse_DefaultSummaryReturned()
         {
             var context = new DefaultHttpContext();
             context.Request.QueryString = QueryString.Create("_summary", "abc");
 
-            Assert.Throws<ArgumentException>(() => context.GetSummaryTypeOrDefault());
+            var summary = context.GetSummaryTypeOrDefault();
+
+            Assert.Equal(SummaryType.False, summary);
         }
 
         [Theory]
