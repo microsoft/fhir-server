@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             string sqlConnectionString = _configuration["SqlConnectionString"];
-            using SqlTaskConsumer consumer = new SqlTaskConsumer(sqlConnectionString, "WorkerQueue");
+            using SqlTaskConsumer consumer = new SqlTaskConsumer(sqlConnectionString, _configuration["WorkerQueueName"]);
 
             TaskHosting hosting = new TaskHosting(
                 consumer,
