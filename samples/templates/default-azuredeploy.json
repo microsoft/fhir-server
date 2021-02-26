@@ -153,7 +153,7 @@
         },
         "sqlSchemaAutomaticUpdatesEnabled": {
             "type": "bool",
-            "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), bool('false'), '')]",
+            "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), false(), true())]",
             "metadata": {
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If false, sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If true, sql schema will be upgraded to the maximum supported version."
             }
@@ -232,7 +232,7 @@
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
-        "azureContainerRegistryUri":"[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
+        "azureContainerRegistryUri": "[if(variables('isMAG'), '.azurecr.us', '.azurecr.io')]",
         "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
     },
     "resources": [
