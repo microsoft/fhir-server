@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -37,6 +38,8 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
               .ConfigureServices(services =>
               {
                   services.AddScoped<ResourceIdProvider>();
+
+                  ModelExtensions.SetModelInfoProvider();
 
                   var jsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
                   var jsonSerializer = new FhirJsonSerializer();
@@ -70,8 +73,8 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                     .AsSelf()
                     .AsService<IModelInfoProvider>();
 
-                  services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
                   services.AddSingleton<IReferenceToElementResolver, LightweightReferenceToElementResolver>();
+                  services.AddSingleton<IReferenceSearchValueParser, ReferenceSearchValueParser>();
 
                   services.Add<SearchParameterDefinitionManager>()
                     .Singleton()
