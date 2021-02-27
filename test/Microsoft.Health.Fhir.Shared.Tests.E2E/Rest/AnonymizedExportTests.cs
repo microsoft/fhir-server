@@ -5,28 +5,25 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Net;
-using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Auth;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Test.Utilities;
-using Newtonsoft.Json;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
@@ -37,6 +34,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     {
         private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
+        private readonly ITestOutputHelper _outputHelper;
+        private readonly FhirJsonParser _fhirJsonParser;
         private readonly ExportJobConfiguration _exportConfiguration;
         private readonly MetricHandler _metricHandler;
         private const string RedactResourceIdAnonymizationConfiguration = @"
@@ -47,10 +46,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     ]
 }";
 
-        public AnonymizedExportTests(ExportTestFixture fixture)
+        public AnonymizedExportTests(ExportTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;
+            _outputHelper = testOutputHelper;
+            _fhirJsonParser = new FhirJsonParser();
             _metricHandler = fixture.MetricHandler;
             _exportConfiguration = ((IOptions<ExportJobConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ExportJobConfiguration>)))?.Value;
         }
@@ -69,17 +70,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            IList<Uri> blobUris = await CheckExportStatus(response);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
+                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
-            foreach (string content in dataFromExport)
+            foreach (var kvp in dataFromExport)
             {
-                Resource result = parser.Parse<Resource>(content);
-
-                Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
+                Assert.Contains(kvp.Value.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
@@ -99,17 +97,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             etag = etag.Substring(1, 17);
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            IList<Uri> blobUris = await CheckExportStatus(response);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
+                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
-            foreach (string content in dataFromExport)
+            foreach (var kvp in dataFromExport)
             {
-                Resource result = parser.Parse<Resource>(content);
-
-                Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
+                Assert.Contains(kvp.Value.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
@@ -129,17 +124,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName);
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            IList<Uri> blobUris = await CheckExportStatus(response);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
 
-            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
-            FhirJsonParser parser = new FhirJsonParser();
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
+                await ExportTestHelper.DownloadBlobAndParse(blobUris, _fhirJsonParser, _outputHelper);
 
-            foreach (string content in dataFromExport)
+            foreach (var kvp in dataFromExport)
             {
-                Resource result = parser.Parse<Resource>(content);
-
-                Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
+                Assert.Contains(kvp.Value.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
@@ -159,11 +151,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            string responseContent = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("Failed to parse configuration file", responseContent);
+            var ex = await Assert.ThrowsAsync<Exception>(async () => await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation));
+            Assert.Contains(HttpStatusCode.BadRequest.ToString(), ex.Message);
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
@@ -182,11 +172,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "\"0x000000000000000\"");
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            string responseContent = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("The condition specified using HTTP conditional header(s) is not met.", responseContent);
+            var ex = await Assert.ThrowsAsync<Exception>(async () => await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation));
+            Assert.Contains(HttpStatusCode.BadRequest.ToString(), ex.Message);
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
@@ -205,11 +193,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "\"invalid-etag");
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            string responseContent = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("invalid-etag' is invalid.", responseContent);
+            var ex = await Assert.ThrowsAsync<Exception>(async () => await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation));
+            Assert.Contains(HttpStatusCode.BadRequest.ToString(), ex.Message);
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
@@ -226,11 +212,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", containerName);
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            string responseContent = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("Configuration not found on the destination storage.", responseContent);
+            var ex = await Assert.ThrowsAsync<Exception>(async () => await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation));
+            Assert.Contains(HttpStatusCode.BadRequest.ToString(), ex.Message);
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
@@ -250,11 +234,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
-            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
-            string responseContent = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("Anonymization configuration is too large", responseContent);
+            var ex = await Assert.ThrowsAsync<Exception>(async () => await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation));
+            Assert.Contains(HttpStatusCode.BadRequest.ToString(), ex.Message);
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
@@ -276,102 +258,44 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         private async Task<(string name, string eTag)> UploadConfigurationAsync(string configurationContent, string blobName = null)
         {
             blobName = blobName ?? $"{Guid.NewGuid()}.json";
-            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference("anonymization");
+
+            BlobServiceClient blobClient = GetCloudStorageAccountHelper();
+            BlobContainerClient container = blobClient.GetBlobContainerClient("anonymization");
             await container.CreateIfNotExistsAsync();
 
-            CloudBlockBlob blob = container.GetBlockBlobReference(blobName);
+            BlobClient blob = container.GetBlobClient(blobName);
             await blob.DeleteIfExistsAsync();
 
-            await blob.UploadTextAsync(configurationContent);
+            string eTag;
+            using (var ms = new MemoryStream())
+            using (var streamWriter = new StreamWriter(ms, Encoding.UTF8))
+            {
+                await streamWriter.WriteAsync(configurationContent);
+                await streamWriter.FlushAsync();
+                ms.Seek(0, SeekOrigin.Begin);
 
-            return (blobName, blob.Properties.ETag);
+                var response = await blob.UploadAsync(ms);
+                eTag = response.Value.ETag.ToString();
+            }
+
+            return (blobName, eTag);
         }
 
-        private async Task<HttpResponseMessage> WaitForCompleteAsync(Uri contentLocation)
+        private BlobServiceClient GetCloudStorageAccountHelper()
         {
-            HttpStatusCode resultCode = HttpStatusCode.Accepted;
-            HttpResponseMessage response = null;
-            while (resultCode == HttpStatusCode.Accepted)
+            if (!string.IsNullOrEmpty(_exportConfiguration.StorageAccountConnection))
             {
-                await Task.Delay(5000);
-
-                response = await _testFhirClient.CheckExportAsync(contentLocation);
-
-                resultCode = response.StatusCode;
+                return new BlobServiceClient(_exportConfiguration.StorageAccountConnection);
             }
 
-            return response;
-        }
-
-        private async Task<IList<Uri>> CheckExportStatus(HttpResponseMessage response)
-        {
-            if (response.StatusCode != HttpStatusCode.OK)
-            {
-                throw new Exception($"Export request failed with status code {response.StatusCode}");
-            }
-
-            // we have got the result. Deserialize into output response.
-            var contentString = await response.Content.ReadAsStringAsync();
-
-            ExportJobResult exportJobResult = JsonConvert.DeserializeObject<ExportJobResult>(contentString);
-            return exportJobResult.Output.Select(x => x.FileUri).ToList();
-        }
-
-        private async Task<IEnumerable<string>> DownloadBlobAndParse(IList<Uri> blobUri)
-        {
-            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            var result = new List<string>();
-
-            foreach (Uri uri in blobUri)
-            {
-                var blob = new CloudBlockBlob(uri, blobClient);
-                string allData = await blob.DownloadTextAsync();
-
-                var splitData = allData.Split("\n");
-
-                foreach (var entry in splitData)
-                {
-                    if (string.IsNullOrWhiteSpace(entry))
-                    {
-                        continue;
-                    }
-
-                    result.Add(entry);
-                }
-            }
-
-            return result;
-        }
-
-        private CloudStorageAccount GetCloudStorageAccountHelper()
-        {
-            CloudStorageAccount cloudAccount = null;
-            string connectionString = _exportConfiguration.StorageAccountConnection;
-            if (string.IsNullOrEmpty(connectionString))
-            {
-                Uri sampleUri = new Uri(_exportConfiguration.StorageAccountUri);
-                string storageAccountName = sampleUri.Host.Split('.')[0];
-                string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
-                if (!string.IsNullOrWhiteSpace(storageSecret))
-                {
-                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
-                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-                }
-            }
-            else
-            {
-                CloudStorageAccount.TryParse(_exportConfiguration.StorageAccountConnection, out cloudAccount);
-            }
-
-            if (cloudAccount == null)
+            if (string.IsNullOrEmpty(_exportConfiguration.StorageAccountUri))
             {
                 throw new Exception("Unable to create a cloud storage account");
             }
 
-            return cloudAccount;
+            Uri blobUri = new Uri(_exportConfiguration.StorageAccountUri);
+            var blobUriBuilder = new BlobUriBuilder(blobUri);
+            return ExportTestHelper.GetCloudStorageAccountHelper(blobUriBuilder.AccountName);
         }
     }
 }

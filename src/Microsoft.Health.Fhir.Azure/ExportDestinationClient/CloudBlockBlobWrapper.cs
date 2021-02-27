@@ -8,8 +8,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
-using Microsoft.Azure.Storage.Blob;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
@@ -22,38 +23,44 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
     public class CloudBlockBlobWrapper
     {
         private readonly OrderedSetOfBlockIds _existingBlockIds;
-        private CloudBlockBlob _cloudBlob;
+        private readonly BlobHttpHeaders _blobHeaders;
+        private BlockBlobClient _cloudBlob;
 
-        public CloudBlockBlobWrapper(CloudBlockBlob blockBlob)
+        public CloudBlockBlobWrapper(BlockBlobClient blockBlob)
             : this(blockBlob, new List<string>())
         {
         }
 
-        public CloudBlockBlobWrapper(CloudBlockBlob blockBlob, IEnumerable<string> blockList)
+        public CloudBlockBlobWrapper(BlockBlobClient blockBlob, IEnumerable<string> blockList)
         {
             EnsureArg.IsNotNull(blockBlob, nameof(blockBlob));
             EnsureArg.IsNotNull(blockList, nameof(blockList));
 
             _cloudBlob = blockBlob;
             _existingBlockIds = new OrderedSetOfBlockIds(blockList);
+            _blobHeaders = new BlobHttpHeaders
+            {
+                ContentType = "application/fhir+ndjson",
+                ContentDisposition = $"attachment; filename=\"{Path.GetFileName(blockBlob.Name)}\"",
+                CacheControl = "private, no-cache, no-store, must-revalidate",
+            };
         }
 
-        public async Task UploadBlockAsync(string blockId, Stream data, string md5Hash, CancellationToken cancellationToken)
+        public async Task UploadBlockAsync(string blockId, Stream data, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(blockId, nameof(blockId));
             EnsureArg.IsNotNull(data, nameof(data));
 
             _existingBlockIds.Add(blockId);
-
-            await _cloudBlob.PutBlockAsync(blockId, data, md5Hash, cancellationToken);
+            await _cloudBlob.StageBlockAsync(blockId, data, cancellationToken: cancellationToken);
         }
 
         public async Task CommitBlockListAsync(CancellationToken cancellationToken)
         {
-            await _cloudBlob.PutBlockListAsync(_existingBlockIds.ToList(), cancellationToken);
+            await _cloudBlob.CommitBlockListAsync(_existingBlockIds.ToList(), httpHeaders: _blobHeaders, cancellationToken: cancellationToken);
         }
 
-        public void UpdateCloudBlockBlob(CloudBlockBlob cloudBlockBlob)
+        public void UpdateCloudBlockBlob(BlockBlobClient cloudBlockBlob)
         {
             EnsureArg.IsNotNull(cloudBlockBlob, nameof(cloudBlockBlob));
             EnsureArg.Is(Uri.Compare(_cloudBlob.Uri, cloudBlockBlob.Uri, UriComponents.AbsoluteUri, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase), 0);

@@ -6,10 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.3.0" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.8.0" />
     <PackageReference Include="Ensure.That" Version="10.0.0" />
-    <PackageReference Include="Microsoft.Azure.KeyVault" Version="3.0.5" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.1" />
-    <PackageReference Include="Microsoft.Azure.Storage.Blob" Version="11.2.2" />
     <PackageReference Include="Polly" Version="7.2.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="$(RuntimePackageVersion)" />
   </ItemGroup>

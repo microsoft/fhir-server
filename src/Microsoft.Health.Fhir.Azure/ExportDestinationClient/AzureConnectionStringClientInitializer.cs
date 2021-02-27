@@ -7,9 +7,8 @@ using System;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 using EnsureThat;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -17,7 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
-    public class AzureConnectionStringClientInitializer : IExportClientInitializer<CloudBlobClient>
+    public class AzureConnectionStringClientInitializer : IExportClientInitializer<BlobServiceClient>
     {
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger<AzureConnectionStringClientInitializer> _logger;
@@ -31,27 +30,22 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _logger = logger;
         }
 
-        public Task<CloudBlobClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
+        public Task<BlobServiceClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
         {
             return GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
         }
 
-        public Task<CloudBlobClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        public Task<BlobServiceClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(exportJobConfiguration.StorageAccountConnection))
             {
                 throw new ExportClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
-            if (!CloudStorageAccount.TryParse(exportJobConfiguration.StorageAccountConnection, out CloudStorageAccount cloudAccount))
-            {
-                throw new ExportClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
-            }
-
-            CloudBlobClient blobClient = null;
+            BlobServiceClient blobClient;
             try
             {
-                blobClient = cloudAccount.CreateCloudBlobClient();
+                blobClient = new BlobServiceClient(exportJobConfiguration.StorageAccountConnection);
             }
             catch (Exception ex)
             {

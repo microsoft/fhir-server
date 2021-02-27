@@ -5,7 +5,7 @@
 
 using System;
 using System.Net;
-using Microsoft.Azure.Storage;
+using Azure;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Xunit;
 
@@ -19,8 +19,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [Theory]
         public void GivenValidErrorStatusCode_WhenParseStorageException_ThenCorrespondingHttpStatusCode(HttpStatusCode statusCode)
         {
-            RequestResult requestResult = new RequestResult { HttpStatusCode = (int)statusCode };
-            StorageException ex = new StorageException(requestResult, "exception message", new Exception("inner exception message"));
+            var ex = new RequestFailedException((int)statusCode, "exception message", new Exception("inner exception message"));
 
             var resultCode = StorageExceptionParser.ParseStorageException(ex);
 
@@ -33,8 +32,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [Theory]
         public void GivenInValidStatusCode_WhenParseStorageException_ThenReturnsInternalServerError(int statusCode)
         {
-            RequestResult requestResult = new RequestResult { HttpStatusCode = statusCode };
-            StorageException ex = new StorageException(requestResult, "exception message", new Exception("inner exception message"));
+            var ex = new RequestFailedException(statusCode, "exception message", new Exception("inner exception message"));
 
             var resultCode = StorageExceptionParser.ParseStorageException(ex);
 
@@ -44,7 +42,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [Fact]
         public void GivenNoRequestInformationAndUnknownHostMessage_WhenParseStorageException_ThenReturnsBadRequest()
         {
-            StorageException ex = new StorageException("No such host is known");
+            var ex = new RequestFailedException("No such host is known");
 
             var resultCode = StorageExceptionParser.ParseStorageException(ex);
 

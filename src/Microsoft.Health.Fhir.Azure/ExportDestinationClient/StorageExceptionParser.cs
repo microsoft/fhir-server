@@ -5,8 +5,8 @@
 
 using System;
 using System.Net;
+using Azure;
 using EnsureThat;
-using Microsoft.Azure.Storage;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
@@ -18,17 +18,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         /// </summary>
         /// <param name="storageException"><see cref="StorageException"/> object that needs to be parsed.</param>
         /// <returns>A corresponding <see cref="HttpStatusCode"/></returns>
-        public static HttpStatusCode ParseStorageException(StorageException storageException)
+        public static HttpStatusCode ParseStorageException(RequestFailedException storageException)
         {
             EnsureArg.IsNotNull(storageException, nameof(storageException));
 
             // Let's check whether there is a valid http status code that we can return.
-            if (storageException.RequestInformation != null)
+            if (Enum.IsDefined(typeof(HttpStatusCode), storageException.Status))
             {
-                if (Enum.IsDefined(typeof(HttpStatusCode), storageException.RequestInformation.HttpStatusCode))
-                {
-                    return (HttpStatusCode)storageException.RequestInformation.HttpStatusCode;
-                }
+                return (HttpStatusCode)storageException.Status;
             }
 
             // We don't have a valid status code. Let's look at the message to try to get more information.

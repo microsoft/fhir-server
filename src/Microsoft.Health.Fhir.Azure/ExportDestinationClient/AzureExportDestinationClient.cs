@@ -11,9 +11,11 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using EnsureThat;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -24,18 +26,18 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
     public class AzureExportDestinationClient : IExportDestinationClient
     {
-        private CloudBlobClient _blobClient = null;
-        private CloudBlobContainer _blobContainer = null;
+        private BlobServiceClient _blobClient = null;
+        private BlobContainerClient _blobContainer = null;
 
         private Dictionary<Uri, CloudBlockBlobWrapper> _uriToBlobMapping = new Dictionary<Uri, CloudBlockBlobWrapper>();
         private Dictionary<(Uri FileUri, string PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, string PartId), Stream>();
 
-        private readonly IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
+        private readonly IExportClientInitializer<BlobServiceClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger _logger;
 
         public AzureExportDestinationClient(
-            IExportClientInitializer<CloudBlobClient> exportClientInitializer,
+            IExportClientInitializer<BlobServiceClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             ILogger<AzureExportDestinationClient> logger)
         {
@@ -69,23 +71,23 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             await CreateContainerAsync(_blobClient, containerId);
         }
 
-        private async Task CreateContainerAsync(CloudBlobClient blobClient, string containerId)
+        private async Task CreateContainerAsync(BlobServiceClient blobClient, string containerId)
         {
             // Use root container if no container id has been provided.
             if (string.IsNullOrWhiteSpace(containerId))
             {
-                _blobContainer = blobClient.GetRootContainerReference();
+                _blobContainer = blobClient.GetBlobContainerClient("$root");
             }
             else
             {
-                _blobContainer = blobClient.GetContainerReference(containerId);
+                _blobContainer = blobClient.GetBlobContainerClient(containerId);
             }
 
             try
             {
                 await _blobContainer.CreateIfNotExistsAsync();
             }
-            catch (StorageException se)
+            catch (RequestFailedException se)
             {
                 _logger.LogWarning(se, se.Message);
 
@@ -99,10 +101,9 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             EnsureArg.IsNotNullOrWhiteSpace(fileName, nameof(fileName));
             CheckIfClientIsConnected();
 
-            CloudBlockBlob blockBlob = _blobContainer.GetBlockBlobReference(fileName);
+            var blockBlob = _blobContainer.GetBlockBlobClient(fileName);
             if (!_uriToBlobMapping.ContainsKey(blockBlob.Uri))
             {
-                blockBlob.Properties.ContentType = "application/fhir+ndjson";
                 _uriToBlobMapping.Add(blockBlob.Uri, new CloudBlockBlobWrapper(blockBlob));
             }
 
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
             try
             {
-                await Policy.Handle<StorageException>()
+                await Policy.Handle<RequestFailedException>()
                     .WaitAndRetryAsync(
                         retryCount: 2,
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)),
@@ -160,7 +161,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
             try
             {
-                await Policy.Handle<StorageException>()
+                await Policy.Handle<RequestFailedException>()
                     .WaitAndRetryAsync(
                         retryCount: 2,
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)),
@@ -206,7 +207,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 CloudBlockBlobWrapper blobWrapper = _uriToBlobMapping[mapping.Key.Item1];
                 var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(mapping.Key.Item2));
 
-                uploadTasks[index] = blobWrapper.UploadBlockAsync(blockId, stream, md5Hash: null, cancellationToken);
+                uploadTasks[index] = blobWrapper.UploadBlockAsync(blockId, stream, cancellationToken);
                 index++;
             }
 
@@ -240,15 +241,11 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 return;
             }
 
-            var blob = new CloudBlockBlob(fileUri, _blobClient);
+            var uriBuilder = new BlobUriBuilder(fileUri);
+            var blob = _blobContainer.GetBlockBlobClient(uriBuilder.BlobName);
 
             // We are going to consider only committed blocks.
-            IEnumerable<ListBlockItem> result = await blob.DownloadBlockListAsync(
-                BlockListingFilter.Committed,
-                accessCondition: null,
-                options: null,
-                operationContext: null,
-                cancellationToken);
+            var result = (await blob.GetBlockListAsync(BlockListTypes.Committed, cancellationToken: cancellationToken)).Value.CommittedBlocks;
 
             // Update the internal mapping with the block lists of the blob.
             var wrapper = new CloudBlockBlobWrapper(blob, result.Select(x => x.Name).ToList());
@@ -270,7 +267,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         /// </summary>
         private async Task RefreshClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
         {
-            CloudBlobClient refreshedClient;
+            BlobServiceClient refreshedClient;
             try
             {
                 refreshedClient = await _exportClientInitializer.GetAuthorizedClientAsync(exportJobConfiguration, cancellationToken);
@@ -291,8 +288,8 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             // Recreate all cloud block blobs and update corresponding CloudBlockBlobWrapper.
             foreach (KeyValuePair<Uri, CloudBlockBlobWrapper> kvp in _uriToBlobMapping)
             {
-                var newBlob = new CloudBlockBlob(kvp.Key, _blobClient);
-                newBlob.Properties.ContentType = "application/fhir+ndjson";
+                var uriBuilder = new BlobUriBuilder(kvp.Key);
+                var newBlob = _blobContainer.GetBlockBlobClient(uriBuilder.BlobName);
                 kvp.Value.UpdateCloudBlockBlob(newBlob);
             }
         }

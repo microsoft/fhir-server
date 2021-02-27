@@ -4,9 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Text;
-using Microsoft.Azure.Storage.Blob;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Xunit;
 
@@ -19,15 +17,13 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         private const string BlobIdWithPrefix = "/blob1";
 
         private Uri _blobUri;
-        private CloudBlockBlob _cloudBlockBlob;
-        private CloudBlobClient _blobClient;
+        private BlockBlobClient _cloudBlockBlob;
         private CloudBlockBlobWrapper _blobWrapper;
 
         public CloudBlockBlobWrapperTests()
         {
             _blobUri = new Uri(StorageAddress + ContainerId + BlobIdWithPrefix);
-            _blobClient = new CloudBlobClient(new Uri(StorageAddress));
-            _cloudBlockBlob = new CloudBlockBlob(_blobUri, _blobClient);
+            _cloudBlockBlob = new BlockBlobClient(_blobUri);
             _blobWrapper = new CloudBlockBlobWrapper(_cloudBlockBlob);
         }
 
@@ -44,7 +40,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [Theory]
         public void GivenNewCloudBlockBlobWrongUri_WhenUpdateCloudBlockBlob_ThenThrowsArgumentException(string blobUri)
         {
-            CloudBlockBlob newBlob = new CloudBlockBlob(new Uri(blobUri), _blobClient);
+            var newBlob = new BlockBlobClient(new Uri(blobUri));
 
             Assert.Throws<ArgumentException>(() => _blobWrapper.UpdateCloudBlockBlob(newBlob));
         }
@@ -52,7 +48,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
         [Fact]
         public void GivenNewCloudBlockBlobCorrectUri_WhenUpdateCloudBlockBlob_ThenSuccessfullyUpdated()
         {
-            CloudBlockBlob newBlob = new CloudBlockBlob(new Uri(StorageAddress + ContainerId + BlobIdWithPrefix), _blobClient);
+            var newBlob = new BlockBlobClient(new Uri(StorageAddress + ContainerId + BlobIdWithPrefix));
 
             _blobWrapper.UpdateCloudBlockBlob(newBlob);
         }

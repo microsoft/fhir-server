@@ -5,15 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Azure.Storage;
+using Azure.Storage.Blobs;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Auth;
-using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Newtonsoft.Json;
@@ -103,31 +103,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return resourceIdToResourceMapping;
         }
 
-        internal static CloudStorageAccount GetCloudStorageAccountHelper(string storageAccountName)
+        internal static BlobServiceClient GetCloudStorageAccountHelper(string storageAccountName)
         {
             if (string.IsNullOrWhiteSpace(storageAccountName))
             {
                 throw new Exception("StorageAccountName cannot be empty");
             }
 
-            CloudStorageAccount cloudAccount = null;
+            BlobServiceClient cloudAccount = null;
 
             // If we are running locally, then we need to connect to the Azure Storage Emulator.
             // Else we need to connect to a proper Azure Storage Account.
-            if (storageAccountName.Equals("127", StringComparison.OrdinalIgnoreCase))
+            if (storageAccountName.Equals("127", StringComparison.OrdinalIgnoreCase) || storageAccountName.Equals("devstoreaccount1", StringComparison.OrdinalIgnoreCase))
             {
                 string emulatorConnectionString = "UseDevelopmentStorage=true";
-                CloudStorageAccount.TryParse(emulatorConnectionString, out cloudAccount);
+                cloudAccount = new BlobServiceClient(emulatorConnectionString);
             }
             else
             {
+                var storageAccountUri = new Uri($"https://{storageAccountName}.blob.core.windows.net");
                 string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
                 string allAccounts = Environment.GetEnvironmentVariable("AllStorageAccounts");
 
                 if (!string.IsNullOrWhiteSpace(storageSecret))
                 {
-                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
-                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+                    var storageCredentials = new StorageSharedKeyCredential(storageAccountName, storageSecret);
+                    cloudAccount = new BlobServiceClient(storageAccountUri, storageCredentials);
                 }
                 else if (!string.IsNullOrWhiteSpace(allAccounts))
                 {
@@ -139,8 +140,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                         throw new Exception("Unable to create a cloud storage account, key not provided.");
                     }
 
-                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, splitAccounts[nameIndex + 1].Trim());
-                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+                    var storageCredentials = new StorageSharedKeyCredential(storageAccountName, splitAccounts[nameIndex + 1].Trim());
+                    cloudAccount = new BlobServiceClient(storageAccountUri, storageCredentials);
                 }
             }
 
@@ -163,41 +164,47 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             // Extract storage account name from blob uri in order to get corresponding access token.
-            Uri sampleUri = blobUri[0];
-            string storageAccountName = sampleUri.Host.Split('.')[0];
+            string storageAccountName = new BlobUriBuilder(blobUri[0]).AccountName;
 
-            CloudStorageAccount cloudAccount = ExportTestHelper.GetCloudStorageAccountHelper(storageAccountName);
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
+            var blobClient = GetCloudStorageAccountHelper(storageAccountName);
             var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), Resource>();
 
             foreach (Uri uri in blobUri)
             {
-                var blob = new CloudBlockBlob(uri, blobClient);
-                string allData = await blob.DownloadTextAsync();
+                var blobUriBuilder = new BlobUriBuilder(uri);
+                var blobContainerClient = blobClient.GetBlobContainerClient(blobUriBuilder.BlobContainerName);
+                var blob = blobContainerClient.GetBlobClient(blobUriBuilder.BlobName);
 
-                var splitData = allData.Split("\n");
-
-                foreach (string entry in splitData)
+                using (var ms = new MemoryStream())
+                using (var streamReader = new StreamReader(ms))
                 {
-                    if (string.IsNullOrWhiteSpace(entry))
-                    {
-                        continue;
-                    }
+                    await blob.DownloadToAsync(ms);
+                    await ms.FlushAsync();
+                    ms.Seek(0, SeekOrigin.Begin);
 
-                    Resource resource;
-                    try
+                    string entry;
+                    while ((entry = await streamReader.ReadLineAsync()) != null)
                     {
-                        resource = fhirJsonParser.Parse<Resource>(entry);
-                    }
-                    catch (Exception ex)
-                    {
-                        outputHelper.WriteLine($"Unable to parse ndjson string to resource: {ex}");
-                        return resourceIdToResourceMapping;
-                    }
+                        if (string.IsNullOrWhiteSpace(entry))
+                        {
+                            continue;
+                        }
 
-                    // Ideally this should just be Add, but until we prevent duplicates from being added to the server
-                    // there is a chance the same resource being added multiple times resulting in a key conflict.
-                    resourceIdToResourceMapping.TryAdd((resource.ResourceType.ToString(), resource.Id), resource);
+                        Resource resource;
+                        try
+                        {
+                            resource = fhirJsonParser.Parse<Resource>(entry);
+                        }
+                        catch (Exception ex)
+                        {
+                            outputHelper.WriteLine($"Unable to parse ndjson string to resource: {ex}");
+                            return resourceIdToResourceMapping;
+                        }
+
+                        // Ideally this should just be Add, but until we prevent duplicates from being added to the server
+                        // there is a chance the same resource being added multiple times resulting in a key conflict.
+                        resourceIdToResourceMapping.TryAdd((resource.ResourceType.ToString(), resource.Id), resource);
+                    }
                 }
             }
 
