@@ -458,6 +458,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("_summary", "_count")]
         [InlineData("_summary", "xyz")]
         [InlineData("_count", "abc")]
+        [InlineData("_elements", "")]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithIncorrectSummaryParams_ThenExceptionShouldBeThrown(string key, string val)
@@ -478,31 +479,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
 
             Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}");
-
-            ValidateBundle(bundle, patients);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenListOfResources_WhenSearchedWithEmptyElements_ThenAllPropertiesShouldBeReturned()
-        {
-            const int numberOfResources = 3;
-
-            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
-
-            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
-            var patients = new Patient[numberOfResources];
-
-            for (int i = 0; i < numberOfResources; i++)
-            {
-                patient.Meta = new Meta();
-                patient.Meta.Tag.Add(tag);
-
-                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
-                patients[i] = createdPatient.Resource;
-            }
-
-            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements=");
 
             ValidateBundle(bundle, patients);
         }
