@@ -91,14 +91,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
         {
             CheckIfExportIsEnabled();
+            ValidateForAnonymizedExport(containerName, anonymizationConfigLocation, anonymizationConfigFileETag);
 
-            if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation) || !string.IsNullOrWhiteSpace(anonymizationConfigFileETag))
-            {
-                CheckIfAnonymizedExportIsEnabled();
-                CheckContainerNameForAnonymizedExport(containerName);
-            }
-
-            return await SendExportRequest(ExportJobType.All, since, typeFilter, resourceType, containerName: containerName, formatName: formatName, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
+            return await SendExportRequest(
+                exportType: ExportJobType.All,
+                since: since,
+                filters: typeFilter,
+                resourceType: resourceType,
+                containerName: containerName,
+                formatName: formatName,
+                anonymizationConfigLocation: anonymizationConfigLocation,
+                anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
 
         [HttpGet]
@@ -111,9 +114,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag,
             string typeParameter)
         {
             CheckIfExportIsEnabled();
+            ValidateForAnonymizedExport(containerName, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
@@ -121,7 +127,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Patient, since, typeFilter, resourceType, containerName: containerName, formatName: formatName);
+            return await SendExportRequest(
+                exportType: ExportJobType.Patient,
+                since: since,
+                filters: typeFilter,
+                resourceType: resourceType,
+                containerName: containerName,
+                formatName: formatName,
+                anonymizationConfigLocation: anonymizationConfigLocation,
+                anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
 
         [HttpGet]
@@ -134,10 +148,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag,
             string typeParameter,
             string idParameter)
         {
             CheckIfExportIsEnabled();
+            ValidateForAnonymizedExport(containerName, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(idParameter))
@@ -145,7 +162,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Group, since, typeFilter, resourceType, idParameter, containerName: containerName, formatName: formatName);
+            return await SendExportRequest(
+                exportType: ExportJobType.Group,
+                since: since,
+                filters: typeFilter,
+                resourceType: resourceType,
+                groupId: idParameter,
+                containerName: containerName,
+                formatName: formatName,
+                anonymizationConfigLocation: anonymizationConfigLocation,
+                anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
 
         [HttpGet]
@@ -221,16 +247,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void CheckIfAnonymizedExportIsEnabled()
+        private void ValidateForAnonymizedExport(string containerName, string anonymizationConfigLocation, string anonymizationConfigFileETag)
         {
-            if (!_features.SupportsAnonymizedExport)
+            if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation) || !string.IsNullOrWhiteSpace(anonymizationConfigFileETag))
             {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.AnonymizedExport));
+                // Check if anonymizedExport is enabled
+                if (!_features.SupportsAnonymizedExport)
+                {
+                    throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.AnonymizedExport));
+                }
+
+                CheckContainerNameAndConfigLocationForAnonymizedExport(containerName, anonymizationConfigLocation);
             }
         }
 
-        private static void CheckContainerNameForAnonymizedExport(string containerName)
+        private static void CheckContainerNameAndConfigLocationForAnonymizedExport(string containerName, string anonymizationConfigLocation)
         {
+            if (string.IsNullOrWhiteSpace(anonymizationConfigLocation))
+            {
+                throw new RequestNotValidException(Resources.ConfigLocationRequiredForAnonymizedExport);
+            }
+
             if (string.IsNullOrWhiteSpace(containerName))
             {
                 throw new RequestNotValidException(Resources.ContainerIsRequiredForAnonymizedExport);

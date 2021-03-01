@@ -31,10 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
-        private const string DefaultExportRequestPath = "/$export";
-
         private readonly HashSet<string> _supportedQueryParams;
-        private readonly HashSet<string> _supportedQueryParamsForAnonymizedExport;
 
         public ValidateExportRequestFilterAttribute()
         {
@@ -46,10 +43,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 KnownQueryParameterNames.Container,
                 KnownQueryParameterNames.Format,
                 KnownQueryParameterNames.TypeFilter,
-            };
-
-            _supportedQueryParamsForAnonymizedExport = new HashSet<string>(StringComparer.Ordinal)
-            {
                 KnownQueryParameterNames.AnonymizationConfigurationLocation,
                 KnownQueryParameterNames.AnonymizationConfigurationFileEtag,
             };
@@ -77,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             IQueryCollection queryCollection = context.HttpContext.Request.Query;
             foreach (string paramName in queryCollection?.Keys)
             {
-                if (IsValidBasicExportRequestParam(paramName) || IsValidAnonymizedExportRequestParam(context.HttpContext.Request, paramName))
+                if (IsValidBasicExportRequestParam(paramName))
                 {
                     continue;
                 }
@@ -107,16 +100,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         private bool IsValidBasicExportRequestParam(string paramName)
         {
             return _supportedQueryParams.Contains(paramName);
-        }
-
-        private bool IsValidAnonymizedExportRequestParam(HttpRequest request, string paramName)
-        {
-            if (request.Path.StartsWithSegments(DefaultExportRequestPath, StringComparison.InvariantCultureIgnoreCase))
-            {
-                return _supportedQueryParamsForAnonymizedExport.Contains(paramName);
-            }
-
-            return false;
         }
     }
 }
