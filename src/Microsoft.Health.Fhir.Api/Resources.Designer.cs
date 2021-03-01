@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Missing &apos;_anonymizationConfig&apos; for anonymized export.
+        /// </summary>
+        public static string ConfigLocationRequiredForAnonymizedExport {
+            get {
+                return ResourceManager.GetString("ConfigLocationRequiredForAnonymizedExport", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Missing &apos;_container&apos; for anonymized export.
         /// </summary>
         public static string ContainerIsRequiredForAnonymizedExport {

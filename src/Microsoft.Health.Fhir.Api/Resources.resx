@@ -184,7 +184,7 @@
   </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
-    <comment>{NumberedPlaceHolder=”FHIR”}</comment>
+    <comment>{NumberedPlaceHolder="FHIR"}</comment>
   </data>
   <data name="PatchNotSupported" xml:space="preserve">
     <value>PATCH is not currently supported.</value>
@@ -254,7 +254,7 @@
   </data>
   <data name="WelcomeTitle" xml:space="preserve">
     <value>STU3 API &lt;small&gt;preview&lt;/small&gt;</value>
-    <comment>{NumberedPlaceHolder=”STU3”}</comment>
+    <comment>{NumberedPlaceHolder="STU3"}</comment>
   </data>
   <data name="InvalidBundleEntry" xml:space="preserve">
     <value>Requested operation '{0}' is not supported using {1}.</value>
@@ -327,6 +327,10 @@
   <data name="ContainerRegistryNotConfigured" xml:space="preserve">
     <value>The container registry '{0}' is not configured.</value>
     <comment>{0}: the container registry login server</comment>
+  </data>
+  <data name="ConfigLocationRequiredForAnonymizedExport" xml:space="preserve">
+    <value>Missing '_anonymizationConfig' for anonymized export</value>
+     <comment>{NumberedPlaceHolder="_anonymizationConfig"}</comment>
   </data>
   <data name="ProfileIsInvalid" xml:space="preserve">
     <value>Provided value for `profile` parameter `{0}` is invalid </value>

@@ -2,7 +2,7 @@ jobs:
 - job: DeleteResourceGroup
   displayName: 'Delete resource group'
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
   - task: AzurePowerShell@4

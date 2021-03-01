@@ -26,6 +26,7 @@ variables:
   LinuxVmImage: 'ubuntu-latest'
   # The following is set by a build Pipeline variable:
   # DefaultLinuxPool: 'Azure Pipelines'
+  # SharedLinuxPool: 'Azure Pipelines'
   #-----------------------------------------------------------------------------------------
   # AKS details
   clusterName: "mshealth-oss-aks-cluster"
