@@ -184,7 +184,7 @@
   </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
-    <comment>{NumberedPlaceHolder=”FHIR”}</comment>
+    <comment>{NumberedPlaceHolder="FHIR"}</comment>
   </data>
   <data name="PatchNotSupported" xml:space="preserve">
     <value>PATCH is not currently supported.</value>
@@ -254,7 +254,7 @@
   </data>
   <data name="WelcomeTitle" xml:space="preserve">
     <value>STU3 API &lt;small&gt;preview&lt;/small&gt;</value>
-    <comment>{NumberedPlaceHolder=”STU3”}</comment>
+    <comment>{NumberedPlaceHolder="STU3"}</comment>
   </data>
   <data name="InvalidBundleEntry" xml:space="preserve">
     <value>Requested operation '{0}' is not supported using {1}.</value>
@@ -275,13 +275,6 @@
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
-  <data name="ValidationNotSupported" xml:space="preserve">
-    <value>$validate is not a supported endpoint.</value>
-    <comment>{NumberedPlaceHolder="$validate"}</comment>
-  </data>
-  <data name="ValidateWithProfileNotSupported" xml:space="preserve">
-    <value>Validation against a profile is not supported.</value>
-  </data>
   <data name="BundleEntryLimitExceeded" xml:space="preserve">
     <value>The number of entries in the bundle exceeded the configured limit of {0}.</value>
     <comment>{0} is the number of entries allowed.</comment>
@@ -289,22 +282,8 @@
   <data name="ParsingError" xml:space="preserve">
     <value>Error occurred when parsing model: '{0}'.</value>
   </data>
-  <data name="ValidationForUpdateAndDeleteNotSupported" xml:space="preserve">
-    <value>Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.</value>
-  </data>
-  <data name="MultipleModesProvided" xml:space="preserve">
-    <value>Only one mode can be provided between a Parameters resource and the URL</value>
-  </data>
   <data name="MultipleProfilesProvided" xml:space="preserve">
     <value>Only one profile can be provided between a Parameters resource and the URL</value>
-  </data>
-  <data name="ValidationModeNotRecognized" xml:space="preserve">
-    <value>{0} is not a valid validation mode.</value>
-    <comment>Error message for invalid parameter value, {0} is the value</comment>
-  </data>
-  <data name="ValidationModeNotSupported" xml:space="preserve">
-    <value>{0} is not a supported validation mode.</value>
-    <comment>{0} is the validation mode.</comment>
   </data>
   <data name="ReindexParameterNotValid" xml:space="preserve">
     <value>Reindex job does not support the following parameter {0} for a {1} operation.</value>
@@ -348,5 +327,13 @@
   <data name="ContainerRegistryNotConfigured" xml:space="preserve">
     <value>The container registry '{0}' is not configured.</value>
     <comment>{0}: the container registry login server</comment>
+  </data>
+  <data name="ConfigLocationRequiredForAnonymizedExport" xml:space="preserve">
+    <value>Missing '_anonymizationConfig' for anonymized export</value>
+     <comment>{NumberedPlaceHolder="_anonymizationConfig"}</comment>
+  </data>
+  <data name="ProfileIsInvalid" xml:space="preserve">
+    <value>Provided value for `profile` parameter `{0}` is invalid </value>
+    <comment>{0} is the provided value</comment>
   </data>
 </root>

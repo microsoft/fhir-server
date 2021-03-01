@@ -25,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextBeforeAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\ExceptionNotificationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FhirRequestContextRouteDataPopulatingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FilterTestsHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OperationOutcomeExceptionFilterTests.cs" />
@@ -33,7 +34,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\SearchParameterFilterAttributeTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidationQueryFilterAndParameterParserAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirXmlInputFormatterTests.cs" />

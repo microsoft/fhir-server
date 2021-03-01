@@ -1,0 +1,179 @@
+parameters:
+- name: version
+  type: string
+- name: keyVaultName
+  type: string
+
+jobs:
+- job: 'cosmosE2eTests'
+  dependsOn: []
+  pool:
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+
+  - task: AzurePowerShell@4
+    displayName: 'Set Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
+        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
+        
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
+        $allStorageAccounts = ""
+        foreach ($storageAccount in $storageAccounts) {
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+
+            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
+            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+            $allStorageAccounts += "$($storageSecretName)|$($accKey.Value)|"
+        }
+        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        
+        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
+ 
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+        # ----------------------------------------
+
+        dotnet dev-certs https
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
+    inputs:
+      command: test
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
+    env:
+      'TestEnvironmentUrl': $(TestEnvironmentUrl)
+      'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
+      'Resource': $(Resource)
+      'AllStorageAccounts': $(AllStorageAccounts)
+      'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
+      'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
+      'tenant-admin-user-name': $(tenant-admin-user-name)
+      'tenant-admin-user-password': $(tenant-admin-user-password)
+      'tenant-id': $(tenant-id)
+      'app_globalAdminServicePrincipal_id': $(app_globalAdminServicePrincipal_id)
+      'app_globalAdminServicePrincipal_secret': $(app_globalAdminServicePrincipal_secret)
+      'app_nativeClient_id': $(app_nativeClient_id)
+      'app_nativeClient_secret': $(app_nativeClient_secret)
+      'app_wrongAudienceClient_id': $(app_wrongAudienceClient_id)
+      'app_wrongAudienceClient_secret': $(app_wrongAudienceClient_secret)
+      'user_globalAdminUser_id': $(user_globalAdminUser_id)
+      'user_globalAdminUser_secret': $(user_globalAdminUser_secret)
+      'user_globalConverterUser_id': $(user_globalConverterUser_id)
+      'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
+      'user_globalExporterUser_id': $(user_globalExporterUser_id)
+      'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
+      'user_globalReaderUser_id': $(user_globalReaderUser_id)
+      'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
+      'user_globalWriterUser_id': $(user_globalWriterUser_id)
+      'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+
+- job: 'sqlE2eTests'
+  dependsOn: []
+  pool:
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - template: e2e-setup.yml
+  
+  - task: AzurePowerShell@4
+    displayName: 'Set Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
+        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
+        
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
+        $allStorageAccounts = ""
+        foreach ($storageAccount in $storageAccounts) {
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+
+            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
+            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+            $allStorageAccounts += "|$($storageSecretName)|$($accKey.Value)"
+        }
+        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        
+        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
+ 
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+        # ----------------------------------------
+
+        dotnet dev-certs https
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Export E2E ${{ parameters.version }} SQL'
+    inputs:
+      command: test
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: 'Export ${{ parameters.version }} SQL'
+    env:
+      'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
+      'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
+      'Resource': $(Resource)
+      'AllStorageAccounts': $(AllStorageAccounts)
+      'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
+      'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
+      'tenant-admin-user-name': $(tenant-admin-user-name)
+      'tenant-admin-user-password': $(tenant-admin-user-password)
+      'tenant-id': $(tenant-id)
+      'app_globalAdminServicePrincipal_id': $(app_globalAdminServicePrincipal_id)
+      'app_globalAdminServicePrincipal_secret': $(app_globalAdminServicePrincipal_secret)
+      'app_nativeClient_id': $(app_nativeClient_id)
+      'app_nativeClient_secret': $(app_nativeClient_secret)
+      'app_wrongAudienceClient_id': $(app_wrongAudienceClient_id)
+      'app_wrongAudienceClient_secret': $(app_wrongAudienceClient_secret)
+      'user_globalAdminUser_id': $(user_globalAdminUser_id)
+      'user_globalAdminUser_secret': $(user_globalAdminUser_secret)
+      'user_globalConverterUser_id': $(user_globalConverterUser_id)
+      'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
+      'user_globalExporterUser_id': $(user_globalExporterUser_id)
+      'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
+      'user_globalReaderUser_id': $(user_globalReaderUser_id)
+      'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
+      'user_globalWriterUser_id': $(user_globalWriterUser_id)
+      'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+      

@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Polly;
@@ -30,27 +31,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly string _masterDatabaseName;
         private readonly string _initialConnectionString;
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SqlServerFhirModel _sqlServerFhirModel;
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
             string masterDatabaseName,
-            SearchParameterDefinitionManager searchParameterDefinitionManager,
             SqlServerFhirModel sqlServerFhirModel,
             ISqlConnectionFactory sqlConnectionFactory)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(sqlServerFhirModel, nameof(sqlServerFhirModel));
             EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
 
             _masterDatabaseName = masterDatabaseName;
             _initialConnectionString = initialConnectionString;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionFactory = sqlConnectionFactory;
-            _searchParameterDefinitionManager.StartAsync(CancellationToken.None).Wait();
         }
 
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
@@ -95,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
 
             await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
-            _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true);
+            await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
         }
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
@@ -182,9 +178,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
+        public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
+            {
+                var command = new SqlCommand("DELETE FROM dbo.ReindexJob", connection);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        {
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
+            {
+                var command = new SqlCommand("DELETE FROM dbo.ReindexJob WHERE Id = @id", connection);
+
+                var parameter = new SqlParameter { ParameterName = "@id", Value = id };
+                command.Parameters.Add(parameter);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
@@ -251,10 +267,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
-            var sqlConnectionFactory = new DefaultSqlConnectionFactory(config);
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory);
+            var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
+            var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
+            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
 
-            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, NullLogger<SchemaInitializer>.Instance);
         }
     }
 }

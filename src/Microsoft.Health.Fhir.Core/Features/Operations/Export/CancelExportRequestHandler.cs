@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -27,22 +28,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirAuthorizationService _authorizationService;
+        private readonly ILogger<CancelExportRequestHandler> _logger;
         private readonly AsyncRetryPolicy _retryPolicy;
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService)
-            : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider)
+        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService, ILogger<CancelExportRequestHandler> logger)
+            : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider, logger)
         {
         }
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
+        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider, ILogger<CancelExportRequestHandler> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
             EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
+            _logger = logger;
+
             _retryPolicy = Policy.Handle<JobConflictException>()
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
@@ -56,26 +61,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 throw new UnauthorizedFhirActionException();
             }
 
-            return await _retryPolicy.ExecuteAsync(async () =>
+            CancelExportResponse cancelResponse;
+            try
             {
-                ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
-
-                // If the job is already completed for any reason, return conflict status.
-                if (outcome.JobRecord.Status.IsFinished())
+                cancelResponse = await _retryPolicy.ExecuteAsync(async () =>
                 {
-                    return new CancelExportResponse(HttpStatusCode.Conflict);
-                }
+                    ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
 
-                // Try to cancel the job.
-                outcome.JobRecord.Status = OperationStatus.Canceled;
-                outcome.JobRecord.CanceledTime = Clock.UtcNow;
+                    // If the job is already completed for any reason, return conflict status.
+                    if (outcome.JobRecord.Status.IsFinished())
+                    {
+                        return new CancelExportResponse(HttpStatusCode.Conflict);
+                    }
 
-                outcome.JobRecord.FailureDetails = new JobFailureDetails(Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
+                    // Try to cancel the job.
+                    outcome.JobRecord.Status = OperationStatus.Canceled;
+                    outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
-                await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
+                    outcome.JobRecord.FailureDetails = new JobFailureDetails(Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
 
-                return new CancelExportResponse(HttpStatusCode.Accepted);
-            });
+                    _logger.LogInformation($"Attempting to cancel export job {request.JobId}");
+                    await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
+
+                    return new CancelExportResponse(HttpStatusCode.Accepted);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Unable to cancel export job {request.JobId}");
+                throw;
+            }
+
+            return cancelResponse;
         }
     }
 }

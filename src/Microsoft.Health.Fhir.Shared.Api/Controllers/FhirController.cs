@@ -135,7 +135,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                             Diagnostics = diagnosticInfo,
                         },
                     },
-                }.ToResourceElement(), returnCode);
+                }.ToResourceElement(),
+                returnCode);
         }
 
         /// <summary>
