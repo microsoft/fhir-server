@@ -6,7 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -22,12 +24,14 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.IO;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -42,6 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private static readonly HardDelete _hardDelete = new HardDelete();
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
+        private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
@@ -117,8 +122,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
             }
 
-            resource.RawResource.IsMetaSet = false; // TODO update version number in rawresource
-
             while (true)
             {
                 FhirCosmosResourceWrapper existingItemResource;
@@ -161,6 +164,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 existingItemResource.ActivePeriodEndDateTime = cosmosWrapper.LastModified;
 
                 cosmosWrapper.Version = int.TryParse(existingItemResource.Version, out int existingVersion) ? (existingVersion + 1).ToString(CultureInfo.InvariantCulture) : Guid.NewGuid().ToString();
+
+                // indicate that the version in the raw resource's meta property does not reflect the actual version.
+                cosmosWrapper.RawResource.IsMetaSet = false;
+
+                if (cosmosWrapper.RawResource.Format == FhirResourceFormat.Json)
+                {
+                    // Update the raw resource based on the new version.
+                    // This is a lot faster than re-seserialing the POCO.
+                    // Unfortunately, we need to allocate a string, but at least it is reused for the HTTP response.
+
+                    // If the format is not XML, IsMetaSet will remain false and we will update the version when the resource is read.
+
+                    using MemoryStream memoryStream = _recyclableMemoryStreamManager.GetStream();
+                    await new RawResourceElement(cosmosWrapper).SerializeToStreamAsUtf8Json(memoryStream);
+                    memoryStream.Position = 0;
+                    using var reader = new StreamReader(memoryStream, Encoding.UTF8);
+                    cosmosWrapper.RawResource = new RawResource(reader.ReadToEnd(), FhirResourceFormat.Json, isMetaSet: true);
+                }
 
                 if (keepHistory)
                 {
