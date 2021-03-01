@@ -93,6 +93,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     // be specified when searching.
                     expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => SearchValueConstants.RootResourceTypeName));
                     break;
+                case SearchParameterNames.Id:
+                    expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => KnownResourceWrapperProperties.ResourceId));
+                    break;
                 case SearchParameterNames.LastUpdated:
                     // For LastUpdate queries, the LastModified property on the root is
                     // more performant than the searchIndices _lastUpdated.st and _lastUpdate.et

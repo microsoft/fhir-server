@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices, ItemConverterType = typeof(SearchIndexEntryConverter))]
-        public override IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
+        public override IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; set; }
 
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey => ToResourceKey().ToPartitionKey();

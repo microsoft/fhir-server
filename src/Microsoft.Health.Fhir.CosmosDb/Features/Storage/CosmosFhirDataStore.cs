@@ -162,6 +162,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 existingItemResource.IsHistory = true;
                 existingItemResource.ActivePeriodEndDateTime = cosmosWrapper.LastModified;
+                existingItemResource.SearchIndices = null;
 
                 cosmosWrapper.Version = int.TryParse(existingItemResource.Version, out int existingVersion) ? (existingVersion + 1).ToString(CultureInfo.InvariantCulture) : Guid.NewGuid().ToString();
 

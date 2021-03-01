@@ -67,9 +67,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATypeAndId_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
+            await _client.UpdateAsync(_createdResource.Resource);
+
             using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"Observation/{_createdResource.Resource.Id}/_history");
 
-            Assert.NotEmpty(readResponse.Resource.Entry);
+            AssertCount(2, readResponse.Resource.Entry);
         }
 
         [Fact]
