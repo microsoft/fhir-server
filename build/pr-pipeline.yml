@@ -83,6 +83,8 @@ stages:
           catch
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
+  - template: ./jobs/cleanup-aad.yml
+
 
 - stage: aadTestEnvironment
   displayName: Setup AAD Test Environment
