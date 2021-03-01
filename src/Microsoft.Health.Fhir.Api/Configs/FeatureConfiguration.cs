@@ -21,11 +21,6 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public bool SupportsXml { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether Validate is enabled or not.
-        /// </summary>
-        public bool SupportsValidate { get; set; }
-
-        /// <summary>
         /// Gets or sets a value indicating whether anonymized export is enabled or not.
         /// </summary>
         public bool SupportsAnonymizedExport { get; set; }

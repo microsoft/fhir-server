@@ -43,8 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     Issues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,
                             OperationOutcomeConstants.IssueType.Invalid,
-                            failure.ErrorMessage,
-                            location));
+                            diagnostics: failure.ErrorMessage,
+                            location: location));
                 }
             }
         }
