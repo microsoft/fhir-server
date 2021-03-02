@@ -29,7 +29,7 @@ parameters:
 jobs:
 - job: provisionEnvironment
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
   - task: AzureKeyVault@1
