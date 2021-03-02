@@ -18,11 +18,11 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
-    public class QueryBuilder : IQueryBuilder
+    internal class QueryBuilder : IQueryBuilder
     {
-        public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes, bool idsOnly)
+        public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, QueryBuilderOptions queryOptions)
         {
-            return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions, includes, idsOnly);
+            return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions, queryOptions);
         }
 
         public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
@@ -48,21 +48,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryHelper = new QueryHelper(_queryBuilder, _queryParameterManager, SearchValueConstants.RootAliasName);
             }
 
-            public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes, bool idOnly)
+            public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, QueryBuilderOptions queryOptions)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
+                EnsureArg.IsNotNull(queryOptions, nameof(queryOptions));
 
                 if (searchOptions.CountOnly)
                 {
                     AppendSelectFromRoot("VALUE COUNT(1)");
                 }
-                else if (idOnly)
+                else if (queryOptions.Projection == QueryProjection.Id)
                 {
-                    AppendSelectFromRoot($"r.{KnownResourceWrapperProperties.ResourceId}", includes);
+                    AppendSelectFromRoot($"r.{KnownResourceWrapperProperties.ResourceId}", queryOptions.Includes);
+                }
+                else if (queryOptions.Projection == QueryProjection.ReferencesOnly)
+                {
+                    AppendSelectFromRoot(string.Empty, queryOptions.Includes);
                 }
                 else
                 {
-                    AppendSelectFromRoot(includes: includes);
+                    AppendSelectFromRoot(includes: queryOptions.Includes);
                 }
 
                 AppendSystemDataFilter();
@@ -187,8 +192,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 if (includes?.Count > 0)
                 {
-                    // add to the projection an array of {r1
-                    _queryBuilder.AppendLine(",");
+                    if (!string.IsNullOrEmpty(selectList))
+                    {
+                        // add to the projection an array of {r1
+                        _queryBuilder.AppendLine(",");
+                    }
 
                     _queryBuilder
                         .Append("ARRAY(SELECT p.")

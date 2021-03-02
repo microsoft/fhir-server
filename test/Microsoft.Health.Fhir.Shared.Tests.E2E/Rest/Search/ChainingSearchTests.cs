@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public ChainingSearchTests(ClassFixture fixture)
             : base(fixture)
         {
-            Client.HttpClient.DefaultRequestHeaders.TryAddWithoutValidation(FhirCosmosSearchService.HeaderEnableChainedSearch, "true");
+            Client.HttpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-ms-enable-chained-search", "true");
         }
 
         [Fact]

@@ -26,10 +26,10 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
-    public class FhirCosmosSearchService : SearchService
+    internal class FhirCosmosSearchService : SearchService
     {
-        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new SearchParameterInfo(SearchValueConstants.TypeIdCompositeSearchParameterName, SearchValueConstants.TypeIdCompositeSearchParameterName);
-        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new SearchParameterInfo(SearchValueConstants.WildcardReferenceSearchParameterName, SearchValueConstants.WildcardReferenceSearchParameterName);
+        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new(SearchValueConstants.TypeIdCompositeSearchParameterName, SearchValueConstants.TypeIdCompositeSearchParameterName);
+        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new(SearchValueConstants.WildcardReferenceSearchParameterName, SearchValueConstants.WildcardReferenceSearchParameterName);
 
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
@@ -96,8 +96,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 List<Expression> chainedReferences = await PerformChainedSearch(searchOptions, chainedExpressions, cancellationToken);
 
-                if (chainedReferences.Count == chainedExpressions.Count)
-                { // All chained filters contained results
+                // Expressions where provided and some results to filter by were found.
+                if (chainedReferences?.Count == chainedExpressions.Count)
+                {
                     chainedReferences.Insert(0, searchOptions.Expression);
                     searchOptions.Expression = Expression.And(chainedReferences);
                 }
@@ -115,14 +116,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             if (searchOptions.CountOnly)
             {
                 int count = await ExecuteCountSearchAsync(
-                    _queryBuilder.BuildSqlQuerySpec(searchOptions, includes: Array.Empty<IncludeExpression>()),
+                    _queryBuilder.BuildSqlQuerySpec(searchOptions, new QueryBuilderOptions(Array.Empty<IncludeExpression>())),
                     cancellationToken);
 
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
             (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                _queryBuilder.BuildSqlQuerySpec(searchOptions, includeExpressions),
+                _queryBuilder.BuildSqlQuerySpec(searchOptions, new QueryBuilderOptions(includeExpressions)),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     // And perform a second read.
                     searchResult.TotalCount = await ExecuteCountSearchAsync(
-                        _queryBuilder.BuildSqlQuerySpec(searchOptions, includes: Array.Empty<IncludeExpression>()),
+                        _queryBuilder.BuildSqlQuerySpec(searchOptions,  new QueryBuilderOptions(Array.Empty<IncludeExpression>())),
                         cancellationToken);
                 }
             }
@@ -164,7 +165,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
         {
-            if (!_cosmosConfig.EnableChainedSearch && _requestContextAccessor.FhirRequestContext?.RequestHeaders.TryGetValue(HeaderEnableChainedSearch, out StringValues _) != true)
+            if (!_cosmosConfig.EnableChainedSearch &&
+                !(_requestContextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(HeaderEnableChainedSearch, out StringValues featureSetting) &&
+                  string.Equals(featureSetting.FirstOrDefault(), "true", StringComparison.OrdinalIgnoreCase)))
             {
                 throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
             }
@@ -175,15 +178,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             chainedOptions.MaxItemCount = _chainedSearchMaxSubqueryItemLimit;
             chainedOptions.MaxItemCountSpecifiedByClient = false;
 
-            // Local function for recursion, this lets us walk to the end of the expression to start filtering,
-            // the results are used to filter against the parent layer.
-            async Task<Expression> RecursiveLookup(ChainedExpression expression)
+            // Loop over all chained expressions in the search query and pass them into the local recursion function
+            foreach (ChainedExpression item in chainedExpressions)
+            {
+                Expression recursiveLookup = await RecurseChainedExpression(item, chainedOptions, cancellationToken);
+
+                if (recursiveLookup == null)
+                {
+                    return null;
+                }
+
+                chainedReferences.Add(recursiveLookup);
+            }
+
+            return chainedReferences;
+        }
+
+        /// <summary>
+        /// This lets us walk to the end of the expression to start filtering, the results are used to filter against the parent layer.
+        /// </summary>
+        private async Task<Expression> RecurseChainedExpression(ChainedExpression expression, SearchOptions chainedOptions, CancellationToken cancellationToken)
             {
                 Expression criteria = expression.Expression;
 
                 if (expression.Expression is ChainedExpression innerChained)
                 {
-                    criteria = await RecursiveLookup(innerChained);
+                    criteria = await RecurseChainedExpression(innerChained, chainedOptions, cancellationToken);
                 }
 
                 if (criteria == null)
@@ -192,7 +212,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     return null;
                 }
 
-                string filteredType = expression.TargetResourceTypes.FirstOrDefault();
+                string filteredType = expression.TargetResourceTypes.First();
                 var includeExpressions = new List<IncludeExpression>();
 
                 if (expression.Reversed)
@@ -213,7 +233,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     }
 
                     // When reversed the ids from the sub-query will match the base resource type
-                    filteredType = expression.ResourceTypes.FirstOrDefault();
+                    filteredType = expression.ResourceTypes.First();
                 }
 
                 MultiaryExpression filterExpression = Expression.And(
@@ -223,7 +243,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 chainedOptions.Expression = filterExpression;
 
                 var chainedResults = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                    _queryBuilder.BuildSqlQuerySpec(chainedOptions, includeExpressions, idsOnly: true),
+                    _queryBuilder.BuildSqlQuerySpec(chainedOptions, new QueryBuilderOptions(includeExpressions, projection: includeExpressions.Any() ? QueryProjection.ReferencesOnly : QueryProjection.Id)),
                     chainedOptions,
                     null,
                     cancellationToken);
@@ -266,23 +286,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 return chainedExpressionReferences.Length > 1 ? Expression.Or(chainedExpressionReferences) : chainedExpressionReferences.FirstOrDefault();
             }
-
-            // Loop over all chained expressions in the search query and pass them into the local recursion function
-            foreach (ChainedExpression item in chainedExpressions)
-            {
-                Expression recursiveLookup = await RecursiveLookup(item);
-
-                // When no results are returned from a chain we can break since all operands in the search should be met
-                if (recursiveLookup == null)
-                {
-                    break;
-                }
-
-                chainedReferences.Add(recursiveLookup);
-            }
-
-            return chainedReferences;
-        }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(
             SearchOptions searchOptions,
@@ -407,7 +410,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
                     };
 
-                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions, Array.Empty<IncludeExpression>());
+                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions, new QueryBuilderOptions(Array.Empty<IncludeExpression>()));
 
                     (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
                     do
@@ -462,7 +465,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
                     };
 
-                    QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions, Array.Empty<IncludeExpression>());
+                    QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions, new QueryBuilderOptions(Array.Empty<IncludeExpression>()));
 
                     (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
                     do
