@@ -11,6 +11,7 @@ using Azure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 {
@@ -22,20 +23,20 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
         private IRawResourceFactory _rawResourceFactory;
         private ResourceIdProvider _resourceIdProvider;
         private IConfiguration _configuration;
-        private string _blobUrl;
+        private BulkImportTaskInput _bulkImportTaskInput;
 
         public BulkImportTask(
             ISearchIndexer searchIndexer,
             IRawResourceFactory rawResourceFactory,
             ResourceIdProvider resourceIdProvider,
             IConfiguration configuration,
-            string blobUrl)
+            BulkImportTaskInput bulkImportTaskInput)
         {
             _searchIndexer = searchIndexer;
             _rawResourceFactory = rawResourceFactory;
             _resourceIdProvider = resourceIdProvider;
             _configuration = configuration;
-            _blobUrl = blobUrl;
+            _bulkImportTaskInput = bulkImportTaskInput;
         }
 
         public async Task ExecuteAsync(IProgress<string> contextProgress, CancellationToken cancellationToken)
@@ -48,15 +49,28 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             string clientId = _configuration["ClientId"];
             string tenantId = _configuration["TenantId"];
             string secret = _configuration["Secret"];
-            LoadRawDataStep loadRawDataStep = new LoadRawDataStep(rawDataChannel, new Uri(_blobUrl), GetClientSecretCredential(tenantId, clientId, secret));
-            ProcessFhirResourceStep processFhirResourceStep = new ProcessFhirResourceStep(rawDataChannel, processedResourceChannel, searchParamChannel, _searchIndexer, _rawResourceFactory);
+            LoadRawDataStep loadRawDataStep = new LoadRawDataStep(rawDataChannel, new Uri(_bulkImportTaskInput.BlobLocation), GetClientSecretCredential(tenantId, clientId, secret));
+            ProcessFhirResourceStep processFhirResourceStep = new ProcessFhirResourceStep(rawDataChannel, processedResourceChannel, searchParamChannel, _searchIndexer, _rawResourceFactory, _bulkImportTaskInput.StartSurrogateId);
             ImportResourceTableStep importResourceTableStep = new ImportResourceTableStep(processedResourceChannel, _resourceIdProvider, provider, _configuration);
             ImportSearchParamStep importToStringSearchParamTableStep = new ImportSearchParamStep(searchParamChannel, provider, _configuration);
 
-            processFhirResourceStep.Start();
-            importResourceTableStep.Start();
-            loadRawDataStep.Start();
-            importToStringSearchParamTableStep.Start();
+            BulkImportTaskContext context = new BulkImportTaskContext();
+            importToStringSearchParamTableStep.Start(new Progress<long>((count) =>
+                                                    {
+                                                        context.ImportedSearchParamCount = count;
+                                                        contextProgress.Report(JsonConvert.SerializeObject(context));
+                                                    }));
+            processFhirResourceStep.Start(new Progress<long>((count) =>
+                                        {
+                                            context.ProcessedResourceCount = count;
+                                            contextProgress.Report(JsonConvert.SerializeObject(context));
+                                        }));
+            importResourceTableStep.Start(new Progress<long>((count) =>
+                                        {
+                                            context.ImportedResourceCount = count;
+                                            contextProgress.Report(JsonConvert.SerializeObject(context));
+                                        }));
+            loadRawDataStep.Start(new Progress<long>());
 
             await loadRawDataStep.WaitForStopAsync();
             await processFhirResourceStep.WaitForStopAsync();

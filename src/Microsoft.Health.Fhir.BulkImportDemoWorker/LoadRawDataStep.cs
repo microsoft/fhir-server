@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading.Channels;
 using Azure.Core;
@@ -12,7 +11,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 {
-    public class LoadRawDataStep : IStep
+    public class LoadRawDataStep : IStep<long>
     {
         private Channel<string> _outputChannel;
         private Task _runningTask;
@@ -24,13 +23,9 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             _outputChannel = outputChannel;
             _credential = credential;
             _blobUri = blobUri;
-
-            Children = new List<IStep>();
         }
 
-        public IReadOnlyCollection<IStep> Children { get; set; }
-
-        public void Start()
+        public void Start(IProgress<long> progress)
         {
             _runningTask = Task.Run(async () =>
             {

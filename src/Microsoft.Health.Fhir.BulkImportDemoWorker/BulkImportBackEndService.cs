@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                 {
                     if (taskInfo.TaskTypeId == BulkImportTask.BulkImportTaskType)
                     {
-                        return new BulkImportTask(_searchIndexer, _rawResourceFactory, _resourceIdProvider, _configuration, taskInfo.InputData);
+                        return new BulkImportTask(_searchIndexer, _rawResourceFactory, _resourceIdProvider, _configuration, JsonConvert.DeserializeObject<BulkImportTaskInput>(taskInfo.InputData));
                     }
                     else
                     {

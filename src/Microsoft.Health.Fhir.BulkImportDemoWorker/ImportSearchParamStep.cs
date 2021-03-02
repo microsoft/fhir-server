@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -15,10 +16,10 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 {
-    public class ImportSearchParamStep : IStep
+    public class ImportSearchParamStep : IStep<long>
     {
-        private const int MaxBatchSize = 100000;
-        private const int ConcurrentLimit = 4;
+        private const int MaxBatchSize = 10000;
+        private const int ConcurrentLimit = 5;
 
         private Task _runningTask;
         private Dictionary<SearchParamType, List<BulkCopySearchParamWrapper>> _buffer;
@@ -26,6 +27,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
         private Dictionary<SearchParamType, ISearchParamGenerator> _generators;
         private ModelProvider _provider;
         private IConfiguration _configuration;
+        private long _processedCount = 0;
         private Queue<Task> _bulkCopyTasks = new Queue<Task>();
 
         public ImportSearchParamStep(
@@ -41,7 +43,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             InitializeSearchParamGenerator();
         }
 
-        public void Start()
+        public void Start(IProgress<long> progress)
         {
             _runningTask = Task.Run(async () =>
             {
@@ -74,12 +76,12 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                         BulkCopySearchParamWrapper[] items = _buffer[parameterType].ToArray();
                         _buffer[parameterType].Clear();
 
-                        _bulkCopyTasks.Enqueue(BulkCopyToSearchParamTableAsync(parameterType, items));
+                        _bulkCopyTasks.Enqueue(BulkCopyToSearchParamTableAsync(parameterType, items, progress));
                     }
 
                     foreach (var searchParams in _buffer)
                     {
-                        _bulkCopyTasks.Enqueue(BulkCopyToSearchParamTableAsync(searchParams.Key, searchParams.Value.ToArray()));
+                        _bulkCopyTasks.Enqueue(BulkCopyToSearchParamTableAsync(searchParams.Key, searchParams.Value.ToArray(), progress));
                     }
 
                     Task.WaitAll(_bulkCopyTasks.ToArray());
@@ -92,7 +94,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             await _runningTask;
         }
 
-        private async Task BulkCopyToSearchParamTableAsync(SearchParamType parameterType, BulkCopySearchParamWrapper[] items)
+        private async Task BulkCopyToSearchParamTableAsync(SearchParamType parameterType, BulkCopySearchParamWrapper[] items, IProgress<long> progress)
         {
             ISearchParamGenerator generator = _generators[parameterType];
             using (SqlConnection destinationConnection =
@@ -120,7 +122,9 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                             generator.TableName;
                         await bulkCopy.WriteToServerAsync(reader);
 
-                        Console.WriteLine($"{items.Length} {parameterType.ToString()} search params to db completed.");
+                        Interlocked.Add(ref _processedCount, items.Length);
+                        progress.Report(_processedCount);
+                        Console.WriteLine($"{_processedCount} {parameterType.ToString()} search params to db completed.");
                     }
                     catch (Exception ex)
                     {

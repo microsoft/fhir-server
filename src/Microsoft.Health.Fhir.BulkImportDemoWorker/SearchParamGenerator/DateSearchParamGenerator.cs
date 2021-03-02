@@ -78,8 +78,8 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
             row["ResourceTypeId"] = _modelProvider.ResourceTypeMapping[searchParam.Resource.InstanceType];
             row["ResourceSurrogateId"] = searchParam.SurrogateId;
             row["SearchParamId"] = _modelProvider.SearchParamTypeMapping.ContainsKey(searchParam.SearchIndexEntry.SearchParameter.Url) ? _modelProvider.SearchParamTypeMapping[searchParam.SearchIndexEntry.SearchParameter.Url] : 0;
-            row["StartDateTime"] = searchValue.Start;
-            row["EndDateTime"] = searchValue.End;
+            row["StartDateTime"] = searchValue.Start.DateTime;
+            row["EndDateTime"] = searchValue.End.DateTime;
             row["IsLongerThanADay"] = (searchValue.Start - searchValue.End).Ticks > TimeSpan.TicksPerDay;
             row["IsHistory"] = false;
 

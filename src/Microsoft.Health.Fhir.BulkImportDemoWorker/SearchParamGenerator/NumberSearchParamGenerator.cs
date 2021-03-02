@@ -43,19 +43,19 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
             table.Columns.Add(column);
 
             column = new DataColumn();
-            column.DataType = typeof(decimal?);
+            column.DataType = typeof(decimal);
             column.ColumnName = "SingleValue";
             column.ReadOnly = true;
             table.Columns.Add(column);
 
             column = new DataColumn();
-            column.DataType = typeof(decimal?);
+            column.DataType = typeof(decimal);
             column.ColumnName = "LowValue";
             column.ReadOnly = true;
             table.Columns.Add(column);
 
             column = new DataColumn();
-            column.DataType = typeof(decimal?);
+            column.DataType = typeof(decimal);
             column.ColumnName = "HighValue";
             column.ReadOnly = true;
             table.Columns.Add(column);
