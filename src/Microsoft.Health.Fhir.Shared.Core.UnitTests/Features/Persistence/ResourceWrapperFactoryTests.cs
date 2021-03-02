@@ -90,16 +90,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 switch (searchEntry.Value.ToString())
                 {
                     case "alpha":
-                        Assert.True(searchEntryValue.IsMin.GetValueOrDefault());
-                        Assert.False(searchEntryValue.IsMax.GetValueOrDefault());
+                        Assert.True(searchEntryValue.IsMin);
+                        Assert.False(searchEntryValue.IsMax);
                         break;
                     case "beta":
-                        Assert.False(searchEntryValue.IsMin.GetValueOrDefault());
-                        Assert.False(searchEntryValue.IsMax.GetValueOrDefault());
+                        Assert.False(searchEntryValue.IsMin);
+                        Assert.False(searchEntryValue.IsMax);
                         break;
                     case "gamma":
-                        Assert.False(searchEntryValue.IsMin.GetValueOrDefault());
-                        Assert.True(searchEntryValue.IsMax.GetValueOrDefault());
+                        Assert.False(searchEntryValue.IsMin);
+                        Assert.True(searchEntryValue.IsMax);
                         break;
                     default:
                         throw new Exception("Unexpected value");

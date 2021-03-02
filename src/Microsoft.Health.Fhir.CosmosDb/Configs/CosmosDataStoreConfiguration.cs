@@ -47,7 +47,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         /// </summary>
         public int SearchEnumerationTimeoutInSeconds { get; set; } = 30;
 
-
         /// <summary>
         /// Enables chained searches in CosmosDB
         /// </summary>

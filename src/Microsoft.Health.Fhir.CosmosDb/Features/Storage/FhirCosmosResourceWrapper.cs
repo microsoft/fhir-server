@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             foreach (SearchIndexEntry entry in searchIndices)
             {
-                if (entry.Value is ISupportSortSearchValue sortValue && (sortValue.IsMax.HasValue || sortValue.IsMin.HasValue))
+                if (entry.Value is ISupportSortSearchValue sortValue && (sortValue.IsMax || sortValue.IsMin))
                 {
                     if (SortValues.TryGetValue(entry.SearchParameter.Code, out SortValue item))
                     {
@@ -149,12 +149,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             void SetSortValue(SortValue item, ISupportSortSearchValue sortValue, SearchIndexEntry entry)
             {
-                if (sortValue.IsMax.GetValueOrDefault())
+                if (sortValue.IsMax)
                 {
                     item.High = entry.Value;
                 }
 
-                if (sortValue.IsMin.GetValueOrDefault())
+                if (sortValue.IsMin)
                 {
                     item.Low = entry.Value;
                 }
