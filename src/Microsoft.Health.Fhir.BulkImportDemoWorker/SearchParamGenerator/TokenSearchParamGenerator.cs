@@ -76,11 +76,16 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
             row["ResourceTypeId"] = _modelProvider.ResourceTypeMapping[searchParam.Resource.InstanceType];
             row["ResourceSurrogateId"] = searchParam.SurrogateId;
             row["SearchParamId"] = _modelProvider.SearchParamTypeMapping.ContainsKey(searchParam.SearchIndexEntry.SearchParameter.Url) ? _modelProvider.SearchParamTypeMapping[searchParam.SearchIndexEntry.SearchParameter.Url] : 0;
-            row["SystemId"] = 0;
-            row["Code"] = searchValue.Code;
             row["IsHistory"] = false;
+            FillInRow(row, searchValue);
 
             return row;
+        }
+
+        public static void FillInRow(DataRow row, TokenSearchValue searchValue, string index = "")
+        {
+            row["SystemId" + index] = 0;
+            row["Code" + index] = searchValue.Code;
         }
     }
 }

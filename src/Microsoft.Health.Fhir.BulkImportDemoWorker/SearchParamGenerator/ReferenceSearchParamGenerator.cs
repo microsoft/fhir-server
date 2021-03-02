@@ -83,13 +83,18 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
             row["ResourceTypeId"] = _modelProvider.ResourceTypeMapping[searchParam.Resource.InstanceType];
             row["ResourceSurrogateId"] = searchParam.SurrogateId;
             row["SearchParamId"] = _modelProvider.SearchParamTypeMapping.ContainsKey(searchParam.SearchIndexEntry.SearchParameter.Url) ? _modelProvider.SearchParamTypeMapping[searchParam.SearchIndexEntry.SearchParameter.Url] : 0;
-            row["BaseUri"] = searchValue.BaseUri.ToString();
-            row["ReferenceResourceTypeId"] = _modelProvider.ResourceTypeMapping.ContainsKey(searchValue.ResourceType) ? _modelProvider.ResourceTypeMapping[searchValue.ResourceType] : 0;
-            row["ReferenceResourceId"] = searchValue.ResourceId;
-            row["ReferenceResourceVersion"] = 1;
             row["IsHistory"] = false;
+            FillInRow(row, searchValue, _modelProvider);
 
             return row;
+        }
+
+        public static void FillInRow(DataRow row, ReferenceSearchValue searchValue, ModelProvider modelProvider, string index = "")
+        {
+            row["BaseUri" + index] = searchValue.BaseUri.ToString();
+            row["ReferenceResourceTypeId" + index] = modelProvider.ResourceTypeMapping.ContainsKey(searchValue.ResourceType) ? modelProvider.ResourceTypeMapping[searchValue.ResourceType] : 0;
+            row["ReferenceResourceId" + index] = searchValue.ResourceId;
+            row["ReferenceResourceVersion" + index] = 1;
         }
     }
 }

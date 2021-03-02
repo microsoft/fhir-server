@@ -7,10 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
@@ -21,9 +23,9 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
         private const int ConcurrentLimit = 4;
 
         private Task _runningTask;
-        private Dictionary<SearchParamType, List<BulkCopySearchParamWrapper>> _buffer;
+        private Dictionary<string, List<BulkCopySearchParamWrapper>> _buffer;
         private Channel<BulkCopySearchParamWrapper> _input;
-        private Dictionary<SearchParamType, ISearchParamGenerator> _generators;
+        private Dictionary<string, ISearchParamGenerator> _generators;
         private ModelProvider _provider;
         private IConfiguration _configuration;
         private Queue<Task> _bulkCopyTasks = new Queue<Task>();
@@ -33,7 +35,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             ModelProvider provider,
             IConfiguration configuration)
         {
-            _buffer = new Dictionary<SearchParamType, List<BulkCopySearchParamWrapper>>();
+            _buffer = new Dictionary<string, List<BulkCopySearchParamWrapper>>();
             _input = input;
             _provider = provider;
             _configuration = configuration;
@@ -49,7 +51,12 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                 {
                     await foreach (BulkCopySearchParamWrapper resource in _input.Reader.ReadAllAsync())
                     {
-                        var parameterType = resource.SearchIndexEntry.SearchParameter.Type;
+                        var parameterType = resource.SearchIndexEntry.SearchParameter.Type.ToString();
+                        if (parameterType.ToUpperInvariant() == "COMPOSITE")
+                        {
+                            parameterType = ResloveCompositeType((CompositeSearchValue)resource.SearchIndexEntry.Value);
+                        }
+
                         if (!_generators.ContainsKey(parameterType))
                         {
                             continue; // TODO: we should throw exception for not support later.
@@ -92,7 +99,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             throw new System.NotImplementedException();
         }
 
-        private async Task BulkCopyToSearchParamTableAsync(SearchParamType parameterType, BulkCopySearchParamWrapper[] items)
+        private async Task BulkCopyToSearchParamTableAsync(string parameterType, BulkCopySearchParamWrapper[] items)
         {
             ISearchParamGenerator generator = _generators[parameterType];
             using (SqlConnection destinationConnection =
@@ -134,18 +141,43 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             }
         }
 
+        private static string ResloveCompositeType(CompositeSearchValue compositeSearchValue)
+        {
+            var components = compositeSearchValue.Components;
+            var res = string.Empty;
+
+            foreach (var component in components)
+            {
+                string type = component[0].GetType().ToString();
+                type = type.Split(".").Last();
+                type = type.Substring(0, type.Length - 11); // remove character search value
+                for (int i = 0; i < component.Count; i++)
+                {
+                    res += type;
+                }
+            }
+
+            return res + "Composite";
+        }
+
         private void InitializeSearchParamGenerator()
         {
-            _generators = new Dictionary<SearchParamType, ISearchParamGenerator>()
+            _generators = new Dictionary<string, ISearchParamGenerator>()
             {
-                { SearchParamType.String, new StringSearchParamGenerator(_provider) },
-                { SearchParamType.Number, new NumberSearchParamGenerator(_provider) },
-                { SearchParamType.Uri, new UriSearchParamGenerator(_provider) },
-                { SearchParamType.Date, new DateSearchParamGenerator(_provider) },
-                { SearchParamType.Token, new TokenSearchParamGenerator(_provider) },
-                { SearchParamType.Quantity, new QuantitySearchParamGenerator(_provider) },
-                { SearchParamType.Reference, new ReferenceSearchParamGenerator(_provider) },
-                { SearchParamType.Special, new StringSearchParamGenerator(_provider) },
+                { SearchParamType.String.ToString(), new StringSearchParamGenerator(_provider) },
+                { SearchParamType.Number.ToString(), new NumberSearchParamGenerator(_provider) },
+                { SearchParamType.Uri.ToString(), new UriSearchParamGenerator(_provider) },
+                { SearchParamType.Date.ToString(), new DateSearchParamGenerator(_provider) },
+                { SearchParamType.Token.ToString(), new TokenSearchParamGenerator(_provider) },
+                { SearchParamType.Quantity.ToString(), new QuantitySearchParamGenerator(_provider) },
+                { SearchParamType.Reference.ToString(), new ReferenceSearchParamGenerator(_provider) },
+                { SearchParamType.Special.ToString(), new StringSearchParamGenerator(_provider) },
+                { "TokenTokenComposite", new TokenTokenCompositeSearchParamGenerator(_provider) },
+                { "ReferenceTokenComposite", new ReferenceTokenCompositeSearchParamGenerator(_provider) },
+                { "TokenDateTimeComposite", new TokenDateTimeCompositeSearchParamGenerator(_provider) },
+                { "TokenNumberNumberComposite", new TokenNumberNumberCompositeSearchParamGenerator(_provider) },
+                { "TokenQuantityComposite", new TokenQuantityCompositeSearchParamGenerator(_provider) },
+                { "TokenStringComposite", new TokenStringCompositeSearchParamGenerator(_provider) },
             };
         }
     }

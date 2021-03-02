@@ -55,19 +55,19 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
             table.Columns.Add(column);
 
             column = new DataColumn();
-            column.DataType = typeof(decimal?);
+            column.DataType = typeof(decimal);
             column.ColumnName = "SingleValue";
             column.ReadOnly = true;
             table.Columns.Add(column);
 
             column = new DataColumn();
-            column.DataType = typeof(decimal?);
+            column.DataType = typeof(decimal);
             column.ColumnName = "LowValue";
             column.ReadOnly = true;
             table.Columns.Add(column);
 
             column = new DataColumn();
-            column.DataType = typeof(decimal?);
+            column.DataType = typeof(decimal);
             column.ColumnName = "HighValue";
             column.ReadOnly = true;
             table.Columns.Add(column);
@@ -84,20 +84,27 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
         public DataRow GenerateDataRow(DataTable table, BulkCopySearchParamWrapper searchParam)
         {
             QuantitySearchValue searchValue = (QuantitySearchValue)searchParam.SearchIndexEntry.Value;
-            bool isSingleValue = searchValue.Low == searchValue.High;
 
             DataRow row = table.NewRow();
             row["ResourceTypeId"] = _modelProvider.ResourceTypeMapping[searchParam.Resource.InstanceType];
             row["ResourceSurrogateId"] = searchParam.SurrogateId;
             row["SearchParamId"] = _modelProvider.SearchParamTypeMapping.ContainsKey(searchParam.SearchIndexEntry.SearchParameter.Url) ? _modelProvider.SearchParamTypeMapping[searchParam.SearchIndexEntry.SearchParameter.Url] : 0;
-            row["SystemId"] = 0;
-            row["QuantityCodeId"] = 0;
-            row["SingleValue"] = isSingleValue ? searchValue.Low : null;
-            row["LowValue"] = searchValue.Low ?? 0;
-            row["HighValue"] = searchValue.High ?? 0;
             row["IsHistory"] = false;
+            FillInRow(row, searchValue);
 
             return row;
+        }
+
+        public static void FillInRow(DataRow row, QuantitySearchValue searchValue, string index = "")
+        {
+            row["SystemId" + index] = 0;
+            row["QuantityCodeId" + index] = 0;
+            row["LowValue" + index] = searchValue.Low ?? 0;
+            row["HighValue" + index] = searchValue.High ?? 0;
+            if (searchValue.Low == searchValue.High)
+            {
+                row["SingleValue" + index] = searchValue.Low;
+            }
         }
     }
 }

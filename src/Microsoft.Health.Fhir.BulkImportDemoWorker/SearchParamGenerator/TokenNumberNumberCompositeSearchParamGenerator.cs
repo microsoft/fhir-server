@@ -8,16 +8,16 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
 {
-    public class StringSearchParamGenerator : ISearchParamGenerator
+    public class TokenNumberNumberCompositeSearchParamGenerator : ISearchParamGenerator
     {
         private ModelProvider _modelProvider;
 
-        public StringSearchParamGenerator(ModelProvider modelProvider)
+        public TokenNumberNumberCompositeSearchParamGenerator(ModelProvider modelProvider)
         {
             _modelProvider = modelProvider;
         }
 
-        public string TableName => "dbo.StringSearchParam";
+        public string TableName => "dbo.TokenNumberNumberCompositeSearchParam";
 
         public DataTable CreateDataTable()
         {
@@ -44,13 +44,55 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
 
             column = new DataColumn();
             column.DataType = typeof(string);
-            column.ColumnName = "Text";
+            column.ColumnName = "SystemId1";
             column.ReadOnly = true;
             table.Columns.Add(column);
 
             column = new DataColumn();
             column.DataType = typeof(string);
-            column.ColumnName = "TextOverflow";
+            column.ColumnName = "Code1";
+            column.ReadOnly = true;
+            table.Columns.Add(column);
+
+            column = new DataColumn();
+            column.DataType = typeof(decimal);
+            column.ColumnName = "SingleValue2";
+            column.ReadOnly = true;
+            table.Columns.Add(column);
+
+            column = new DataColumn();
+            column.DataType = typeof(decimal);
+            column.ColumnName = "LowValue2";
+            column.ReadOnly = true;
+            table.Columns.Add(column);
+
+            column = new DataColumn();
+            column.DataType = typeof(decimal);
+            column.ColumnName = "HighValue2";
+            column.ReadOnly = true;
+            table.Columns.Add(column);
+
+            column = new DataColumn();
+            column.DataType = typeof(decimal);
+            column.ColumnName = "SingleValue3";
+            column.ReadOnly = true;
+            table.Columns.Add(column);
+
+            column = new DataColumn();
+            column.DataType = typeof(decimal);
+            column.ColumnName = "LowValue3";
+            column.ReadOnly = true;
+            table.Columns.Add(column);
+
+            column = new DataColumn();
+            column.DataType = typeof(decimal);
+            column.ColumnName = "HighValue3";
+            column.ReadOnly = true;
+            table.Columns.Add(column);
+
+            column = new DataColumn();
+            column.DataType = typeof(bool);
+            column.ColumnName = "HasRange";
             column.ReadOnly = true;
             table.Columns.Add(column);
 
@@ -65,37 +107,22 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
 
         public DataRow GenerateDataRow(DataTable table, BulkCopySearchParamWrapper searchParam)
         {
-            StringSearchValue searchValue = (StringSearchValue)searchParam.SearchIndexEntry.Value;
+            var content = ((CompositeSearchValue)searchParam.SearchIndexEntry.Value).Components;
+            var token = (TokenSearchValue)content[0][0];
+            var number1 = (NumberSearchValue)content[1][0];
+            var number2 = (NumberSearchValue)content[1][1];
 
             DataRow row = table.NewRow();
             row["ResourceTypeId"] = _modelProvider.ResourceTypeMapping[searchParam.Resource.InstanceType];
             row["ResourceSurrogateId"] = searchParam.SurrogateId;
             row["SearchParamId"] = _modelProvider.SearchParamTypeMapping.ContainsKey(searchParam.SearchIndexEntry.SearchParameter.Url) ? _modelProvider.SearchParamTypeMapping[searchParam.SearchIndexEntry.SearchParameter.Url] : 0;
+            row["HasRange"] = false;
             row["IsHistory"] = false;
-            FillInRow(row, searchValue);
+            TokenSearchParamGenerator.FillInRow(row, token, "1");
+            NumberSearchParamGenerator.FillInRow(row, number1, "2");
+            NumberSearchParamGenerator.FillInRow(row, number2, "2");
 
             return row;
-        }
-
-        public static void FillInRow(DataRow row, StringSearchValue searchValue, string index = "")
-        {
-            string content = searchValue.String;
-            string overflow;
-            string indexedPrefix;
-
-            if (content.Length > 256)
-            {
-                indexedPrefix = content.Substring(0, 256);
-                overflow = content;
-            }
-            else
-            {
-                indexedPrefix = content;
-                overflow = null;
-            }
-
-            row["Text" + index] = indexedPrefix;
-            row["TextOverflow" + index] = overflow;
         }
     }
 }
