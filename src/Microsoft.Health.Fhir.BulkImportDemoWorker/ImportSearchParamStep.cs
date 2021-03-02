@@ -7,11 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-<<<<<<< HEAD
 using System.Linq;
-=======
 using System.Threading;
->>>>>>> 0302
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -104,7 +101,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             await _runningTask;
         }
 
-        private async Task BulkCopyToSearchParamTableAsync(SearchParamType parameterType, BulkCopySearchParamWrapper[] items, IProgress<long> progress)
+        private async Task BulkCopyToSearchParamTableAsync(string parameterType, BulkCopySearchParamWrapper[] items, IProgress<long> progress)
         {
             ISearchParamGenerator generator = _generators[parameterType];
             using (SqlConnection destinationConnection =
