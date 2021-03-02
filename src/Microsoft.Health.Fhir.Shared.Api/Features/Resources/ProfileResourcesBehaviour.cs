@@ -3,9 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -13,6 +10,7 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -27,15 +25,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>
     {
         private IFhirAuthorizationService _authorizationService;
-        private static IEnumerable<string> _supportedTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "ValueSet", "StructureDefinition", "CodeSystem", "ConceptMap", "NamingSystem",
-        };
+        private IProvideProfilesForValidation _profilesResolver;
 
-        public ProfileResourcesBehaviour(IFhirAuthorizationService authorizationService)
+        public ProfileResourcesBehaviour(IFhirAuthorizationService authorizationService, IProvideProfilesForValidation profilesResolver)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _authorizationService = authorizationService;
+            _profilesResolver = profilesResolver;
         }
 
         public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
@@ -55,7 +51,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
         private async Task<TResponse> GenericHandle<TResponse>(string resourceType, RequestHandlerDelegate<TResponse> next)
         {
-            if (_supportedTypes.Contains(resourceType) && await _authorizationService.CheckAccess(DataActions.ProfileAdmin) != DataActions.ProfileAdmin)
+            var resources = _profilesResolver.GetProfilesTypes();
+            if (resources.Contains(resourceType) && await _authorizationService.CheckAccess(DataActions.ProfileAdmin) != DataActions.ProfileAdmin)
             {
                 throw new UnauthorizedFhirActionException();
             }

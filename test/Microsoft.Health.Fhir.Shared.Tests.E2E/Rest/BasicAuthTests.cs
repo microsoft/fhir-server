@@ -254,18 +254,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenUserWithNoProfileAdminPermission_WhenCUDAction_ThenServerShouldReturnForbidden()
+        public async Task GivenUserWithNoProfileAdminPermission_WhenCreate_ThenServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync<ValueSet>(resource));
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
 
-            fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.UpdateAsync<ValueSet>(resource));
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenUserWithNoProfileAdminPermission_WhenUpdate_ThenServerShouldReturnForbidden()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.UpdateAsync<ValueSet>(resource));
+
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
-            fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.DeleteAsync<ValueSet>(resource));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenUserWithNoProfileAdminPermission_WhenDelete_ThenServerShouldReturnForbidden()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.DeleteAsync<ValueSet>(resource));
+
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
