@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     internal interface IQueryBuilder
     {
-        QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, QueryBuilderOptions queryOptions);
+        QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, QueryBuilderOptions queryOptions = null);
 
         QueryDefinition GenerateHistorySql(SearchOptions searchOptions);
 

@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             if (searchOptions.CountOnly)
             {
                 int count = await ExecuteCountSearchAsync(
-                    _queryBuilder.BuildSqlQuerySpec(searchOptions, new QueryBuilderOptions(Array.Empty<IncludeExpression>())),
+                    _queryBuilder.BuildSqlQuerySpec(searchOptions),
                     cancellationToken);
 
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     // And perform a second read.
                     searchResult.TotalCount = await ExecuteCountSearchAsync(
-                        _queryBuilder.BuildSqlQuerySpec(searchOptions,  new QueryBuilderOptions(Array.Empty<IncludeExpression>())),
+                        _queryBuilder.BuildSqlQuerySpec(searchOptions),
                         cancellationToken);
                 }
             }
@@ -410,7 +410,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
                     };
 
-                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions, new QueryBuilderOptions(Array.Empty<IncludeExpression>()));
+                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions);
 
                     (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
                     do
@@ -465,7 +465,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
                     };
 
-                    QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions, new QueryBuilderOptions(Array.Empty<IncludeExpression>()));
+                    QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions);
 
                     (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
                     do
