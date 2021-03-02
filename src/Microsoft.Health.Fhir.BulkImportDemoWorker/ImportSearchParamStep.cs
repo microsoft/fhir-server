@@ -94,9 +94,9 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             });
         }
 
-        public Task WaitForStopAsync()
+        public async Task WaitForStopAsync()
         {
-            throw new System.NotImplementedException();
+            await _runningTask;
         }
 
         private async Task BulkCopyToSearchParamTableAsync(string parameterType, BulkCopySearchParamWrapper[] items)

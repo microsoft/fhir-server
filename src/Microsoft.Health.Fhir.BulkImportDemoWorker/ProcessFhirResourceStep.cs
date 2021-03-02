@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
     public class ProcessFhirResourceStep : IStep
     {
         private static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
-        private const int MaxBatchSize = 1000;
+        private const int MaxBatchSize = 500;
         private const int ConcurrentLimit = 8;
 
         private Channel<string> _input;

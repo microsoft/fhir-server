@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
+using Hl7.Fhir.FhirPath;
+using Hl7.FhirPath;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -35,7 +37,9 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             string sqlConnectionString = _configuration["SqlConnectionString"];
-            using SqlTaskConsumer consumer = new SqlTaskConsumer(sqlConnectionString, "WorkerQueue");
+            using SqlTaskConsumer consumer = new SqlTaskConsumer(sqlConnectionString, _configuration["WorkerQueueName"]);
+
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
             TaskHosting hosting = new TaskHosting(
                 consumer,
