@@ -86,8 +86,8 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
 
         public static void FillInRow(DataRow row, DateTimeSearchValue searchValue, string index = "")
         {
-            row["StartDateTime" + index] = searchValue.Start;
-            row["EndDateTime" + index] = searchValue.End;
+            row["StartDateTime" + index] = searchValue.Start.DateTime;
+            row["EndDateTime" + index] = searchValue.End.DateTime;
             row["IsLongerThanADay" + index] = (searchValue.Start - searchValue.End).Ticks > TimeSpan.TicksPerDay;
         }
     }

@@ -24,7 +24,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 {
-    public class ProcessFhirResourceStep : IStep
+    public class ProcessFhirResourceStep : IStep<long>
     {
         private static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
         private const int MaxBatchSize = 500;
@@ -40,24 +40,26 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
         private IRawResourceFactory _rawResourceFactory;
         private RecyclableMemoryStreamManager _memoryStreamManager;
         private long _currentSurrogateId;
+        private long _processedCount = 0;
 
         public ProcessFhirResourceStep(
             Channel<string> input,
             Channel<BulkCopyResourceWrapper> resourceOutput,
             Channel<BulkCopySearchParamWrapper> searchParamOutput,
             ISearchIndexer searchIndexer,
-            IRawResourceFactory rawResourceFactory)
+            IRawResourceFactory rawResourceFactory,
+            long startSurrogateId)
         {
             _input = input;
             _resourceOutput = resourceOutput;
             _searchParamOutput = searchParamOutput;
             _searchIndexer = searchIndexer;
             _rawResourceFactory = rawResourceFactory;
-            _currentSurrogateId = LastUpdatedToResourceSurrogateId(DateTime.UtcNow);
+            _currentSurrogateId = startSurrogateId;
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public void Start()
+        public void Start(IProgress<long> progress)
         {
             _runningTask = Task.Run(async () =>
             {
@@ -80,11 +82,11 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 
                         string[] contents = _buffer.ToArray();
                         _buffer.Clear();
-                        _processingTasks.Enqueue(ProcessRawDataAsync(contents, parser));
+                        _processingTasks.Enqueue(ProcessRawDataAsync(contents, parser, progress));
                     }
                 }
 
-                _processingTasks.Enqueue(ProcessRawDataAsync(_buffer.ToArray(), parser));
+                _processingTasks.Enqueue(ProcessRawDataAsync(_buffer.ToArray(), parser, progress));
                 while (_processingTasks.Count() > 0)
                 {
                     await WaitForOneTaskCompleteAsync();
@@ -95,7 +97,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             });
         }
 
-        private async Task<IReadOnlyCollection<(ResourceElement, byte[], IReadOnlyCollection<SearchIndexEntry>)>> ProcessRawDataAsync(string[] contents, FhirJsonParser parser)
+        private async Task<IReadOnlyCollection<(ResourceElement, byte[], IReadOnlyCollection<SearchIndexEntry>)>> ProcessRawDataAsync(string[] contents, FhirJsonParser parser, IProgress<long> progress)
         {
             return await Task.Run(() =>
             {
@@ -110,6 +112,9 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                     byte[] rawData = WriteCompressedRawResource(rawResourceString);
                     result.Add((resourceElement, rawData, searchIndexEntry));
                 }
+
+                Interlocked.Add(ref _processedCount, contents.Length);
+                progress.Report(_processedCount);
 
                 return result;
             });

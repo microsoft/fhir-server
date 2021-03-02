@@ -15,12 +15,12 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 {
-    public class ImportResourceTableStep : IStep
+    public class ImportResourceTableStep : IStep<long>
     {
         private const int MaxBatchSize = 1000;
         private const int ConcurrentLimit = 20;
 
-        private long copiedCount = 0;
+        private long _processedCount = 0;
         private Channel<BulkCopyResourceWrapper> _input;
         private Task _runningTask;
         private ResourceIdProvider _resourceIdProvider;
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             _resourceTypeMappings = modelProvider.ResourceTypeMapping;
         }
 
-        public void Start()
+        public void Start(IProgress<long> progress)
         {
             _runningTask = Task.Run(async () =>
             {
@@ -58,16 +58,16 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 
                         if (_runningTasks.Count >= ConcurrentLimit)
                         {
-                            await _runningTasks.Dequeue();
+                            await WaitSingleTaskCompleteAsync();
                         }
 
                         var items = _buffer.ToArray();
                         _buffer.Clear();
-                        _runningTasks.Enqueue(ProcessResourceElementsInBufferAsync(items));
+                        _runningTasks.Enqueue(ProcessResourceElementsInBufferAsync(items, progress));
                     }
                 }
 
-                _runningTasks.Enqueue(ProcessResourceElementsInBufferAsync(_buffer.ToArray()));
+                _runningTasks.Enqueue(ProcessResourceElementsInBufferAsync(_buffer.ToArray(), progress));
 
                 while (_runningTasks.Count > 0)
                 {
@@ -76,12 +76,24 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             });
         }
 
+        private async Task WaitSingleTaskCompleteAsync()
+        {
+            try
+            {
+                await _runningTasks.Dequeue();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
         public async Task WaitForStopAsync()
         {
             await _runningTask;
         }
 
-        private async Task ProcessResourceElementsInBufferAsync(BulkCopyResourceWrapper[] data)
+        private async Task ProcessResourceElementsInBufferAsync(BulkCopyResourceWrapper[] data, IProgress<long> progress)
         {
             using SqlConnection destinationConnection =
                        new SqlConnection(_configuration["SqlConnectionString"]);
@@ -116,8 +128,10 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                     bulkCopy.DestinationTableName = "dbo.Resource";
                     await bulkCopy.WriteToServerAsync(reader);
 
-                    Interlocked.Add(ref copiedCount, importTable.Rows.Count);
-                    Console.WriteLine($"{copiedCount} resource to db completed.");
+                    Interlocked.Add(ref _processedCount, importTable.Rows.Count);
+                    progress.Report(_processedCount);
+
+                    Console.WriteLine($"{_processedCount} resource to db completed.");
                 }
                 catch (Exception ex)
                 {
