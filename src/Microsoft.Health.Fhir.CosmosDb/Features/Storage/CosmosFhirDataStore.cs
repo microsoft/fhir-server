@@ -32,6 +32,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelet
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IO;
+using Polly;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -98,6 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
+            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.GetRetryPolicy();
 
             _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
@@ -106,7 +108,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // Optimistically try to create this as a new resource
                 try
                 {
-                    await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                    await retryPolicy.ExecuteAsync(
                         async ct => await _containerScope.Value.CreateItemAsync(
                             cosmosWrapper,
                             partitionKey,
@@ -124,10 +126,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 FhirCosmosResourceWrapper existingItemResource;
                 try
                 {
-                    ItemResponse<FhirCosmosResourceWrapper> existingItem = await _containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, partitionKey, cancellationToken: cancellationToken);
+                    ItemResponse<FhirCosmosResourceWrapper> existingItem = await retryPolicy.ExecuteAsync(
+                        async ct => await _containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, partitionKey, cancellationToken: ct),
+                        cancellationToken);
                     existingItemResource = existingItem.Resource;
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
@@ -160,19 +166,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     return null;
                 }
 
-                existingItemResource.IsHistory = true;
-                existingItemResource.ActivePeriodEndDateTime = cosmosWrapper.LastModified;
-                existingItemResource.SearchIndices = null;
-
                 cosmosWrapper.Version = int.TryParse(existingItemResource.Version, out int existingVersion) ? (existingVersion + 1).ToString(CultureInfo.InvariantCulture) : Guid.NewGuid().ToString();
-
-                // indicate that the version in the raw resource's meta property does not reflect the actual version.
-                cosmosWrapper.RawResource.IsMetaSet = false;
 
                 if (cosmosWrapper.RawResource.Format == FhirResourceFormat.Json)
                 {
                     // Update the raw resource based on the new version.
-                    // This is a lot faster than re-seserialing the POCO.
+                    // This is a lot faster than re-serializing the POCO.
                     // Unfortunately, we need to allocate a string, but at least it is reused for the HTTP response.
 
                     // If the format is not XML, IsMetaSet will remain false and we will update the version when the resource is read.
@@ -183,13 +182,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     using var reader = new StreamReader(memoryStream, Encoding.UTF8);
                     cosmosWrapper.RawResource = new RawResource(reader.ReadToEnd(), FhirResourceFormat.Json, isMetaSet: true);
                 }
+                else
+                {
+                    // indicate that the version in the raw resource's meta property does not reflect the actual version.
+                    cosmosWrapper.RawResource.IsMetaSet = false;
+                }
 
                 if (keepHistory)
                 {
-                    TransactionalBatchResponse transactionalBatchResponse = await _containerScope.Value.CreateTransactionalBatch(partitionKey)
-                        .ReplaceItem(cosmosWrapper.Id, cosmosWrapper, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag })
-                        .CreateItem(existingItemResource, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false })
-                        .ExecuteAsync(cancellationToken);
+                    existingItemResource.IsHistory = true;
+                    existingItemResource.ActivePeriodEndDateTime = cosmosWrapper.LastModified;
+                    existingItemResource.SearchIndices = null;
+
+                    TransactionalBatchResponse transactionalBatchResponse = await retryPolicy.ExecuteAsync(
+                        async ct =>
+                            await _containerScope.Value.CreateTransactionalBatch(partitionKey)
+                                .ReplaceItem(cosmosWrapper.Id, cosmosWrapper, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag })
+                                .CreateItem(existingItemResource, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false })
+                                .ExecuteAsync(cancellationToken: ct),
+                        cancellationToken);
 
                     if (!transactionalBatchResponse.IsSuccessStatusCode)
                     {
@@ -206,7 +217,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     try
                     {
-                        await _containerScope.Value.ReplaceItemAsync(cosmosWrapper, cosmosWrapper.Id, partitionKey, new ItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag }, cancellationToken);
+                        await retryPolicy.ExecuteAsync(
+                            async ct => await _containerScope.Value.ReplaceItemAsync(
+                                cosmosWrapper,
+                                cosmosWrapper.Id,
+                                partitionKey,
+                                new ItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag },
+                                cancellationToken: ct),
+                            cancellationToken);
                     }
                     catch (CosmosException e) when (e.StatusCode == HttpStatusCode.PreconditionFailed)
                     {
