@@ -168,6 +168,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 cosmosWrapper.Version = int.TryParse(existingItemResource.Version, out int existingVersion) ? (existingVersion + 1).ToString(CultureInfo.InvariantCulture) : Guid.NewGuid().ToString();
 
+                // indicate that the version in the raw resource's meta property does not reflect the actual version.
+                cosmosWrapper.RawResource.IsMetaSet = false;
+
                 if (cosmosWrapper.RawResource.Format == FhirResourceFormat.Json)
                 {
                     // Update the raw resource based on the new version.
@@ -181,11 +184,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     memoryStream.Position = 0;
                     using var reader = new StreamReader(memoryStream, Encoding.UTF8);
                     cosmosWrapper.RawResource = new RawResource(reader.ReadToEnd(), FhirResourceFormat.Json, isMetaSet: true);
-                }
-                else
-                {
-                    // indicate that the version in the raw resource's meta property does not reflect the actual version.
-                    cosmosWrapper.RawResource.IsMetaSet = false;
                 }
 
                 if (keepHistory)
