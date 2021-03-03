@@ -19,8 +19,8 @@ parameters:
 - name: dnsSuffix
   type: string
 - name: schemaAutomaticUpdatesEnabled
-  type: boolean
-  default: false
+  type: string
+  default: 'tool'
 - name: reindexEnabled
   type: boolean
   default: false
