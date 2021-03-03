@@ -155,6 +155,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await DeleteSearchParameterAndVerify(searchParamPosted.Resource);
         }
 
+        [Theory]
+        [InlineData("SearchParameterBadSyntax", "Parsing failure")]
+        [InlineData("SearchParameterExpressionWrongProperty", "not supported")]
+        [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
+        [InlineData("SearchParameterInvalidType", "Literal 'foo' is not a valid value for enumeration 'SearchParamType'")]
+        [InlineData("SearchParameterMissingBase", "cardinality is 1")]
+        [InlineData("SearchParameterMissingExpression", "not supported")]
+        [InlineData("SearchParameterMissingType", "cardinality 1 cannot be null")]
+        [InlineData("SearchParameterUnsupportedType", "not supported")]
+        public async Task GivenAnInvalidSearchParam_WhenCreatingParam_ThenMeaningfulErrorReturned(string searchParamFile, string errorMessage)
+        {
+            var searchParam = Samples.GetJson(searchParamFile);
+
+            try
+            {
+                await Client.PostAsync("SearchParameter", searchParam);
+            }
+            catch (FhirException ex)
+            {
+                Assert.True(ex.OperationOutcome.Issue.Where(i => i.Diagnostics.Contains(errorMessage)).Any());
+            }
+        }
+
         private async Task WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
         {
             int checkReindexCount = 0;
