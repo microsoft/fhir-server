@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [JsonProperty(KnownDocumentProperties.ActivePeriodEndDateTime)]
-        public DateTimeOffset? ActivePeriodEndDateTime { get; }
+        public DateTimeOffset? ActivePeriodEndDateTime { get; set; }
 
         [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; protected set; }
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices, ItemConverterType = typeof(SearchIndexEntryConverter))]
-        public override IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
+        public override IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; set; }
 
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey => ToResourceKey().ToPartitionKey();

@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public virtual bool IsHistory { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices)]
-        public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
+        public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }
