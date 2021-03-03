@@ -171,7 +171,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _fhirDataStore,
                 new QueryBuilder(),
                 _searchParameterDefinitionManager,
-                fhirRequestContextAccessor);
+                fhirRequestContextAccessor,
+                new CosmosDataStoreConfiguration());
 
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container);
         }
