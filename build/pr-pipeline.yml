@@ -65,6 +65,7 @@ stages:
   dependsOn: []
   jobs:
   - job: provision
+    displayName: 'Create Resource Group'
     pool:
       name: '$(DefaultLinuxPool)'
       vmImage: '$(LinuxVmImage)'
@@ -83,22 +84,29 @@ stages:
           catch
           {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
-  - template: ./jobs/cleanup-aad.yml
 
-
-- stage: aadTestEnvironment
-  displayName: Setup AAD Test Environment
+- stage: setupEnvironment
+  displayName: Setup Test Environment
   dependsOn:
+  - UpdateVersion
   - provisionEnvironment
   jobs:
-  - template: ./jobs/add-aad-test-environment.yml
+  - template: ./jobs/cleanup-aad.yml
+  - job: setup
+    displayName: 'Setup AAD'
+    dependsOn:
+    - cleanupAad
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    steps:
+    - template: ./jobs/add-aad-test-environment.yml
 
 - stage: deployAksR4Cosmos
   displayName: 'Deploy R4 Cosmos in AKS'
   condition: and(succeeded(), eq(variables.enableAks, 'true'))
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/deploy-aks.yml
     parameters: 
@@ -118,7 +126,7 @@ stages:
   condition: and(succeeded(), eq(variables.enableAks, 'true'))
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/deploy-aks.yml
     parameters: 
@@ -138,7 +146,7 @@ stages:
   condition: and(succeeded(), eq(variables.enableAks, 'true'))
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/deploy-aks.yml
     parameters: 
@@ -157,7 +165,7 @@ stages:
   displayName: 'Deploy STU3 Site'
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -175,7 +183,7 @@ stages:
   displayName: 'Deploy STU3 SQL Site'
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -194,7 +202,7 @@ stages:
   displayName: 'Deploy R4 Site'
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -212,7 +220,7 @@ stages:
   displayName: 'Deploy R4 SQL Site'
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -231,7 +239,7 @@ stages:
   displayName: 'Deploy R5 Site'
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -249,7 +257,7 @@ stages:
   displayName: 'Deploy R5 SQL Site'
   dependsOn:
   - DockerBuild
-  - aadTestEnvironment
+  - setupEnvironment
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -269,7 +277,7 @@ stages:
   condition: and(succeeded(), eq(variables.enableAks, 'true'))
   dependsOn:
   - BuildUnitTests
-  - aadTestEnvironment
+  - setupEnvironment
   - deployAksR4Cosmos
   jobs:
   - template: ./jobs/run-tests-aks.yml
@@ -285,7 +293,7 @@ stages:
   condition: and(succeeded(), eq(variables.enableAks, 'true'))
   dependsOn:
   - BuildUnitTests
-  - aadTestEnvironment
+  - setupEnvironment
   - deployAksR4Sql
   jobs:
   - template: ./jobs/run-tests-aks.yml
@@ -301,7 +309,7 @@ stages:
   condition: and(succeeded(), eq(variables.enableAks, 'true'))
   dependsOn:
   - BuildUnitTests
-  - aadTestEnvironment
+  - setupEnvironment
   - deployAksR4SqlContainer
   jobs:
   - template: ./jobs/run-tests-aks.yml
@@ -316,7 +324,7 @@ stages:
   displayName: 'Run Stu3 Tests'
   dependsOn:
   - BuildUnitTests
-  - aadTestEnvironment
+  - setupEnvironment
   - deployStu3
   - deployStu3Sql
   jobs:
@@ -329,7 +337,7 @@ stages:
   displayName: 'Run R4 Tests'
   dependsOn:
   - BuildUnitTests
-  - aadTestEnvironment
+  - setupEnvironment
   - deployR4
   - deployR4Sql
   jobs:
@@ -342,7 +350,7 @@ stages:
   displayName: 'Run R5 Tests'
   dependsOn:
   - BuildUnitTests
-  - aadTestEnvironment
+  - setupEnvironment
   - deployR5
   - deployR5Sql
   jobs:

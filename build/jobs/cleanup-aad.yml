@@ -1,6 +1,6 @@
 jobs:
 - job: cleanupAad
-  displayName: 'Cleanup Azure Active Directory'
+  displayName: 'Cleanup AAD'
   pool:
     vmImage: '$(WindowsVmImage)'
   steps:
