@@ -50,12 +50,12 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddOptions();
             services.AddMvc(options =>
-            {
-                options.EnableEndpointRouting = false;
-                options.RespectBrowserAcceptHeader = true;
-            })
-            .AddNewtonsoftJson()
-            .AddRazorRuntimeCompilation();
+                {
+                    options.EnableEndpointRouting = false;
+                    options.RespectBrowserAcceptHeader = true;
+                })
+                .AddNewtonsoftJson()
+                .AddRazorRuntimeCompilation();
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
@@ -172,14 +172,10 @@ namespace Microsoft.Extensions.DependencyInjection
                     app.UseFhirRequestContextAuthentication();
 
                     app.UseMiddleware<SearchPostReroutingMiddleware>();
-                    var throttlingConfig = app.ApplicationServices.GetService<IOptions<ThrottlingConfiguration>>();
 
-                    if (throttlingConfig?.Value?.Enabled == true)
-                    {
-                        // Throttling needs to come after Audit and ApiNotifications so we can audit it and track it for API metrics.
-                        // It should also be after authentication
-                        app.UseThrottling();
-                    }
+                    // Throttling needs to come after Audit and ApiNotifications so we can audit it and track it for API metrics.
+                    // It should also be after authentication
+                    app.UseThrottling();
 
                     next(app);
                 };
