@@ -107,7 +107,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 var searchParamUri = new Uri(uri);
 
                 var paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
-
                 updated.Add(paramInfo);
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                 paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
@@ -143,8 +142,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris)
         {
-            // new search parameters are added as supported, however the UpdateSearchParameterStatus will
-            // check the search parameter to ensure the fhirpath is valid and supported
+            // new search parameters are added as supported, until reindexing occurs, when
+            // they will be fully enabled
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported);
         }
 
