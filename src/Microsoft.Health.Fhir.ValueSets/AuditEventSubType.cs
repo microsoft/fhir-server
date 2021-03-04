@@ -60,5 +60,7 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string Reindex = "reindex";
 
         public const string ConvertData = "convert-data";
+
+        public const string Validate = "validate";
     }
 }

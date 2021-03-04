@@ -8,24 +8,29 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Features.Search;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ChainingSearchTests : SearchTestsBase<ChainingSearchTests.ClassFixture>
     {
         public ChainingSearchTests(ClassFixture fixture)
             : base(fixture)
         {
+            Client.HttpClient.DefaultRequestHeaders.TryAddWithoutValidation("x-ms-enable-chained-search", "true");
         }
 
         [Fact]
         public async Task GivenAChainedSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&subject:Patient.name=Smith";
+            string query = $"_tag={Fixture.Tag}&subject:Patient.name={Fixture.SmithPatientGivenName}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -35,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenANestedChainedSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&result.subject:Patient.name=Smith";
+            string query = $"_tag={Fixture.Tag}&result.subject:Patient.name={Fixture.SmithPatientGivenName}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -45,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAMultiNestedChainedSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&result.subject:Patient.organization.address-city=Seattle";
+            string query = $"_tag={Fixture.Tag}&result.subject:Patient.organization.address-city={Fixture.OrganizationCity}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -55,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenANestedChainedSearchExpressionWithAnOrFinalCondition_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&result.subject:Patient.name=Smith,Truman";
+            string query = $"_tag={Fixture.Tag}&result.subject:Patient.name={Fixture.SmithPatientGivenName},{Fixture.TrumanPatientGivenName}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -65,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&subject:Patient._type=Patient";
+            string query = $"_tag={Fixture.Tag}&subject:Patient._tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -75,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&subject:Patient._type=Patient&_count=2";
+            string query = $"_tag={Fixture.Tag}&subject:Patient._tag={Fixture.Tag}&_count=2";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -99,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code=429858000";
+            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code={Fixture.SnomedCode}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -109,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAReverseChainSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code=429858000&_count=1";
+            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:code={Fixture.SnomedCode}&_count=1";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -123,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAReverseChainSearchExpressionWithMultipleTargetTypes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"?_tag={Fixture.Tag}&_type=Patient,Device&_has:Observation:subject:code=429858000";
+            string query = $"?_tag={Fixture.Tag}&_type=Patient,Device&_has:Observation:subject:code={Fixture.SnomedCode}";
 
             Bundle bundle = await Client.SearchAsync(query);
 
@@ -133,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenANestedReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:_has:DiagnosticReport:result:code=429858000";
+            string query = $"_tag={Fixture.Tag}&_has:Observation:patient:_has:DiagnosticReport:result:code={Fixture.SnomedCode}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -150,6 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, Fixture.AdamsPatient, Fixture.SmithPatient, Fixture.TrumanPatient);
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         [Fact]
         public async Task GivenANestedReverseChainSearchExpressionOverTheTypeResourceParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -162,6 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Empty(bundle.Entry);
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         [Fact]
         public async Task GivenAChainedSearchExpressionWithAPredicateOnSurrogateId_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -205,7 +212,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_tag={Fixture.Tag}";
+            string query = $"_tag={Fixture.Tag}&code={Fixture.SnomedCode}&patient:Patient._has:Group:member:_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -215,7 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_tag={Fixture.Tag}&_count=1";
+            string query = $"_tag={Fixture.Tag}&code={Fixture.SnomedCode}&patient:Patient._has:Group:member:_tag={Fixture.Tag}&_count=1";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -229,7 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverAResourceTableParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}";
+            string query = $"_tag={Fixture.Tag}&code={Fixture.SnomedCode}&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -239,7 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverAResourceTableParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}&_count=1";
+            string query = $"_tag={Fixture.Tag}&code={Fixture.SnomedCode}&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}&_count=1";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -248,6 +255,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
             ValidateBundle(bundle, Fixture.TrumanSnomedDiagnosticReport);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+        [Fact]
+        public async Task GivenANonSelectiveChainingQueryInCosmosDb_WhenSearched_ThenAnErrorShouldBeThrown()
+        {
+            string query = $"subject:Patient.gender=male";
+
+            Patient resource = Samples.GetJsonSample("Patient-f001").ToPoco<Patient>();
+
+            // Create 101 patients that exceed the sub-query limit
+            for (var i = 0; i < 101; i++)
+            {
+                await Client.CreateAsync(resource);
+            }
+
+            await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Observation, query));
         }
 
         public class ClassFixture : HttpIntegrationTestFixture
@@ -269,6 +293,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public DiagnosticReport TrumanLoincDiagnosticReport { get; private set; }
 
+            public string SmithPatientGivenName { get; } = Guid.NewGuid().ToString();
+
+            public string TrumanPatientGivenName { get; } = Guid.NewGuid().ToString();
+
+            public string SnomedCode { get; } = Guid.NewGuid().ToString();
+
+            public string OrganizationCity { get; } = Guid.NewGuid().ToString();
+
             public Patient SmithPatient { get; private set; }
 
             public DiagnosticReport SmithSnomedDiagnosticReport { get; private set; }
@@ -284,7 +316,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Tag = Guid.NewGuid().ToString();
 
                 // Construct an observation pointing to a patient and a diagnostic report pointing to the observation and the patient along with some not matching entries
-                var snomedCode = new CodeableConcept("http://snomed.info/sct", "429858000");
+                var snomedCode = new CodeableConcept("http://snomed.info/sct", SnomedCode);
                 var loincCode = new CodeableConcept("http://loinc.org", "4548-4");
 
                 var meta = new Meta
@@ -295,11 +327,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-                var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
+                var organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new() { City = "Seattle" }, new() { City = OrganizationCity} } })).Resource;
 
                 AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
-                SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
-                TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } })).Resource;
+                SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Given = new[] { SmithPatientGivenName }, Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
+                TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Given = new[] { TrumanPatientGivenName }, Family = "Truman" } } })).Resource;
 
                 DeviceLoincSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
                 DeviceSnomedSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;

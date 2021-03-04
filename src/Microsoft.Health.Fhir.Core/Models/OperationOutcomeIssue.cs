@@ -10,14 +10,21 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public class OperationOutcomeIssue
     {
-        public OperationOutcomeIssue(string severity, string code, string diagnostics, string[] location = null)
+        public OperationOutcomeIssue(
+             string severity,
+             string code,
+             string diagnostics = null,
+             CodableConceptInfo detailsCodes = null,
+             string detailsText = null,
+             string[] location = null)
         {
             EnsureArg.IsNotNullOrEmpty(severity, nameof(severity));
             EnsureArg.IsNotNullOrEmpty(code, nameof(code));
-            EnsureArg.IsNotNullOrEmpty(diagnostics, nameof(diagnostics));
 
             Severity = severity;
             Code = code;
+            DetailsCodes = detailsCodes;
+            DetailsText = detailsText;
             Diagnostics = diagnostics;
             Location = location;
         }
@@ -25,6 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Models
         public string Severity { get; }
 
         public string Code { get; }
+
+        public CodableConceptInfo DetailsCodes { get; }
+
+        public string DetailsText { get; }
 
         public string Diagnostics { get; }
 

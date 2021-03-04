@@ -85,7 +85,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected void ValidateBundle(Bundle bundle, string selfLink, bool sort, params Resource[] expectedResources)
         {
-            ValidateBundle(bundle, sort, expectedResources);
             string actualUrl;
 
             // checking if continuation token is present in the link
@@ -100,7 +99,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri);
             }
 
+            Skip.If(selfLink.Contains("_sort") && !actualUrl.Contains("_sort"), "This server does not support the supplied _sort parameter.");
+
             Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
+
+            ValidateBundle(bundle, sort, expectedResources);
         }
 
         protected void ValidateBundle(Bundle bundle, params Resource[] expectedResources)

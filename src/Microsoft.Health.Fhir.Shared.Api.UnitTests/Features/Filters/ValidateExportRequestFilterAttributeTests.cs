@@ -83,8 +83,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("since")]
         [InlineData("_SINCE")]
         [InlineData("queryParam")]
-        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
-        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation)]
         [Theory]
         public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string queryParamName)
         {
@@ -101,7 +99,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
         [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation)]
         [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation, KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
         [Theory]

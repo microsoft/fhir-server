@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             await _manager.EnsureInitialized();
             var supportedDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
-            var paramList = supportedDefinitionManager.GetSupportedButNotSearchableParams();
+            var paramList = supportedDefinitionManager.GetSearchParametersRequiringReindexing();
 
             Assert.Collection(
                 paramList,
@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASPDefinitionManager_WhenInitialed_ThenSearchParametersHashHasValues()
         {
             var searchParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
-            var patientHash = SearchHelperUtilities.CalculateSearchParameterHash(searchParams);
+            var patientHash = searchParams.CalculateSearchParameterHash();
 
             Assert.Equal(patientHash, _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
         }

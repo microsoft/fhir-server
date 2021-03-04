@@ -145,8 +145,9 @@
             }
         },
         "sqlSchemaAutomaticUpdatesEnabled": {
-            "type": "bool",
-            "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), bool('false'), '')]",
+            "type": "string",
+            "allowedValues":["auto", "tool"],
+            "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'tool', '')]",
             "metadata": {
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If false, sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If true, sql schema will be upgraded to the maximum supported version."
             }
@@ -218,7 +219,7 @@
             "FhirServer__Security__Authentication__Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb__ContinuationTokenSizeLimitInKb": "1",
             "SqlServer__Initialize": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
-            "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "[parameters('sqlSchemaAutomaticUpdatesEnabled')]",
+            "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "[if(equals(parameters('sqlSchemaAutomaticUpdatesEnabled'),'auto'), true(), false())]",
             "DataStore": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'CosmosDb', 'SqlServer')]",
             "FhirServer__Operations__Export__Enabled": "[parameters('enableExport')]",
             "FhirServer__Operations__Export__StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
