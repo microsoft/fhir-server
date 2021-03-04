@@ -19,12 +19,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             var query = context.Request.Query[KnownQueryParameterNames.Summary].FirstOrDefault();
 
-            if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
+            if (!string.IsNullOrWhiteSpace(query) &&
+                context.Response.StatusCode == (int)HttpStatusCode.OK &&
+                Enum.TryParse<SummaryType>(query, true, out var summary))
             {
-                if (Enum.TryParse<SummaryType>(query, true, out var summary))
-                {
-                    return summary;
-                }
+                return summary;
             }
 
             return SummaryType.False;

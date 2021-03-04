@@ -15,7 +15,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
-using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
@@ -33,13 +32,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
             RequestDelegate next,
             ILogger<BaseExceptionMiddleware> logger,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            CorrelationIdProvider correlationIdProvider,
             IFormatParametersValidator parametersValidator)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(correlationIdProvider, nameof(correlationIdProvider));
             EnsureArg.IsNotNull(parametersValidator, nameof(parametersValidator));
 
             _next = next;
