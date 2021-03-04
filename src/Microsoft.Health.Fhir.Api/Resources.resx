@@ -336,4 +336,12 @@
     <value>Provided value for `profile` parameter `{0}` is invalid </value>
     <comment>{0} is the provided value</comment>
   </data>
+  <data name="InvalidSummaryParameter" xml:space="preserve">
+    <value>The requested "_summary" parameter '{0}' is invalid. Allowed values are '{1}'.</value>
+    <comment>{NumberedPlaceHolder="_summary"} {0} is parameter's value and {1} is comma separated list of allowed values.</comment>
+  </data>
+  <data name="InvalidElementsParameter" xml:space="preserve">
+    <value>The requested "_elements" parameter '{0}' is invalid.</value>
+    <comment>{NumberedPlaceHolder=”_elements”} {0} is parameter's value.</comment>
+  </data>
 </root>

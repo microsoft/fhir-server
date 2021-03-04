@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     jsonTextWriter.ArrayPool = _charPool;
                     jsonTextWriter.Formatting = Formatting.Indented;
 
-                    _fhirJsonSerializer.Serialize(resourceInstance, jsonTextWriter, context.HttpContext.GetSummaryType(_logger), context.HttpContext.GetElementsSearchParameter(_logger));
+                    _fhirJsonSerializer.Serialize(resourceInstance, jsonTextWriter, context.HttpContext.GetSummaryTypeOrDefault(), context.HttpContext.GetElementsOrDefault());
                 }
 
                 var viewDictionary = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())

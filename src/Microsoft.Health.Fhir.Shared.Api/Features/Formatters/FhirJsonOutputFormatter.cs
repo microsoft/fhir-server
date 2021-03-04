@@ -13,7 +13,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -29,26 +28,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     {
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly ResourceDeserializer _deserializer;
-        private readonly ILogger<FhirJsonOutputFormatter> _logger;
         private readonly IArrayPool<char> _charPool;
         private readonly BundleSerializer _bundleSerializer;
 
         public FhirJsonOutputFormatter(
             FhirJsonSerializer fhirJsonSerializer,
             ResourceDeserializer deserializer,
-            ILogger<FhirJsonOutputFormatter> logger,
             ArrayPool<char> charPool,
             BundleSerializer bundleSerializer)
         {
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(charPool, nameof(charPool));
             EnsureArg.IsNotNull(bundleSerializer, nameof(bundleSerializer));
 
             _fhirJsonSerializer = fhirJsonSerializer;
             _deserializer = deserializer;
-            _logger = logger;
             _charPool = new JsonArrayPool(charPool);
             _bundleSerializer = bundleSerializer;
 
@@ -76,8 +71,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             HttpResponse response = context.HttpContext.Response;
 
-            var elementsSearchParameter = context.HttpContext.GetElementsSearchParameter(_logger);
-
+            var elementsSearchParameter = context.HttpContext.GetElementsOrDefault();
+            var summarySearchParameter = context.HttpContext.GetSummaryTypeOrDefault();
+            var pretty = context.HttpContext.GetPrettyOrDefault();
             Resource resource = null;
 
             if (context.Object is Hl7.Fhir.Model.Bundle)
@@ -85,7 +81,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 var bundle = context.Object as Hl7.Fhir.Model.Bundle;
                 resource = bundle;
 
-                if (elementsSearchParameter?.Any() == true || !bundle.Entry.All(x => x is RawBundleEntryComponent))
+                if (elementsSearchParameter?.Any() == true ||
+                    summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False ||
+                    !bundle.Entry.All(x => x is RawBundleEntryComponent))
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     foreach (var rawBundleEntryComponent in bundle.Entry)
@@ -98,13 +96,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 }
                 else
                 {
-                    await _bundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
+                    await _bundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body, pretty);
                     return;
                 }
             }
             else if (context.Object is RawResourceElement)
             {
-                if (elementsSearchParameter != null && elementsSearchParameter.Any())
+                if ((elementsSearchParameter != null && elementsSearchParameter.Any()) ||
+                    summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False)
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     resource = (context.Object as RawResourceElement).ToPoco<Resource>(_deserializer);
@@ -125,12 +124,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 jsonWriter.ArrayPool = _charPool;
 
-                if (context.HttpContext.GetIsPretty())
+                if (pretty)
                 {
                     jsonWriter.Formatting = Formatting.Indented;
                 }
 
-                _fhirJsonSerializer.Serialize(resource, jsonWriter, context.HttpContext.GetSummaryType(_logger), elementsSearchParameter);
+                _fhirJsonSerializer.Serialize(resource, jsonWriter, summarySearchParameter, elementsSearchParameter);
                 await jsonWriter.FlushAsync();
             }
         }
