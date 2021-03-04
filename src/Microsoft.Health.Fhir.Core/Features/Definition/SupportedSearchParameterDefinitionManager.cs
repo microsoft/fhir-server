@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
-        public IEnumerable<SearchParameterInfo> GetSupportedButNotSearchableParams()
+        public IEnumerable<SearchParameterInfo> GetSearchParametersRequiringReindexing()
         {
             return AllSearchParameters.Where(p => p.IsSearchable == false || p.SortStatus == SortParameterStatus.Supported);
         }
