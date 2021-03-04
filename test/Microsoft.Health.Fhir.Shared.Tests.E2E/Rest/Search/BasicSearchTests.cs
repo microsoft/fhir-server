@@ -581,7 +581,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotEmpty(bundle.Entry);
             var returnedPatient = bundle.Entry[0].Resource as Patient;
             Assert.NotNull(returnedPatient.BirthDate);
-            Assert.Empty(returnedPatient.Extension);
+            Assert.Empty(returnedPatient.Contact);
         }
 
         [Fact]
