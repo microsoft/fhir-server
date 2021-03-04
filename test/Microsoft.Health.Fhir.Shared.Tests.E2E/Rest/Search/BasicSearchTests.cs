@@ -543,10 +543,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&{KnownQueryParameterNames.Summary}=data");
             Assert.NotEmpty(bundle.Entry);
             var returnedPatient = bundle.Entry[0].Resource as Patient;
-            Assert.Null(returnedPatient.Text);
-            Assert.Null(returnedPatient.Meta);
-            Assert.Null(returnedPatient.Id);
-            Assert.NotEmpty(returnedPatient.Extension);
+            Assert.NotEmpty(returnedPatient.Contact);
         }
 
         [Fact]
@@ -566,7 +563,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotNull(returnedPatient.Text);
             Assert.NotNull(returnedPatient.Meta);
             Assert.NotNull(returnedPatient.Id);
-            Assert.Empty(returnedPatient.Extension);
+            Assert.Empty(returnedPatient.Contact);
         }
 
         [Fact]
