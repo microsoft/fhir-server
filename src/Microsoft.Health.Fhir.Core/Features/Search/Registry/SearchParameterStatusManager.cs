@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, bool checkSupported = false)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)
         {
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
@@ -107,19 +107,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 var searchParamUri = new Uri(uri);
 
                 var paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
-
-                if (checkSupported)
-                {
-                    (bool supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(paramInfo);
-
-                    // if we are trying to update the status of a search parameter to enabled or supported, but the
-                    // check of the fhirpath shows that we do not support it, then throw exception
-                    if ((supportedResult.supported == false) &&
-                       (status == SearchParameterStatus.Enabled || status == SearchParameterStatus.Supported))
-                    {
-                        throw new SearchParameterNotSupportedException(paramInfo.Url);
-                    }
-                }
 
                 updated.Add(paramInfo);
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
@@ -158,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             // new search parameters are added as supported, however the UpdateSearchParameterStatus will
             // check the search parameter to ensure the fhirpath is valid and supported
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported, checkSupported: true);
+            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported);
         }
 
         internal async Task DeleteSearchParameterStatusAsync(string url)

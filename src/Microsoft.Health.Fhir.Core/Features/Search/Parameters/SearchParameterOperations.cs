@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 // verify the parameter is supported before continuing
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
-                var searchParameterInfo = SearchParameterDefinitionBuilder.GetOrCreateSearchParameterInfo(searchParameterWrapper);
+                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
                 (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                 if (!supportedResult.Supported)
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             try
             {
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
-                var searchParameterInfo = SearchParameterDefinitionBuilder.GetOrCreateSearchParameterInfo(searchParameterWrapper);
+                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
                 (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
                 if (!supportedResult.Supported)
