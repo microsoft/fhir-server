@@ -58,37 +58,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.GetRetryPolicy();
 
-            ContainerResponse container = await retryPolicy.ExecuteAsync(async () =>
+            var existingContainer = await retryPolicy.ExecuteAsync(async () => await database.TryGetContainerAsync(_cosmosCollectionConfiguration.CollectionId));
+
+            _logger.LogInformation("Creating Cosmos Container if not exits: {collectionId}", _cosmosCollectionConfiguration.CollectionId);
+
+            var containerResponse = await retryPolicy.ExecuteAsync(async () =>
+                await database.CreateContainerIfNotExistsAsync(
+                    _cosmosCollectionConfiguration.CollectionId,
+                    $"/{KnownDocumentProperties.PartitionKey}",
+                    _cosmosCollectionConfiguration.InitialCollectionThroughput));
+
+            containerResponse.Resource.DefaultTimeToLive = -1;
+
+            existingContainer = await retryPolicy.ExecuteAsync(async () => await containerClient.ReplaceContainerAsync(containerResponse));
+
+            if (_cosmosCollectionConfiguration.InitialCollectionThroughput.HasValue)
             {
-                var existingContainer = await database.TryGetContainerAsync(_cosmosCollectionConfiguration.CollectionId);
-                if (existingContainer == null)
-                {
-                    _logger.LogInformation("Creating Cosmos Container if not exits: {collectionId}", _cosmosCollectionConfiguration.CollectionId);
-
-                    var containerResponse = await database.CreateContainerIfNotExistsAsync(
-                        _cosmosCollectionConfiguration.CollectionId,
-                        $"/{KnownDocumentProperties.PartitionKey}",
-                        _cosmosCollectionConfiguration.InitialCollectionThroughput);
-
-                    containerResponse.Resource.DefaultTimeToLive = -1;
-
-                    existingContainer = await containerClient.ReplaceContainerAsync(containerResponse);
-
-                    if (_cosmosCollectionConfiguration.InitialCollectionThroughput.HasValue)
-                    {
-                        ThroughputProperties throughputProperties = ThroughputProperties.CreateManualThroughput(_cosmosCollectionConfiguration.InitialCollectionThroughput.Value);
-                        await containerClient.ReplaceThroughputAsync(throughputProperties);
-                    }
-                }
-
-                return existingContainer;
-            });
+                ThroughputProperties throughputProperties = ThroughputProperties.CreateManualThroughput(_cosmosCollectionConfiguration.InitialCollectionThroughput.Value);
+                await retryPolicy.ExecuteAsync(async () => await containerClient.ReplaceThroughputAsync(throughputProperties));
+            }
 
             await retryPolicy.ExecuteAsync(async () =>
             {
                 try
                 {
-                    await _clientTestProvider.PerformTest(container, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration);
+                    await _clientTestProvider.PerformTest(existingContainer, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration);
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -100,7 +94,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             await _upgradeManager.SetupContainerAsync(containerClient);
 
-            return container;
+            return existingContainer;
         }
     }
 }

@@ -292,10 +292,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-            if (exception.RetryAfter.HasValue)
-            {
-                context.Response.Headers.AddRetryAfterHeaders(exception.RetryAfter.Value);
-            }
+            context.Response.Headers.AddRetryAfterHeaders(exception.RetryAfter);
 
             Memory<byte> body = CreateThrottledBody(exception.Message);
 
