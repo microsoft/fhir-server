@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
@@ -30,7 +31,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
             _initializer = new CosmosDbSearchParameterStatusInitializer(
                 () => searchParameterStatusDataStore,
-                _cosmosDocumentQueryFactory);
+                _cosmosDocumentQueryFactory,
+                new CosmosDataStoreConfiguration());
 
             _testParameterUri = new Uri("/test", UriKind.Relative);
             searchParameterStatusDataStore

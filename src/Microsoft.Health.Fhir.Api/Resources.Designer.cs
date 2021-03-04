@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Missing &apos;_anonymizationConfig&apos; for anonymized export.
+        /// </summary>
+        public static string ConfigLocationRequiredForAnonymizedExport {
+            get {
+                return ResourceManager.GetString("ConfigLocationRequiredForAnonymizedExport", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Missing &apos;_container&apos; for anonymized export.
         /// </summary>
         public static string ContainerIsRequiredForAnonymizedExport {
@@ -133,15 +142,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The maximum length of a custom audit header value is {0}. The supplied custom audit header &apos;{1}&apos; has length of {2}..
-        /// </summary>
-        public static string CustomAuditHeaderTooLarge {
-            get {
-                return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Convert data does not support the following parameter {0} for a POST operation..
         /// </summary>
         public static string ConvertDataParameterNotValid {
@@ -165,6 +165,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ConvertDataParameterValueNotValid {
             get {
                 return ResourceManager.GetString("ConvertDataParameterValueNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The maximum length of a custom audit header value is {0}. The supplied custom audit header &apos;{1}&apos; has length of {2}..
+        /// </summary>
+        public static string CustomAuditHeaderTooLarge {
+            get {
+                return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
             }
         }
         
@@ -322,15 +331,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Only one mode can be provided between a Parameters resource and the URL.
-        /// </summary>
-        public static string MultipleModesProvided {
-            get {
-                return ResourceManager.GetString("MultipleModesProvided", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
         public static string MultipleProfilesProvided {
@@ -399,6 +399,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string PatchNotSupported {
             get {
                 return ResourceManager.GetString("PatchNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Provided value for `profile` parameter `{0}` is invalid .
+        /// </summary>
+        public static string ProfileIsInvalid {
+            get {
+                return ResourceManager.GetString("ProfileIsInvalid", resourceCulture);
             }
         }
         
@@ -579,51 +588,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string UrlResourceIdMismatch {
             get {
                 return ResourceManager.GetString("UrlResourceIdMismatch", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Validation against a profile is not supported..
-        /// </summary>
-        public static string ValidateWithProfileNotSupported {
-            get {
-                return ResourceManager.GetString("ValidateWithProfileNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL..
-        /// </summary>
-        public static string ValidationForUpdateAndDeleteNotSupported {
-            get {
-                return ResourceManager.GetString("ValidationForUpdateAndDeleteNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {0} is not a valid validation mode..
-        /// </summary>
-        public static string ValidationModeNotRecognized {
-            get {
-                return ResourceManager.GetString("ValidationModeNotRecognized", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {0} is not a supported validation mode..
-        /// </summary>
-        public static string ValidationModeNotSupported {
-            get {
-                return ResourceManager.GetString("ValidationModeNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to $validate is not a supported endpoint..
-        /// </summary>
-        public static string ValidationNotSupported {
-            get {
-                return ResourceManager.GetString("ValidationNotSupported", resourceCulture);
             }
         }
         

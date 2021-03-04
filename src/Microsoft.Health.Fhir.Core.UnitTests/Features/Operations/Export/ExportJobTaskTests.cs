@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
@@ -1956,6 +1957,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("2", observationIds);
             Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobWithInvalidStorageAccount_WhenExecuted_ThenAnExceptionIsLogged()
+        {
+            string errorMessage = "from mock";
+            IExportDestinationClient exportDestinationClient = Substitute.For<IExportDestinationClient>();
+            exportDestinationClient.ConnectAsync(
+                Arg.Any<ExportJobConfiguration>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<string>())
+                .Throws(new DestinationConnectionException(errorMessage, HttpStatusCode.BadRequest));
+
+            var exportJobTask = CreateExportJobTask(exportDestinationClient: exportDestinationClient);
+
+            await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(OperationStatus.Failed, _exportJobRecord.Status);
+            Assert.Equal(errorMessage, _exportJobRecord.FailureDetails.FailureReason);
         }
 
         private async Task RunTypeFilterTest(IList<ExportJobFilter> filters, string resourceTypes)

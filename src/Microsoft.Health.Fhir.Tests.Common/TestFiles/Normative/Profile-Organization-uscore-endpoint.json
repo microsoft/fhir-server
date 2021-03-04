@@ -1,0 +1,68 @@
+{
+    "resourceType": "Organization",
+    "id": "saint-luke-w-endpoint",
+    "meta": { "profile": [ "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization" ] },
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t<h1>Organization</h1>\n\t\t\t<div>\n\t\t\t\t<p>ID: 393872</p>\n\t\t\t\t<p>Name: Saint Luke's Hospital of Kansas City </p>\n\t\t\t\t<p>NPI: 1063494177</p>\n\t\t\t\t<p>Phone:(816)932-2000</p>\n\t\t\t\t<p>Address:4401 Wornall Rd,, MO, 64111</p>\n\t\t\t</div>\n\t\t</div>"
+    },
+    "contained": [
+        {
+            "resourceType": "Endpoint",
+            "id": "75",
+            "status": "active",
+            "connectionType": {
+                "system": "http://hl7.org/fhir/endpoint-connection-type",
+                "code": "direct-project"
+            },
+            "name": "Dr. Ronald Bone Direct Address",
+            "managingOrganization": { "reference": "Organization/example-organization-2" },
+            "payloadType": [
+                {
+                    "coding": [
+                        {
+                            "system": "urn:oid:1.3.6.1.4.1.19376.1.2.3",
+                            "code": "urn:hl7-org:sdwg:ccda-structuredBody:1.1"
+                        }
+                    ]
+                }
+            ],
+            "payloadMimeType": [ "text/xml" ],
+            "address": "mailto:Interoperability@DirectAddress.com"
+        }
+    ],
+    "identifier": [
+        {
+            "system": "http://hl7.org/fhir/sid/us-npi",
+            "value": "1063494177"
+        },
+        {
+            "system": "http://hl7.org/fhir/us/argo/sid/us-ein",
+            "value": "00-0000000"
+        }
+    ],
+    "active": true,
+    "name": "Saint Luke's Hospital of Kansas City",
+    "telecom": [
+        {
+            "system": "phone",
+            "value": "(816)932-2000",
+            "use": "work"
+        },
+        {
+            "system": "other",
+            "value": "http://www.saintlukeshealthsystem.org/locations/saint-lukes-hospital-kansas-city",
+            "use": "work"
+        }
+    ],
+    "address": [
+        {
+            "text": "3300 Washtenaw Avenue, Suite 227 Amherst MA 01002",
+            "line": [ "4401 Wornall Rd," ],
+            "city": "Amherst",
+            "state": "MA",
+            "postalCode": "64111"
+        }
+    ],
+    "endpoint": [ { "reference": "#75" } ]
+}
