@@ -461,7 +461,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("_elements", "")]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenResources_WhenSearchedWithIncorrectSummaryParams_ThenExceptionShouldBeThrown(string key, string val)
+        public async Task GivenResources_WhenSearchedWithIncorrectFormatParams_ThenExceptionShouldBeThrown(string key, string val)
         {
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
