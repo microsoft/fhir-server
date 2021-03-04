@@ -15,6 +15,7 @@ using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;

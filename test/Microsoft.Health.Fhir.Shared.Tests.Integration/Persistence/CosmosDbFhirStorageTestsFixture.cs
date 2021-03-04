@@ -104,7 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     () => _filebasedSearchParameterStatusDataStore,
                     new CosmosQueryFactory(
                         new CosmosResponseProcessor(fhirRequestContextAccessor, Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance),
-                        NullFhirCosmosQueryLogger.Instance)),
+                        NullFhirCosmosQueryLogger.Instance),
+                    _cosmosDataStoreConfiguration),
             };
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<Container>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
@@ -153,7 +154,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDocumentQueryFactory,
                 retryExceptionPolicyFactory,
                 NullLogger<CosmosFhirDataStore>.Instance,
-                options);
+                options,
+                new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()));
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 documentClient,

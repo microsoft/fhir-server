@@ -6,6 +6,7 @@
 using System;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
