@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             var query = context.Request.Query[KnownQueryParameterNames.Summary].FirstOrDefault();
 
             if (!string.IsNullOrWhiteSpace(query) &&
-                context.Response.StatusCode == (int)HttpStatusCode.OK &&
+                (context.Response.StatusCode == (int)HttpStatusCode.OK || context.Response.StatusCode == (int)HttpStatusCode.Created) &&
                 Enum.TryParse<SummaryType>(query, true, out var summary))
             {
                 return summary;
@@ -33,7 +33,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             var query = context.Request.Query[KnownQueryParameterNames.Elements].FirstOrDefault();
 
-            if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
+            if (!string.IsNullOrWhiteSpace(query) &&
+                (context.Response.StatusCode == (int)HttpStatusCode.OK || context.Response.StatusCode == (int)HttpStatusCode.Created))
             {
                 var elements = query.Split(new char[1] { ',' });
                 return elements;

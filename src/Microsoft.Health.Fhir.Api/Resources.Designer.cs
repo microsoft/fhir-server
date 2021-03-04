@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;_elements&quot; parameter is invalid..
+        ///   Looks up a localized string similar to The requested &quot;_elements&quot; parameter &apos;{0}&apos; is invalid..
         /// </summary>
         public static string InvalidElementsParameter {
             get {
@@ -295,7 +295,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;_summary&quot; parameter is invalid..
+        ///   Looks up a localized string similar to The requested &quot;_summary&quot; parameter &apos;{0}&apos; is invalid. Allowed values are &apos;{1}&apos;..
         /// </summary>
         public static string InvalidSummaryParameter {
             get {

@@ -531,6 +531,64 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedSummarySetToData_ThenOnlySpecifiedPropertiesShouldBeReturned()
+        {
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Meta = new Meta();
+            patient.Meta.Tag.Add(tag);
+            await Client.CreateAsync(patient);
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&{KnownQueryParameterNames.Summary}=data");
+            Assert.NotEmpty(bundle.Entry);
+            var returnedPatient = bundle.Entry[0].Resource as Patient;
+            Assert.Null(returnedPatient.Text);
+            Assert.Null(returnedPatient.Meta);
+            Assert.Null(returnedPatient.Id);
+            Assert.NotEmpty(returnedPatient.Extension);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedSummarySetToText_ThenOnlySpecifiedPropertiesShouldBeReturned()
+        {
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Meta = new Meta();
+            patient.Meta.Tag.Add(tag);
+            await Client.CreateAsync(patient);
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&{KnownQueryParameterNames.Summary}=text");
+            Assert.NotEmpty(bundle.Entry);
+            var returnedPatient = bundle.Entry[0].Resource as Patient;
+            Assert.NotNull(returnedPatient.Text);
+            Assert.NotNull(returnedPatient.Meta);
+            Assert.NotNull(returnedPatient.Id);
+            Assert.Empty(returnedPatient.Extension);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedSummarySetToTrue_ThenOnlySpecifiedPropertiesShouldBeReturned()
+        {
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Meta = new Meta();
+            patient.Meta.Tag.Add(tag);
+            await Client.CreateAsync(patient);
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&{KnownQueryParameterNames.Summary}=true");
+            Assert.NotEmpty(bundle.Entry);
+            var returnedPatient = bundle.Entry[0].Resource as Patient;
+            Assert.NotNull(returnedPatient.BirthDate);
+            Assert.Empty(returnedPatient.Extension);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldBeIncludedInReturnedBundle()
         {
             const int numberOfResources = 5;

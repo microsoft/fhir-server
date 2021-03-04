@@ -350,11 +350,11 @@
     <comment>{0}: the container registry login server</comment>
   </data>
   <data name="InvalidSummaryParameter" xml:space="preserve">
-    <value>The requested "_summary" parameter is invalid.</value>
-    <comment>{NumberedPlaceHolder="_summary"}</comment>
+    <value>The requested "_summary" parameter '{0}' is invalid. Allowed values are '{1}'.</value>
+    <comment>{NumberedPlaceHolder="_summary"} {0} is parameter's value and {1} is comma separated list of allowed values.</comment>
   </data>
   <data name="InvalidElementsParameter" xml:space="preserve">
-    <value>The requested "_elements" parameter is invalid.</value>
-    <comment>{NumberedPlaceHolder=”_elements”}</comment>
+    <value>The requested "_elements" parameter '{0}' is invalid.</value>
+    <comment>{NumberedPlaceHolder=”_elements”} {0} is parameter's value.</comment>
   </data>
 </root>

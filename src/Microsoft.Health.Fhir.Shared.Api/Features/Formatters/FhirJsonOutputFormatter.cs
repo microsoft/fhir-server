@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             HttpResponse response = context.HttpContext.Response;
 
             var elementsSearchParameter = context.HttpContext.GetElementsOrDefault();
+            var summarySearchParameter = context.HttpContext.GetSummaryTypeOrDefault();
             var pretty = context.HttpContext.GetPrettyOrDefault();
             Resource resource = null;
 
@@ -80,7 +81,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 var bundle = context.Object as Hl7.Fhir.Model.Bundle;
                 resource = bundle;
 
-                if (elementsSearchParameter?.Any() == true || !bundle.Entry.All(x => x is RawBundleEntryComponent))
+                if (elementsSearchParameter?.Any() == true ||
+                    summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False ||
+                    !bundle.Entry.All(x => x is RawBundleEntryComponent))
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     foreach (var rawBundleEntryComponent in bundle.Entry)
@@ -99,7 +102,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
             else if (context.Object is RawResourceElement)
             {
-                if (elementsSearchParameter != null && elementsSearchParameter.Any())
+                if ((elementsSearchParameter != null && elementsSearchParameter.Any()) ||
+                    summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False)
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     resource = (context.Object as RawResourceElement).ToPoco<Resource>(_deserializer);
@@ -125,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     jsonWriter.Formatting = Formatting.Indented;
                 }
 
-                _fhirJsonSerializer.Serialize(resource, jsonWriter, context.HttpContext.GetSummaryTypeOrDefault(), elementsSearchParameter);
+                _fhirJsonSerializer.Serialize(resource, jsonWriter, summarySearchParameter, elementsSearchParameter);
                 await jsonWriter.FlushAsync();
             }
         }

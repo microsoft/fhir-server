@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             if (summaryParameterValue != null && !Enum.TryParse<SummaryType>(summaryParameterValue, true, out _))
             {
-                throw new BadRequestException(Api.Resources.InvalidSummaryParameter);
+                throw new BadRequestException(string.Format(Api.Resources.InvalidSummaryParameter, summaryParameterValue, string.Join(',', Enum.GetNames<SummaryType>())));
             }
         }
 
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             // It's ok to not have parameter, but it shouldn't be empty or whitespace.
             if (elementsParameterValue != null && string.IsNullOrWhiteSpace(elementsParameterValue))
             {
-                throw new BadRequestException(Api.Resources.InvalidElementsParameter);
+                throw new BadRequestException(string.Format(Api.Resources.InvalidElementsParameter, elementsParameterValue));
             }
         }
     }
