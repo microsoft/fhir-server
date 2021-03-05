@@ -602,12 +602,14 @@ GO
     Date Search Param
 **************************************************************/
 
-CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
+CREATE TYPE dbo.DateTimeSearchParamTableType_2 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     StartDateTime datetimeoffset(7) NOT NULL,
     EndDateTime datetimeoffset(7) NOT NULL,
-    IsLongerThanADay bit NOT NULL
+    IsLongerThanADay bit NOT NULL,
+    IsMin bit NOT NULL,
+    IsMax bit NOT NULL
 )
 
 CREATE TABLE dbo.DateTimeSearchParam
@@ -618,7 +620,9 @@ CREATE TABLE dbo.DateTimeSearchParam
     StartDateTime datetime2(7) NOT NULL,
     EndDateTime datetime2(7) NOT NULL,
     IsLongerThanADay bit NOT NULL,
-    IsHistory bit NOT NULL
+    IsHistory bit NOT NULL,
+    IsMin bit NOT NULL,
+    IsMax bit NOT NULL
 )
 
 CREATE CLUSTERED INDEX IXC_DateTimeSearchParam

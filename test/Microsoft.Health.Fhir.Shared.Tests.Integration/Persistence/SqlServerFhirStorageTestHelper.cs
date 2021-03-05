@@ -12,7 +12,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
@@ -131,6 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[StringSearchParamTableType_1]"),
+                ("TableType", "[dbo].[DateTimeSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(

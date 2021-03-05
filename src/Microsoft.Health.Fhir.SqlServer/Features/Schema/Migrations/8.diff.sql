@@ -61,6 +61,22 @@ WITH
     ONLINE = ON
 )
 
+CREATE TYPE dbo.DateTimeSearchParamTableType_2 AS TABLE
+(
+    SearchParamId smallint NOT NULL,
+    StartDateTime datetimeoffset(7) NOT NULL,
+    EndDateTime datetimeoffset(7) NOT NULL,
+    IsLongerThanADay bit NOT NULL,
+    IsMin bit NOT NULL,
+    IsMax bit NOT NULL
+);
+
+ALTER TABLE dbo.DateTimeSearchParam
+ADD IsMin bit NOT NULL,
+    IsMax bit NOT NULL,
+    CONSTRAINT IsMin_Constraint DEFAULT 0 FOR IsMin,
+    CONSTRAINT IsMax_Constraint DEFAULT 0 FOR IsMax;
+
 GO
 
 /*************************************************************
@@ -394,8 +410,8 @@ AS
     FROM @quantitySearchParams
 
     INSERT INTO dbo.DateTimeSearchParam
-        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
-    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0, IsMin, IsMax
     FROM @dateTimeSearchParms
 
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
