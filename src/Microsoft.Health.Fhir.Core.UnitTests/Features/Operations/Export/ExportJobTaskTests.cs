@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(newContinuationToken)), KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(newContinuationToken)), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -1259,7 +1259,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         // The ids aren't in the query parameters because of the reset
                         ids = new string[] { "1", "2", "3" };
-                        continuationTokenIndex = int.Parse(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Substring(2));
+                        continuationTokenIndex = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2)).Substring(2));
                     }
 
                     return CreateSearchResult(
