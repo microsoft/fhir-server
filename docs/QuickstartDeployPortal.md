@@ -55,3 +55,4 @@ Once the deployment is complete, you can point your browser to `https://SERVICEN
 ## Clean up resources
 
 When no longer needed, you can delete the resource group and all related resources. To do so, select the resource group containing the provisioned resources, select **Delete resource group**, then confirm the name of the resource group to delete.
+
