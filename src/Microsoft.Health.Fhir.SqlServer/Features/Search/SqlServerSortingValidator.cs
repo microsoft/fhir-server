@@ -15,9 +15,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSortingValidator : ISortingValidator
     {
-        private static readonly HashSet<string> _supportedParameterNames = new HashSet<string>(StringComparer.Ordinal)
+        internal static readonly HashSet<Uri> SupportedParameterUris = new()
         {
-            KnownQueryParameterNames.LastUpdated, "birthdate", "date", "abatement-date", "onset-date", "issued", "created", "started", "authoredon",
+            new Uri("http://hl7.org/fhir/SearchParameter/Resource-lastUpdated"),
+            new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+            new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-date"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Condition-onset-date"),
+            new Uri("http://hl7.org/fhir/SearchParameter/DiagnosticReport-issued"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Claim-created"),
+            new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-created"),
+            new Uri("http://hl7.org/fhir/SearchParameter/DocumentManifest-created"),
+            new Uri("http://hl7.org/fhir/SearchParameter/ExplanationOfBenefit-created"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Media-created"),
+            new Uri("http://hl7.org/fhir/SearchParameter/PaymentNotice-created"),
+            new Uri("http://hl7.org/fhir/SearchParameter/PaymentReconciliation-created"),
+            new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-started"),
+            new Uri("http://hl7.org/fhir/SearchParameter/MedicationRequest-authoredon"),
         };
 
         public bool ValidateSorting(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sorting, out IReadOnlyList<string> errorMessages)
@@ -27,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
-                case { Count: 1 } when _supportedParameterNames.Contains(sorting[0].searchParameter.Code):
+                case { Count: 1 } when SupportedParameterUris.Contains(sorting[0].searchParameter.Url):
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:

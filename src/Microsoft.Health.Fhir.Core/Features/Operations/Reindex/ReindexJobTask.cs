@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // Build query based on new search params
                     // Find supported, but not yet searchable params
-                    var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSupportedButNotSearchableParams();
+                    var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
 
                     // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
                     if (!notYetIndexedParams.Any())

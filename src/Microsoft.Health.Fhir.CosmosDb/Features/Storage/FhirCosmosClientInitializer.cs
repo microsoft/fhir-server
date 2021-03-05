@@ -7,12 +7,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -24,18 +27,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ICosmosClientTestProvider _testProvider;
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
         private readonly Func<IEnumerable<RequestHandler>> _requestHandlerFactory;
+        private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
 
         public FhirCosmosClientInitializer(
             ICosmosClientTestProvider testProvider,
             Func<IEnumerable<RequestHandler>> requestHandlerFactory,
+            RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<FhirCosmosClientInitializer> logger)
         {
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
             EnsureArg.IsNotNull(requestHandlerFactory, nameof(requestHandlerFactory));
+            EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _testProvider = testProvider;
             _requestHandlerFactory = requestHandlerFactory;
+            _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
         }
 
@@ -92,13 +99,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger.LogInformation("Opening CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             try
             {
-                await _testProvider.PerformTest(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration);
+                await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(async () =>
+                    await _testProvider.PerformTest(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
 
                 _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             }
             catch (Exception e)
             {
-                _logger.LogCritical(e, "Failed to connect to CosmosClient collection {CollectionId}", cosmosCollectionConfiguration.CollectionId);
+                LogLevel logLevel = e is RequestRateExceededException ? LogLevel.Warning : LogLevel.Critical;
+                _logger.Log(logLevel, e, "Failed to connect to CosmosClient collection {CollectionId}", cosmosCollectionConfiguration.CollectionId);
                 throw;
             }
         }
@@ -118,9 +127,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     _logger.LogInformation("CreateDatabaseIfNotExists {DatabaseId}", cosmosDataStoreConfiguration.DatabaseId);
 
-                    await client.CreateDatabaseIfNotExistsAsync(
-                        cosmosDataStoreConfiguration.DatabaseId,
-                        cosmosDataStoreConfiguration.InitialDatabaseThroughput.HasValue ? ThroughputProperties.CreateManualThroughput(cosmosDataStoreConfiguration.InitialDatabaseThroughput.Value) : null);
+                    await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                        async () =>
+                            await client.CreateDatabaseIfNotExistsAsync(
+                                cosmosDataStoreConfiguration.DatabaseId,
+                                cosmosDataStoreConfiguration.InitialDatabaseThroughput.HasValue ? ThroughputProperties.CreateManualThroughput(cosmosDataStoreConfiguration.InitialDatabaseThroughput.Value) : null));
                 }
 
                 foreach (var collectionInitializer in collectionInitializers)
@@ -132,7 +143,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (Exception ex)
             {
-                _logger.LogCritical(ex, "Cosmos DB Database {DatabaseId} and collections initialization failed", cosmosDataStoreConfiguration.DatabaseId);
+                LogLevel logLevel = ex is RequestRateExceededException ? LogLevel.Warning : LogLevel.Critical;
+                _logger.Log(logLevel, ex, "Cosmos DB Database {DatabaseId} and collections initialization failed", cosmosDataStoreConfiguration.DatabaseId);
                 throw;
             }
         }

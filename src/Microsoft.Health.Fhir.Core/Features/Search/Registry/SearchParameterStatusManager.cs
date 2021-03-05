@@ -68,11 +68,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     if (p.IsSearchable != isSearchable ||
                         p.IsSupported != isSupported ||
-                        p.IsPartiallySupported != isPartiallySupported)
+                        p.IsPartiallySupported != isPartiallySupported ||
+                        p.SortStatus != result.SortStatus)
                     {
                         p.IsSearchable = isSearchable;
                         p.IsSupported = isSupported;
                         p.IsPartiallySupported = isPartiallySupported;
+                        p.SortStatus = result.SortStatus;
 
                         updated.Add(p);
                     }
@@ -97,6 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
+            var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses())
+                .ToDictionary(x => x.Uri);
 
             foreach (string uri in searchParameterUris)
             {
@@ -107,12 +111,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                 paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
 
-                searchParameterStatusList.Add(new ResourceSearchParameterStatus()
+                if (parameters.TryGetValue(searchParamUri, out var existingStatus))
                 {
-                    LastUpdated = Clock.UtcNow,
-                    Status = status,
-                    Uri = searchParamUri,
-                });
+                    existingStatus.LastUpdated = Clock.UtcNow;
+                    existingStatus.Status = status;
+
+                    if (paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
+                    {
+                        existingStatus.SortStatus = SortParameterStatus.Enabled;
+                        paramInfo.SortStatus = SortParameterStatus.Enabled;
+                    }
+
+                    searchParameterStatusList.Add(existingStatus);
+                }
+                else
+                {
+                    searchParameterStatusList.Add(new ResourceSearchParameterStatus
+                    {
+                        LastUpdated = Clock.UtcNow,
+                        Status = status,
+                        Uri = searchParamUri,
+                    });
+                }
             }
 
             await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList);

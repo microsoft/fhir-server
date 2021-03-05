@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
+using EnsureThat;
 using Hl7.Fhir.Model.Primitives;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -13,6 +15,13 @@ namespace Microsoft.Health.Fhir.Core.Models
         public CodableConceptInfo()
         {
             Coding = new List<Coding>();
+        }
+
+        public CodableConceptInfo(IEnumerable<Coding> coding)
+        {
+            EnsureArg.IsNotNull(coding);
+
+            Coding = coding.ToList();
         }
 
         public ICollection<Coding> Coding { get; }

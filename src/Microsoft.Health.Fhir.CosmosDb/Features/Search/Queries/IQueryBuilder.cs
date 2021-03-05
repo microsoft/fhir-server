@@ -10,9 +10,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
-    public interface IQueryBuilder
+    internal interface IQueryBuilder
     {
-        QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes);
+        QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, QueryBuilderOptions queryOptions = null);
 
         QueryDefinition GenerateHistorySql(SearchOptions searchOptions);
 

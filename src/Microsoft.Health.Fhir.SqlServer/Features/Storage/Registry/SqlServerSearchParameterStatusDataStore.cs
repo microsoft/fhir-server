@@ -13,8 +13,10 @@ using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -90,6 +92,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             IsPartiallySupported = (bool)isPartiallySupported,
                             LastUpdated = (DateTimeOffset)lastUpdated,
                         };
+
+                        if (SqlServerSortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
+                        {
+                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
+                        }
+                        else
+                        {
+                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Supported;
+                        }
 
                         parameterStatuses.Add(resourceSearchParameterStatus);
                     }
