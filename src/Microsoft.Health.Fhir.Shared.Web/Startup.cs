@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Azure.Core;
+using Azure.Identity;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -27,6 +29,9 @@ namespace Microsoft.Health.Fhir.Web
         public virtual void ConfigureServices(IServiceCollection services)
         {
             services.AddDevelopmentIdentityProvider(Configuration);
+
+            var credential = new DefaultAzureCredential();
+            services.AddSingleton<TokenCredential>(credential);
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddAzureExportDestinationClient()
