@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(expectedResourceType, job.ResourceList);
             Assert.Equal(param.Url.ToString(), job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
-                job.QueryList,
+                job.QueryList.Keys,
                 item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed));
 
             param.IsSearchable = true;
@@ -152,9 +152,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(expectedResourceType, job.ResourceList);
             Assert.Equal(param.Url.ToString(), job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
-                job.QueryList,
-                item => Assert.True(item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed),
-                item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed));
+                job.QueryList.Keys.OrderBy(q => q.LastModified),
+                item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed),
+                item2 => Assert.True(item2.ContinuationToken == Base64EncodedToken && item2.Status == OperationStatus.Completed));
 
             param.IsSearchable = true;
         }
@@ -228,11 +228,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal("Appointment,AppointmentResponse", job.ResourceList);
             Assert.Equal("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
-                job.QueryList,
-                item => Assert.True(item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse"),
-                item2 => Assert.True(item2.ContinuationToken == Base64EncodedToken && item2.Status == OperationStatus.Completed && item2.ResourceType == "Appointment"),
-                item3 => Assert.True(item3.ContinuationToken == null && item3.Status == OperationStatus.Completed && item3.ResourceType == "AppointmentResponse"),
-                item4 => Assert.True(item4.ContinuationToken == null && item4.Status == OperationStatus.Completed && item4.ResourceType == "Appointment"));
+                job.QueryList.Keys.OrderBy(q => q.LastModified),
+                item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed && item.ResourceType == "Appointment"),
+                item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed && item2.ResourceType == "AppointmentResponse"),
+                item3 => Assert.True(item3.ContinuationToken == Base64EncodedToken && item3.Status == OperationStatus.Completed && item3.ResourceType == "Appointment"),
+                item4 => Assert.True(item4.ContinuationToken == Base64EncodedToken && item4.Status == OperationStatus.Completed && item4.ResourceType == "AppointmentResponse"));
 
             await _reindexUtilities.Received().UpdateSearchParameterStatus(
                 Arg.Is<IReadOnlyCollection<string>>(r => r.Any(s => s.Contains("Appointment")) &&
@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             ReindexJobRecord job = CreateReindexJobRecord(maxResourcePerQuery: 3);
 
-            job.QueryList.Add(new ReindexJobQueryStatus("patient", "token") { Status = OperationStatus.Running });
+            job.QueryList.TryAdd(new ReindexJobQueryStatus("patient", "token") { Status = OperationStatus.Running }, 1);
 
             // setup search results
             _searchService.SearchForReindexAsync(
@@ -296,7 +296,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var job = CreateReindexJobRecord(maxResourcePerQuery: 3);
 
-            job.QueryList.Add(new ReindexJobQueryStatus("patient", "token") { Status = OperationStatus.Running });
+            job.QueryList.TryAdd(new ReindexJobQueryStatus("patient", "token") { Status = OperationStatus.Running }, 1);
 
             // setup search results
             _searchService.SearchForReindexAsync(
@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             param.IsSearchable = true;
 
-            Assert.Equal(_reindexJobConfiguration.ConsecutiveFailuresThreshold, job.QueryList.First().FailureCount);
+            Assert.Equal(_reindexJobConfiguration.ConsecutiveFailuresThreshold, job.QueryList.Keys.First().FailureCount);
             Assert.Equal(OperationStatus.Failed, job.Status);
         }
 
