@@ -327,7 +327,7 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            var response = await HttpClient.SendAsync(message, cancellationToken);
 
             return response;
         }
