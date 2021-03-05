@@ -63,7 +63,9 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<OperationOutcome> ValidateAsync(string uri, string resource, bool xml = false, CancellationToken cancellationToken = default);
+        Task<OperationOutcome> ValidateAsync(string uri, string resource, string profile = null, CancellationToken cancellationToken = default);
+
+        Task<OperationOutcome> ValidateByIdAsync(ResourceType resourceType, string resourceId, string profile = null, CancellationToken cancellationToken = default);
 
         Task<FhirResponse<T>> VReadAsync<T>(ResourceType resourceType, string resourceId, string versionId, CancellationToken cancellationToken = default)
             where T : Resource;

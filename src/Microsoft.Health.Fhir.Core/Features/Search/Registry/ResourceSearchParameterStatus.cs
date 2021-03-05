@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
@@ -14,6 +15,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public SearchParameterStatus Status { get; set; }
 
         public bool IsPartiallySupported { get; set; }
+
+        public SortParameterStatus SortStatus { get; set; }
 
         public DateTimeOffset LastUpdated { get; set; }
     }

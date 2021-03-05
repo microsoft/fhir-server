@@ -117,7 +117,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", deserializedResource.Id), CancellationToken.None);
 
             Assert.NotNull(wrapper);
-            Assert.False(wrapper.RawResource.IsMetaSet);
+
+            if (wrapper.RawResource.IsMetaSet)
+            {
+                Observation observation = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);
+                Assert.Equal("2", observation.VersionId);
+            }
         }
 
         [Fact]
@@ -148,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASavedResource_WhenUpserting_ThenMetaSetIsSetToFalse()
+        public async Task GivenASavedResource_WhenUpserting_ThenRawResourceVersionIsSetOrMetaSetIsSetToFalse()
         {
             var versionId = Guid.NewGuid().ToString();
             var resource = Samples.GetJsonSample("Weight").UpdateVersion(versionId);
@@ -169,11 +174,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", deserializedResource.Id), CancellationToken.None);
 
             Assert.NotNull(wrapper);
-            Assert.False(wrapper.RawResource.IsMetaSet);
-            Assert.NotEqual(wrapper.Version, versionId);
 
+            Assert.NotEqual(wrapper.Version, versionId);
             var deserialized = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);
-            Assert.Equal("1", deserialized.VersionId);
+
+            Assert.Equal(wrapper.RawResource.IsMetaSet ? "2" : "1", deserialized.VersionId);
         }
 
         [Theory]

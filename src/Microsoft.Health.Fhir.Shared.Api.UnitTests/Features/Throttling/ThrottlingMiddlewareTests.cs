@@ -17,8 +17,10 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.Health.Fhir.Core.Configs;
 using NSubstitute;
 using Xunit;
 
@@ -39,6 +41,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _throttlingConfiguration = new ThrottlingConfiguration
             {
                 ConcurrentRequestLimit = 5,
+                Enabled = true,
             };
 
             _cts = new CancellationTokenSource();
@@ -71,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                         }
                     },
                     Options.Create(_throttlingConfiguration),
-                    Options.Create(new Microsoft.Health.Fhir.Core.Configs.SecurityConfiguration { Enabled = _securityEnabled }),
+                    Options.Create(new SecurityConfiguration { Enabled = _securityEnabled }),
                     NullLogger<ThrottlingMiddleware>.Instance));
 
             IActionResultExecutor<ObjectResult> executor = Substitute.For<IActionResultExecutor<ObjectResult>>();
@@ -212,6 +215,22 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             // try the request again
             await _middleware.Value.Invoke(_httpContext);
             Assert.Equal(200, _httpContext.Response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenARequest_ThatResultsInRequestRateExceeded_Returns429()
+        {
+            var throttlingMiddleware = new ThrottlingMiddleware(
+                context => throw new RequestRateExceededException(TimeSpan.FromSeconds(1)),
+                Options.Create(_throttlingConfiguration),
+                Options.Create(new SecurityConfiguration()),
+                NullLogger<ThrottlingMiddleware>.Instance);
+
+            await throttlingMiddleware.Invoke(_httpContext);
+
+            Assert.Equal(429, _httpContext.Response.StatusCode);
+            Assert.True(_httpContext.Response.Headers.TryGetValue("Retry-After", out var values));
+            Assert.Equal("1", values.ToString());
         }
 
         private List<(Task task, HttpContext httpContext, CancellationTokenSource cancellationTokenSource)> SetupPreexistingRequests(int numberOfConcurrentRequests, string path = "")

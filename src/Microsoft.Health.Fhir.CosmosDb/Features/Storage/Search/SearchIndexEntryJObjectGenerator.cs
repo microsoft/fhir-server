@@ -16,11 +16,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 {
     internal class SearchIndexEntryJObjectGenerator : ISearchValueVisitor
     {
-        private List<JObject> _generatedObjects = new List<JObject>();
-
-        public SearchIndexEntryJObjectGenerator()
-        {
-        }
+        private readonly List<JObject> _generatedObjects = new();
 
         private SearchIndexEntry Entry { get; set; }
 

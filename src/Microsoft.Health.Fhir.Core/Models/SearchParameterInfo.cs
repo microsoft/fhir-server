@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -76,6 +77,11 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// but not all types are able to be indexed / searched
         /// </summary>
         public bool IsPartiallySupported { get; set; }
+
+        /// <summary>
+        /// The status of the search parameters use for sorting
+        /// </summary>
+        public SortParameterStatus SortStatus { get; set; }
 
         /// <summary>
         /// The component definitions if this is a composite search parameter (<see cref="Type"/> is <see cref="SearchParamType.Composite"/>)

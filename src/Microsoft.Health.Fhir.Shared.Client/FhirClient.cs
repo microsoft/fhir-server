@@ -305,12 +305,12 @@ namespace Microsoft.Health.Fhir.Client
             return response.Content.Headers.ContentLocation;
         }
 
-        public async Task<Uri> AnonymizedExportAsync(string anonymizationConfig, string container, string etag = null, CancellationToken cancellationToken = default)
+        public async Task<Uri> AnonymizedExportAsync(string anonymizationConfig, string container, string etag = null, string path = "", CancellationToken cancellationToken = default)
         {
             anonymizationConfig = HttpUtility.UrlEncode(anonymizationConfig);
             etag = HttpUtility.UrlEncode(etag);
             container = HttpUtility.UrlEncode(container);
-            string requestUrl = $"$export?_container={container}&_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}";
+            string requestUrl = $"{path}$export?_container={container}&_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}";
 
             using var message = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             message.Headers.Add("Accept", "application/fhir+json");
@@ -398,12 +398,24 @@ namespace Microsoft.Health.Fhir.Client
         /// </summary>
         /// <param name="uri">The URL to call</param>
         /// <param name="resource">The resource to be validated. The resource parameter is a string instead of a Resource object because the validate endpoint is frequently sent invalid resources that couldn't be parsed.</param>
-        /// <param name="xml">Whether the resource is in JSON or XML formal</param>
+        /// <param name="profile">Profile uri to check resource against.</param>
         /// <param name="cancellationToken">The cancellation token</param>
-        public async Task<OperationOutcome> ValidateAsync(string uri, string resource, bool xml = false, CancellationToken cancellationToken = default)
+        public async Task<OperationOutcome> ValidateAsync(string uri, string resource, string profile = null, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, xml ? uri + "?_format=xml" : uri);
-            message.Content = new StringContent(resource, Encoding.UTF8, xml ? ContentType.XML_CONTENT_HEADER : ContentType.JSON_CONTENT_HEADER);
+            var message = new HttpRequestMessage(HttpMethod.Post, profile != null ? uri + $"?profile={profile}" : uri);
+            message.Content = new StringContent(resource, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<OperationOutcome>(response);
+        }
+
+        public async Task<OperationOutcome> ValidateByIdAsync(ResourceType resourceType, string resourceId, string profile, CancellationToken cancellationToken = default)
+        {
+            var uri = $"{resourceType}/{resourceId}/$validate";
+            var message = new HttpRequestMessage(HttpMethod.Get, profile != null ? uri + $"?profile={profile}" : uri);
 
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 

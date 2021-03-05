@@ -81,6 +81,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />

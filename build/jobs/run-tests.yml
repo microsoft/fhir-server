@@ -7,7 +7,7 @@ parameters:
 jobs:
 - job: "integrationTests"
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
   - task: DownloadBuildArtifacts@0
@@ -48,7 +48,7 @@ jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
@@ -134,7 +134,7 @@ jobs:
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    name: '$(DefaultLinuxPool)'
+    name: '$(SharedLinuxPool)'
     vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml

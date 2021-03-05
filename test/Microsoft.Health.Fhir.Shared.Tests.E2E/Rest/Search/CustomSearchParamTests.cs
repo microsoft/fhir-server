@@ -18,6 +18,8 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
+    [CollectionDefinition(Categories.CustomSearch, DisableParallelization = true)]
+    [Collection(Categories.CustomSearch)]
     [Trait(Traits.Category, Categories.CustomSearch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
