@@ -7,7 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Utility;
+using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -44,6 +49,35 @@ namespace Microsoft.Health.Fhir.Core.Models
 
             Name = name;
             Code = code;
+        }
+
+        internal SearchParameterInfo(SearchParameterWrapper wrapper)
+        {
+            var components = wrapper.Component
+                .Select(x => new SearchParameterComponentInfo(
+                    new Uri(GetComponentDefinition(x)),
+                    x.Scalar("expression")?.ToString()))
+                .ToArray();
+
+            SearchParamType searchParamType = EnumUtility.ParseLiteral<SearchParamType>(wrapper.Type)
+                .GetValueOrDefault();
+
+            Name = wrapper.Name;
+            Code = wrapper.Code;
+            Type = searchParamType;
+            Url = new Uri(wrapper.Url);
+            Expression = wrapper.Expression;
+            Description = wrapper.Description;
+            Component = components;
+            TargetResourceTypes = wrapper.Target;
+            BaseResourceTypes = wrapper.Base;
+
+            string GetComponentDefinition(ITypedElement component)
+            {
+                // In Stu3 the Url is under 'definition.reference'
+                return component.Scalar("definition.reference")?.ToString() ??
+                   component.Scalar("definition")?.ToString();
+            }
         }
 
         public string Name { get; }
