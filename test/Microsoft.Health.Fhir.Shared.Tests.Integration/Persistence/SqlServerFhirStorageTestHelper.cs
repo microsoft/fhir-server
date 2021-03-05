@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -145,14 +146,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // These constraints will not be present in databases that were directly initialized with the latest schema.
             // We need to exclude these constraints from the schema difference comparison.
             bool unexpectedDifference = false;
+            HashSet<string> constraintNames = new HashSet<string>()
+            {
+                "[dbo].[date_IsMin_Constraint]",
+                "[dbo].[date_IsMax_Constraint]",
+                "[dbo].[string_IsMin_Constraint]",
+                "[dbo].[string_IsMax_Constraint]",
+            };
+
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 if (schemaDifference.TargetObject.ObjectType.Name == "Table")
                 {
                     foreach (SchemaDifference child in schemaDifference.Children)
                     {
-                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" &&
-                            (child.TargetObject.Name.ToString() == "[dbo].[IsMin_Constraint]" || child.TargetObject.Name.ToString() == "[dbo].[IsMax_Constraint]"))
+                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
                         {
                             // Expected
                             continue;

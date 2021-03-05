@@ -642,7 +642,9 @@ ON dbo.DateTimeSearchParam
 INCLUDE
 (
     ResourceTypeId,
-    IsLongerThanADay
+    IsLongerThanADay,
+    IsMin,
+    IsMax
 )
 WHERE IsHistory = 0
 
@@ -656,7 +658,9 @@ ON dbo.DateTimeSearchParam
 INCLUDE
 (
     ResourceTypeId,
-    IsLongerThanADay
+    IsLongerThanADay,
+    IsMin,
+    IsMax
 )
 WHERE IsHistory = 0
 
@@ -670,7 +674,9 @@ ON dbo.DateTimeSearchParam
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    IsMin,
+    IsMax
 )
 WHERE IsHistory = 0 AND IsLongerThanADay = 1
 
@@ -683,7 +689,9 @@ ON dbo.DateTimeSearchParam
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    IsMin,
+    IsMax
 )
 WHERE IsHistory = 0 AND IsLongerThanADay = 1
 
@@ -1242,7 +1250,7 @@ CREATE PROCEDURE dbo.UpsertResource_3
     @numberSearchParams dbo.NumberSearchParamTableType_1 READONLY,
     @quantitySearchParams dbo.QuantitySearchParamTableType_1 READONLY,
     @uriSearchParams dbo.UriSearchParamTableType_1 READONLY,
-    @dateTimeSearchParms dbo.DateTimeSearchParamTableType_1 READONLY,
+    @dateTimeSearchParms dbo.DateTimeSearchParamTableType_2 READONLY,
     @referenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamTableType_2 READONLY,
     @tokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamTableType_1 READONLY,
     @tokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamTableType_1 READONLY,
@@ -1487,8 +1495,8 @@ AS
     FROM @quantitySearchParams
 
     INSERT INTO dbo.DateTimeSearchParam
-        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
-    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0, IsMin, IsMax
     FROM @dateTimeSearchParms
 
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
