@@ -13,7 +13,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Test.Utilities;
-using Microsoft.Net.Http.Headers;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
@@ -31,11 +30,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenCorrelationHeader_WhenSendRequest_TheServerShouldReturnSameCorrelationHeader()
+        public async Task GivenRequestIdHeader_WhenSendRequest_TheServerShouldReturnSameValueInCorrelationHeader()
         {
             var message = new HttpRequestMessage(HttpMethod.Get, "/Patient");
             var id = Guid.NewGuid().ToString();
-            message.Headers.Add(KnownHeaders.CorrelationId, id);
+            message.Headers.Add(KnownHeaders.RequestId, id);
 
             using HttpResponseMessage response = await _client.HttpClient.SendAsync(message);
 
@@ -46,14 +45,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenNoCorrelationHeader_WhenSendRequest_TheServerShouldReturnCorrelationSameAsRequestId()
+        public async Task GivenNoRequestHeader_WhenSendRequest_TheServerShouldntReturnCorrelationId()
         {
             var message = new HttpRequestMessage(HttpMethod.Get, "/Patient");
 
             using HttpResponseMessage response = await _client.HttpClient.SendAsync(message);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(response.Headers.GetValues(KnownHeaders.RequestId), response.Headers.GetValues(KnownHeaders.CorrelationId));
+            Assert.NotEmpty(response.Headers.GetValues(KnownHeaders.RequestId));
+            Assert.False(response.Headers.Contains(KnownHeaders.CorrelationId));
         }
     }
 }

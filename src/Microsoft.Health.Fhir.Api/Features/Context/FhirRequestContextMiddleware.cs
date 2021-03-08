@@ -41,10 +41,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.Path,
                 request.QueryString);
 
-            string requestId = correlationIdProvider.Invoke();
-            string correlationId = null;
-            var key = context.Request.Headers.Keys.FirstOrDefault(h => h.Equals(KnownHeaders.CorrelationId, StringComparison.OrdinalIgnoreCase));
-            correlationId = !string.IsNullOrWhiteSpace(key) ? (string)context.Request.Headers[key] : requestId;
+            string correlationId = correlationIdProvider.Invoke();
+            var key = context.Request.Headers.Keys.FirstOrDefault(h => h.Equals(KnownHeaders.RequestId, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                context.Response.Headers[KnownHeaders.CorrelationId] = (string)context.Request.Headers[key];
+            }
 
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
@@ -54,8 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
-            context.Response.Headers[KnownHeaders.RequestId] = requestId;
-            context.Response.Headers[KnownHeaders.CorrelationId] = correlationId;
+            context.Response.Headers[KnownHeaders.RequestId] = correlationId;
 
             fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
 
