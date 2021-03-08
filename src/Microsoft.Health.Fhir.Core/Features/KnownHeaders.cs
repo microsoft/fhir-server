@@ -12,5 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string RetryAfterMilliseconds = "x-ms-retry-after-ms";
         public const string RetryAfter = "Retry-After";
         public const string ProvenanceHeader = "X-Provenance";
+        public const string ProfileValidation = "x-ms-profile-validation";
     }
 }
