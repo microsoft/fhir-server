@@ -3,9 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
 
@@ -13,8 +16,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 {
     public class FhirRequestContextMiddleware
     {
-        private const string RequestIdHeaderName = "X-Request-Id";
-
         private readonly RequestDelegate _next;
 
         public FhirRequestContextMiddleware(RequestDelegate next)
@@ -40,7 +41,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.Path,
                 request.QueryString);
 
-            string correlationId = correlationIdProvider.Invoke();
+            string requestId = correlationIdProvider.Invoke();
+            string correlationId = null;
+            var key = context.Request.Headers.Keys.FirstOrDefault(h => h.Equals(KnownHeaders.CorrelationId, StringComparison.OrdinalIgnoreCase));
+            correlationId = !string.IsNullOrWhiteSpace(key) ? (string)context.Request.Headers[key] : requestId;
 
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
@@ -50,7 +54,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
-            context.Response.Headers[RequestIdHeaderName] = correlationId;
+            context.Response.Headers[KnownHeaders.RequestId] = requestId;
+            context.Response.Headers[KnownHeaders.CorrelationId] = correlationId;
 
             fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
 
