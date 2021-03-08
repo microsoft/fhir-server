@@ -42,11 +42,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.QueryString);
 
             string correlationId = correlationIdProvider.Invoke();
-            var key = context.Request.Headers.Keys.FirstOrDefault(h => h.Equals(KnownHeaders.RequestId, StringComparison.OrdinalIgnoreCase));
-
-            if (!string.IsNullOrWhiteSpace(key))
+            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && string.IsNullOrEmpty(requestId))
             {
-                context.Response.Headers[KnownHeaders.CorrelationId] = (string)context.Request.Headers[key];
+                context.Response.Headers[KnownHeaders.CorrelationId] = requestId;
             }
 
             var fhirRequestContext = new FhirRequestContext(
