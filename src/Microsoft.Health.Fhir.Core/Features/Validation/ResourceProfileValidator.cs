@@ -11,6 +11,7 @@ using FluentValidation.Results;
 using FluentValidation.Validators;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
+using static Microsoft.Health.Fhir.Core.Models.OperationOutcomeConstants;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
@@ -57,11 +58,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                 if (profileValidation)
                 {
-                    var typedElemat = resourceElement.Instance;
                     var errors = _profileValidator.TryValidate(resourceElement.Instance);
                     var fullFhirPath = resourceElement.InstanceType;
 
-                    foreach (var error in errors.Where(x => x.Severity == Severity.Error.ToString()))
+                    foreach (var error in errors.Where(x => x.Severity == IssueSeverity.Error || x.Severity == IssueSeverity.Fatal))
                     {
                         yield return new FhirValidationFailure(
                             fullFhirPath,

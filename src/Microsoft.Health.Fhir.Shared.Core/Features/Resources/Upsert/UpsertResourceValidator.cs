@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
               modelAttributeValidator,
               profileValidator,
               fhirRequestContextAccessor,
-              config.Value.ProfileValidationOnCreate);
+              config.Value.ProfileValidationOnUpdate);
 
             RuleFor(x => x.Resource)
                 .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer));
