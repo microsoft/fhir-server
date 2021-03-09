@@ -78,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
+            bool throwForUnsupportedParams = false;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
@@ -102,9 +103,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     setDefaultBundleTotal = false;
                 }
-                else if (query.Item1 == KnownQueryParameterNames.Format)
+                else if (query.Item1 == KnownQueryParameterNames.Format || query.Item1 == KnownQueryParameterNames.Pretty)
                 {
-                    // TODO: We need to handle format parameter.
+                    // _format and _pretty are not search parameters, so we can ignore them.
+                }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.Handling, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(query.Item2) || !Enum.TryParse<SearchParameterHandling>(query.Item2, true, out var handling))
+                    {
+                        throw new BadRequestException(string.Format(
+                            Core.Resources.InvalidHandlingParameter,
+                            query.Item2,
+                            Enum.GetNames<SearchParameterHandling>()));
+                    }
+
+                    if (handling == SearchParameterHandling.Strict)
+                    {
+                        throwForUnsupportedParams = true;
+                    }
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
                 {
@@ -331,8 +347,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (unsupportedSearchParameters.Any())
             {
-                // TODO: Client can specify whether exception should be raised or not when it encounters unknown search parameters.
-                // For now, we will ignore any unknown search parameters.
+                if (throwForUnsupportedParams)
+                {
+                    throw new BadRequestException(string.Format(
+                        Core.Resources.UnsuppotedSearchParameters,
+                        string.Join(",", unsupportedSearchParameters.Select(x => x.Item1))));
+                }
+                else
+                {
+                    foreach (var unsupported in unsupportedSearchParameters)
+                    {
+                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                              OperationOutcomeConstants.IssueSeverity.Warning,
+                              OperationOutcomeConstants.IssueType.NotSupported,
+                              string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(", ", resourceTypesString))));
+                    }
+                }
             }
 
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;

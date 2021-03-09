@@ -775,6 +775,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenASearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
+        {
+            var response = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(KnownResourceTypes.OperationOutcome, response.Resource.Entry.First().Resource.TypeName);
+            Assert.Equal(Bundle.SearchEntryMode.Outcome, response.Resource.Entry.First().Search.Mode);
+            var outcome = response.Resource.Entry.First().Resource as OperationOutcome;
+            Assert.Equal(2, outcome.Issue.Count);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithInvalidParametersAndLatientHandling_WhenHandled_ReturnsSearchResults()
+        {
+            var response = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy&handling=lenient");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(KnownResourceTypes.OperationOutcome, response.Resource.Entry.First().Resource.TypeName);
+            Assert.Equal(Bundle.SearchEntryMode.Outcome, response.Resource.Entry.First().Search.Mode);
+            var outcome = response.Resource.Entry.First().Resource as OperationOutcome;
+            Assert.Equal(2, outcome.Issue.Count);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithInvalidParametersAndStrictHandling_WhenHandled_ReturnsBadRequest()
+        {
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy&handling=strict"));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithInvalidHandling_WhenHandled_ReturnsBadRequest()
+        {
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy&handling=foo"));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
         private async Task<Patient[]> CreatePatientsWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;

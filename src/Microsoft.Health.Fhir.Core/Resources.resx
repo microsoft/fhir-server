@@ -534,4 +534,12 @@
   <data name="ProvenanceHeaderShouldntHaveTarget" xml:space="preserve">
     <value>X-Provenance header shall not have a specified `Provenance.target`</value>
   </data>
+  <data name="InvalidHandlingParameter" xml:space="preserve">
+    <value>The 'handling' parameter value '{0}' is invalid. The supported values are: {1}.</value>
+    <comment>{0}: the invalid handling parameter value. {1}: the supported handling parameter values.</comment>
+  </data>
+  <data name="UnsuppotedSearchParameters" xml:space="preserve">
+    <value>Unsupported search parameter(s): `{0}`</value>
+    <comment>{0}: collection comma-separated unknown or unsupported search parameters</comment>
+  </data>
 </root>

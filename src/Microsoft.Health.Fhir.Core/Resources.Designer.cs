@@ -530,6 +530,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;handling&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
+        /// </summary>
+        internal static string InvalidHandlingParameter {
+            get {
+                return ResourceManager.GetString("InvalidHandlingParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The count must be greater than zero..
         /// </summary>
         internal static string InvalidSearchCountSpecified {
@@ -1138,6 +1147,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UnsupportedTotalParameter {
             get {
                 return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unsupported search parameter(s): `{0}`.
+        /// </summary>
+        internal static string UnsuppotedSearchParameters {
+            get {
+                return ResourceManager.GetString("UnsuppotedSearchParameters", resourceCulture);
             }
         }
         
