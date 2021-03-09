@@ -24,22 +24,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
+        private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
-            ISearchParameterSupportResolver searchParameterSupportResolver)
+            ISearchParameterSupportResolver searchParameterSupportResolver,
+            IDataStoreSearchParameterValidator dataStoreSearchParameterValidator)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
+            EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
 
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterSupportResolver = searchParameterSupportResolver;
+            _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
         }
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam)
@@ -54,6 +58,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (!supportedResult.Supported)
                 {
                     throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                }
+
+                // check data store specific support for SearchParameter
+                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                {
+                    throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
@@ -127,6 +137,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (!supportedResult.Supported)
                 {
                     throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                }
+
+                // check data store specific support for SearchParameter
+                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                {
+                    throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
                 var prevSearchParam = _modelInfoProvider.ToTypedElement(prevSearchParamRaw);
