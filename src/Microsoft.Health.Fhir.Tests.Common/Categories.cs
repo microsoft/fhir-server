@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Cors = "Cors";
 
-        public const string Context = "Context";
+        public const string CustomHeaders = "CustomHeaders";
 
         public const string Crucible = "Crucible";
 

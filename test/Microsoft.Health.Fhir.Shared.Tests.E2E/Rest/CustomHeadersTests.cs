@@ -11,19 +11,18 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [Trait(Traits.Category, Categories.Context)]
+    [Trait(Traits.Category, Categories.CustomHeaders)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ContextTests : IClassFixture<HttpIntegrationTestFixture>
+    public class CustomHeadersTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
 
-        public ContextTests(HttpIntegrationTestFixture fixture)
+        public CustomHeadersTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
         }
