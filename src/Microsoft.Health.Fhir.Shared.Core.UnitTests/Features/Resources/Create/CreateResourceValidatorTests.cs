@@ -20,12 +20,11 @@ using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Create
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
 {
     public class CreateResourceValidatorTests
     {
         [Theory]
-        [InlineData(null)]
         [InlineData("")]
         [InlineData("1+1")]
         [InlineData("11|")]
