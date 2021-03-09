@@ -778,23 +778,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
         {
-            var response = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy");
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(KnownResourceTypes.OperationOutcome, response.Resource.Entry.First().Resource.TypeName);
-            Assert.Equal(Bundle.SearchEntryMode.Outcome, response.Resource.Entry.First().Search.Mode);
-            var outcome = response.Resource.Entry.First().Resource as OperationOutcome;
-            Assert.Equal(2, outcome.Issue.Count);
+            string[] expectedDiagnostics =
+            {
+                string.Format(Core.Resources.SearchParameterNotSupported, "Cookie", "Patient"),
+                string.Format(Core.Resources.SearchParameterNotSupported, "Ramen", "Patient"),
+            };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy");
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
         [Fact]
         public async Task GivenASearchRequestWithInvalidParametersAndLenientHandling_WhenHandled_ReturnsSearchResults()
         {
-            var response = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(KnownResourceTypes.OperationOutcome, response.Resource.Entry.First().Resource.TypeName);
-            Assert.Equal(Bundle.SearchEntryMode.Outcome, response.Resource.Entry.First().Search.Mode);
-            var outcome = response.Resource.Entry.First().Resource as OperationOutcome;
-            Assert.Equal(2, outcome.Issue.Count);
+            string[] expectedDiagnostics =
+            {
+                string.Format(Core.Resources.SearchParameterNotSupported, "Cookie", "Patient"),
+                string.Format(Core.Resources.SearchParameterNotSupported, "Ramen", "Patient"),
+            };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
         [Fact]

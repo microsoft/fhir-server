@@ -1151,15 +1151,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unsupported search parameter(s): `{0}`..
-        /// </summary>
-        internal static string UnsuppotedSearchParameters {
-            get {
-                return ResourceManager.GetString("UnsuppotedSearchParameters", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Resource id is required for updates..
         /// </summary>
         internal static string UpdateRequestsRequireId {

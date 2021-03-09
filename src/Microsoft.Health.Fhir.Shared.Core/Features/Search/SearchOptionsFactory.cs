@@ -358,8 +358,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 if (throwForUnsupported)
                 {
                     throw new BadRequestException(string.Format(
-                        Core.Resources.UnsuppotedSearchParameters,
-                        string.Join(",", unsupportedSearchParameters.Select(x => x.Item1))));
+                            Core.Resources.SearchParameterNotSupported,
+                            string.Join(",", unsupportedSearchParameters.Select(x => x.Item1)),
+                            string.Join(",", resourceTypesString)));
                 }
                 else
                 {
@@ -368,7 +369,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                               OperationOutcomeConstants.IssueSeverity.Warning,
                               OperationOutcomeConstants.IssueType.NotSupported,
-                              string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(", ", resourceTypesString))));
+                              string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString))));
                     }
                 }
             }
