@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -42,7 +40,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.QueryString);
 
             string correlationId = correlationIdProvider.Invoke();
-            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && string.IsNullOrEmpty(requestId))
+
+            // https://www.hl7.org/fhir/http.html#custom
+            // If X-Request-Id header is present, then put it value into X-Correlation-Id header for response.
+            if (context.Request.Headers.TryGetValue(KnownHeaders.RequestId, out var requestId) && !string.IsNullOrEmpty(requestId))
             {
                 context.Response.Headers[KnownHeaders.CorrelationId] = requestId;
             }
