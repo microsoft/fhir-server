@@ -787,9 +787,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenASearchRequestWithInvalidParametersAndLatientHandling_WhenHandled_ReturnsSearchResults()
+        public async Task GivenASearchRequestWithInvalidParametersAndLenientHandling_WhenHandled_ReturnsSearchResults()
         {
-            var response = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy&handling=lenient");
+            var response = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal(KnownResourceTypes.OperationOutcome, response.Resource.Entry.First().Resource.TypeName);
             Assert.Equal(Bundle.SearchEntryMode.Outcome, response.Resource.Entry.First().Search.Mode);
@@ -800,14 +800,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenASearchRequestWithInvalidParametersAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy&handling=strict"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+            Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
         [Fact]
         public async Task GivenASearchRequestWithInvalidHandling_WhenHandled_ReturnsBadRequest()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy&handling=foo"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+            Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=foo")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 

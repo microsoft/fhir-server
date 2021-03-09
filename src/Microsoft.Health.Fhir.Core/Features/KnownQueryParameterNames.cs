@@ -46,8 +46,6 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string Elements = "_elements";
 
-        public const string Handling = "handling";
-
         /// <summary>
         /// The total query parameter.
         /// </summary>

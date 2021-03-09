@@ -78,7 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
-            bool throwForUnsupportedParams = false;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
@@ -106,21 +105,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 else if (query.Item1 == KnownQueryParameterNames.Format || query.Item1 == KnownQueryParameterNames.Pretty)
                 {
                     // _format and _pretty are not search parameters, so we can ignore them.
-                }
-                else if (string.Equals(query.Item1, KnownQueryParameterNames.Handling, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (string.IsNullOrWhiteSpace(query.Item2) || !Enum.TryParse<SearchParameterHandling>(query.Item2, true, out var handling))
-                    {
-                        throw new BadRequestException(string.Format(
-                            Core.Resources.InvalidHandlingParameter,
-                            query.Item2,
-                            Enum.GetNames<SearchParameterHandling>()));
-                    }
-
-                    if (handling == SearchParameterHandling.Strict)
-                    {
-                        throwForUnsupportedParams = true;
-                    }
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
                 {
@@ -347,7 +331,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (unsupportedSearchParameters.Any())
             {
-                if (throwForUnsupportedParams)
+                bool throwForUnsupported = false;
+                if (_contextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var values))
+                {
+                    var handlingValue = values.FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));
+                    if (handlingValue != default)
+                    {
+                        handlingValue = handlingValue.Substring("handling=".Length);
+
+                        if (string.IsNullOrWhiteSpace(handlingValue) || !Enum.TryParse<SearchParameterHandling>(handlingValue, true, out var handling))
+                        {
+                            throw new BadRequestException(string.Format(
+                                Core.Resources.InvalidHandlingValue,
+                                handlingValue,
+                                string.Join(",", Enum.GetNames<SearchParameterHandling>())));
+                        }
+
+                        if (handling == SearchParameterHandling.Strict)
+                        {
+                            throwForUnsupported = true;
+                        }
+                    }
+                }
+
+                if (throwForUnsupported)
                 {
                     throw new BadRequestException(string.Format(
                         Core.Resources.UnsuppotedSearchParameters,
