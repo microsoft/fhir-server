@@ -1151,7 +1151,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unsupported search parameter(s): `{0}`.
+        ///   Looks up a localized string similar to Unsupported search parameter(s): `{0}`..
         /// </summary>
         internal static string UnsuppotedSearchParameters {
             get {

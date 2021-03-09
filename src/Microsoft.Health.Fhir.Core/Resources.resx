@@ -539,7 +539,7 @@
     <comment>{0}: the invalid handling value. {1}: the supported handling values.</comment>
   </data>
   <data name="UnsuppotedSearchParameters" xml:space="preserve">
-    <value>Unsupported search parameter(s): `{0}`</value>
-    <comment>{0}: collection comma-separated unknown or unsupported search parameters</comment>
+    <value>Unsupported search parameter(s): `{0}`.</value>
+    <comment>{0}: collection comma-separated unknown or unsupported search parameters.</comment>
   </data>
 </root>
