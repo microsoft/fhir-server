@@ -92,5 +92,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Assert.True(deepEquals);
             }
         }
+
+        [Fact]
+        public void GivenAResource_WhenExtractingValuesWithContainerInExpression_ThenTheCorrectValuesAreReturned()
+        {
+            var document = Samples.GetJsonSample<Resource>("Sequence").ToResourceElement();
+
+            var indices = _indexer.Extract(document)
+                .Select(x => new { x.SearchParameter.Code, x.SearchParameter.Type, x.Value })
+                .OrderBy(x => x.Code)
+                .ToArray();
+
+            // Molecular sequence has composite search parameters with expression looking like:
+            // %resource.referenceSeq.chromosome
+            // So we extract search values and make sure that search parameter got extracted
+
+            if (ModelInfoProvider.Version != FhirSpecification.Stu3)
+            {
+                Assert.NotEmpty(indices.Where(x => x.Code == "chromosome-variant-coordinate"));
+            }
+            else
+            {
+                Assert.NotEmpty(indices.Where(x => x.Code == "coordinate"));
+            }
+        }
     }
 }
