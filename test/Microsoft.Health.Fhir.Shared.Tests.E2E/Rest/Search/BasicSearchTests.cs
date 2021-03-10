@@ -775,6 +775,61 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
         }
 
+        [Fact]
+        public async Task GivenASearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
+        {
+            string[] expectedDiagnostics =
+            {
+                string.Format(Core.Resources.SearchParameterNotSupported, "Cookie", "Patient"),
+                string.Format(Core.Resources.SearchParameterNotSupported, "Ramen", "Patient"),
+            };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy");
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithInvalidParametersAndLenientHandling_WhenHandled_ReturnsSearchResults()
+        {
+            string[] expectedDiagnostics =
+            {
+                string.Format(Core.Resources.SearchParameterNotSupported, "Cookie", "Patient"),
+                string.Format(Core.Resources.SearchParameterNotSupported, "Ramen", "Patient"),
+            };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithInvalidParametersAndStrictHandling_WhenHandled_ReturnsBadRequest()
+        {
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+                Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithValidParametersAndStrictHandling_WhenHandled_ReturnsSearchResults()
+        {
+            var response = await Client.SearchAsync("/Patient?name=ronda", Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenASearchRequestWithInvalidHandling_WhenHandled_ReturnsBadRequest()
+        {
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
+                Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=foo")));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
         private async Task<Patient[]> CreatePatientsWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;

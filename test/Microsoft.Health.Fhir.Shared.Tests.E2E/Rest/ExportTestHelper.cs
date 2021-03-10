@@ -34,6 +34,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Wait until status change or timeout
             while ((resultCode == HttpStatusCode.Accepted || resultCode == HttpStatusCode.ServiceUnavailable) && retryCount < 60)
             {
+                // dispose previous response.
+                response?.Dispose();
+
                 await Task.Delay(timeToWaitInMinutes * 1000);
 
                 response = await testFhirClient.CheckExportAsync(contentLocation);
@@ -56,6 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // we have got the result. Deserialize into output response.
             var contentString = await response.Content.ReadAsStringAsync();
 
+            response.Dispose();
             ExportJobResult exportJobResult = JsonConvert.DeserializeObject<ExportJobResult>(contentString);
             return exportJobResult.Output.Select(x => x.FileUri).ToList();
         }
