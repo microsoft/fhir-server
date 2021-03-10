@@ -84,7 +84,6 @@
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
-    <None Remove="TestFiles\R4\MolecularSequence.json" />
     <None Remove="TestFiles\R4\Parameter-Convert-Data.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.xml" />
