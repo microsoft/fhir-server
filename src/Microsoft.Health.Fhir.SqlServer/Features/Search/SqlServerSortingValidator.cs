@@ -10,14 +10,16 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSortingValidator : ISortingValidator
     {
-        private static readonly HashSet<string> _supportedParameterNames = new HashSet<string>(StringComparer.Ordinal)
+        private readonly HashSet<SearchParamType> _supportedSortTypes = new HashSet<SearchParamType>()
         {
-            KnownQueryParameterNames.LastUpdated, "birthdate", "date", "abatement-date", "onset-date", "issued", "created", "started", "authoredon",
+            SearchParamType.Date,
+            SearchParamType.String,
         };
 
         public bool ValidateSorting(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sorting, out IReadOnlyList<string> errorMessages)
@@ -27,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
-                case { Count: 1 } when _supportedParameterNames.Contains(sorting[0].searchParameter.Code):
+                case { Count: 1 } when _supportedSortTypes.Contains(sorting[0].searchParameter.Type):
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:

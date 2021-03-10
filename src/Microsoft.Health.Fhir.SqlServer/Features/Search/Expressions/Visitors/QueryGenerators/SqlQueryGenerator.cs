@@ -711,14 +711,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
                     {
                         sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
+                    }
+                    else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
+                    {
+                        sortColumnName = VLatest.StringSearchParam.Text;
+                    }
 
-                        if (continuationToken != null)
+                    if (continuationToken != null)
+                    {
+                        DateTime dateSortValue;
+                        if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
                         {
-                            DateTime dateSortValue;
-                            if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
-                            {
-                                sortValue = dateSortValue;
-                            }
+                            sortValue = dateSortValue;
                         }
                     }
 
