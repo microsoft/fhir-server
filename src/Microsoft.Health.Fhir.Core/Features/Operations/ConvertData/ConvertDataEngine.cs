@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DotLiquid;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Liquid.Converter;
+using Microsoft.Health.Fhir.Liquid.Converter.Cda;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
 using Microsoft.Health.Fhir.Liquid.Converter.Hl7v2;
 using Microsoft.Health.Fhir.Liquid.Converter.Models;
@@ -48,10 +50,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         public async Task<ConvertDataResponse> Process(ConvertDataRequest convertRequest, CancellationToken cancellationToken)
         {
             var templateCollection = await _convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
-            var result = GetConvertDataResult(convertRequest, new Hl7v2TemplateProvider(templateCollection), cancellationToken);
+
+            ITemplateProvider templateProvider = GetTemplateProvider(convertRequest.InputDataType, templateCollection);
+            if (templateProvider == null)
+            {
+                // This case should never happen.
+                _logger.LogError("Invalid input data type for conversion.");
+                throw new RequestNotValidException("Invalid input data type for conversion.");
+            }
+
+            var result = GetConvertDataResult(convertRequest, templateProvider, cancellationToken);
 
             return new ConvertDataResponse(result);
         }
+
+        private ITemplateProvider GetTemplateProvider(ConversionInputDataType dataType, List<Dictionary<string, Template>> templateCollection) => dataType switch
+        {
+            ConversionInputDataType.Hl7v2 => new Hl7v2TemplateProvider(templateCollection),
+            ConversionInputDataType.CCDA => new CdaTemplateProvider(templateCollection),
+            _ => null,
+        };
 
         private string GetConvertDataResult(ConvertDataRequest convertRequest, ITemplateProvider templateProvider, CancellationToken cancellationToken)
         {
@@ -98,6 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             };
 
             _converterMap.Add(ConversionInputDataType.Hl7v2, new Hl7v2Processor(processorSetting));
+            _converterMap.Add(ConversionInputDataType.CCDA, new CdaProcessor(processorSetting));
         }
     }
 }

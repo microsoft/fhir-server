@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
 {
     /// <summary>
-    /// Request for data conversion, currently supports Hl7v2 to FHIR conversion only.
+    /// Request for data conversion, currently supports Hl7v2 and C-CDA to FHIR conversion only.
     /// </summary>
     public class ConvertDataRequest : IRequest<ConvertDataResponse>
     {
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
         public string InputData { get; }
 
         /// <summary>
-        /// Data type of input data, currently accepts Hl7v. <see cref="ConversionInputDataType.Hl7v2"/>
+        /// Data type of input data, currently accepts Hl7v. <see cref="ConversionInputDataType.Hl7v2"/> and C-CDA <see cref="ConversionInputDataType.CCDA"/>
         /// </summary>
         public ConversionInputDataType InputDataType { get; }
 
