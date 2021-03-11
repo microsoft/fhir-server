@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         }
 
         /// <summary>
-        /// Gets the collection of Coding.
+        /// Gets the Coding collection.
         /// </summary>
         public ICollection<Coding> Coding { get; }
     }
