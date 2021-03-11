@@ -50,19 +50,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             Assert.False(result.IsValid);
         }
 
-        [InlineData(true, null, false)]
+        [InlineData(true, null, true)]
         [InlineData(true, false, false)]
         [InlineData(true, true, true)]
         [InlineData(false, null, false)]
         [InlineData(false, false, false)]
         [InlineData(false, true, true)]
         [Theory]
-        public void GivenConfigOrHeader_WhenValidatingUpsert_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
+        public void GivenConfigOrHeader_WhenValidatingCreate_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
         {
             var contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             var profileValidator = Substitute.For<IProfileValidator>();
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            config.Value.Returns(new CoreFeatureConfiguration() { ProfileValidationOnUpdate = configValue });
+            config.Value.Returns(new CoreFeatureConfiguration() { ProfileValidationOnCreate = configValue });
             var headers = new Dictionary<string, StringValues>();
             if (headerValue != null)
             {

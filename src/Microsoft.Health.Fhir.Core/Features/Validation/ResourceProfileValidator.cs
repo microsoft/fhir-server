@@ -59,12 +59,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 if (profileValidation)
                 {
                     var errors = _profileValidator.TryValidate(resourceElement.Instance);
-                    var fullFhirPath = resourceElement.InstanceType;
-
                     foreach (var error in errors.Where(x => x.Severity == IssueSeverity.Error || x.Severity == IssueSeverity.Fatal))
                     {
                         yield return new FhirValidationFailure(
-                            fullFhirPath,
+                            resourceElement.InstanceType,
                             error.DetailsText,
                             error);
                     }

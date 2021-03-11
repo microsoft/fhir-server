@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
             Assert.False(result.IsValid);
         }
 
-        [InlineData(true, null, false)]
+        [InlineData(true, null, true)]
         [InlineData(true, false, false)]
         [InlineData(true, true, true)]
         [InlineData(false, null, false)]
