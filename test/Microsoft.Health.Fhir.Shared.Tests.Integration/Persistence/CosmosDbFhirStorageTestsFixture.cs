@@ -145,6 +145,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 
+            var cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbPhysicalPartitionInfo>();
+            cosmosDbPhysicalPartitionInfo.PhysicalPartitionCount.Returns(1);
+
             _fhirDataStore = new CosmosFhirDataStore(
                 documentClient,
                 _cosmosDataStoreConfiguration,
@@ -152,7 +155,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<IFhirRequestContextAccessor>()),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                options);
+                options,
+                cosmosDbPhysicalPartitionInfo);
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 documentClient,

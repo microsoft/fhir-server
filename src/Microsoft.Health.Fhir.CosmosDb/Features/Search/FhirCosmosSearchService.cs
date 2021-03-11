@@ -331,6 +331,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             var feedOptions = new QueryRequestOptions
             {
                 MaxItemCount = searchOptions.MaxItemCount,
+                MaxConcurrency = 1,
+                MaxBufferedItemCount = 0,
             };
 
             return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, cancellationToken);

@@ -35,6 +35,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         public CosmosFhirDataStoreTests()
         {
             _cosmosQueryFactory = Substitute.For<ICosmosQueryFactory>();
+
+            var cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbPhysicalPartitionInfo>();
+            cosmosDbPhysicalPartitionInfo.PhysicalPartitionCount.Returns(1);
+
             _dataStore = new CosmosFhirDataStore(
                 Substitute.For<IScoped<Container>>(),
                 _cosmosDataStoreConfiguration,
@@ -42,7 +46,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 _cosmosQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<IFhirRequestContextAccessor>()),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                Options.Create(new CoreFeatureConfiguration()));
+                Options.Create(new CoreFeatureConfiguration()),
+                cosmosDbPhysicalPartitionInfo);
         }
 
         [Fact]

@@ -44,6 +44,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
+        private readonly ICosmosDbPhysicalPartitionInfo _physicalPartitionInfo;
+        private readonly CosmosQueryInfoCache _queryInfoCache;
 
         private static readonly HardDelete _hardDelete = new HardDelete();
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
@@ -63,6 +65,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
+        /// <param name="physicalPartitionInfo">Provides physical partition counts on the collection</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -70,8 +73,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosQueryFactory cosmosQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
-            IOptions<CoreFeatureConfiguration> coreFeatures)
+            IOptions<CoreFeatureConfiguration> coreFeatures,
+            ICosmosDbPhysicalPartitionInfo physicalPartitionInfo,
+            CosmosQueryInfoCache queryInfoCache)
         {
+            EnsureArg.IsNotNull(queryInfoCache, nameof(queryInfoCache));
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
@@ -79,12 +85,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
+            EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _cosmosQueryFactory = cosmosQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
+            _physicalPartitionInfo = physicalPartitionInfo;
+            _queryInfoCache = queryInfoCache;
             _coreFeatures = coreFeatures.Value;
         }
 
@@ -377,6 +386,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
+
+            if (feedOptions.MaxConcurrency == null)
+            {
+                _queryInfoCache.IsQueryKnownToBeSelective(sqlQuerySpec.QueryText)
+            }
 
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
             ICosmosQuery<T> cosmosQuery = null;

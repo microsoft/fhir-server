@@ -89,6 +89,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="statusCode">The HTTP status code.</param>
         public async Task ProcessResponse(string sessionToken, double responseRequestCharge, HttpStatusCode? statusCode)
         {
+            _logger.LogInformation("Processing Cosmos DB Response {RequestCharge}", responseRequestCharge);
+
             if (_fhirRequestContextAccessor.FhirRequestContext == null)
             {
                 return;
