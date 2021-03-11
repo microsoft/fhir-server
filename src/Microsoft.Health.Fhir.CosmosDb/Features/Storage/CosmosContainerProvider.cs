@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not RequestRateExceededException)
                 {
                     _logger.LogCritical(ex, "Couldn't create a ContainerScope because EnsureInitialized failed.");
                     throw new ServiceUnavailableException();

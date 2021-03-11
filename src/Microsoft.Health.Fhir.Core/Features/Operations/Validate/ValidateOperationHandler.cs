@@ -18,21 +18,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public class ValidateOperationHandler : IRequestHandler<ValidateOperationRequest, ValidateOperationResponse>
     {
         public static readonly OperationOutcomeIssue ValidationPassed = new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Information,
-                    OperationOutcomeConstants.IssueType.Informational,
-                    Resources.ValidationPassed);
+              OperationOutcomeConstants.IssueSeverity.Information,
+              OperationOutcomeConstants.IssueType.Informational,
+              Resources.ValidationPassed);
 
         private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IProfileValidator _profileValidator;
 
-        public ValidateOperationHandler(IFhirAuthorizationService authorizationService)
+        public ValidateOperationHandler(IFhirAuthorizationService authorizationService, IProfileValidator profileValidator)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(profileValidator, nameof(profileValidator));
 
             _authorizationService = authorizationService;
+            _profileValidator = profileValidator;
         }
 
         /// <summary>
-        /// Handles validation requests that produced no errors. All validation is preformed before this is called.
+        /// Handles validation requests.
         /// </summary>
         /// <param name="request">The request</param>
         /// <param name="cancellationToken">The CancellationToken</param>
@@ -43,7 +46,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 throw new UnauthorizedFhirActionException();
             }
 
-            return new ValidateOperationResponse(ValidationPassed);
+            var outcome = _profileValidator.TryValidate(request.Resource.Instance, request.Profile?.ToString());
+            if (outcome.Length == 0)
+            {
+                return new ValidateOperationResponse(ValidationPassed);
+            }
+
+            return new ValidateOperationResponse(outcome);
         }
     }
 }

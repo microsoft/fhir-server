@@ -10,9 +10,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.ContentTypes;
-using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -25,8 +24,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
         private readonly string _correlationId;
         private readonly DefaultHttpContext _context;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly CorrelationIdProvider _provider = () => Guid.NewGuid().ToString();
-        private readonly IContentTypeService _contentTypeService;
+        private readonly IFormatParametersValidator _formatParametersValidator;
 
         public BaseExceptionMiddlewareTests()
         {
@@ -34,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
 
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(_correlationId);
-            _contentTypeService = Substitute.For<IContentTypeService>();
+            _formatParametersValidator = Substitute.For<IFormatParametersValidator>();
 
             _context = new DefaultHttpContext();
 
@@ -77,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
 
         private BaseExceptionMiddleware CreateBaseExceptionMiddleware(RequestDelegate nextDelegate)
         {
-            return Substitute.ForPartsOf<BaseExceptionMiddleware>(nextDelegate, NullLogger<BaseExceptionMiddleware>.Instance, _fhirRequestContextAccessor, _provider, _contentTypeService);
+            return Substitute.ForPartsOf<BaseExceptionMiddleware>(nextDelegate, NullLogger<BaseExceptionMiddleware>.Instance, _fhirRequestContextAccessor, _formatParametersValidator);
         }
     }
 }

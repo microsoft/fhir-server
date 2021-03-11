@@ -3,15 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-
-namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
+namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public interface IContentTypeService
+    public class ValidateOperationConfiguration
     {
-        Task CheckRequestedContentTypeAsync(HttpContext httpContext);
-
-        Task<bool> IsFormatSupportedAsync(string resourceFormat);
+        /// <summary>
+        /// For how long we cache profile in memory.
+        /// </summary>
+        public int CacheDurationInSeconds { get; set; } = 14400;
     }
 }

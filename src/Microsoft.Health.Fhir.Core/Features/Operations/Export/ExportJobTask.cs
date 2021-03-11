@@ -427,7 +427,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             progress.NewSubSearch(result.Resource.ResourceId);
                         }
 
-                        await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, cancellationToken, currentBatchId + ":" + resultIndex.ToString("d6"));
+                        await RunExportCompartmentSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, anonymizer, cancellationToken, currentBatchId + ":" + resultIndex.ToString("d6"));
                         resultIndex++;
 
                         progress.ClearSubSearch();
@@ -473,6 +473,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
             List<Tuple<string, string>> sharedQueryParametersList,
+            IAnonymizer anonymizer,
             CancellationToken cancellationToken,
             string batchIdPrefix = "")
         {
@@ -498,7 +499,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (progress.CurrentFilter != null)
             {
-                await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, batchIdPrefix + "-filter", cancellationToken);
+                await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, anonymizer, batchIdPrefix + "-filter", cancellationToken);
             }
 
             if (_exportJobRecord.Filters != null)
@@ -510,7 +511,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase))
                     {
                         progress.SetFilter(filter);
-                        await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, batchIdPrefix + "-filter", cancellationToken);
+                        await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, anonymizer, batchIdPrefix + "-filter", cancellationToken);
                     }
                 }
             }
@@ -537,7 +538,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await SearchCompartmentWithFilter(exportJobConfiguration, progress, null, queryParametersList, batchIdPrefix, cancellationToken);
+                await SearchCompartmentWithFilter(exportJobConfiguration, progress, null, queryParametersList, anonymizer, batchIdPrefix, cancellationToken);
             }
         }
 
@@ -545,6 +546,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress exportJobProgress,
             List<Tuple<string, string>> queryParametersList,
+            IAnonymizer anonymizer,
             string batchIdPrefix,
             CancellationToken cancellationToken)
         {
@@ -555,7 +557,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 filterQueryParametersList.Add(param);
             }
 
-            await SearchCompartmentWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, batchIdPrefix + index, cancellationToken);
+            await SearchCompartmentWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, anonymizer, batchIdPrefix + index, cancellationToken);
         }
 
         private async Task SearchCompartmentWithFilter(
@@ -563,6 +565,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobProgress progress,
             string resourceType,
             List<Tuple<string, string>> queryParametersList,
+            IAnonymizer anonymizer,
             string batchIdPrefix,
             CancellationToken cancellationToken)
         {
@@ -587,7 +590,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         cancellationToken);
                 }
 
-                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, null, cancellationToken);
+                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
 
                 if (searchResult.ContinuationToken == null)
                 {

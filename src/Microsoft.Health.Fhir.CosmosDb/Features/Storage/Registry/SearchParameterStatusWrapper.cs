@@ -4,11 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Text;
-using EnsureThat;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
@@ -36,6 +36,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
         [JsonProperty("lastUpdated")]
         public DateTimeOffset LastUpdated { get; set; }
+
+        [JsonProperty("sortStatus")]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public SortParameterStatus? SortStatus { get; set; }
 
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey { get; } = SearchParameterStatusPartitionKey;

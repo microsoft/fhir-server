@@ -14,7 +14,6 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -23,15 +22,21 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
+namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public class ContentTypeService : IContentTypeService
+    /// <summary>
+    /// Checks format parameters defined for all REST API in FHIR Server.
+    /// </summary>
+    /// <remarks>
+    /// Format parameters defined here: http://hl7.org/fhir/http.html#parameters
+    /// </remarks>
+    public sealed class FormatParametersValidator : IFormatParametersValidator
     {
         private readonly IConformanceProvider _conformanceProvider;
         private readonly ICollection<TextOutputFormatter> _outputFormatters;
         private readonly ConcurrentDictionary<ResourceFormat, bool> _supportedFormats = new ConcurrentDictionary<ResourceFormat, bool>();
 
-        public ContentTypeService(
+        public FormatParametersValidator(
             IConformanceProvider conformanceProvider,
             IEnumerable<TextOutputFormatter> outputFormatters)
         {
@@ -82,13 +87,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                         throw new NotAcceptableException(string.Format(Api.Resources.UnsupportedHeaderValue, HeaderNames.Accept));
                     }
                 }
-            }
-
-            string prettyParameterValue = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Pretty);
-
-            if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out _))
-            {
-                throw new BadRequestException(Api.Resources.InvalidPrettyParameter);
             }
         }
 
@@ -146,6 +144,37 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
                         return false;
                 }
             });
+        }
+
+        public void CheckPrettyParameter(HttpContext httpContext)
+        {
+            var prettyParameterValue = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Pretty);
+
+            if (prettyParameterValue != null && !bool.TryParse(prettyParameterValue, out _))
+            {
+                throw new BadRequestException(Api.Resources.InvalidPrettyParameter);
+            }
+        }
+
+        public void CheckSummaryParameter(HttpContext httpContext)
+        {
+            var summaryParameterValue = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Summary);
+
+            if (summaryParameterValue != null && !Enum.TryParse<SummaryType>(summaryParameterValue, true, out _))
+            {
+                throw new BadRequestException(string.Format(Api.Resources.InvalidSummaryParameter, summaryParameterValue, string.Join(',', Enum.GetNames<SummaryType>())));
+            }
+        }
+
+        public void CheckElementsParameter(HttpContext httpContext)
+        {
+            var elementsParameterValue = GetParameterValueFromQueryString(httpContext, KnownQueryParameterNames.Elements);
+
+            // It's ok to not have parameter, but it shouldn't be empty or whitespace.
+            if (elementsParameterValue != null && string.IsNullOrWhiteSpace(elementsParameterValue))
+            {
+                throw new BadRequestException(string.Format(Api.Resources.InvalidElementsParameter, elementsParameterValue));
+            }
         }
     }
 }

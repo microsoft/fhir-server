@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             Skip.IfNot(Fixture.TestFhirServer.Metadata.SupportsSearchParameter("Observation", "_profile"), _skipReason);
 
-            FhirResponse<Bundle> result = await Fixture.TestFhirClient.SearchAsync($"Observation?_profile={Fixture.ObservationProfileUri}&_order=_lastModified");
+            FhirResponse<Bundle> result = await Fixture.TestFhirClient.SearchAsync($"Observation?_profile={Fixture.ObservationProfileUri}");
 
             if (ModelInfoProvider.Version == FhirSpecification.Stu3)
             {

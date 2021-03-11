@@ -49,8 +49,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.Error)]
         public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
 
+        /// <summary>
+        /// Use Concurrent dictionary to allow access to specific items in the list
+        /// Ignore the byte value field, effective using the dictionary as a hashset
+        /// </summary>
         [JsonProperty(JobRecordProperties.QueryList)]
-        public ConcurrentBag<ReindexJobQueryStatus> QueryList { get; private set; } = new ConcurrentBag<ReindexJobQueryStatus>();
+        [JsonConverter(typeof(ReindexJobQueryStatusConverter))]
+
+        public ConcurrentDictionary<ReindexJobQueryStatus, byte> QueryList { get; private set; } = new ConcurrentDictionary<ReindexJobQueryStatus, byte>();
 
         [JsonProperty(JobRecordProperties.Count)]
         public int Count { get; set; }

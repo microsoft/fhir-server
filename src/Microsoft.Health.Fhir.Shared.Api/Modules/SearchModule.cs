@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 
@@ -55,7 +56,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<ISearchParameterDefinitionManager>()
-                .AsService<IHostedService>();
+                .AsService<IHostedService>()
+                .ReplaceService<INotificationHandler<SearchParametersUpdated>>();
 
             services.Add<SearchableSearchParameterDefinitionManager>()
                 .Singleton()

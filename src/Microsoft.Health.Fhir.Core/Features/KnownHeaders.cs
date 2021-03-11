@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Headers
+namespace Microsoft.Health.Fhir.Core.Features
 {
     internal static class KnownHeaders
     {
@@ -12,5 +12,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         public const string RetryAfterMilliseconds = "x-ms-retry-after-ms";
         public const string RetryAfter = "Retry-After";
         public const string ProvenanceHeader = "X-Provenance";
+        public const string Prefer = "Prefer";
+        public const string RequestId = "X-Request-Id";
+        public const string CorrelationId = "X-Correlation-Id";
     }
 }
