@@ -204,6 +204,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<CosmosQueryInfoCache>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

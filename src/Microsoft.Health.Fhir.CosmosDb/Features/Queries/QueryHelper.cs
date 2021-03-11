@@ -70,7 +70,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                 .Append("WHERE ")
                 .Append(_rootAliasName).Append(".isSystem")
                 .Append(" = ")
-                .AppendLine(_queryParameterManager.AddOrGetParameterMapping(systemDataValue));
+                .Append(systemDataValue)
+                .AppendLine();
         }
 
         public void AppendSearchParameterHashFliter(string hashValue)

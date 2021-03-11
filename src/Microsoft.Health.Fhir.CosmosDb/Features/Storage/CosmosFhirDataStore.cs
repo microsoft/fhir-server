@@ -389,7 +389,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (feedOptions.MaxConcurrency == null)
             {
-                _queryInfoCache.IsQueryKnownToBeSelective(sqlQuerySpec.QueryText)
+                _queryInfoCache.IsQueryKnownToBeSelective(sqlQuerySpec.QueryText);
             }
 
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
