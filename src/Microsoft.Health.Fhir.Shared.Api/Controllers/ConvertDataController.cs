@@ -76,9 +76,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             // Validate template registry has been configured.
-            bool isDefaultTemplateReference = IsDefaultTemplateReference(templateCollectionReference);
+            bool isDefaultTemplateReference = ImageInfo.IsDefaultTemplateImageReference(templateCollectionReference);
             string registryServer = ExtractRegistryServer(templateCollectionReference);
-            if (!isDefaultTemplateReference)
+            if (isDefaultTemplateReference)
+            {
+                CheckInputDataTypeAndDefaultTemplateImageReferenceConsistent(inputDataType, templateCollectionReference);
+            }
+            else
             {
                 CheckIfRegistryIsConfigured(registryServer);
             }
@@ -170,11 +174,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return supportedParams;
         }
 
-        private static bool IsDefaultTemplateReference(string templateReference)
-        {
-            return string.Equals(ImageInfo.DefaultTemplateImageReference, templateReference, StringComparison.OrdinalIgnoreCase);
-        }
-
         private void CheckIfRegistryIsConfigured(string registryServer)
         {
             if (!_config.ContainerRegistryServers.Any(server =>
@@ -184,6 +183,31 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new ContainerRegistryNotConfiguredException(string.Format(Resources.ContainerRegistryNotConfigured, registryServer));
             }
         }
+
+        private void CheckInputDataTypeAndDefaultTemplateImageReferenceConsistent(ConversionInputDataType inputDataType, string templateCollectionReference)
+        {
+            // default datatype Hl7v2
+            if (string.Equals(templateCollectionReference, ImageInfo.DefaultTemplateImageReference, StringComparison.OrdinalIgnoreCase))
+            {
+                if (inputDataType != ConversionInputDataType.Hl7v2)
+                {
+                    _logger.LogError("The default template collection and input datatype are inconsistent.");
+                    throw new InputDataTypeAndDefaultTemplateCollectionInconsistentException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));
+                }
+            }
+            else if (!string.Equals(templateCollectionReference, ImageInfo.GetDefaultTemplateImageReferenceByDatatype(GetConverterDataType(inputDataType)), StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogError("The default template collection and input datatype are inconsistent.");
+                throw new InputDataTypeAndDefaultTemplateCollectionInconsistentException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));
+            }
+        }
+
+        private static Liquid.Converter.Models.DataType GetConverterDataType(ConversionInputDataType inputDataType) => inputDataType switch
+        {
+            ConversionInputDataType.Hl7v2 => Liquid.Converter.Models.DataType.Hl7v2,
+            ConversionInputDataType.CCDA => Liquid.Converter.Models.DataType.Cda,
+            _ => throw new RequestNotValidException(string.Format(Resources.ConvertDataParameterValueNotValid, ConvertDataProperties.InputDataType)),
+        };
 
         private void CheckIfConvertDataIsEnabled()
         {
