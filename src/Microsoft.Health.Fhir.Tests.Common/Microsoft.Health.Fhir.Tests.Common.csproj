@@ -204,6 +204,7 @@
     <None Remove="TestFiles\Stu3\Parameter-Convert-Data.json" />
     <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
     <None Remove="TestFiles\Stu3\ProvenanceHeader.json" />
+    <None Remove="TestFiles\Stu3\Sequence.json" />
     <None Remove="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
     <None Remove="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />
     <None Remove="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />
@@ -315,6 +316,7 @@
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Sequence.json" />
     <EmbeddedResource Include="TestFiles\R4\Parameter-Convert-Data.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
@@ -404,6 +406,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ResourceWrapperNoVersion.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ProvenanceHeader.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Sequence.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />

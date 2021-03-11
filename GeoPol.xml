@@ -18,5 +18,6 @@
     <ExcludeFolder>GeoPol.xml</ExcludeFolder>
     <ExcludeFolder>THIRDPARTYNOTICES.md</ExcludeFolder>
     <ExcludeFolder>src\Microsoft.Health.Fhir.Core\Data\*.json</ExcludeFolder>
+    <ExcludeFolder>src\Microsoft.Health.Fhir.Tests.Common\TestFiles\*.json</ExcludeFolder>
   </Component>
 </GeoPol_Folders>

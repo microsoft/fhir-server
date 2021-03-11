@@ -534,4 +534,8 @@
   <data name="ProvenanceHeaderShouldntHaveTarget" xml:space="preserve">
     <value>X-Provenance header shall not have a specified `Provenance.target`</value>
   </data>
+  <data name="InvalidHandlingValue" xml:space="preserve">
+    <value>The 'handling' value '{0}' is invalid. The supported values are: {1}.</value>
+    <comment>{0}: the invalid handling value. {1}: the supported handling values.</comment>
+  </data>
 </root>

@@ -69,6 +69,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var context = _modelInfoProvider.GetEvaluationContext(_referenceToElementResolver.Resolve);
 
+            // This allow to resolve %resource FhirPath to provided value.
+            context.Container = resource.Instance;
+
             IEnumerable<SearchParameterInfo> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
 
             foreach (SearchParameterInfo searchParameter in searchParameters)

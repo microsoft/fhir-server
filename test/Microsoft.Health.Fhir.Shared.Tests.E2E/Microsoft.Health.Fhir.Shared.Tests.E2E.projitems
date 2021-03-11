@@ -9,7 +9,8 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.E2E</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />   
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditTestFixture.cs" />
