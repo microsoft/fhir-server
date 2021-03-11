@@ -10,6 +10,8 @@
   <PropertyGroup />
   <ItemGroup>
     <None Include="Rest\AnonymizedExportTests.cs" />
+    <None Include="Rest\CustomConvertDataTests.cs" />
+    <None Include="Rest\ConvertDataTests.cs" />
   </ItemGroup>
   <Import Project="Microsoft.Health.Fhir.Shared.Tests.E2E.projitems" Label="Shared" />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.CSharp.targets" />
