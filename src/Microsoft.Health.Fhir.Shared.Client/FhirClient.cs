@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, uri);
+            using var message = new HttpRequestMessage(HttpMethod.Post, uri);
             message.Headers.Accept.Add(_mediaType);
             message.Content = CreateStringContent(resource);
 
@@ -137,10 +137,10 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<FhirResponse<T>> ReadAsync<T>(string uri, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, uri);
+            using var message = new HttpRequestMessage(HttpMethod.Get, uri);
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -168,25 +168,25 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
+            using var message = new HttpRequestMessage(HttpMethod.Put, uri)
             {
                 Content = CreateStringContent(resource),
             };
-            request.Headers.Accept.Add(_mediaType);
+            message.Headers.Accept.Add(_mediaType);
 
             if (ifMatchVersion != null)
             {
                 var weakETag = $"W/\"{ifMatchVersion}\"";
 
-                request.Headers.Add(IfMatchHeaderName, weakETag);
+                message.Headers.Add(IfMatchHeaderName, weakETag);
             }
 
             if (provenanceHeader != null)
             {
-                request.Headers.Add(ProvenanceHeader, provenanceHeader);
+                message.Headers.Add(ProvenanceHeader, provenanceHeader);
             }
 
-            HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -201,10 +201,10 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Delete, uri);
+            using var message = new HttpRequestMessage(HttpMethod.Delete, uri);
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -219,13 +219,13 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse> PatchAsync(string uri, string content, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Patch, uri)
+            using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
             {
                 Content = new StringContent(content),
             };
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -234,9 +234,9 @@ namespace Microsoft.Health.Fhir.Client
 
         public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null, CancellationToken cancellationToken = default)
         {
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
 
-            sb.Append(resourceType).Append("?");
+            sb.Append(resourceType).Append('?');
 
             if (query != null)
             {
@@ -245,9 +245,9 @@ namespace Microsoft.Health.Fhir.Client
 
             if (count != null)
             {
-                if (sb[sb.Length - 1] != '?')
+                if (sb[^1] != '?')
                 {
-                    sb.Append("&");
+                    sb.Append('&');
                 }
 
                 sb.Append("_count=").Append(count.Value);
@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Bundle>> SearchAsync(string url, Tuple<string, string> customHeader, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, url);
+            using var message = new HttpRequestMessage(HttpMethod.Get, url);
             message.Headers.Accept.Add(_mediaType);
 
             if (customHeader != null)
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.Client
                 message.Headers.Add(customHeader.Item1, customHeader.Item2);
             }
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -280,11 +280,12 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, CancellationToken cancellationToken = default, params (string key, string value)[] body)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}_search")
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}_search")
             {
                 Content = new FormUrlEncodedContent(body.ToDictionary(p => p.key, p => p.value)),
             };
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -311,7 +312,7 @@ namespace Microsoft.Health.Fhir.Client
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -329,7 +330,7 @@ namespace Microsoft.Health.Fhir.Client
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -339,7 +340,7 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            var response = await HttpClient.SendAsync(message, cancellationToken);
 
             return response;
         }
@@ -353,28 +354,28 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<string> ConvertDataAsync(Parameters parameters, CancellationToken cancellationToken = default)
         {
             string requestPath = "$convert-data";
-            var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
+            using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
             {
                 Content = CreateStringContent(parameters),
             };
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return await response.Content.ReadAsStringAsync();
+            return await response.Content.ReadAsStringAsync(cancellationToken);
         }
 
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
+            using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
             {
                 Content = CreateStringContent(bundle),
             };
 
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -386,12 +387,12 @@ namespace Microsoft.Health.Fhir.Client
             string uniqueResource = null,
             CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, $"{uniqueResource}$reindex")
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{uniqueResource}$reindex")
             {
                 Content = CreateStringContent(parameters),
             };
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -401,7 +402,7 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<FhirResponse<Parameters>> CheckReindexAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             return await CreateResponseAsync<Parameters>(response);
         }
@@ -415,10 +416,12 @@ namespace Microsoft.Health.Fhir.Client
         /// <param name="cancellationToken">The cancellation token</param>
         public async Task<OperationOutcome> ValidateAsync(string uri, string resource, string profile = null, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, profile != null ? uri + $"?profile={profile}" : uri);
-            message.Content = new StringContent(resource, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER);
+            using var message = new HttpRequestMessage(HttpMethod.Post, profile != null ? uri + $"?profile={profile}" : uri)
+            {
+                Content = new StringContent(resource, Encoding.UTF8, ContentType.JSON_CONTENT_HEADER),
+            };
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -428,9 +431,9 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<OperationOutcome> ValidateByIdAsync(ResourceType resourceType, string resourceId, string profile, CancellationToken cancellationToken = default)
         {
             var uri = $"{resourceType}/{resourceId}/$validate";
-            var message = new HttpRequestMessage(HttpMethod.Get, profile != null ? uri + $"?profile={profile}" : uri);
+            using var message = new HttpRequestMessage(HttpMethod.Get, profile != null ? uri + $"?profile={profile}" : uri);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 

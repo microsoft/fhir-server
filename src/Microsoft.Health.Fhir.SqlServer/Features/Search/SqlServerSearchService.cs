@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // in case it's a _lastUpdated sort optimization
                     if (string.IsNullOrEmpty(continuationToken.SortValue))
                     {
-                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
+                        (SearchParameterInfo _, SortOrder sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
 
                         Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending
                             ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId)
