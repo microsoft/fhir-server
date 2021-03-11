@@ -13,6 +13,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -22,6 +23,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
     /// <summary>
     /// Middleware to limit the number of concurrent requests that an instance of the server handles simultaneously.
     /// Also provides request queuing up to a maximum queue size and wait time in the queue.
+    /// Also handles unhandled <see cref="RequestRateExceededException"/> thrown downstream and returns a 429 response.
+    /// These can happen during startup before the MVC handler has been reached.
     /// </summary>
     public sealed class ThrottlingMiddleware : IAsyncDisposable, IDisposable
     {
@@ -34,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         // hard-coding these to minimize resource consumption when throttling
         private const string ThrottledContentType = "application/json; charset=utf-8";
-        private static readonly ReadOnlyMemory<byte> _throttledBody = Encoding.UTF8.GetBytes($@"{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{Resources.TooManyConcurrentRequests}""}}").AsMemory();
+        private static readonly ReadOnlyMemory<byte> _throttledBody = CreateThrottledBody(Resources.TooManyConcurrentRequests);
 
         private readonly RequestDelegate _next;
         private readonly ILogger<ThrottlingMiddleware> _logger;
@@ -51,6 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private readonly int _concurrentRequestLimit;
         private readonly int _maxQueueSize;
         private readonly int _maxMillisecondsInQueue;
+        private bool _throttlingEnabled;
 
         public ThrottlingMiddleware(
             RequestDelegate next,
@@ -62,6 +66,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             ThrottlingConfiguration configuration = EnsureArg.IsNotNull(throttlingConfiguration?.Value, nameof(throttlingConfiguration));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
+
+            _throttlingEnabled = throttlingConfiguration.Value.Enabled;
 
             _securityEnabled = securityConfiguration.Value.Enabled;
 
@@ -123,92 +129,105 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         public async Task Invoke(HttpContext context)
         {
-            if (_excludedEndpoints.Contains((context.Request.Method, context.Request.Path.Value)))
+            try
             {
-                // Endpoint is exempt from concurrent request limits.
-                await _next(context);
-                return;
-            }
-
-            if (_securityEnabled && !context.User.Identity.IsAuthenticated)
-            {
-                // Ignore Unauthenticated users if security is enabled
-                await _next(context);
-                return;
-            }
-
-            bool canRun = false;
-            bool queueSizeExceeded = false;
-            LinkedListNode<TaskCompletionSource<object>> queueNode = null;
-
-            for (int i = 0; i < 2; i++)
-            {
-                // we do two loop iterations only when we need to queue up the request.
-                lock (_queue)
+                if (!_throttlingEnabled)
                 {
-                    if (_requestsInFlight < _concurrentRequestLimit)
-                    {
-                        canRun = true;
-                        _requestsInFlight++;
-                        break;
-                    }
-
-                    if (_queue.Count >= _maxQueueSize)
-                    {
-                        queueSizeExceeded = true;
-                        break;
-                    }
-
-                    if (queueNode != null)
-                    {
-                        _queue.AddLast(queueNode);
-                        break;
-                    }
+                    await _next(context);
+                    return;
                 }
 
-                // allocate outside of the lock
-                queueNode = new LinkedListNode<TaskCompletionSource<object>>(new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously));
-            }
-
-            if (canRun)
-            {
-                // No throttling or no queueing necessary. Execute the request.
-                await RunRequest(context);
-            }
-            else if (queueSizeExceeded)
-            {
-                await Return429(context);
-            }
-            else
-            {
-                Debug.Assert(queueNode != null);
-
-                // start the timeout clock now while we wait for other requests ahead of us to finish.
-                if (await Task.WhenAny(queueNode.Value.Task, Task.Delay(_maxMillisecondsInQueue, context.RequestAborted)) != queueNode.Value.Task)
+                if (_excludedEndpoints.Contains((context.Request.Method, context.Request.Path.Value)))
                 {
-                    // timed out or request canceled
+                    // Endpoint is exempt from concurrent request limits.
+                    await _next(context);
+                    return;
+                }
+
+                if (_securityEnabled && !context.User.Identity.IsAuthenticated)
+                {
+                    // Ignore Unauthenticated users if security is enabled
+                    await _next(context);
+                    return;
+                }
+
+                bool canRun = false;
+                bool queueSizeExceeded = false;
+                LinkedListNode<TaskCompletionSource<object>> queueNode = null;
+
+                for (int i = 0; i < 2; i++)
+                {
+                    // we do two loop iterations only when we need to queue up the request.
                     lock (_queue)
                     {
-                        if (queueNode.List != null)
+                        if (_requestsInFlight < _concurrentRequestLimit)
                         {
-                            _queue.Remove(queueNode);
-                        }
-                        else
-                        {
-                            // this was a race condition and the request is actually ready to go now.
                             canRun = true;
+                            _requestsInFlight++;
+                            break;
+                        }
+
+                        if (_queue.Count >= _maxQueueSize)
+                        {
+                            queueSizeExceeded = true;
+                            break;
+                        }
+
+                        if (queueNode != null)
+                        {
+                            _queue.AddLast(queueNode);
+                            break;
                         }
                     }
 
-                    if (!canRun)
-                    {
-                        await Return429(context);
-                        return;
-                    }
+                    // allocate outside of the lock
+                    queueNode = new LinkedListNode<TaskCompletionSource<object>>(new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously));
                 }
 
-                // the request has been dequeued and we can now execute.
-                await RunRequest(context);
+                if (canRun)
+                {
+                    // No throttling or no queueing necessary. Execute the request.
+                    await RunRequest(context);
+                }
+                else if (queueSizeExceeded)
+                {
+                    await Return429(context);
+                }
+                else
+                {
+                    Debug.Assert(queueNode != null);
+
+                    // start the timeout clock now while we wait for other requests ahead of us to finish.
+                    if (await Task.WhenAny(queueNode.Value.Task, Task.Delay(_maxMillisecondsInQueue, context.RequestAborted)) != queueNode.Value.Task)
+                    {
+                        // timed out or request canceled
+                        lock (_queue)
+                        {
+                            if (queueNode.List != null)
+                            {
+                                _queue.Remove(queueNode);
+                            }
+                            else
+                            {
+                                // this was a race condition and the request is actually ready to go now.
+                                canRun = true;
+                            }
+                        }
+
+                        if (!canRun)
+                        {
+                            await Return429(context);
+                            return;
+                        }
+                    }
+
+                    // the request has been dequeued and we can now execute.
+                    await RunRequest(context);
+                }
+            }
+            catch (RequestRateExceededException e)
+            {
+                await Return429FromRequestRateExceededException(e, context);
             }
         }
 
@@ -266,6 +285,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             await context.Response.Body.WriteAsync(_throttledBody);
         }
+
+        private async Task Return429FromRequestRateExceededException(RequestRateExceededException exception, HttpContext context)
+        {
+            _logger.LogWarning($"Returning 429 from unhandled {nameof(RequestRateExceededException)}");
+
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+            context.Response.Headers.AddRetryAfterHeaders(exception.RetryAfter);
+
+            Memory<byte> body = CreateThrottledBody(exception.Message);
+
+            context.Response.ContentLength = body.Length;
+            context.Response.ContentType = ThrottledContentType;
+
+            await context.Response.Body.WriteAsync(body);
+        }
+
+        private static Memory<byte> CreateThrottledBody(string message) => Encoding.UTF8.GetBytes($@"{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{message}""}}").AsMemory();
 
         public async ValueTask DisposeAsync()
         {

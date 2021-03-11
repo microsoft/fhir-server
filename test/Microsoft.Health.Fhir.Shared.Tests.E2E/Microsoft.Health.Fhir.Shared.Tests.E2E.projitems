@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomConvertDataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConvertDataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
@@ -81,6 +82,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />

@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// </summary>
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]
+    [ServiceFilter(typeof(ValidateFormatParametersAttribute))]
     [ValidateResourceTypeFilter]
     [ValidateModelState]
     public class FhirController : Controller

@@ -4,8 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
+using System.Net;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -16,44 +21,66 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Validate)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ValidateTests : IClassFixture<HttpIntegrationTestFixture>
+    public class ValidateTests : IClassFixture<ValidateTestFixture>
     {
         private const string Success = "All OK";
         private readonly TestFhirClient _client;
 
-        public ValidateTests(HttpIntegrationTestFixture fixture)
+        public ValidateTests(ValidateTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
         }
 
         [Theory]
-        [InlineData("Patient/$validate", "{\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}")]
-        [InlineData("Observation/$validate", "{\"resourceType\":\"Observation\",\"status\":\"registered\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}")]
-        public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string payload)
+        [InlineData("Patient/$validate", "Profile-Patient-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
+        [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
+        [InlineData("Patient/$validate", "Profile-Patient-uscore", null)]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore", null)]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", null)]
+        [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
+        public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
-            OperationOutcome outcome = await _client.ValidateAsync(path, payload);
+            OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
-            Assert.Single(outcome.Issue);
-            CheckOperationOutcomeIssue(
-                outcome.Issue[0],
-                OperationOutcome.IssueSeverity.Information,
-                OperationOutcome.IssueType.Informational,
-                Success);
+            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Parameters parameters = new Parameters();
+            if (!string.IsNullOrEmpty(profile))
+            {
+                parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
+            }
+
+            var parser = new FhirJsonParser();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.Parse<Resource>(Samples.GetJson(filename)) });
+
+            outcome = await _client.ValidateAsync(path, parameters.ToJson());
+
+            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
-        [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Xml)]
         [Theory]
-        [InlineData("Observation/$validate", "<Observation xmlns=\"http://hl7.org/fhir\"><status value=\"final\"/><code><coding><system value=\"system\"/><code value=\"code\"/></coding></code></Observation>")]
-        public async void GivenAValidateRequestInXML_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string payload)
+        [InlineData("Organization/$validate", "Organization", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
+        [InlineData("Patient/$validate", "Patient", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
+        [InlineData("CarePlan/$validate", "CarePlan", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
+        public async void GivenAValidateRequest_WhenTheResourceIsNonConformToProfile_ThenAnErrorShouldBeReturned(string path, string filename, string profile)
         {
-            OperationOutcome outcome = await _client.ValidateAsync(path, payload, true);
+            OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
-            Assert.Single(outcome.Issue);
-            CheckOperationOutcomeIssue(
-                outcome.Issue[0],
-                OperationOutcome.IssueSeverity.Information,
-                OperationOutcome.IssueType.Informational,
-                Success);
+            Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+
+            Parameters parameters = new Parameters();
+            if (!string.IsNullOrEmpty(profile))
+            {
+                parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
+            }
+
+            var parser = new FhirJsonParser();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.Parse<Resource>(Samples.GetJson(filename)) });
+
+            outcome = await _client.ValidateAsync(path, parameters.ToJson());
+
+            Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
         [Theory]
@@ -109,48 +136,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
-            var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
+            var fhirSource = Samples.GetJson("Profile-Patient-uscore");
+            var parser = new FhirJsonParser();
+            var patient = parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
+            Patient createdResource = await _client.CreateAsync(patient.ToPoco<Patient>());
+            OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 
-            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate", payload);
-
-            Assert.Single(outcome.Issue);
-            CheckOperationOutcomeIssue(
-                outcome.Issue[0],
-                OperationOutcome.IssueSeverity.Information,
-                OperationOutcome.IssueType.Informational,
-                Success);
+            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
         [Fact]
-        public async void GivenAValidateByIdRequest_WhenTheResourceIdDoesNotMatch_ThenADetailedErrorIsReturned()
+        public async void GivenUnpresentIdRequest_WhenValidateIt_ThenAnErrorShouldBeReturned()
         {
-            var payload = "{\"resourceType\": \"Patient\", \"id\": \"456\"}";
+            var exception = await Assert.ThrowsAsync<FhirException>(async () =>
+            await _client.ValidateByIdAsync(ResourceType.Patient, "-1", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"));
 
-            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate", payload);
-
-            Assert.Single(outcome.Issue);
-            CheckOperationOutcomeIssue(
-                outcome.Issue[0],
-                OperationOutcome.IssueSeverity.Error,
-                OperationOutcome.IssueType.Invalid,
-                "Id in the URL must match id in the resource.",
-                "Patient.id");
+            Assert.Equal(HttpStatusCode.NotFound, exception.Response.StatusCode);
         }
 
         [Fact]
-        public async void GivenAValidateByIdRequest_WhenTheResourceIdIsMissing_ThenADetailedErrorIsReturned()
+        public async void GivenAValidateByIdRequestWithStricterProfile_WhenRunningValidate_ThenAnErrorShouldBeReturned()
         {
-            var payload = "{\"resourceType\": \"Patient\"}";
+            Patient createdResource = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
+            OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 
-            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate", payload);
-
-            Assert.Single(outcome.Issue);
-            CheckOperationOutcomeIssue(
-                outcome.Issue[0],
-                OperationOutcome.IssueSeverity.Error,
-                OperationOutcome.IssueType.Invalid,
-                "Id must be specified in the resource.",
-                "Patient.id");
+            Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
         [Fact]
@@ -184,6 +194,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "TypeName");
         }
 
+        [Fact]
+        public async void GivenInvalidProfile_WhenValidateCalled_ThenBadRequestReturned()
+        {
+            var patient = Samples.GetJson("Patient");
+            var profile = "abc";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateAsync("Patient/$validate", patient, profile));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+
+            Parameters parameters = new Parameters();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
+
+            var parser = new FhirJsonParser();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = Samples.GetDefaultPatient().ToPoco<Patient>() });
+
+            exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateAsync("Patient/$validate", parameters.ToJson()));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
         private void CheckOperationOutcomeIssue(
             OperationOutcome.IssueComponent issue,
             OperationOutcome.IssueSeverity? expectedSeverity,
@@ -201,15 +231,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Assert.Single(issue.LocationElement);
                 Assert.Equal(expectedLocation, issue.LocationElement[0].ToString());
             }
-        }
-
-        private string ExtractFromJson(string json, string property, bool isArray = false)
-        {
-            var propertyWithQuotes = property + "\":" + (isArray ? "[" : string.Empty) + "\"";
-            var start = json.IndexOf(propertyWithQuotes) + propertyWithQuotes.Length;
-            var end = json.IndexOf("\"", start);
-
-            return json.Substring(start, end - start);
         }
     }
 }

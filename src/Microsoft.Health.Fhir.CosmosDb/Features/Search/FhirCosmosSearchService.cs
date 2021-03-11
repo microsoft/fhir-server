@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -18,39 +19,48 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
-    public class FhirCosmosSearchService : SearchService
+    internal class FhirCosmosSearchService : SearchService
     {
-        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new SearchParameterInfo(SearchValueConstants.TypeIdCompositeSearchParameterName, SearchValueConstants.TypeIdCompositeSearchParameterName);
-        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new SearchParameterInfo(SearchValueConstants.WildcardReferenceSearchParameterName, SearchValueConstants.WildcardReferenceSearchParameterName);
+        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new(SearchValueConstants.TypeIdCompositeSearchParameterName, SearchValueConstants.TypeIdCompositeSearchParameterName);
+        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new(SearchValueConstants.WildcardReferenceSearchParameterName, SearchValueConstants.WildcardReferenceSearchParameterName);
 
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
+        private readonly SearchParameterInfo _resourceIdSearchParameter;
+        public const string HeaderEnableChainedSearch = "x-ms-enable-chained-search";
+        private const int _chainedSearchMaxSubqueryItemLimit = 100;
 
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IFhirRequestContextAccessor requestContextAccessor)
+            IFhirRequestContextAccessor requestContextAccessor,
+            CosmosDataStoreConfiguration cosmosConfig)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(cosmosConfig, nameof(cosmosConfig));
 
             _fhirDataStore = fhirDataStore;
             _queryBuilder = queryBuilder;
             _requestContextAccessor = requestContextAccessor;
+            _cosmosConfig = cosmosConfig;
             _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
+            _resourceIdSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.Id);
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(
@@ -64,11 +74,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             searchOptions.Expression = searchOptions.Expression?.AcceptVisitor(DateTimeEqualityRewriter.Instance);
 
             // pull out the _include and _revinclude expressions.
-            bool hasIncludeOrRevIncludeExpressions = ExtractIncludeExpressions(
+            bool hasIncludeOrRevIncludeExpressions = ExtractIncludeAndChainedExpressions(
                 searchOptions.Expression,
                 out Expression expressionWithoutIncludes,
                 out IReadOnlyList<IncludeExpression> includeExpressions,
-                out IReadOnlyList<IncludeExpression> revIncludeExpressions);
+                out IReadOnlyList<IncludeExpression> revIncludeExpressions,
+                out IReadOnlyList<ChainedExpression> chainedExpressions);
 
             if (hasIncludeOrRevIncludeExpressions)
             {
@@ -81,17 +92,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 }
             }
 
+            if (hasIncludeOrRevIncludeExpressions && chainedExpressions.Count > 0)
+            {
+                List<Expression> chainedReferences = await PerformChainedSearch(searchOptions, chainedExpressions, cancellationToken);
+
+                // Expressions where provided and some results to filter by were found.
+                if (chainedReferences?.Count == chainedExpressions.Count)
+                {
+                    chainedReferences.Insert(0, searchOptions.Expression);
+                    searchOptions.Expression = Expression.And(chainedReferences);
+                }
+                else
+                {
+                    if (searchOptions.CountOnly)
+                    {
+                        return new SearchResult(0, searchOptions.UnsupportedSearchParams);
+                    }
+
+                    return CreateSearchResult(searchOptions, ArraySegment<SearchResultEntry>.Empty, continuationToken: null);
+                }
+            }
+
             if (searchOptions.CountOnly)
             {
                 int count = await ExecuteCountSearchAsync(
-                    _queryBuilder.BuildSqlQuerySpec(searchOptions, includes: Array.Empty<IncludeExpression>()),
+                    _queryBuilder.BuildSqlQuerySpec(searchOptions),
                     cancellationToken);
 
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
             (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                _queryBuilder.BuildSqlQuerySpec(searchOptions, includeExpressions),
+                _queryBuilder.BuildSqlQuerySpec(searchOptions, new QueryBuilderOptions(includeExpressions)),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
@@ -123,13 +155,137 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     // And perform a second read.
                     searchResult.TotalCount = await ExecuteCountSearchAsync(
-                        _queryBuilder.BuildSqlQuerySpec(searchOptions, includes: Array.Empty<IncludeExpression>()),
+                        _queryBuilder.BuildSqlQuerySpec(searchOptions),
                         cancellationToken);
                 }
             }
 
             return searchResult;
         }
+
+        private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
+        {
+            if (!_cosmosConfig.EnableChainedSearch &&
+                !(_requestContextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(HeaderEnableChainedSearch, out StringValues featureSetting) &&
+                  string.Equals(featureSetting.FirstOrDefault(), "true", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
+            }
+
+            var chainedReferences = new List<Expression>();
+            SearchOptions chainedOptions = searchOptions.Clone();
+            chainedOptions.CountOnly = false;
+            chainedOptions.MaxItemCount = _chainedSearchMaxSubqueryItemLimit;
+            chainedOptions.MaxItemCountSpecifiedByClient = false;
+
+            // Loop over all chained expressions in the search query and pass them into the local recursion function
+            foreach (ChainedExpression item in chainedExpressions)
+            {
+                Expression recursiveLookup = await RecurseChainedExpression(item, chainedOptions, cancellationToken);
+
+                if (recursiveLookup == null)
+                {
+                    return null;
+                }
+
+                chainedReferences.Add(recursiveLookup);
+            }
+
+            return chainedReferences;
+        }
+
+        /// <summary>
+        /// This lets us walk to the end of the expression to start filtering, the results are used to filter against the parent layer.
+        /// </summary>
+        private async Task<Expression> RecurseChainedExpression(ChainedExpression expression, SearchOptions chainedOptions, CancellationToken cancellationToken)
+            {
+                Expression criteria = expression.Expression;
+
+                if (expression.Expression is ChainedExpression innerChained)
+                {
+                    criteria = await RecurseChainedExpression(innerChained, chainedOptions, cancellationToken);
+                }
+
+                if (criteria == null)
+                {
+                    // No items where returned by the sub-queries, break
+                    return null;
+                }
+
+                string filteredType = expression.TargetResourceTypes.First();
+                var includeExpressions = new List<IncludeExpression>();
+
+                if (expression.Reversed)
+                {
+                    // When reversed we'll use the Include expression code to return the ids
+                    // in the search index on the matched resources
+                    foreach (var targetInclude in expression.TargetResourceTypes)
+                    {
+                        includeExpressions.Add(Expression.Include(
+                            expression.ResourceTypes,
+                            expression.ReferenceSearchParameter,
+                            null,
+                            targetInclude,
+                            expression.TargetResourceTypes,
+                            false,
+                            false,
+                            false));
+                    }
+
+                    // When reversed the ids from the sub-query will match the base resource type
+                    filteredType = expression.ResourceTypes.First();
+                }
+
+                MultiaryExpression filterExpression = Expression.And(
+                    Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, filteredType, false)),
+                    criteria);
+
+                chainedOptions.Expression = filterExpression;
+
+                var chainedResults = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                    _queryBuilder.BuildSqlQuerySpec(chainedOptions, new QueryBuilderOptions(includeExpressions, projection: includeExpressions.Any() ? QueryProjection.ReferencesOnly : QueryProjection.Id)),
+                    chainedOptions,
+                    null,
+                    cancellationToken);
+
+                if (!string.IsNullOrEmpty(chainedResults.continuationToken))
+                {
+                    throw new InvalidSearchOperationException(string.Format(Resources.ChainedExpressionSubqueryLimit, _chainedSearchMaxSubqueryItemLimit));
+                }
+
+                Expression[] chainedExpressionReferences;
+
+                if (!expression.Reversed)
+                {
+                    // When normal chained expression we can filter using references in the parent object. e.g. Observation.subject
+                    // The following expression constrains "subject" references on "Observation" with the ids that have matched the sub-query
+                    chainedExpressionReferences = chainedResults.results.Select(x =>
+                            Expression.SearchParameter(
+                                expression.ReferenceSearchParameter,
+                                Expression.And(
+                                    Expression.Equals(FieldName.ReferenceResourceId, null, x.Id),
+                                    Expression.Equals(FieldName.ReferenceResourceType, null, filteredType))))
+                        .ToArray<Expression>();
+                }
+                else
+                {
+                    // When reverse chained, we take the ids and types from the child object and use it to filter the parent objects.
+                    // e.g. Patient?_has:Group:member:_id=group1. In this case we would have run the query there Group.id = group1
+                    // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
+                    chainedExpressionReferences = chainedResults.results.SelectMany(x =>
+                            x.ReferencesToInclude.Select(include =>
+                                Expression.And(
+                                Expression.SearchParameter(
+                                    _resourceIdSearchParameter,
+                                    Expression.Equals(FieldName.TokenCode, null, include.ResourceId)),
+                                Expression.SearchParameter(
+                                    _resourceTypeSearchParameter,
+                                    Expression.Equals(FieldName.TokenCode, null, include.ResourceTypeName)))))
+                        .ToArray<Expression>();
+                }
+
+                return chainedExpressionReferences.Length > 1 ? Expression.Or(chainedExpressionReferences) : chainedExpressionReferences.FirstOrDefault();
+            }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(
             SearchOptions searchOptions,
@@ -254,7 +410,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
                     };
 
-                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions, Array.Empty<IncludeExpression>());
+                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions);
 
                     (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
                     do
@@ -309,7 +465,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
                     };
 
-                    QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions, Array.Empty<IncludeExpression>());
+                    QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions);
 
                     (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
                     do
@@ -334,34 +490,49 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return (includes, includesTruncated);
         }
 
-        private static bool ExtractIncludeExpressions(Expression inputExpression, out Expression expressionWithoutIncludes, out IReadOnlyList<IncludeExpression> includeExpressions, out IReadOnlyList<IncludeExpression> revIncludeExpressions)
+        private static bool ExtractIncludeAndChainedExpressions(
+            Expression inputExpression,
+            out Expression expressionWithoutIncludesOrChained,
+            out IReadOnlyList<IncludeExpression> includeExpressions,
+            out IReadOnlyList<IncludeExpression> revIncludeExpressions,
+            out IReadOnlyList<ChainedExpression> chainedExpressions)
         {
             switch (inputExpression)
             {
                 case IncludeExpression ie when ie.Reversed:
-                    expressionWithoutIncludes = null;
+                    expressionWithoutIncludesOrChained = null;
                     includeExpressions = Array.Empty<IncludeExpression>();
                     revIncludeExpressions = new[] { ie };
+                    chainedExpressions = Array.Empty<ChainedExpression>();
                     return true;
                 case IncludeExpression ie:
-                    expressionWithoutIncludes = null;
+                    expressionWithoutIncludesOrChained = null;
                     includeExpressions = new[] { ie };
                     revIncludeExpressions = Array.Empty<IncludeExpression>();
+                    chainedExpressions = Array.Empty<ChainedExpression>();
                     return true;
-                case MultiaryExpression me when me.Expressions.Any(e => e is IncludeExpression):
+                case ChainedExpression ie:
+                    expressionWithoutIncludesOrChained = null;
+                    includeExpressions = Array.Empty<IncludeExpression>();
+                    revIncludeExpressions = Array.Empty<IncludeExpression>();
+                    chainedExpressions = new[] { ie };
+                    return true;
+                case MultiaryExpression me when me.Expressions.Any(e => e is IncludeExpression || e is ChainedExpression):
                     includeExpressions = me.Expressions.OfType<IncludeExpression>().Where(ie => !ie.Reversed).ToList();
                     revIncludeExpressions = me.Expressions.OfType<IncludeExpression>().Where(ie => ie.Reversed).ToList();
-                    expressionWithoutIncludes = (me.Expressions.Count - (includeExpressions.Count + revIncludeExpressions.Count)) switch
+                    chainedExpressions = me.Expressions.OfType<ChainedExpression>().ToList();
+                    expressionWithoutIncludesOrChained = (me.Expressions.Count - (includeExpressions.Count + revIncludeExpressions.Count + chainedExpressions.Count)) switch
                     {
                         0 => null,
-                        1 => me.Expressions.Single(e => !(e is IncludeExpression)),
-                        _ => new MultiaryExpression(me.MultiaryOperation, me.Expressions.Where(e => !(e is IncludeExpression)).ToList()),
+                        1 => me.Expressions.Single(e => !(e is IncludeExpression || e is ChainedExpression)),
+                        _ => new MultiaryExpression(me.MultiaryOperation, me.Expressions.Where(e => !(e is IncludeExpression || e is ChainedExpression)).ToList()),
                     };
                     return true;
                 default:
-                    expressionWithoutIncludes = inputExpression;
+                    expressionWithoutIncludesOrChained = inputExpression;
                     includeExpressions = Array.Empty<IncludeExpression>();
                     revIncludeExpressions = Array.Empty<IncludeExpression>();
+                    chainedExpressions = Array.Empty<ChainedExpression>();
                     return false;
             }
         }

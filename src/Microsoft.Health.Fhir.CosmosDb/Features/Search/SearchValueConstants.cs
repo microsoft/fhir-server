@@ -60,5 +60,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         public const string TypeIdCompositeSearchParameterName = "_typeAndId";
 
         public const string WildcardReferenceSearchParameterName = "_wildcardReference";
+
+        public const string SortLowValueFieldName = "l";
+
+        public const string SortHighValueFieldName = "h";
     }
 }

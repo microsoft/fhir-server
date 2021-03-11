@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // Build query based on new search params
                     // Find supported, but not yet searchable params
-                    var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSupportedButNotSearchableParams();
+                    var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
 
                     // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
                     if (!notYetIndexedParams.Any())
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             Status = OperationStatus.Queued,
                         };
 
-                        _reindexJobRecord.QueryList.Add(query);
+                        _reindexJobRecord.QueryList.TryAdd(query, 1);
                     }
 
                     await UpdateJobAsync(cancellationToken);
@@ -150,16 +150,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var queryCancellationTokens = new Dictionary<ReindexJobQueryStatus, CancellationTokenSource>();
 
                 // while not all queries are finished
-                while (_reindexJobRecord.QueryList.Where(q =>
+                while (_reindexJobRecord.QueryList.Keys.Where(q =>
                     q.Status == OperationStatus.Queued ||
                     q.Status == OperationStatus.Running).Any())
                 {
-                    if (_reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).Any())
+                    if (_reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Queued).Any())
                     {
                         // grab the next query from the list which is labeled as queued and run it
-                        var query = _reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
+                        var query = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
                         CancellationTokenSource queryTokensSource = new CancellationTokenSource();
-                        queryCancellationTokens.Add(query, queryTokensSource);
+                        queryCancellationTokens.TryAdd(query, queryTokensSource);
 
 #pragma warning disable CS4014 // Suppressed as we want to continue execution and begin processing the next query while this continues to run
                         queryTasks.Add(ProcessQueryAsync(query, jobSemaphore, queryTokensSource.Token));
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     // reset stale queries to pending
-                    var staleQueries = _reindexJobRecord.QueryList.Where(
+                    var staleQueries = _reindexJobRecord.QueryList.Keys.Where(
                         q => q.Status == OperationStatus.Running && q.LastModified < Clock.UtcNow - _reindexJobConfiguration.JobHeartbeatTimeoutThreshold);
                     foreach (var staleQuery in staleQueries)
                     {
@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             LastModified = Clock.UtcNow,
                             Status = OperationStatus.Queued,
                         };
-                        _reindexJobRecord.QueryList.Add(nextQuery);
+                        _reindexJobRecord.QueryList.TryAdd(nextQuery, 1);
                     }
 
                     await UpdateJobAsync(cancellationToken);
@@ -324,6 +324,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         _reindexJobRecord.Progress += results.Results.Count();
                         query.Status = OperationStatus.Completed;
+
+                        // Remove oldest completed queryStatus object if count > 10
+                        // to ensure reindex job document doesn't grow too large
+                        if (_reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).Count() > 10)
+                        {
+                            var queryStatusToRemove = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified).FirstOrDefault();
+                            _reindexJobRecord.QueryList.TryRemove(queryStatusToRemove, out var removedByte);
+                        }
+
                         await UpdateJobAsync(cancellationToken);
                     }
                     finally
@@ -366,7 +375,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CheckJobCompletionStatus(CancellationToken cancellationToken)
         {
             // If any query still in progress then we are not done
-            if (_reindexJobRecord.QueryList.Where(q =>
+            if (_reindexJobRecord.QueryList.Keys.Where(q =>
                 q.Status == OperationStatus.Queued ||
                 q.Status == OperationStatus.Running).Any())
             {
@@ -375,7 +384,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             else
             {
                 // all queries marked as complete, reindex job is done, check success or failure
-                if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
+                if (_reindexJobRecord.QueryList.Keys.All(q => q.Status == OperationStatus.Completed))
                 {
                     await UpdateParametersAndCompleteJob(cancellationToken);
                 }

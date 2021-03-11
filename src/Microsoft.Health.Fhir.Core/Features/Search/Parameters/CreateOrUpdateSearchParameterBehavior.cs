@@ -32,45 +32,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
         {
-            // Allow the resource to be updated with the normal handler
-            var response = await next();
-
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                // Once the SearchParameter resource is committed to the data store, we can update the in
-                // memory SearchParameterDefinitionManager, and persist the status to the data store
+                // Before committing the SearchParameter resource to the data store, add it to the SearchParameterDefinitionManager
+                // and parse the fhirPath, as well as validate the parameter type
                 await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance);
             }
 
-            return response;
+            // Allow the resource to be updated with the normal handler
+            return await next();
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
         {
             ResourceWrapper prevSearchParamResource = null;
-            bool isSearchParameter = false;
 
             // if the resource type being updated is a SearchParaemter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
             // and the user could be changing the Url as part of this update
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
-                isSearchParameter = true;
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
                 prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
-            }
 
-            // Now allow the resource to updated per the normal behavior
-            var response = await next();
-
-            if (isSearchParameter)
-            {
-                // Once the SearchParameter resource is update in the data store, we will update
-                // the metadata in the SearchParameterDefinitionManager
+                // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
+                // to the fhirpath or the datatype
                 await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource);
             }
 
-            return response;
+            // Now allow the resource to updated per the normal behavior
+            return await next();
         }
     }
 }

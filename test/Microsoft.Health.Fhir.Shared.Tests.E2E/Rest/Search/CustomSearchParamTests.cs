@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Client;
@@ -14,20 +15,25 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
+    [CollectionDefinition(Categories.CustomSearch, DisableParallelization = true)]
+    [Collection(Categories.CustomSearch)]
     [Trait(Traits.Category, Categories.CustomSearch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         private readonly HttpIntegrationTestFixture _fixture;
+        private ITestOutputHelper _output;
 
-        public CustomSearchParamTests(HttpIntegrationTestFixture fixture)
+        public CustomSearchParamTests(HttpIntegrationTestFixture fixture, ITestOutputHelper output)
             : base(fixture)
         {
             _fixture = fixture;
+            _output = output;
         }
 
         [SkippableFact]
@@ -50,8 +56,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _output.WriteLine("We encountered an error creating SearchParameter, the next step is to delete and re-add.");
+                _output.WriteLine(ex.Message);
+
                 // if the SearchParameter exists, we should delete it and recreate it
                 var searchParamBundle = await Client.SearchAsync(ResourceType.SearchParameter, $"url={searchParam.Url}");
                 if (searchParamBundle.Resource?.Entry[0] != null && searchParamBundle.Resource?.Entry[0].Resource.ResourceType == ResourceType.SearchParameter)
@@ -84,7 +93,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Assert.Contains("http://hl7.org/fhir/SearchParameter/Patient-foo", param.Value.ToString());
 
-            await WaitForReindexStatus(reindexJobUri, "Completed");
+            reindexJobResult = await WaitForReindexStatus(reindexJobUri, "Completed");
+            _output.WriteLine("Reindex job is completed, it should have reindexed the Patient resources with foo");
+
+            var floatParse = float.TryParse(
+                reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
+                out float resourcesReindexed);
+
+            _output.WriteLine($"Reindex job is completed, {resourcesReindexed} Patient ressources Reindexed");
+
+            Assert.True(floatParse);
+            Assert.True(resourcesReindexed > 0.0);
 
             // When job complete, search for resources using new parameter
             await ExecuteAndValidateBundle($"Patient?{searchParam.Code}:exact={patientName}", expectedPatient.Resource);
@@ -153,18 +172,44 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await DeleteSearchParameterAndVerify(searchParamPosted.Resource);
         }
 
-        private async Task WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
+        [Theory]
+        [InlineData("SearchParameterBadSyntax", "Parsing failure")]
+        [InlineData("SearchParameterExpressionWrongProperty", "not supported")]
+        [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
+        [InlineData("SearchParameterInvalidType", "Literal 'foo' is not a valid value for enumeration 'SearchParamType'")]
+        [InlineData("SearchParameterMissingBase", "cardinality is 1")]
+        [InlineData("SearchParameterMissingExpression", "not supported")]
+        [InlineData("SearchParameterMissingType", "cardinality 1 cannot be null")]
+        [InlineData("SearchParameterUnsupportedType", "not supported")]
+        public async Task GivenAnInvalidSearchParam_WhenCreatingParam_ThenMeaningfulErrorReturned(string searchParamFile, string errorMessage)
+        {
+            var searchParam = Samples.GetJson(searchParamFile);
+
+            try
+            {
+                await Client.PostAsync("SearchParameter", searchParam);
+            }
+            catch (FhirException ex)
+            {
+                Assert.True(ex.OperationOutcome.Issue.Where(i => i.Diagnostics.Contains(errorMessage)).Any());
+            }
+        }
+
+        private async Task<FhirResponse<Parameters>> WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
         {
             int checkReindexCount = 0;
             string currentStatus;
+            FhirResponse<Parameters> reindexJobResult = null;
             do
             {
-                FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
+                reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
                 currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "status")?.Value.ToString();
                 checkReindexCount++;
                 await Task.Delay(1000);
             }
             while (!desiredStatus.Contains(currentStatus) && checkReindexCount < 20);
+
+            return reindexJobResult;
         }
 
         private async Task DeleteSearchParameterAndVerify(SearchParameter searchParam)

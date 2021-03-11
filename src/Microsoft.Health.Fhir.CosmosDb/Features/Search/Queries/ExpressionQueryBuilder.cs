@@ -93,6 +93,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     // be specified when searching.
                     expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => SearchValueConstants.RootResourceTypeName));
                     break;
+                case SearchParameterNames.Id:
+                    expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => KnownResourceWrapperProperties.ResourceId));
+                    break;
                 case SearchParameterNames.LastUpdated:
                     // For LastUpdate queries, the LastModified property on the root is
                     // more performant than the searchIndices _lastUpdated.st and _lastUpdate.et
@@ -198,14 +201,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitChained(ChainedExpression expression, Context context)
         {
-            // TODO: This will be removed once it's implemented.
+            // Chained expressions require additional queries and are handled in the FhirCosmosSearchService.
             throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
         }
 
         public object VisitSortParameter(SortExpression expression, Context context)
         {
-            // TODO: This will be removed once it's implemented.
-            throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
+            throw new SearchOperationNotSupportedException(Core.Resources.SortNotSupported);
         }
 
         public object VisitMissingField(MissingFieldExpression expression, Context context)

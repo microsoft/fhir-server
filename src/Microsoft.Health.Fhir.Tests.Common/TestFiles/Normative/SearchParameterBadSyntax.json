@@ -1,0 +1,46 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "Encounter-diagnosis",
+    "extension": [
+        {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+            "valueCode": "trial-use"
+        }
+    ],
+    "url": "http://hl7.org/fhir/SearchParameter/Encounter-diagnosisBad1",
+    "version": "4.4.0",
+    "name": "diagnosis",
+    "status": "draft",
+    "experimental": false,
+    "date": "2020-05-03T08:43:35+10:00",
+    "publisher": "Health Level Seven International (Patient Administration)",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }
+            ]
+        },
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/pafm/index.cfm"
+                }
+            ]
+        }
+    ],
+    "description": "The diagnosis or procedure relevant to the encounter",
+    "code": "diagnosis",
+    "base": [ "Encounter" ],
+    "type": "reference",
+    "expression": "bad syntax",
+    "xpath": "f:Encounter/f:diagnosis/f:condition",
+    "xpathUsage": "normal",
+    "target": [
+        "Condition",
+        "Procedure"
+    ]
+}

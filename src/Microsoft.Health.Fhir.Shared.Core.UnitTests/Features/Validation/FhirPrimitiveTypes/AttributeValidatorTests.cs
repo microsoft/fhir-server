@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Validation.FhirPr
 
             Assert.False(isValid);
 
-            List<ValidationResult> validationFailures = results as List<ValidationResult> ?? results.ToList();
+            List<ValidationResult> validationFailures = results ?? results.ToList();
             Assert.Single(validationFailures);
 
             var error = validationFailures.FirstOrDefault();

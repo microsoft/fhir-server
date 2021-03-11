@@ -78,6 +78,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterToTypeResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterTypeResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\IProvideProfilesForValidation.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ProfileValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ServerProvideProfileValidation.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Features\Search\RawBundleEntryComponent.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchIndexer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />

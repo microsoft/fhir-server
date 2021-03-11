@@ -30,10 +30,10 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -425,7 +425,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private EntryComponent CreateEntryComponent(HttpContext httpContext)
         {
             httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-            string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
+            using var reader = new StreamReader(httpContext.Response.Body);
+            string bodyContent = reader.ReadToEnd();
 
             ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
 

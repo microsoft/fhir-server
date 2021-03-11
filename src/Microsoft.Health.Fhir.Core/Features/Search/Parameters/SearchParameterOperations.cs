@@ -23,29 +23,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterSupportResolver searchParameterSupportResolver)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
 
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _modelInfoProvider = modelInfoProvider;
+            _searchParameterSupportResolver = searchParameterSupportResolver;
         }
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam)
         {
             try
             {
+                // verify the parameter is supported before continuing
+                var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+
+                if (!supportedResult.Supported)
+                {
+                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                }
+
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
 
                 var searchParameterUrl = searchParam.GetStringScalar("url");
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterUrl });
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
             }
             catch (FhirException fex)
             {
@@ -107,6 +121,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             try
             {
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+
+                if (!supportedResult.Supported)
+                {
+                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                }
 
                 var prevSearchParam = _modelInfoProvider.ToTypedElement(prevSearchParamRaw);
                 var prevSearchParamUrl = prevSearchParam.GetStringScalar("url");
