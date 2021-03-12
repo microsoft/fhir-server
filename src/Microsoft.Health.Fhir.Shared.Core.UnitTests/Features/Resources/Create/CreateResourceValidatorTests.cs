@@ -12,20 +12,19 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
+using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
-using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
 {
-    public class UpsertResourceValidatorTests
+    public class CreateResourceValidatorTests
     {
         [Theory]
-        [InlineData(null)]
         [InlineData("")]
         [InlineData("1+1")]
         [InlineData("11|")]
@@ -37,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             config.Value.Returns(new CoreFeatureConfiguration());
             contextAccessor.FhirRequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
-            var validator = new UpsertResourceValidator(
+            var validator = new CreateResourceValidator(
                 new ModelAttributeValidator(),
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
@@ -46,8 +45,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
             var resource = Samples.GetDefaultObservation()
                 .UpdateId(id);
 
-            var upsertResourceRequest = new UpsertResourceRequest(resource);
-            var result = validator.Validate(upsertResourceRequest);
+            var createResourceRequest = new CreateResourceRequest(resource);
+            var result = validator.Validate(createResourceRequest);
             Assert.False(result.IsValid);
         }
 
@@ -58,12 +57,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
         [InlineData(false, false, false)]
         [InlineData(false, true, true)]
         [Theory]
-        public void GivenConfigOrHeader_WhenValidatingUpsert_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
+        public void GivenConfigOrHeader_WhenValidatingCreate_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
         {
             var contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             var profileValidator = Substitute.For<IProfileValidator>();
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            config.Value.Returns(new CoreFeatureConfiguration() { ProfileValidationOnUpdate = configValue });
+            config.Value.Returns(new CoreFeatureConfiguration() { ProfileValidationOnCreate = configValue });
             var headers = new Dictionary<string, StringValues>();
             if (headerValue != null)
             {
@@ -71,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
             }
 
             contextAccessor.FhirRequestContext.RequestHeaders.Returns(headers);
-            var validator = new UpsertResourceValidator(
+            var validator = new CreateResourceValidator(
                 new ModelAttributeValidator(),
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
@@ -79,8 +78,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 config);
             var resource = Samples.GetDefaultObservation();
 
-            var upsertResourceRequest = new UpsertResourceRequest(resource);
-            validator.Validate(upsertResourceRequest);
+            var createResourceRequest = new CreateResourceRequest(resource);
+            validator.Validate(createResourceRequest);
 
             if (shouldCallProfileValidation)
             {
