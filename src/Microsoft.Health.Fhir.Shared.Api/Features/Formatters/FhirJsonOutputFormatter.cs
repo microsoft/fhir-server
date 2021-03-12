@@ -5,12 +5,14 @@
 
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
@@ -74,7 +76,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             var elementsSearchParameter = context.HttpContext.GetElementsOrDefault();
             var summarySearchParameter = context.HttpContext.GetSummaryTypeOrDefault();
             var pretty = context.HttpContext.GetPrettyOrDefault();
+            var hasElements = elementsSearchParameter?.Any() == true;
             Resource resource = null;
+            IStructureDefinitionSummaryProvider summaryProvider = new PocoStructureDefinitionSummaryProvider();
+            var additionalElements = new HashSet<string>();
 
             if (context.Object is Hl7.Fhir.Model.Bundle)
             {
@@ -91,6 +96,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                         if (rawBundleEntryComponent is RawBundleEntryComponent)
                         {
                             rawBundleEntryComponent.Resource = ((RawBundleEntryComponent)rawBundleEntryComponent).ResourceElement.ToPoco<Resource>(_deserializer);
+                            if (hasElements)
+                            {
+                                var typeinfo = summaryProvider.Provide(rawBundleEntryComponent.Resource.TypeName);
+                                var required = typeinfo.GetElements().Where(e => e.IsRequired).ToList();
+                                additionalElements.UnionWith(required.Select(x => x.ElementName));
+                            }
                         }
                     }
                 }
@@ -107,6 +118,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     resource = (context.Object as RawResourceElement).ToPoco<Resource>(_deserializer);
+                    if (hasElements)
+                    {
+                        var typeinfo = summaryProvider.Provide(resource.TypeName);
+                        var required = typeinfo.GetElements().Where(e => e.IsRequired).ToList();
+                        additionalElements.UnionWith(required.Select(x => x.ElementName));
+                    }
                 }
                 else
                 {
@@ -119,6 +136,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 resource = (Resource)context.Object;
             }
 
+            if (hasElements)
+            {
+                additionalElements.UnionWith(elementsSearchParameter);
+                additionalElements.Add("meta");
+            }
+
             using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
             using (var jsonWriter = new JsonTextWriter(textWriter))
             {
@@ -129,7 +152,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     jsonWriter.Formatting = Formatting.Indented;
                 }
 
-                _fhirJsonSerializer.Serialize(resource, jsonWriter, summarySearchParameter, elementsSearchParameter);
+                _fhirJsonSerializer.Serialize(resource, jsonWriter, summarySearchParameter, hasElements ? additionalElements.ToArray() : null);
                 await jsonWriter.FlushAsync();
             }
         }

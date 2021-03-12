@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Specification;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -833,6 +834,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task<Patient[]> CreatePatientsWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;
+            IStructureDefinitionSummaryProvider summaryProvider = new PocoStructureDefinitionSummaryProvider();
+            var typeinfo = summaryProvider.Provide("Patient");
+            var required = typeinfo.GetElements().Where(e => e.IsRequired).Select(x => x.ElementName).ToList();
+            required.Add("meta");
+            elements = elements.Union(required).ToArray();
 
             Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
             var patients = new Patient[numberOfResources];
@@ -845,6 +851,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
                 patients[i] = MaskingNode.ForElements(new ScopedNode(createdPatient.Resource.ToTypedElement()), elements)
                     .ToPoco<Patient>();
+                var subsettedTag = new Coding("http://hl7.org/fhir/v3/ObservationValue", "SUBSETTED");
+                patients[i].Meta.Tag.Add(subsettedTag);
             }
 
             return patients;
