@@ -13,6 +13,7 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -37,7 +38,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
-        public const string HeaderEnableChainedSearch = "x-ms-enable-chained-search";
         private const int _chainedSearchMaxSubqueryItemLimit = 100;
 
         public FhirCosmosSearchService(
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
         {
             if (!_cosmosConfig.EnableChainedSearch &&
-                !(_requestContextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(HeaderEnableChainedSearch, out StringValues featureSetting) &&
+                !(_requestContextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(KnownHeaders.EnableChainSearch, out StringValues featureSetting) &&
                   string.Equals(featureSetting.FirstOrDefault(), "true", StringComparison.OrdinalIgnoreCase)))
             {
                 throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
