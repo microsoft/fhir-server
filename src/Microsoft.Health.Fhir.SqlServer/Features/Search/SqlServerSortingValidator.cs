@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSortingValidator : ISortingValidator
     {
-        private readonly HashSet<SearchParamType> _supportedSortTypes = new HashSet<SearchParamType>()
+        internal static readonly HashSet<SearchParamType> SupportedSortParamTypes = new HashSet<SearchParamType>()
         {
             SearchParamType.Date,
             SearchParamType.String,
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
-                case { Count: 1 } when _supportedSortTypes.Contains(sorting[0].searchParameter.Type):
+                case { Count: 1 } when SupportedSortParamTypes.Contains(sorting[0].searchParameter.Type):
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:
