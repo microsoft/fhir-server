@@ -282,8 +282,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
             // when applied on a circular reference
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, false));
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, true));
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false));
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true));
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -414,9 +414,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             return searchOptions;
 
-            IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(IList<(string query, IncludeModifier modifier)> includes, bool isReversed)
+            IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
+                IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)
             {
                 return includes.Select(p =>
+                {
+                    var includeResourceTypeList = typesString;
+                    var iterate = p.modifier == IncludeModifier.Iterate || p.modifier == IncludeModifier.Recurse;
+
+                    if (iterate)
                     {
                         var includeResourceType = p.query?.Split(':')[0];
                         if (!ModelInfoProvider.IsKnownResource(includeResourceType))
@@ -424,29 +430,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             throw new ResourceNotSupportedException(includeResourceType);
                         }
 
-                        var expression = _expressionParser.ParseInclude(new[] { includeResourceType}, p.query, isReversed, p.modifier == IncludeModifier.Iterate || p.modifier == IncludeModifier.Recurse);
+                        includeResourceTypeList = new[] { includeResourceType };
+                    }
 
-                        // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
-                        if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
-                            expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
-                        {
-                            throw new BadRequestException(string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
-                        }
+                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate);
 
-                        // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
-                        // See https://www.hl7.org/fhir/search.html#revinclude.
-                        if (expression.Iterate && expression.CircularReference)
-                        {
-                            var issueProperty = string.Concat(isReversed ? "_revinclude" : "_include", ":", p.modifier.ToString().ToLowerInvariant());
-                            _contextAccessor.FhirRequestContext?.BundleIssues.Add(
-                                new OperationOutcomeIssue(
-                                    OperationOutcomeConstants.IssueSeverity.Information,
-                                    OperationOutcomeConstants.IssueType.Informational,
-                                    string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
-                        }
+                    // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
+                    if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
+                        expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
+                    {
+                        throw new BadRequestException(
+                            string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
+                    }
 
-                        return expression;
-                    });
+                    // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
+                    // See https://www.hl7.org/fhir/search.html#revinclude.
+                    if (expression.Iterate && expression.CircularReference)
+                    {
+                        var issueProperty = string.Concat(isReversed ? "_revinclude" : "_include", ":", p.modifier.ToString().ToLowerInvariant());
+                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
+                    }
+
+                    return expression;
+                });
             }
 
             void ValidateTotalType(TotalType totalType)

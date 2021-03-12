@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 await SearchParameterFixtureData.GetFhirNodeToSearchValueTypeConverterManagerAsync(),
                 new LightweightReferenceToElementResolver(new ReferenceSearchValueParser(new FhirRequestContextAccessor()), ModelInfoProvider.Instance),
                 ModelInfoProvider.Instance,
-                NullLogger<SearchIndexer>.Instance);
+                NullLogger<TypedElementSearchIndexer>.Instance);
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
