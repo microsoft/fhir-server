@@ -15,5 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Prefer = "Prefer";
         public const string RequestId = "X-Request-Id";
         public const string CorrelationId = "X-Correlation-Id";
+        public const string EnableChainSearch = "x-ms-enable-chained-search";
     }
 }
