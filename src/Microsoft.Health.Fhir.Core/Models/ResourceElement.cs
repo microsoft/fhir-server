@@ -26,6 +26,10 @@ namespace Microsoft.Health.Fhir.Core.Models
                 "Binary",
             };
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ResourceElement"/> class.
+        /// </summary>
+        /// <param name="instance">The instance.</param>
         public ResourceElement(ITypedElement instance)
         {
             EnsureArg.IsNotNull(instance, nameof(instance));
@@ -41,18 +45,36 @@ namespace Microsoft.Health.Fhir.Core.Models
             ResourceInstance = resourceInstance;
         }
 
+        /// <summary>
+        /// Returns the instance type from the instance.
+        /// </summary>
         public string InstanceType => Instance.InstanceType;
 
         internal object ResourceInstance { get; }
 
+        /// <summary>
+        /// Gets the instance object.
+        /// </summary>
         public ITypedElement Instance { get; }
 
+        /// <summary>
+        /// Gets the resource id.
+        /// </summary>
         public string Id => Scalar<string>("Resource.id");
 
+        /// <summary>
+        /// Gets the version id from resource.
+        /// </summary>
         public string VersionId => Scalar<string>("Resource.meta.versionId");
 
+        /// <summary>
+        /// Returns boolean value which check if the resource is of domain type.
+        /// </summary>
         public bool IsDomainResource => !_nonDomainTypes.Contains(InstanceType, StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Gets the last updated time of the resource.
+        /// </summary>
         public DateTimeOffset? LastUpdated
         {
             get

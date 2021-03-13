@@ -13,7 +13,6 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -21,6 +20,18 @@ namespace Microsoft.Health.Fhir.Core.Models
     [DebuggerDisplay("{Name}, Type: {Type}")]
     public class SearchParameterInfo : IEquatable<SearchParameterInfo>
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchParameterInfo"/> class.
+        /// </summary>
+        /// <param name="name">The name.</param>
+        /// <param name="code">The code.</param>
+        /// <param name="searchParamType">The search parameter type.</param>
+        /// <param name="url">The url./</param>
+        /// <param name="components">The search parameter components info list.</param>
+        /// <param name="expression">The expression.</param>
+        /// <param name="targetResourceTypes">The list of target resource type.</param>
+        /// <param name="baseResourceTypes">The list of base resource types.</param>
+        /// <param name="description">The description.</param>
         public SearchParameterInfo(
             string name,
             string code,
@@ -42,6 +53,11 @@ namespace Microsoft.Health.Fhir.Core.Models
             Description = description;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchParameterInfo"/> class.
+        /// </summary>
+        /// <param name="name">The name.</param>
+        /// <param name="code">The code.</param>
         public SearchParameterInfo(string name, string code)
         {
             EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
@@ -80,20 +96,44 @@ namespace Microsoft.Health.Fhir.Core.Models
             }
         }
 
+        /// <summary>
+        /// Gets the name of the search paramter.
+        /// </summary>
         public string Name { get; }
 
+        /// <summary>
+        /// Gets the search parameter code.
+        /// </summary>
         public string Code { get; }
 
+        /// <summary>
+        /// Gets or sets the description of search parameter.
+        /// </summary>
         public string Description { get; set; }
 
+        /// <summary>
+        /// Gets the expression.
+        /// </summary>
         public string Expression { get; }
 
+        /// <summary>
+        /// Gets the list of target resource types.
+        /// </summary>
         public IReadOnlyList<string> TargetResourceTypes { get; } = Array.Empty<string>();
 
+        /// <summary>
+        /// Gets the list of base resource types.
+        /// </summary>
         public IReadOnlyList<string> BaseResourceTypes { get; } = Array.Empty<string>();
 
+        /// <summary>
+        /// Gets the url.
+        /// </summary>
         public Uri Url { get; }
 
+        /// <summary>
+        /// Gets the search parameter type.
+        /// </summary>
         public SearchParamType Type { get; }
 
         /// <summary>
@@ -127,6 +167,11 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// </summary>
         public IReadOnlyList<SearchParameterInfo> ResolvedComponents { get; set; } = Array.Empty<SearchParameterInfo>();
 
+        /// <summary>
+        /// Checks if the current SearchParameterInfo object is equal to the passed SearchParameterInfo object.
+        /// </summary>
+        /// <param name="other">The search parameter info object.</param>
+        /// <returns>True, if both the search parameter infos are equal, else false.</returns>
         public bool Equals([AllowNull] SearchParameterInfo other)
         {
             if (other == null)
@@ -152,11 +197,20 @@ namespace Microsoft.Health.Fhir.Core.Models
             return true;
         }
 
+        /// <summary>
+        /// Implements the Equals method of the <see cref="IEquatable{SearchParameterInfo}"/> interface.
+        /// </summary>
+        /// <param name="obj">The object.</param>
+        /// <returns>True, if both the search parameter infos are equal, else false.</returns>
         public override bool Equals(object obj)
         {
             return Equals(obj as SearchParameterInfo);
         }
 
+        /// <summary>
+        /// Gets the hash code.
+        /// </summary>
+        /// <returns>The hash code.</returns>
         public override int GetHashCode()
         {
             return HashCode.Combine(

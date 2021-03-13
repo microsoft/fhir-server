@@ -10,8 +10,19 @@ namespace Microsoft.Health.Fhir.Core.Models
     /// </summary>
     public enum FhirResourceFormat
     {
+        /// <summary>
+        /// The resource format is unknown.
+        /// </summary>
         Unknown = 0,
+
+        /// <summary>
+        /// The resource is in Xml format.
+        /// </summary>
         Xml = 1,
+
+        /// <summary>
+        /// The resource is in Json format.
+        /// </summary>
         Json = 2,
     }
 }
