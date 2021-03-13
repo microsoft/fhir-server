@@ -5,6 +5,9 @@
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
+    /// <summary>
+    /// Defines the possible formats of Fhir Resource.
+    /// </summary>
     public enum FhirResourceFormat
     {
         Unknown = 0,
