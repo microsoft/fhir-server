@@ -218,6 +218,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsImplementedInterfaces();
 
+            fhirServerBuilder.Services.Add<CosmosDbSearchParameterValidator>()
+                .Singleton()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

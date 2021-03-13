@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Text.RegularExpressions;
-using FluentValidation.Resources;
 using FluentValidation.Validators;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes

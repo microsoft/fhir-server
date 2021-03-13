@@ -41,6 +41,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return VisitSearchParameterExpressionBase(expression.Parameter, null, context);
         }
 
+        public SearchParamTableExpressionQueryGenerator GetGenerator(SearchParameterInfo param)
+        {
+            switch (param.Type)
+            {
+                case SearchParamType.Token:
+                    return TokenQueryGenerator.Instance;
+                case SearchParamType.Date:
+                    return DateTimeQueryGenerator.Instance;
+                case SearchParamType.Number:
+                    return NumberQueryGenerator.Instance;
+                case SearchParamType.Quantity:
+                    return QuantityQueryGenerator.Instance;
+                case SearchParamType.Reference:
+                    return ReferenceQueryGenerator.Instance;
+                case SearchParamType.String:
+                    return StringQueryGenerator.Instance;
+                case SearchParamType.Uri:
+                    return UriQueryGenerator.Instance;
+                case SearchParamType.Composite:
+                    Type searchValueType = _searchParameterToSearchValueTypeMap.GetSearchValueType(param);
+                    if (searchValueType == typeof(ValueTuple<TokenSearchValue, QuantitySearchValue>))
+                    {
+                        return TokenQuantityCompositeQueryGenerator.Instance;
+                    }
+
+                    if (searchValueType == typeof(ValueTuple<ReferenceSearchValue, TokenSearchValue>))
+                    {
+                        return ReferenceTokenCompositeQueryGenerator.Instance;
+                    }
+
+                    if (searchValueType == typeof(ValueTuple<TokenSearchValue, TokenSearchValue>))
+                    {
+                        return TokenTokenCompositeQueryGenerator.Instance;
+                    }
+
+                    if (searchValueType == typeof(ValueTuple<TokenSearchValue, DateTimeSearchValue>))
+                    {
+                        return TokenDateTimeCompositeQueryGenerator.Instance;
+                    }
+
+                    if (searchValueType == typeof(ValueTuple<TokenSearchValue, StringSearchValue>))
+                    {
+                        return TokenStringCompositeQueryGenerator.Instance;
+                    }
+
+                    if (searchValueType == typeof(ValueTuple<TokenSearchValue, NumberSearchValue, NumberSearchValue>))
+                    {
+                        return TokenNumberNumberQueryGenerator.Instance;
+                    }
+
+                    throw new InvalidOperationException($"Unexpected composite search parameter {param.Url}");
+
+                default:
+                    throw new InvalidOperationException($"Unexpected search parameter type {param.Type}");
+            }
+        }
+
         private SearchParamTableExpressionQueryGenerator VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
         {
             if (searchParameterInfo.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
@@ -64,63 +121,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             return generator;
-
-            SearchParamTableExpressionQueryGenerator GetGenerator(SearchParameterInfo param)
-            {
-                switch (param.Type)
-                {
-                    case SearchParamType.Token:
-                        return TokenQueryGenerator.Instance;
-                    case SearchParamType.Date:
-                        return DateTimeQueryGenerator.Instance;
-                    case SearchParamType.Number:
-                        return NumberQueryGenerator.Instance;
-                    case SearchParamType.Quantity:
-                        return QuantityQueryGenerator.Instance;
-                    case SearchParamType.Reference:
-                        return ReferenceQueryGenerator.Instance;
-                    case SearchParamType.String:
-                        return StringQueryGenerator.Instance;
-                    case SearchParamType.Uri:
-                        return UriQueryGenerator.Instance;
-                    case SearchParamType.Composite:
-                        Type searchValueType = _searchParameterToSearchValueTypeMap.GetSearchValueType(param);
-                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, QuantitySearchValue>))
-                        {
-                            return TokenQuantityCompositeQueryGenerator.Instance;
-                        }
-
-                        if (searchValueType == typeof(ValueTuple<ReferenceSearchValue, TokenSearchValue>))
-                        {
-                            return ReferenceTokenCompositeQueryGenerator.Instance;
-                        }
-
-                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, TokenSearchValue>))
-                        {
-                            return TokenTokenCompositeQueryGenerator.Instance;
-                        }
-
-                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, DateTimeSearchValue>))
-                        {
-                            return TokenDateTimeCompositeQueryGenerator.Instance;
-                        }
-
-                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, StringSearchValue>))
-                        {
-                            return TokenStringCompositeQueryGenerator.Instance;
-                        }
-
-                        if (searchValueType == typeof(ValueTuple<TokenSearchValue, NumberSearchValue, NumberSearchValue>))
-                        {
-                            return TokenNumberNumberQueryGenerator.Instance;
-                        }
-
-                        throw new InvalidOperationException($"Unexpected composite search parameter {param.Url}");
-
-                    default:
-                        throw new InvalidOperationException($"Unexpected search parameter type {param.Type}");
-                }
-            }
         }
 
         public SearchParamTableExpressionQueryGenerator GetSearchParamTableExpressionQueryGenerator(SearchParameterInfo searchParameterInfo)
