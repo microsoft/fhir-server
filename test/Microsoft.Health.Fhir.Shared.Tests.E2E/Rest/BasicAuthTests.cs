@@ -215,14 +215,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await tempClient.CancelExport(contentLocation);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoConvertDataPermissions_WhenConvertData_TheServerShouldReturnForbidden()
         {
-            if (!_convertDataEnabled)
-            {
-                return;
-            }
+            Skip.IfNot(_convertDataEnabled);
 
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
@@ -241,15 +238,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ConvertDataUser, TestApplications.NativeClient);
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
             var result = await tempClient.ConvertDataAsync(parameters);
-
-            var setting = new ParserSettings()
-            {
-                AcceptUnknownMembers = true,
-                PermissiveParsing = true,
-            };
-            var parser = new FhirJsonParser(setting);
-            var bundleResource = parser.Parse<Bundle>(result);
-            Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
+            Assert.NotEmpty(result);
         }
     }
 }
