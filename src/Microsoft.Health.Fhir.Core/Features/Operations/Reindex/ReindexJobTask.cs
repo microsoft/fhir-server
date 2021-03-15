@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IReindexUtilities _reindexUtilities;
         private readonly ILogger _logger;
 
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
+            SearchParameterDefinitionManager searchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
             ILogger<ReindexJobTask> logger)
         {
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -55,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
             _logger = logger;
         }
@@ -105,14 +109,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var resourceList = new HashSet<string>();
                     foreach (var param in notYetIndexedParams)
                     {
-                        if (param.TargetResourceTypes != null)
+                        foreach (var baseResourceType in param.BaseResourceTypes)
                         {
-                            resourceList.UnionWith(param.TargetResourceTypes);
-                        }
-
-                        if (param.BaseResourceTypes != null)
-                        {
-                            resourceList.UnionWith(param.BaseResourceTypes);
+                            resourceList.UnionWith(new HashSet<string> { baseResourceType });
+                            resourceList.UnionWith(GetChildResourceTypes(baseResourceType));
                         }
                     }
 
@@ -278,6 +278,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 jobSemaphore.Dispose();
             }
+        }
+
+        private HashSet<string> GetChildResourceTypes(string resourceType)
+        {
+            var childResourceTypes = _searchParameterDefinitionManager.ChildResourceTypeLookup[resourceType];
+
+            if (childResourceTypes == null)
+            {
+                return new HashSet<string>();
+            }
+
+            var resourceTypes = new HashSet<string>();
+            foreach (var childResourceType in childResourceTypes)
+            {
+                resourceTypes.UnionWith(GetChildResourceTypes(childResourceType));
+            }
+
+            childResourceTypes.UnionWith(resourceTypes);
+
+            return childResourceTypes;
         }
 
         private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, SemaphoreSlim jobSemaphore, CancellationToken cancellationToken)

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
@@ -34,6 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public IEnumerable<SearchParameterInfo> AllSearchParameters => GetAllSearchParameters();
 
         public IReadOnlyDictionary<string, string> SearchParameterHashMap => _inner.SearchParameterHashMap;
+
+        public ConcurrentDictionary<string, HashSet<string>> ChildResourceTypeLookup => _inner.ChildResourceTypeLookup;
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {

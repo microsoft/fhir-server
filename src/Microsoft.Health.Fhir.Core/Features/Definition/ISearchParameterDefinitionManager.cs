@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
@@ -29,6 +30,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// currently supported for that resource type.
         /// </summary>
         IReadOnlyDictionary<string, string> SearchParameterHashMap { get; }
+
+        /// <summary>
+        /// Given a resource type as the key value, gets the set of resource types
+        /// that have the key as a base type.
+        /// </summary>
+        ConcurrentDictionary<string, HashSet<string>> ChildResourceTypeLookup { get; }
 
         /// <summary>
         /// Gets list of search parameters for the given <paramref name="resourceType"/>.

@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Options.Create(_reindexJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 await _fixture.GetSupportedSearchDefinitionManagerAsync(),
+                await _fixture.GetSearchDefinitionManagerAsync(),
                 _reindexUtilities,
                 NullLogger<ReindexJobTask>.Instance);
 
