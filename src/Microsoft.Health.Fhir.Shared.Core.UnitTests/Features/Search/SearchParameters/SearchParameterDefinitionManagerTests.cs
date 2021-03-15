@@ -106,7 +106,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
 
-            _searchParameterOperations = new SearchParameterOperations(_manager, _searchParameterDefinitionManager, ModelInfoProvider.Instance, _searchParameterSupportResolver);
+            var searchParameterDataStoreValidator = Substitute.For<IDataStoreSearchParameterValidator>();
+            searchParameterDataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true, null);
+
+            _searchParameterOperations = new SearchParameterOperations(_manager, _searchParameterDefinitionManager, ModelInfoProvider.Instance, _searchParameterSupportResolver, searchParameterDataStoreValidator);
         }
 
         public async Task InitializeAsync()
