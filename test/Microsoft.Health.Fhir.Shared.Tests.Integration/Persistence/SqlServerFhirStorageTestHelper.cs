@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -12,7 +13,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
@@ -131,6 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[StringSearchParamTableType_1]"),
+                ("TableType", "[dbo].[DateTimeSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
@@ -145,14 +146,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // These constraints will not be present in databases that were directly initialized with the latest schema.
             // We need to exclude these constraints from the schema difference comparison.
             bool unexpectedDifference = false;
+            HashSet<string> constraintNames = new HashSet<string>()
+            {
+                "[dbo].[date_IsMin_Constraint]",
+                "[dbo].[date_IsMax_Constraint]",
+                "[dbo].[string_IsMin_Constraint]",
+                "[dbo].[string_IsMax_Constraint]",
+            };
+
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 if (schemaDifference.TargetObject.ObjectType.Name == "Table")
                 {
                     foreach (SchemaDifference child in schemaDifference.Children)
                     {
-                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" &&
-                            (child.TargetObject.Name.ToString() == "[dbo].[IsMin_Constraint]" || child.TargetObject.Name.ToString() == "[dbo].[IsMax_Constraint]"))
+                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
                         {
                             // Expected
                             continue;

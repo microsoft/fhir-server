@@ -17,8 +17,8 @@ CREATE TYPE dbo.StringSearchParamTableType_2 AS TABLE
 ALTER TABLE dbo.StringSearchParam
 ADD IsMin bit NOT NULL,
     IsMax bit NOT NULL,
-    CONSTRAINT IsMin_Constraint DEFAULT 0 FOR IsMin,
-    CONSTRAINT IsMax_Constraint DEFAULT 0 FOR IsMax;
+    CONSTRAINT string_IsMin_Constraint DEFAULT 0 FOR IsMin,
+    CONSTRAINT string_IsMax_Constraint DEFAULT 0 FOR IsMax;
 
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
 ON dbo.StringSearchParam
@@ -57,6 +57,105 @@ WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH 
 (
     DATA_COMPRESSION = PAGE,
+    DROP_EXISTING = ON,
+    ONLINE = ON
+)
+
+CREATE TYPE dbo.DateTimeSearchParamTableType_2 AS TABLE
+(
+    SearchParamId smallint NOT NULL,
+    StartDateTime datetimeoffset(7) NOT NULL,
+    EndDateTime datetimeoffset(7) NOT NULL,
+    IsLongerThanADay bit NOT NULL,
+    IsMin bit NOT NULL,
+    IsMax bit NOT NULL
+);
+
+ALTER TABLE dbo.DateTimeSearchParam
+ADD IsMin bit NOT NULL,
+    IsMax bit NOT NULL,
+    CONSTRAINT date_IsMin_Constraint DEFAULT 0 FOR IsMin,
+    CONSTRAINT date_IsMax_Constraint DEFAULT 0 FOR IsMax;
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    StartDateTime,
+    EndDateTime
+)
+INCLUDE
+(
+    ResourceTypeId,
+    IsLongerThanADay,
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = 0
+WITH 
+(
+    DROP_EXISTING = ON,
+    ONLINE = ON
+)
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    EndDateTime,
+    StartDateTime
+)
+INCLUDE
+(
+    ResourceTypeId,
+    IsLongerThanADay,
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = 0
+WITH 
+(
+    DROP_EXISTING = ON,
+    ONLINE = ON
+)
+
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    StartDateTime,
+    EndDateTime
+)
+INCLUDE
+(
+    ResourceTypeId,
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = 0 AND IsLongerThanADay = 1
+WITH 
+(
+    DROP_EXISTING = ON,
+    ONLINE = ON
+)
+
+CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
+ON dbo.DateTimeSearchParam
+(
+    SearchParamId,
+    EndDateTime,
+    StartDateTime
+)
+INCLUDE
+(
+    ResourceTypeId,
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = 0 AND IsLongerThanADay = 1
+WITH 
+(
     DROP_EXISTING = ON,
     ONLINE = ON
 )
@@ -149,7 +248,7 @@ CREATE PROCEDURE dbo.UpsertResource_3
     @numberSearchParams dbo.NumberSearchParamTableType_1 READONLY,
     @quantitySearchParams dbo.QuantitySearchParamTableType_1 READONLY,
     @uriSearchParams dbo.UriSearchParamTableType_1 READONLY,
-    @dateTimeSearchParms dbo.DateTimeSearchParamTableType_1 READONLY,
+    @dateTimeSearchParms dbo.DateTimeSearchParamTableType_2 READONLY,
     @referenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamTableType_2 READONLY,
     @tokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamTableType_1 READONLY,
     @tokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamTableType_1 READONLY,
@@ -394,8 +493,8 @@ AS
     FROM @quantitySearchParams
 
     INSERT INTO dbo.DateTimeSearchParam
-        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
-    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0, IsMin, IsMax
     FROM @dateTimeSearchParms
 
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
