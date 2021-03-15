@@ -12,10 +12,8 @@ using System.Xml;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.Fhir.Specification;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -28,17 +26,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     internal class FhirXmlOutputFormatter : TextOutputFormatter
     {
         private readonly FhirXmlSerializer _fhirXmlSerializer;
-        private readonly ILogger<FhirXmlOutputFormatter> _logger;
         private readonly ResourceDeserializer _deserializer;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
-        public FhirXmlOutputFormatter(FhirXmlSerializer fhirXmlSerializer, ResourceDeserializer deserializer, ILogger<FhirXmlOutputFormatter> logger)
+        public FhirXmlOutputFormatter(FhirXmlSerializer fhirXmlSerializer, ResourceDeserializer deserializer, IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(fhirXmlSerializer, nameof(fhirXmlSerializer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _fhirXmlSerializer = fhirXmlSerializer;
-            _logger = logger;
             _deserializer = deserializer;
+            _modelInfoProvider = modelInfoProvider;
 
             SupportedEncodings.Add(Encoding.UTF8);
             SupportedEncodings.Add(Encoding.Unicode);
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var elementsSearchParameter = context.HttpContext.GetElementsOrDefault();
             var hasElements = elementsSearchParameter?.Any() == true;
-            IStructureDefinitionSummaryProvider summaryProvider = new PocoStructureDefinitionSummaryProvider();
+            var summaryProvider = _modelInfoProvider.StructureDefinitionSummaryProvider;
             var additionalElements = new HashSet<string>();
 
             Resource resourceObject = null;
