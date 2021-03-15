@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
             short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.KeepTrackOfMinMaxForStringSearchParamVersion)
+            if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
             {
                 VLatest.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
