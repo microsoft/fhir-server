@@ -12,7 +12,6 @@ using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.Fhir.Specification;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
@@ -32,22 +31,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         private readonly ResourceDeserializer _deserializer;
         private readonly IArrayPool<char> _charPool;
         private readonly BundleSerializer _bundleSerializer;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         public FhirJsonOutputFormatter(
             FhirJsonSerializer fhirJsonSerializer,
             ResourceDeserializer deserializer,
             ArrayPool<char> charPool,
-            BundleSerializer bundleSerializer)
+            BundleSerializer bundleSerializer,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
             EnsureArg.IsNotNull(charPool, nameof(charPool));
             EnsureArg.IsNotNull(bundleSerializer, nameof(bundleSerializer));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _fhirJsonSerializer = fhirJsonSerializer;
             _deserializer = deserializer;
             _charPool = new JsonArrayPool(charPool);
             _bundleSerializer = bundleSerializer;
+            _modelInfoProvider = modelInfoProvider;
 
             SupportedEncodings.Add(Encoding.UTF8);
             SupportedEncodings.Add(Encoding.Unicode);
@@ -78,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             var pretty = context.HttpContext.GetPrettyOrDefault();
             var hasElements = elementsSearchParameter?.Any() == true;
             Resource resource = null;
-            IStructureDefinitionSummaryProvider summaryProvider = new PocoStructureDefinitionSummaryProvider();
+            var summaryProvider = _modelInfoProvider.StructureDefinitionSummaryProvider;
             var additionalElements = new HashSet<string>();
 
             if (context.Object is Hl7.Fhir.Model.Bundle)
@@ -86,7 +89,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 var bundle = context.Object as Hl7.Fhir.Model.Bundle;
                 resource = bundle;
 
-                if (elementsSearchParameter?.Any() == true ||
+                if (hasElements ||
                     summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False ||
                     !bundle.Entry.All(x => x is RawBundleEntryComponent))
                 {
@@ -113,7 +116,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
             else if (context.Object is RawResourceElement)
             {
-                if ((elementsSearchParameter != null && elementsSearchParameter.Any()) ||
+                if (hasElements ||
                     summarySearchParameter != Hl7.Fhir.Rest.SummaryType.False)
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
@@ -134,6 +137,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             else
             {
                 resource = (Resource)context.Object;
+                if (hasElements)
+                {
+                    var typeinfo = summaryProvider.Provide(resource.TypeName);
+                    var required = typeinfo.GetElements().Where(e => e.IsRequired).ToList();
+                    additionalElements.UnionWith(required.Select(x => x.ElementName));
+                }
             }
 
             if (hasElements)

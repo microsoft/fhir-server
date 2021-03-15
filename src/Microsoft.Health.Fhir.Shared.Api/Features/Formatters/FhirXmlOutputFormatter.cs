@@ -101,6 +101,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             else
             {
                 resourceObject = (Resource)context.Object;
+                if (hasElements)
+                {
+                    var typeinfo = summaryProvider.Provide(resourceObject.TypeName);
+                    var required = typeinfo.GetElements().Where(e => e.IsRequired).ToList();
+                    additionalElements.UnionWith(required.Select(x => x.ElementName));
+                }
             }
 
             if (hasElements)
