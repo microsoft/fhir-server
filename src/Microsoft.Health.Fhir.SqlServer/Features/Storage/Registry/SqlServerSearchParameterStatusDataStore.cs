@@ -13,6 +13,7 @@ using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         {
                             paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri);
                         }
-                        catch
+                        catch (SearchParameterNotSupportedException)
                         {
                         }
 
