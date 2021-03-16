@@ -24,10 +24,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         public async Task GivenDefaultTemplateReference_WhenFetchingTemplates_DefaultTemplateCollectionShouldReturn()
         {
             var containerRegistryTemplateProvider = GetDefaultTemplateProvider();
-            var templateReference = ImageInfo.DefaultTemplateImageReference;
-            var templateCollection = await containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None);
+            foreach (var templateInfo in DefaultTemplateInfo.DefaultTemplateMap.Values)
+            {
+                var templateReference = templateInfo.ImageReference;
+                var templateCollection = await containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None);
 
-            Assert.NotEmpty(templateCollection);
+                Assert.NotEmpty(templateCollection);
+            }
         }
 
         [Fact]

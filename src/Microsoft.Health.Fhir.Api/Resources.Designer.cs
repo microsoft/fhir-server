@@ -213,9 +213,8 @@ namespace Microsoft.Health.Fhir.Api {
             }
         }
         
-
         /// <summary>
-        ///   Looks up a localized string similar to The input datatype &apos;{0}&apos; and default template collection &apos;{1}&apos; are inconsistent..
+        ///   Looks up a localized string similar to The input data type &apos;{0}&apos; and default template collection &apos;{1}&apos; are inconsistent..
         /// </summary>
         public static string InputDataTypeAndDefaultTemplateCollectionInconsistent {
             get {

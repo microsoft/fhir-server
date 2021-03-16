@@ -185,16 +185,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckInputDataTypeAndDefaultTemplateImageReferenceConsistent(ConversionInputDataType inputDataType, string templateCollectionReference)
         {
-            // default datatype Hl7v2
-            if (string.Equals(templateCollectionReference, ImageInfo.DefaultTemplateImageReference, StringComparison.OrdinalIgnoreCase))
-            {
-                if (inputDataType != ConversionInputDataType.Hl7v2)
-                {
-                    _logger.LogError("The default template collection and input datatype are inconsistent.");
-                    throw new InputDataTypeAndDefaultTemplateCollectionInconsistentException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));
-                }
-            }
-            else if (!string.Equals(templateCollectionReference, ImageInfo.GetDefaultTemplateImageReferenceByDatatype(GetConverterDataType(inputDataType)), StringComparison.OrdinalIgnoreCase))
+            var dataType = DefaultTemplateInfo.DefaultTemplateMap.GetValueOrDefault(templateCollectionReference).DataType;
+
+            if (dataType != GetConverterDataType(inputDataType))
             {
                 _logger.LogError("The default template collection and input datatype are inconsistent.");
                 throw new InputDataTypeAndDefaultTemplateCollectionInconsistentException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));

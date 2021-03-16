@@ -344,9 +344,8 @@
     <value>The requested "_elements" parameter '{0}' is invalid.</value>
     <comment>{NumberedPlaceHolder=”_elements”} {0} is parameter's value.</comment>
   </data>
-</root>
   <data name="InputDataTypeAndDefaultTemplateCollectionInconsistent" xml:space="preserve">
-    <value>The input datatype '{0}' and default template collection '{1}' are inconsistent.</value>
-    <comment>{0} is the input datatype and {1} is the default template collection.</comment>
+    <value>The input data type '{0}' and default template collection '{1}' are inconsistent.</value>
+    <comment>{0} is the input data type and {1} is the default template collection.</comment>
   </data>
 </root>
