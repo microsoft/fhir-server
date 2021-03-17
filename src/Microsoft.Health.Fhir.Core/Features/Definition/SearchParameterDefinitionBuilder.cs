@@ -299,9 +299,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>(
                 results.ToDictionary(
-                    r => r.Code,
-                    r => r,
-                    StringComparer.Ordinal));
+                r => r.Code,
+                r => r,
+                StringComparer.Ordinal));
+
             if (!resourceTypeDictionary.TryAdd(resourceType, searchParameterDictionary))
             {
                 resourceTypeDictionary[resourceType] = searchParameterDictionary;
