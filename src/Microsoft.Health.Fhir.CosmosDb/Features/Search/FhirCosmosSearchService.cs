@@ -35,6 +35,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly IQueryBuilder _queryBuilder;
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
+        private readonly ICosmosDbPhysicalPartitionInfo _physicalPartitionInfo;
+        private readonly CosmosQueryInfoCache _queryInfoCache;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
         public const string HeaderEnableChainedSearch = "x-ms-enable-chained-search";
@@ -46,7 +48,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             IQueryBuilder queryBuilder,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IFhirRequestContextAccessor requestContextAccessor,
-            CosmosDataStoreConfiguration cosmosConfig)
+            CosmosDataStoreConfiguration cosmosConfig,
+            ICosmosDbPhysicalPartitionInfo physicalPartitionInfo,
+            CosmosQueryInfoCache queryInfoCache)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -54,11 +58,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(cosmosConfig, nameof(cosmosConfig));
+            EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
+            EnsureArg.IsNotNull(queryInfoCache, nameof(queryInfoCache));
 
             _fhirDataStore = fhirDataStore;
             _queryBuilder = queryBuilder;
             _requestContextAccessor = requestContextAccessor;
             _cosmosConfig = cosmosConfig;
+            _physicalPartitionInfo = physicalPartitionInfo;
+            _queryInfoCache = queryInfoCache;
             _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
             _resourceIdSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.Id);
         }
@@ -198,94 +206,94 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         /// This lets us walk to the end of the expression to start filtering, the results are used to filter against the parent layer.
         /// </summary>
         private async Task<Expression> RecurseChainedExpression(ChainedExpression expression, SearchOptions chainedOptions, CancellationToken cancellationToken)
+        {
+            Expression criteria = expression.Expression;
+
+            if (expression.Expression is ChainedExpression innerChained)
             {
-                Expression criteria = expression.Expression;
+                criteria = await RecurseChainedExpression(innerChained, chainedOptions, cancellationToken);
+            }
 
-                if (expression.Expression is ChainedExpression innerChained)
+            if (criteria == null)
+            {
+                // No items where returned by the sub-queries, break
+                return null;
+            }
+
+            string filteredType = expression.TargetResourceTypes.First();
+            var includeExpressions = new List<IncludeExpression>();
+
+            if (expression.Reversed)
+            {
+                // When reversed we'll use the Include expression code to return the ids
+                // in the search index on the matched resources
+                foreach (var targetInclude in expression.TargetResourceTypes)
                 {
-                    criteria = await RecurseChainedExpression(innerChained, chainedOptions, cancellationToken);
+                    includeExpressions.Add(Expression.Include(
+                        expression.ResourceTypes,
+                        expression.ReferenceSearchParameter,
+                        null,
+                        targetInclude,
+                        expression.TargetResourceTypes,
+                        false,
+                        false,
+                        false));
                 }
 
-                if (criteria == null)
-                {
-                    // No items where returned by the sub-queries, break
-                    return null;
-                }
+                // When reversed the ids from the sub-query will match the base resource type
+                filteredType = expression.ResourceTypes.First();
+            }
 
-                string filteredType = expression.TargetResourceTypes.First();
-                var includeExpressions = new List<IncludeExpression>();
+            MultiaryExpression filterExpression = Expression.And(
+                Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, filteredType, false)),
+                criteria);
 
-                if (expression.Reversed)
-                {
-                    // When reversed we'll use the Include expression code to return the ids
-                    // in the search index on the matched resources
-                    foreach (var targetInclude in expression.TargetResourceTypes)
-                    {
-                        includeExpressions.Add(Expression.Include(
-                            expression.ResourceTypes,
+            chainedOptions.Expression = filterExpression;
+
+            var chainedResults = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                _queryBuilder.BuildSqlQuerySpec(chainedOptions, new QueryBuilderOptions(includeExpressions, projection: includeExpressions.Any() ? QueryProjection.ReferencesOnly : QueryProjection.Id)),
+                chainedOptions,
+                null,
+                cancellationToken);
+
+            if (!string.IsNullOrEmpty(chainedResults.continuationToken))
+            {
+                throw new InvalidSearchOperationException(string.Format(Resources.ChainedExpressionSubqueryLimit, _chainedSearchMaxSubqueryItemLimit));
+            }
+
+            Expression[] chainedExpressionReferences;
+
+            if (!expression.Reversed)
+            {
+                // When normal chained expression we can filter using references in the parent object. e.g. Observation.subject
+                // The following expression constrains "subject" references on "Observation" with the ids that have matched the sub-query
+                chainedExpressionReferences = chainedResults.results.Select(x =>
+                        Expression.SearchParameter(
                             expression.ReferenceSearchParameter,
-                            null,
-                            targetInclude,
-                            expression.TargetResourceTypes,
-                            false,
-                            false,
-                            false));
-                    }
-
-                    // When reversed the ids from the sub-query will match the base resource type
-                    filteredType = expression.ResourceTypes.First();
-                }
-
-                MultiaryExpression filterExpression = Expression.And(
-                    Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, filteredType, false)),
-                    criteria);
-
-                chainedOptions.Expression = filterExpression;
-
-                var chainedResults = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                    _queryBuilder.BuildSqlQuerySpec(chainedOptions, new QueryBuilderOptions(includeExpressions, projection: includeExpressions.Any() ? QueryProjection.ReferencesOnly : QueryProjection.Id)),
-                    chainedOptions,
-                    null,
-                    cancellationToken);
-
-                if (!string.IsNullOrEmpty(chainedResults.continuationToken))
-                {
-                    throw new InvalidSearchOperationException(string.Format(Resources.ChainedExpressionSubqueryLimit, _chainedSearchMaxSubqueryItemLimit));
-                }
-
-                Expression[] chainedExpressionReferences;
-
-                if (!expression.Reversed)
-                {
-                    // When normal chained expression we can filter using references in the parent object. e.g. Observation.subject
-                    // The following expression constrains "subject" references on "Observation" with the ids that have matched the sub-query
-                    chainedExpressionReferences = chainedResults.results.Select(x =>
-                            Expression.SearchParameter(
-                                expression.ReferenceSearchParameter,
-                                Expression.And(
-                                    Expression.Equals(FieldName.ReferenceResourceId, null, x.Id),
-                                    Expression.Equals(FieldName.ReferenceResourceType, null, filteredType))))
-                        .ToArray<Expression>();
-                }
-                else
-                {
-                    // When reverse chained, we take the ids and types from the child object and use it to filter the parent objects.
-                    // e.g. Patient?_has:Group:member:_id=group1. In this case we would have run the query there Group.id = group1
-                    // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
-                    chainedExpressionReferences = chainedResults.results.SelectMany(x =>
-                            x.ReferencesToInclude.Select(include =>
-                                Expression.And(
+                            Expression.And(
+                                Expression.Equals(FieldName.ReferenceResourceId, null, x.Id),
+                                Expression.Equals(FieldName.ReferenceResourceType, null, filteredType))))
+                    .ToArray<Expression>();
+            }
+            else
+            {
+                // When reverse chained, we take the ids and types from the child object and use it to filter the parent objects.
+                // e.g. Patient?_has:Group:member:_id=group1. In this case we would have run the query there Group.id = group1
+                // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
+                chainedExpressionReferences = chainedResults.results.SelectMany(x =>
+                        x.ReferencesToInclude.Select(include =>
+                            Expression.And(
                                 Expression.SearchParameter(
                                     _resourceIdSearchParameter,
                                     Expression.Equals(FieldName.TokenCode, null, include.ResourceId)),
                                 Expression.SearchParameter(
                                     _resourceTypeSearchParameter,
                                     Expression.Equals(FieldName.TokenCode, null, include.ResourceTypeName)))))
-                        .ToArray<Expression>();
-                }
-
-                return chainedExpressionReferences.Length > 1 ? Expression.Or(chainedExpressionReferences) : chainedExpressionReferences.FirstOrDefault();
+                    .ToArray<Expression>();
             }
+
+            return chainedExpressionReferences.Length > 1 ? Expression.Or(chainedExpressionReferences) : chainedExpressionReferences.FirstOrDefault();
+        }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(
             SearchOptions searchOptions,
@@ -331,10 +339,41 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             var feedOptions = new QueryRequestOptions
             {
                 MaxItemCount = searchOptions.MaxItemCount,
-                MaxConcurrency = searchOptions.Sort?.Count > 0 ? -1 : null,
             };
 
-            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, cancellationToken);
+            QueryPartitionStatistics queryPartitionStatistics = null;
+
+            if (searchOptions.Sort?.Count > 0)
+            {
+                feedOptions.MaxConcurrency = -1;
+            }
+            else
+            {
+                queryPartitionStatistics = _queryInfoCache.GetQueryPartitionStatistics(searchOptions.Expression);
+                int? averagePartitionCount = queryPartitionStatistics.GetAveragePartitionCount();
+                if (averagePartitionCount.HasValue && IsQuerySelective(averagePartitionCount.Value))
+                {
+                    feedOptions.MaxConcurrency = -1;
+                }
+            }
+
+            var result = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, cancellationToken);
+
+            if (queryPartitionStatistics != null)
+            {
+                IFhirRequestContext fhirRequestContext = _requestContextAccessor.FhirRequestContext;
+                var responses = (List<ResponseMessage>)fhirRequestContext.Properties[Constants.CosmosDbResponseMessages];
+                int physicalPartitionCount = responses.Select(r => r.Headers["x-ms-documentdb-partitionkeyrangeid"]).Distinct().Count();
+
+                queryPartitionStatistics.Update(physicalPartitionCount);
+            }
+
+            return result;
+        }
+
+        private bool IsQuerySelective(int partitionCountPerPage)
+        {
+            return (double)partitionCountPerPage / _physicalPartitionInfo.PhysicalPartitionCount > 0.5;
         }
 
         private async Task<int> ExecuteCountSearchAsync(

@@ -7,10 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -25,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -47,9 +44,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
-        private readonly ICosmosDbPhysicalPartitionInfo _physicalPartitionInfo;
-        private readonly CosmosQueryInfoCache _queryInfoCache;
-        private readonly IFhirRequestContextAccessor _requestContextAccessor;
 
         private static readonly HardDelete _hardDelete = new HardDelete();
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
@@ -69,9 +63,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
-        /// <param name="physicalPartitionInfo">Provides physical partition counts on the collection</param>
-        /// <param name="queryInfoCache">The query info cache</param>
-        /// <param name="requestContextAccessor">The request context accessor.</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -79,12 +70,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosQueryFactory cosmosQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
-            IOptions<CoreFeatureConfiguration> coreFeatures,
-            ICosmosDbPhysicalPartitionInfo physicalPartitionInfo,
-            CosmosQueryInfoCache queryInfoCache,
-            IFhirRequestContextAccessor requestContextAccessor)
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
-            EnsureArg.IsNotNull(queryInfoCache, nameof(queryInfoCache));
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
@@ -92,17 +79,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
-            EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
-            EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _cosmosQueryFactory = cosmosQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
-            _physicalPartitionInfo = physicalPartitionInfo;
-            _queryInfoCache = queryInfoCache;
-            _requestContextAccessor = requestContextAccessor;
             _coreFeatures = coreFeatures.Value;
         }
 
@@ -396,22 +378,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
-            QueryPartitionStatistics queryPartitionStatistics = null;
-            if (feedOptions.MaxConcurrency == null && feedOptions.PartitionKey == null)
-            {
-                queryPartitionStatistics = _queryInfoCache.GetQueryPartitionStatistics(sqlQuerySpec.QueryText);
-
-                int? partitionCountPerPage = queryPartitionStatistics.GetAveragePartitionCount();
-
-                if (partitionCountPerPage.HasValue)
-                {
-                    if (IsQuerySelective(partitionCountPerPage.Value))
-                    {
-                        feedOptions.MaxConcurrency = -1;
-                    }
-                }
-            }
-
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
             ICosmosQuery<T> cosmosQuery = null;
             var startTime = Clock.UtcNow;
@@ -424,8 +390,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count == feedOptions.MaxItemCount)
             {
-                UpdateSelectivity();
-
                 if (page.Count == 0)
                 {
                     return (Array.Empty<T>(), page.ContinuationToken);
@@ -446,7 +410,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             TimeSpan timeout = TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds) - (Clock.UtcNow - startTime);
             if (timeout <= TimeSpan.Zero)
             {
-                UpdateSelectivity();
                 return (results, page.ContinuationToken);
             }
 
@@ -490,37 +453,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
             }
 
-            UpdateSelectivity();
             return (results, page.ContinuationToken);
-
-            void UpdateSelectivity()
-            {
-                if (queryPartitionStatistics != null)
-                {
-                    IFhirRequestContext fhirRequestContext = _requestContextAccessor.FhirRequestContext;
-                    var responses = (List<ResponseMessage>)fhirRequestContext.Properties[Constants.CosmosDbResponseMessages];
-                    int physicalPartitionCount = responses.Select(r => r.Headers["x-ms-documentdb-partitionkeyrangeid"]).Distinct().Count();
-
-                    queryPartitionStatistics.Update(physicalPartitionCount);
-                }
-            }
-        }
-
-        private bool IsQuerySelective(int partitionCountPerPage)
-        {
-            return (double)partitionCountPerPage / _physicalPartitionInfo.PhysicalPartitionCount > 0.5;
-        }
-
-        private static bool IsPhysicalPartitionDrainedForUnorderedNonSequentialQuery(string continuationToken)
-        {
-            CompositeContinuationToken[] compositeContinuationTokenArray = JsonSerializer.Deserialize<CompositeContinuationToken[]>(continuationToken, new JsonSerializerOptions { PropertyNameCaseInsensitive = true, });
-
-            if (compositeContinuationTokenArray != null && compositeContinuationTokenArray.Length == 1)
-            {
-                return compositeContinuationTokenArray[0].Token == null;
-            }
-
-            return false;
         }
 
         public void Build(ICapabilityStatementBuilder builder)
@@ -536,7 +469,5 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 builder.AddRestInteraction(SystemRestfulInteraction.Batch);
             }
         }
-
-        private record CompositeContinuationToken(string Token);
     }
 }

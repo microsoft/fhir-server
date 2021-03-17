@@ -145,9 +145,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 
-            var cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbPhysicalPartitionInfo>();
-            cosmosDbPhysicalPartitionInfo.PhysicalPartitionCount.Returns(1);
-
             _fhirDataStore = new CosmosFhirDataStore(
                 documentClient,
                 _cosmosDataStoreConfiguration,
@@ -155,8 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<IFhirRequestContextAccessor>()),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                options,
-                cosmosDbPhysicalPartitionInfo);
+                options);
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 documentClient,
@@ -170,13 +166,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
             var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, fhirRequestContextAccessor, Substitute.For<ISortingValidator>(), NullLogger<SearchOptionsFactory>.Instance);
 
+            ICosmosDbPhysicalPartitionInfo cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbPhysicalPartitionInfo>();
+            cosmosDbPhysicalPartitionInfo.PhysicalPartitionCount.Returns(1);
+
             _searchService = new FhirCosmosSearchService(
                 searchOptionsFactory,
                 _fhirDataStore,
                 new QueryBuilder(),
                 _searchParameterDefinitionManager,
                 fhirRequestContextAccessor,
-                new CosmosDataStoreConfiguration());
+                new CosmosDataStoreConfiguration(),
+                cosmosDbPhysicalPartitionInfo,
+                new CosmosQueryInfoCache());
 
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container);
         }

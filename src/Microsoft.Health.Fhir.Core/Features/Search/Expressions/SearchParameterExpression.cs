@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override bool ValueInsensitiveEquals(Expression other)
         {
-            return other is SearchParameterExpression spe && spe.Parameter.Equals(Parameter) && spe.ValueInsensitiveEquals(Expression);
+            return other is SearchParameterExpression spe && spe.Parameter.Equals(Parameter) && spe.Expression.ValueInsensitiveEquals(Expression);
         }
     }
 }

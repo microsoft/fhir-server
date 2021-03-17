@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.IO;
 using EnsureThat;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -15,20 +14,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 512 });
 
-        internal QueryPartitionStatistics GetQueryPartitionStatistics(string queryText)
+        internal QueryPartitionStatistics GetQueryPartitionStatistics(Expression expression)
         {
             return _cache.GetOrCreate(
-                queryText,
+                new ExpressionWrapper(expression),
                 e =>
                 {
                     e.Size = 1;
                     return new QueryPartitionStatistics();
                 });
-        }
-
-        internal QueryPartitionStatistics GetQueryPartitionStatistics(Expression expression)
-        {
-            throw new IOException("sssss");
         }
 
         private class ExpressionWrapper
@@ -50,6 +44,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             public Expression Expression { get; }
 
             public override int GetHashCode() => _hashCode;
+
+            public override bool Equals(object obj) => obj is ExpressionWrapper e && Expression.ValueInsensitiveEquals(e.Expression);
         }
     }
 }

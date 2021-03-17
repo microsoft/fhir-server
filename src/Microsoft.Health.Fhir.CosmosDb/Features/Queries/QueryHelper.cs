@@ -3,9 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Text;
-using System.Text.RegularExpressions;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
@@ -57,54 +55,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             }
         }
 
-        public void AppendLiteralFilterCondition(string logicalOperator, bool equal, params (string, object)[] conditions)
-        {
-            for (int i = 0; i < conditions.Length; i++)
-            {
-                _queryBuilder
-                    .Append(logicalOperator)
-                    .Append(" ");
-
-                (string name, object value) = conditions[i];
-
-                AppendLiteralFilterCondition(name, value, equal);
-            }
-        }
-
         public void AppendFilterCondition(string name, object value, bool equal)
         {
             string comparison = equal ? " = " : " != ";
             _queryBuilder
-                .Append(_rootAliasName).Append(".").Append(name)
-                .Append(comparison)
-                .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
-        }
-
-        public void AppendLiteralFilterCondition(string name, object value, bool equal)
-        {
-            string comparison = equal ? " = " : " != ";
-            _queryBuilder
-                .Append(_rootAliasName).Append(".").Append(name)
-                .Append(comparison);
-
-            AppendLiteral(value).AppendLine();
-        }
-
-        private StringBuilder AppendLiteral(object value)
-        {
-            return value switch
-            {
-                null => _queryBuilder.Append("null"),
-                bool b => AppendLiteral(b),
-                string s when Regex.IsMatch(s, @"^[A-Za-z_0-9]*$") => _queryBuilder.Append('\'').Append(s).Append('\''),
-                string => throw new InvalidOperationException("Not expecting string that might need escaping"),
-                _ => throw new InvalidOperationException($"Unexpected datatype {value.GetType().Name}"),
-            };
-        }
-
-        private StringBuilder AppendLiteral(bool value)
-        {
-            return _queryBuilder.Append(value ? "true" : "false");
+                    .Append(_rootAliasName).Append(".").Append(name)
+                    .Append(comparison)
+                    .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
         }
 
         public void AppendSystemDataFilter(bool systemDataValue = false)
@@ -112,9 +69,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             _queryBuilder
                 .Append("WHERE ")
                 .Append(_rootAliasName).Append(".isSystem")
-                .Append(" = ");
-
-            AppendLiteral(systemDataValue).AppendLine();
+                .Append(" = ")
+                .AppendLine(_queryParameterManager.AddOrGetParameterMapping(systemDataValue));
         }
 
         public void AppendSearchParameterHashFliter(string hashValue)

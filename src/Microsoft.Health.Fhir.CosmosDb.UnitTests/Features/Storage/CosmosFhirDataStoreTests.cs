@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -36,33 +35,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         public CosmosFhirDataStoreTests()
         {
             _cosmosQueryFactory = Substitute.For<ICosmosQueryFactory>();
-
-            var cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbPhysicalPartitionInfo>();
-            cosmosDbPhysicalPartitionInfo.PhysicalPartitionCount.Returns(1);
-
-            IFhirRequestContextAccessor fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-
-            var dummyRequestContext = new FhirRequestContext(
-                "POST",
-                "https://localhost/Patient",
-                "https://localhost/",
-                Guid.NewGuid().ToString(),
-                new Dictionary<string, StringValues>(),
-                new Dictionary<string, StringValues>());
-
-            fhirRequestContextAccessor.FhirRequestContext.Returns(dummyRequestContext);
-
             _dataStore = new CosmosFhirDataStore(
                 Substitute.For<IScoped<Container>>(),
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,
-                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, fhirRequestContextAccessor),
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<IFhirRequestContextAccessor>()),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                Options.Create(new CoreFeatureConfiguration()),
-                cosmosDbPhysicalPartitionInfo,
-                new CosmosQueryInfoCache(),
-                fhirRequestContextAccessor);
+                Options.Create(new CoreFeatureConfiguration()));
         }
 
         [Fact]
