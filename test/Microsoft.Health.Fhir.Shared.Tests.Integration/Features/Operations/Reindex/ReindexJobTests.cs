@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -64,6 +65,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
         private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;
+
+        private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
+        private readonly IFhirRequestContextAccessor _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
 
         public ReindexJobTests(FhirStorageTestsFixture fixture)
         {
@@ -116,6 +120,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _searchService = _fixture.SearchService.CreateMockScope();
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
+
+            _throttleController.GetThrottleBasedDelay().Returns(0);
         }
 
         public Task DisposeAsync()
@@ -479,6 +485,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 () => _searchService,
                 _supportedSearchParameterDefinitionManager,
                 _reindexUtilities,
+                _contextAccessor,
+                _throttleController,
                 ModelInfoProvider.Instance,
                 NullLogger<ReindexJobTask>.Instance);
         }

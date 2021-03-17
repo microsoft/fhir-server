@@ -21,7 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
             ushort maxiumumConcurrency = 1,
-            uint maxResourcesPerQuery = 100)
+            uint maxResourcesPerQuery = 100,
+            int queryDelayIntervalInMilliseconds = 500,
+            ushort? targetDataStoreResourcePercentage = null)
         {
             EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
 
@@ -36,6 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             ResourceTypeSearchParameterHashMap = searchParametersHash;
             MaximumConcurrency = maxiumumConcurrency;
             MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
+            QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
+            TargetDataStoreResourcePercentage = targetDataStoreResourcePercentage;
         }
 
         [JsonConstructor]
@@ -84,6 +88,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
         public uint MaximumNumberOfResourcesPerQuery { get; private set; }
+
+        /// <summary>
+        /// Controls the time between queries of resources to be reindexed
+        /// </summary>
+        [JsonProperty(JobRecordProperties.QueryDelayIntervalInMilliseconds)]
+        public int QueryDelayIntervalInMilliseconds { get; set; }
+
+        /// <summary>
+        /// Controls the target percentage of how much of the allocated
+        /// data store resources to use
+        /// </summary>
+        public ushort? TargetDataStoreResourcePercentage { get; set; }
 
         [JsonIgnore]
         public int PercentComplete

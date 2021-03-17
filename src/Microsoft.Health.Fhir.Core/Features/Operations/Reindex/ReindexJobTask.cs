@@ -12,9 +12,11 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -31,6 +33,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly IReindexUtilities _reindexUtilities;
+        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly IReindexJobThrottleController _throttleControllerFactory;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger _logger;
 
@@ -43,7 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
-            IModelInfoProvider modelInfoProvider,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -51,7 +54,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -59,7 +61,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
-            _modelInfoProvider = modelInfoProvider;
             _logger = logger;
         }
 
@@ -73,8 +74,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _weakETag = weakETag;
             var jobSemaphore = new SemaphoreSlim(1, 1);
 
+            var existingFhirRequestContext = _contextAccessor.FhirRequestContext;
+
             try
             {
+                // Add a request context so Datastore consumption can be added
+                var fhirRequestContext = new FhirRequestContext(
+                    method: OperationsConstants.Reindex,
+                    uriString: "$reindex",
+                    baseUriString: "$reindex",
+                    correlationId: _reindexJobRecord.Id,
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
+                {
+                    IsBackgroundTask = true,
+                    AuditEventType = OperationsConstants.Reindex,
+                };
+
+                _contextAccessor.FhirRequestContext = fhirRequestContext;
+
+                _throttleControllerFactory.Initialize(_reindexJobRecord);
+
                 if (_reindexJobRecord.Status != OperationStatus.Running ||
                     _reindexJobRecord.StartTime == null)
                 {
@@ -224,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
-                    await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds);
+                    await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + _throttleControllerFactory.GetThrottleBasedDelay());
 
                     // Remove all finished tasks from the collections of tasks
                     // and cancellationTokens
@@ -303,6 +323,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             finally
             {
                 jobSemaphore.Dispose();
+                _contextAccessor.FhirRequestContext = existingFhirRequestContext;
             }
         }
 
@@ -426,7 +447,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
-                Tuple.Create(KnownQueryParameterNames.Count, _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
+                Tuple.Create(KnownQueryParameterNames.Count, _reindexJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                 Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
             };
 

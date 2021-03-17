@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -39,6 +40,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration = new ReindexJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
+        private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
+        private readonly IFhirRequestContextAccessor _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
         private ReindexJobTask _reindexJobTask;
@@ -61,12 +64,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     Arg.Any<CancellationToken>()).
                 Returns(new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()));
 
+            _throttleController.GetThrottleBasedDelay().Returns(0);
+
             _reindexJobTask = new ReindexJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_reindexJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 await _fixture.GetSupportedSearchDefinitionManagerAsync(),
                 _reindexUtilities,
+                _contextAccessor,
+                _throttleController,
                 ModelInfoProvider.Instance,
                 NullLogger<ReindexJobTask>.Instance);
 
