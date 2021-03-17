@@ -37,7 +37,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
             UrlLookup = new ConcurrentDictionary<Uri, SearchParameterInfo>();
-            ChildResourceTypeLookup = new ConcurrentDictionary<string, HashSet<string>>();
         }
 
         internal ConcurrentDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
@@ -52,9 +51,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             get { return new ReadOnlyDictionary<string, string>(_resourceTypeSearchParameterHashMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)); }
         }
 
-        // TODO: Is HashSet access concurrent?
-        public ConcurrentDictionary<string, HashSet<string>> ChildResourceTypeLookup { get; }
-
         public Task StartAsync(CancellationToken cancellationToken)
         {
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
@@ -63,7 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 bundle.Entries.Select(e => e.Resource).ToList(),
                 UrlLookup,
                 TypeLookup,
-                ChildResourceTypeLookup,
                 _modelInfoProvider);
 
             CalculateSearchParameterHash();
@@ -143,7 +138,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchParameters,
                 UrlLookup,
                 TypeLookup,
-                ChildResourceTypeLookup,
                 _modelInfoProvider);
 
             CalculateSearchParameterHash();

@@ -42,13 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IReadOnlyCollection<ITypedElement> searchParameters,
             ConcurrentDictionary<Uri, SearchParameterInfo> uriDictionary,
             ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
-            ConcurrentDictionary<string, HashSet<string>> childResourceTypeLookup,
             IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
             EnsureArg.IsNotNull(uriDictionary, nameof(uriDictionary));
             EnsureArg.IsNotNull(resourceTypeDictionary, nameof(resourceTypeDictionary));
-            EnsureArg.IsNotNull(childResourceTypeLookup, nameof(childResourceTypeLookup));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattenedList(
@@ -65,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
-                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, childResourceTypeLookup, modelInfoProvider);
+                BuildSearchParameterDefinition(searchParametersLookup, resourceType, resourceTypeDictionary, modelInfoProvider);
             }
         }
 
@@ -271,18 +269,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType,
             ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
-            ConcurrentDictionary<string, HashSet<string>> childResourceTypeLookup,
-            IModelInfoProvider modelInfoProvider,
-            string childResourceType = null)
+            IModelInfoProvider modelInfoProvider)
         {
-            HashSet<SearchParameterInfo> searchParameters;
+            HashSet<SearchParameterInfo> results;
             if (resourceTypeDictionary.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> cachedSearchParameters))
             {
-                searchParameters = new HashSet<SearchParameterInfo>(cachedSearchParameters.Values);
+                results = new HashSet<SearchParameterInfo>(cachedSearchParameters.Values);
             }
             else
             {
-                searchParameters = new HashSet<SearchParameterInfo>();
+                results = new HashSet<SearchParameterInfo>();
             }
 
             Type type = modelInfoProvider.GetTypeForFhirType(resourceType);
@@ -293,32 +289,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (baseType != null)
             {
-                var baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, childResourceTypeLookup, modelInfoProvider, resourceType);
-                searchParameters.UnionWith(baseResults);
+                var baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider);
+                results.UnionWith(baseResults);
             }
 
-            Debug.Assert(searchParameters != null, "The results should not be null.");
+            Debug.Assert(results != null, "The results should not be null.");
 
-            // As we work our way recursively towards the root resource (or "most base" resource), store the connection between the resource types.
-            HashSet<string> hashSet = childResourceType != null ? new HashSet<string> { childResourceType } : null;
-            if (!childResourceTypeLookup.TryAdd(resourceType, hashSet))
-            {
-                childResourceTypeLookup[resourceType]?.Add(childResourceType);
-            }
-
-            searchParameters.UnionWith(searchParametersLookup[resourceType]);
+            results.UnionWith(searchParametersLookup[resourceType]);
 
             var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>(
-                searchParameters.ToDictionary(
-                    searchParam => searchParam.Code,
-                    searchParam => searchParam,
+                results.ToDictionary(
+                    r => r.Code,
+                    r => r,
                     StringComparer.Ordinal));
             if (!resourceTypeDictionary.TryAdd(resourceType, searchParameterDictionary))
             {
                 resourceTypeDictionary[resourceType] = searchParameterDictionary;
             }
 
-            return searchParameters;
+            return results;
         }
 
         private static string GetComponentDefinition(ITypedElement component)

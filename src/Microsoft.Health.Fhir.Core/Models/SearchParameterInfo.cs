@@ -90,7 +90,6 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public IReadOnlyList<string> TargetResourceTypes { get; } = Array.Empty<string>();
 
-        // TODO: Rename this to not be confused with Type.BaseType
         public IReadOnlyList<string> BaseResourceTypes { get; } = Array.Empty<string>();
 
         public Uri Url { get; }

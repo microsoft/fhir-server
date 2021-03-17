@@ -30,8 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IReindexUtilities _reindexUtilities;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger _logger;
 
         private ReindexJobRecord _reindexJobRecord;
@@ -42,24 +42,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
-            SearchParameterDefinitionManager searchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
+            IModelInfoProvider modelInfoProvider,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
+            _modelInfoProvider = modelInfoProvider;
             _logger = logger;
         }
 
@@ -111,8 +111,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         foreach (var baseResourceType in param.BaseResourceTypes)
                         {
-                            resourceList.UnionWith(new HashSet<string> { baseResourceType });
-                            resourceList.UnionWith(GetChildResourceTypes(baseResourceType));
+                            if (baseResourceType == "Resource")
+                            {
+                                resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+
+                                // We added all possible resource types, so no need to continue
+                                break;
+                            }
+
+                            if (baseResourceType == "DomainResource")
+                            {
+                                resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+
+                                // Remove types that don't inherit from domain resource
+                                resourceList.Remove("Binary");
+                                resourceList.Remove("Bundle");
+                                resourceList.Remove("Parameters");
+                            }
+                            else
+                            {
+                                resourceList.UnionWith(new HashSet<string> { baseResourceType });
+                            }
                         }
                     }
 
@@ -281,26 +300,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 jobSemaphore.Dispose();
             }
-        }
-
-        private HashSet<string> GetChildResourceTypes(string resourceType)
-        {
-            var childResourceTypes = _searchParameterDefinitionManager.ChildResourceTypeLookup[resourceType];
-
-            if (childResourceTypes == null)
-            {
-                return new HashSet<string>();
-            }
-
-            var resourceTypes = new HashSet<string>();
-            foreach (var childResourceType in childResourceTypes)
-            {
-                resourceTypes.UnionWith(GetChildResourceTypes(childResourceType));
-            }
-
-            childResourceTypes.UnionWith(resourceTypes);
-
-            return childResourceTypes;
         }
 
         private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, SemaphoreSlim jobSemaphore, CancellationToken cancellationToken)

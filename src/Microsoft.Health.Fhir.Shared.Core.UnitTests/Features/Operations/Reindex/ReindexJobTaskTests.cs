@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using NSubstitute;
@@ -65,8 +66,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Options.Create(_reindexJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 await _fixture.GetSupportedSearchDefinitionManagerAsync(),
-                await _fixture.GetSearchDefinitionManagerAsync(),
                 _reindexUtilities,
+                ModelInfoProvider.Instance,
                 NullLogger<ReindexJobTask>.Instance);
 
             _reindexUtilities.UpdateSearchParameterStatus(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));

@@ -477,8 +477,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Options.Create(_jobConfiguration),
                 () => _searchService,
                 _supportedSearchParameterDefinitionManager,
-                _searchParameterDefinitionManager,
                 _reindexUtilities,
+                ModelInfoProvider.Instance,
                 NullLogger<ReindexJobTask>.Instance);
         }
 
