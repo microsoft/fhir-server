@@ -29,5 +29,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         /// Indicates whether this running as part of a background task instead of an HTTP request
         /// </summary>
         bool IsBackgroundTask { get; set; }
+
+        /// <summary>
+        /// A weakly-typed property bag
+        /// </summary>
+        IDictionary<string, object> Properties { get; }
     }
 }

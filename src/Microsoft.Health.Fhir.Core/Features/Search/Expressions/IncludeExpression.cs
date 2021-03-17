@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
@@ -51,8 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             WildCard = wildCard;
             Reversed = reversed;
             Iterate = iterate;
-            CircularReference = TargetResourceType != null ? SourceResourceType == TargetResourceType
-                                                           : ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Contains(sourceResourceType);
+            CircularReference = TargetResourceType != null
+                ? SourceResourceType == TargetResourceType
+                : ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Contains(sourceResourceType);
         }
 
         /// <summary>
@@ -79,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         ///  Gets the type of resources referenced by resourceType. Used when iterating over wildcard results.
         /// </summary>
-        public IReadOnlyCollection<string> ReferencedTypes { get; }
+        public IReadOnlyList<string> ReferencedTypes { get; }
 
         /// <summary>
         ///  Gets the type of resources the expression requires (includes from).
@@ -178,6 +180,67 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 // impossible case
                 return new List<string>();
             }
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(IncludeExpression));
+            foreach (string resourceType in ResourceTypes)
+            {
+                hashCode.Add(resourceType);
+            }
+
+            hashCode.Add(ReferenceSearchParameter);
+            hashCode.Add(SourceResourceType);
+            hashCode.Add(TargetResourceType);
+            if (ReferencedTypes != null)
+            {
+                foreach (string referencedType in ReferencedTypes)
+                {
+                    hashCode.Add(referencedType);
+                }
+            }
+
+            hashCode.Add(WildCard);
+            hashCode.Add(Reversed);
+            hashCode.Add(Iterate);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            if (other is not IncludeExpression include ||
+                !include.ReferenceSearchParameter.Equals(ReferenceSearchParameter) ||
+                include.SourceResourceType != SourceResourceType ||
+                include.TargetResourceType != TargetResourceType ||
+                include.WildCard != WildCard ||
+                include.Reversed != Reversed ||
+                include.Iterate != Iterate ||
+                include.ResourceTypes.Length != ResourceTypes.Length ||
+                (include.ReferencedTypes == null) != (ReferencedTypes == null))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < ResourceTypes.Length; i++)
+            {
+                if (include.ResourceTypes[i] != ResourceTypes[i])
+                {
+                    return false;
+                }
+            }
+
+            if (ReferencedTypes != null)
+            {
+                for (var i = 0; i < ReferencedTypes.Count; i++)
+                {
+                    if (include.ReferencedTypes[i] != ReferencedTypes[i])
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
     }
 }

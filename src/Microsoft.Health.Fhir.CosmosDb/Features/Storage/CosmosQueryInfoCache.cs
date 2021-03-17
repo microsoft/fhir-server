@@ -3,7 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.IO;
+using EnsureThat;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -11,8 +15,41 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 512 });
 
-        public bool IsQueryKnownToBeSelective(string queryText) => _cache.TryGetValue(queryText, out _);
+        internal QueryPartitionStatistics GetQueryPartitionStatistics(string queryText)
+        {
+            return _cache.GetOrCreate(
+                queryText,
+                e =>
+                {
+                    e.Size = 1;
+                    return new QueryPartitionStatistics();
+                });
+        }
 
-        public void SetQueryKnownToBeSelective(string queryText) => _cache.Set(queryText, true);
+        internal QueryPartitionStatistics GetQueryPartitionStatistics(Expression expression)
+        {
+            throw new IOException("sssss");
+        }
+
+        private class ExpressionWrapper
+        {
+            private readonly int _hashCode;
+
+            public ExpressionWrapper(Expression expression)
+            {
+                EnsureArg.IsNotNull(expression, nameof(expression));
+
+                Expression = expression;
+
+                HashCode hashCode = default;
+
+                Expression.AddValueInsensitiveHashCode(ref hashCode);
+                _hashCode = hashCode.ToHashCode();
+            }
+
+            public Expression Expression { get; }
+
+            public override int GetHashCode() => _hashCode;
+        }
     }
 }

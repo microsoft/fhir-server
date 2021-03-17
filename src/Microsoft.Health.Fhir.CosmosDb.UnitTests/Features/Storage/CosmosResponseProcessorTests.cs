@@ -47,14 +47,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [Fact]
         public async Task GivenAResourceResponse_WhenProcessResponseCalled_ThenHeadersShouldBeSetAndMetricNotificationShouldHappen()
         {
-            await _cosmosResponseProcessor.ProcessResponse("2", 37.37, HttpStatusCode.OK);
+            Headers headers = Substitute.ForPartsOf<Headers>();
+            headers.Session.Returns("2");
+            headers.RequestCharge.Returns(37.37);
+
+            ResponseMessage responseMessage = Substitute.ForPartsOf<ResponseMessage>(HttpStatusCode.OK, null, null);
+            responseMessage.Headers.Returns(headers);
+
+            await _cosmosResponseProcessor.ProcessResponse(responseMessage);
             ValidateExecution("2", 37.37, false);
         }
 
         [Fact]
         public async Task GivenAResourceResponseWith429Status_WhenProcessResponseCalled_ThenThrottledCountShouldBeSet()
         {
-            await _cosmosResponseProcessor.ProcessResponse("2", 37.37, HttpStatusCode.TooManyRequests);
+            Headers headers = Substitute.ForPartsOf<Headers>();
+            headers.Session.Returns("2");
+            headers.RequestCharge.Returns(37.37);
+
+            ResponseMessage responseMessage = Substitute.ForPartsOf<ResponseMessage>(HttpStatusCode.TooManyRequests, null, null);
+            responseMessage.Headers.Returns(headers);
+
+            await _cosmosResponseProcessor.ProcessResponse(responseMessage);
             ValidateExecution("2", 37.37, true);
         }
 

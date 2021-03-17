@@ -37,5 +37,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Metrics
         /// The type of FHIR resource associated with this context.
         /// </summary>
         public string ResourceType { get; }
+
+        public string PartitionKeyRange { get; set; }
+
+        public string ContinuationToken { get; set; }
     }
 }

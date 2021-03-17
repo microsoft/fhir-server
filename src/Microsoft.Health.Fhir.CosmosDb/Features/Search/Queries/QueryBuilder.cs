@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
                 }
 
-                AppendFilterCondition(
+                AppendLiteralFilterCondition(
                    "AND",
                    true,
                    (KnownResourceWrapperProperties.IsHistory, false),
@@ -252,6 +252,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             private void AppendFilterCondition(string logicalOperator, bool equal, params (string, object)[] conditions)
             {
                 _queryHelper.AppendFilterCondition(logicalOperator, equal, conditions);
+            }
+
+            private void AppendLiteralFilterCondition(string logicalOperator, bool equal, params (string, object)[] conditions)
+            {
+                _queryHelper.AppendLiteralFilterCondition(logicalOperator, equal, conditions);
             }
 
             private void AppendFilterCondition(string name, object value, bool equal)

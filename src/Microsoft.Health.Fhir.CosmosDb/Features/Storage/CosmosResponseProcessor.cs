@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Threading;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             if (statusCode == HttpStatusCode.TooManyRequests)
             {
                 string retryHeader = headers["x-ms-retry-after-ms"];
-                throw new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : (TimeSpan?)null);
+                throw new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
             }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
@@ -84,24 +85,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <summary>
         /// Updates the request context with Cosmos DB info and updates response headers with the session token and request change values.
         /// </summary>
-        /// <param name="sessionToken">THe session token</param>
-        /// <param name="responseRequestCharge">The request charge.</param>
-        /// <param name="statusCode">The HTTP status code.</param>
-        public async Task ProcessResponse(string sessionToken, double responseRequestCharge, HttpStatusCode? statusCode)
+        /// <param name="responseMessage">The response message</param>
+        public async Task ProcessResponse(ResponseMessage responseMessage)
         {
+            var responseRequestCharge = responseMessage.Headers.RequestCharge;
             _logger.LogInformation("Processing Cosmos DB Response {RequestCharge}", responseRequestCharge);
 
-            if (_fhirRequestContextAccessor.FhirRequestContext == null)
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            if (fhirRequestContext == null)
             {
                 return;
             }
 
+            var sessionToken = responseMessage.Headers.Session;
+
             if (!string.IsNullOrEmpty(sessionToken))
             {
-                _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
+                fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
             }
 
-            await AddRequestChargeToFhirRequestContext(responseRequestCharge, statusCode);
+            List<ResponseMessage> responses;
+            if (fhirRequestContext.Properties.TryGetValue(Constants.CosmosDbResponseMessages, out var existingList))
+            {
+                responses = (List<ResponseMessage>)existingList;
+            }
+            else
+            {
+                fhirRequestContext.Properties.Add(Constants.CosmosDbResponseMessages, responses = new List<ResponseMessage>(1));
+            }
+
+            responses.Add(responseMessage);
+
+            await AddRequestChargeToFhirRequestContext(responseRequestCharge, responseMessage.StatusCode);
         }
 
         private async Task AddRequestChargeToFhirRequestContext(double responseRequestCharge, HttpStatusCode? statusCode)

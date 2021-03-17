@@ -44,10 +44,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public override async Task<ResponseMessage> SendAsync(RequestMessage request, CancellationToken cancellationToken)
         {
             UpdateOptions(request);
-            ResponseMessage response = null;
 
-            response = await base.SendAsync(request, cancellationToken);
-            await _cosmosResponseProcessor.ProcessResponse(response.Headers.Session, response.Headers.RequestCharge, response.StatusCode);
+            ResponseMessage response = await base.SendAsync(request, cancellationToken);
+
+            await _cosmosResponseProcessor.ProcessResponse(response);
 
             if (!response.IsSuccessStatusCode)
             {

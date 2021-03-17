@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -265,5 +266,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         /// <inheritdoc />
         public abstract override string ToString();
+
+        public abstract void AddValueInsensitiveHashCode(ref HashCode hashCode);
+
+        public abstract bool ValueInsensitiveEquals(Expression other);
     }
 }
