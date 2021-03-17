@@ -59,7 +59,6 @@
         "http://hl7.org/fhir/SearchParameter/PlanDefinition-predecessor",
         "http://hl7.org/fhir/SearchParameter/PlanDefinition-successor",
         "http://hl7.org/fhir/SearchParameter/Procedure-instantiates-canonical",
-        "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire",
         "http://hl7.org/fhir/SearchParameter/RequestGroup-instantiates-canonical",
         "http://hl7.org/fhir/SearchParameter/ResearchDefinition-composed-of",
         "http://hl7.org/fhir/SearchParameter/ResearchDefinition-depends-on",
