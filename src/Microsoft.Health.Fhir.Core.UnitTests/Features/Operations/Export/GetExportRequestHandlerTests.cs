@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(output);
             Assert.False(string.IsNullOrWhiteSpace(output.Type));
             Assert.NotNull(output.FileUri);
-            Assert.True(output.Count >= 0);
+            Assert.True(output.TotalCount >= 0);
 
             var error = result.JobResult.Error.FirstOrDefault();
 
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(error);
             Assert.False(string.IsNullOrWhiteSpace(error.Type));
             Assert.NotNull(error.FileUri);
-            Assert.True(error.Count >= 0);
+            Assert.True(error.TotalCount >= 0);
 
             var issue = result.JobResult.Issues.FirstOrDefault();
 

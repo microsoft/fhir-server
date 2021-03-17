@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>());
 
             Assert.Equal(OperationStatus.Completed, job.Status);
-            Assert.Equal(5, job.Count);
+            Assert.Equal(5, job.TotalCount);
             Assert.Equal(expectedResourceType, job.ResourceList);
             Assert.Equal(param.Url.ToString(), job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>());
 
             Assert.Equal(OperationStatus.Completed, job.Status);
-            Assert.Equal(5, job.Count);
+            Assert.Equal(5, job.TotalCount);
             Assert.Equal(expectedResourceType, job.ResourceList);
             Assert.Equal(param.Url.ToString(), job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
 
             Assert.Equal(OperationStatus.Completed, job.Status);
-            Assert.Equal(10, job.Count);
+            Assert.Equal(10, job.TotalCount);
             Assert.Equal(4, job.Progress);
             Assert.Equal("Appointment,AppointmentResponse", job.ResourceList);
             Assert.Equal("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);

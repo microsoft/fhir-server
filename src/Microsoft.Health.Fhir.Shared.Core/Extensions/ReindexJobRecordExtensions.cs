@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             }
 
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.QueuedTime, Value = new FhirDateTime(job.QueuedTime) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.TotalResourcesToReindex, Value = new FhirDecimal(job.Count) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.TotalResourcesToReindex, Value = new FhirDecimal(job.TotalCount) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.ResourcesSuccessfullyReindexed, Value = new FhirDecimal(job.Progress) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Progress, Value = new FhirDecimal(job.PercentComplete) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Status, Value = new FhirString(job.Status.ToString()) });

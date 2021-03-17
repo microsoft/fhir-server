@@ -119,9 +119,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _reindexJobRecord.Resources.AddRange(resourceList);
                     _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Url.ToString()));
 
-                    await CalculateTotalCount(cancellationToken);
+                    await CalculateTotalAndResourceCounts(cancellationToken);
 
-                    if (_reindexJobRecord.Count == 0)
+                    if (_reindexJobRecord.TotalCount == 0)
                     {
                         _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
@@ -134,13 +134,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Generate separate queries for each resource type and add them to query list.
                     foreach (string resourceType in _reindexJobRecord.Resources)
                     {
-                        var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                        if (_reindexJobRecord.ResourceCount[resourceType] > 0)
                         {
-                            LastModified = Clock.UtcNow,
-                            Status = OperationStatus.Queued,
-                        };
+                            var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                            {
+                                LastModified = Clock.UtcNow,
+                                Status = OperationStatus.Queued,
+                            };
 
-                        _reindexJobRecord.QueryList.TryAdd(query, 1);
+                            _reindexJobRecord.QueryList.TryAdd(query, 1);
+                        }
                     }
 
                     await UpdateJobAsync(cancellationToken);
@@ -468,7 +471,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task CalculateTotalCount(CancellationToken cancellationToken)
+        private async Task CalculateTotalAndResourceCounts(CancellationToken cancellationToken)
         {
             int totalCount = 0;
             foreach (string resourceType in _reindexJobRecord.Resources)
@@ -483,11 +486,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, cancellationToken);
                 if (countOnlyResults != null)
                 {
+                    _reindexJobRecord.ResourceCount.TryAdd(resourceType, countOnlyResults.TotalCount.Value); // TODO: What action should be taken if this fails?
                     totalCount += countOnlyResults.TotalCount.Value;
+                }
+                else
+                {
+                    _reindexJobRecord.ResourceCount.TryAdd(resourceType, 0); // TODO: What action should be taken if this fails?
                 }
             }
 
-            _reindexJobRecord.Count = totalCount;
+            _reindexJobRecord.TotalCount = totalCount;
         }
 
         private async Task UpdateParametersAndCompleteJob(CancellationToken cancellationToken)

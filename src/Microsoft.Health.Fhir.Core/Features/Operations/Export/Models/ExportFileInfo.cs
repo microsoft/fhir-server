@@ -42,21 +42,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Sequence)]
         public int Sequence { get; private set; }
 
-        [JsonProperty(JobRecordProperties.Count)]
-        public int Count { get; private set; }
+        [JsonProperty(JobRecordProperties.TotalCount)]
+        public int TotalCount { get; private set; }
 
         [JsonProperty(JobRecordProperties.CommitedBytes)]
         public long CommittedBytes { get; private set; }
 
         public void IncrementCount(int numberOfBytes)
         {
-            Count++;
+            TotalCount++;
             CommittedBytes += numberOfBytes;
         }
 
         public ExportOutputResponse ToExportOutputResponse()
         {
-            return new ExportOutputResponse(Type, FileUri, Count);
+            return new ExportOutputResponse(Type, FileUri, TotalCount);
         }
     }
 }
