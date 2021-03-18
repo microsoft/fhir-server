@@ -8,9 +8,9 @@
 
 @baseUrl = https://localhost:44348
 @contentType = application/json
-@patientId = 8e60a77b-5057-4be3-aab1-cbb2bd59a777
-@observationId = 7b91c4c7-38b3-46aa-baf0-9557fcdce732
-@reindexJobId = caa8203a-e5ac-47ef-916f-8121ab89c0b8
+@patientId = 1407ee02-d505-49fe-9f6f-5fddcf9985f5
+@observationId = da1be095-0a16-481a-a821-e85d676c466e
+@reindexJobId = 438fc1ad-d022-4046-9a57-571488ac1426
 
 ###
 # Create a patient resource.
@@ -152,16 +152,16 @@ GET {{baseUrl}}/_operations/reindex/{{reindexJobId}} HTTP/1.1
 
 ###
 # This should return a single patient.
-GET {{baseUrl}}/Patient?test-id-code={{patientId}}&_summary=count HTTP/1.1
+GET {{baseUrl}}/Patient?test-id-code={{patientId}}&_total=accurate HTTP/1.1
 
 ###
 # This shouldn't return anything.
-GET {{baseUrl}}/Patient?test-id-code=nonexistent-id&_summary=count HTTP/1.1
+GET {{baseUrl}}/Patient?test-id-code=nonexistent-id&_total=accurate HTTP/1.1
 
 ###
 # This should return a single observation.
-GET {{baseUrl}}/Observation?test-id-code={{observationId}}&_summary=count HTTP/1.1
+GET {{baseUrl}}/Observation?test-id-code={{observationId}}&_total=accurate HTTP/1.1
 
 ###
 # This shouldn't return anything.
-GET {{baseUrl}}/Observation?test-id-code=nonexistent-id&_summary=count HTTP/1.1
+GET {{baseUrl}}/Observation?test-id-code=nonexistent-id&_total=accurate HTTP/1.1
