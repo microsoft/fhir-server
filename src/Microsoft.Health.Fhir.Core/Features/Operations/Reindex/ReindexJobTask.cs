@@ -121,12 +121,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                             if (baseResourceType == "DomainResource")
                             {
-                                resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+                                var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
 
-                                // Remove types that don't inherit from domain resource
-                                resourceList.Remove("Binary");
-                                resourceList.Remove("Bundle");
-                                resourceList.Remove("Parameters");
+                                // Remove types that inherit from Resource directly
+                                domainResourceChildResourceTypes.Remove("Binary");
+                                domainResourceChildResourceTypes.Remove("Bundle");
+                                domainResourceChildResourceTypes.Remove("Parameters");
+
+                                resourceList.UnionWith(domainResourceChildResourceTypes);
                             }
                             else
                             {
