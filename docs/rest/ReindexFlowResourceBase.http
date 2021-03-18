@@ -8,11 +8,13 @@
 
 @baseUrl = https://localhost:44348
 @contentType = application/json
+@patientId = 8e60a77b-5057-4be3-aab1-cbb2bd59a777
+@observationId = 7b91c4c7-38b3-46aa-baf0-9557fcdce732
+@reindexJobId = caa8203a-e5ac-47ef-916f-8121ab89c0b8
 
 ###
 # Create a patient resource.
-# Copy the patient's ID in the response body to use later.
-# You can paste it here for now: e181cab2-9c1d-4025-916d-d63786ccbdcb
+# Copy the patient's ID in the response body and paste it in the patientId variable.
 POST {{baseUrl}}/Patient HTTP/1.1
 content-type: {{contentType}}
 
@@ -44,8 +46,7 @@ content-type: {{contentType}}
 
 ###
 # Create an observation resource.
-# Copy the observation's ID in the response body to use later.
-# You can paste it here for now: 67d3871c-d2e4-4c64-9e4c-7ad292eccfea
+# Copy the observation's ID in the response body and paste it in the observationId variable.
 POST {{baseUrl}}/Observation HTTP/1.1
 content-type: {{contentType}}
 
@@ -139,8 +140,7 @@ content-type: {{contentType}}
 
 ###
 # Trigger a reindexing operation.
-# Copy the response's Content-Location header value for the next request.
-# You can paste it here for now: 34dbddb7-6b02-46d3-9627-095b8afeed25
+# Copy the ID from the response's Content-Location header and paste it in the reindexJobId variable.
 POST {{baseUrl}}/$reindex HTTP/1.1
 content-type: {{contentType}}
 
@@ -148,22 +148,19 @@ content-type: {{contentType}}
 
 ###
 # Check the status of the reindexing operation (scroll down in the response body to see the status).
-# Make sure the ID used here is the one pulled from the last request's response.
-GET {{baseUrl}}/_operations/reindex/34dbddb7-6b02-46d3-9627-095b8afeed25 HTTP/1.1
+GET {{baseUrl}}/_operations/reindex/{{reindexJobId}} HTTP/1.1
 
 ###
-# Replace the ID with the value retrieved when creating the patient.
 # This should return a single patient.
-GET {{baseUrl}}/Patient?test-id-code=e181cab2-9c1d-4025-916d-d63786ccbdcb&_summary=count HTTP/1.1
+GET {{baseUrl}}/Patient?test-id-code={{patientId}}&_summary=count HTTP/1.1
 
 ###
 # This shouldn't return anything.
 GET {{baseUrl}}/Patient?test-id-code=nonexistent-id&_summary=count HTTP/1.1
 
 ###
-# Replace the ID with the value retrieved when creating the observation.
 # This should return a single observation.
-GET {{baseUrl}}/Observation?test-id-code=67d3871c-d2e4-4c64-9e4c-7ad292eccfea&_summary=count HTTP/1.1
+GET {{baseUrl}}/Observation?test-id-code={{observationId}}&_summary=count HTTP/1.1
 
 ###
 # This shouldn't return anything.
