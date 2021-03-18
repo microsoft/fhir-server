@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             }
                             else
                             {
-                                resourceList.UnionWith(new HashSet<string> { baseResourceType });
+                                resourceList.UnionWith(new[] { baseResourceType });
                             }
                         }
                     }
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Generate separate queries for each resource type and add them to query list.
                     foreach (string resourceType in _reindexJobRecord.Resources)
                     {
-                        if (_reindexJobRecord.ResourceCount[resourceType] > 0)
+                        if (_reindexJobRecord.ResourceCounts[resourceType] > 0)
                         {
                             var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
                             {
@@ -485,12 +485,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, cancellationToken);
                 if (countOnlyResults != null)
                 {
-                    _reindexJobRecord.ResourceCount.TryAdd(resourceType, countOnlyResults.TotalCount.Value); // TODO: What action should be taken if this fails?
+                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, countOnlyResults.TotalCount.Value); // TODO: What action should be taken if this fails?
                     totalCount += countOnlyResults.TotalCount.Value;
                 }
                 else
                 {
-                    _reindexJobRecord.ResourceCount.TryAdd(resourceType, 0); // TODO: What action should be taken if this fails?
+                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, 0); // TODO: What action should be taken if this fails?
                 }
             }
 

@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Sequence = "sequence";
 
-        public const string ResourceCount = "resourceCount";
+        public const string ResourceCounts = "resourceCounts";
 
         public const string Count = "count";
 

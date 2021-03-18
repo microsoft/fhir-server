@@ -454,7 +454,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             var searchParam = new SearchParameter
             {
-                Url = $"http://hl7.org/fhir/SearchParameter/{baseType.ToString()}-{searchParamName}",
+                Url = $"http://hl7.org/fhir/SearchParameter/{baseType}-{searchParamName}",
                 Type = searchParamType,
                 Base = new List<ResourceType?> { baseType },
                 Expression = expression,
