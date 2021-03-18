@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     await CalculateTotalAndResourceCounts(cancellationToken);
 
-                    if (_reindexJobRecord.TotalCount == 0)
+                    if (_reindexJobRecord.Count == 0)
                     {
                         _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
@@ -494,7 +494,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
             }
 
-            _reindexJobRecord.TotalCount = totalCount;
+            _reindexJobRecord.Count = totalCount;
         }
 
         private async Task UpdateParametersAndCompleteJob(CancellationToken cancellationToken)

@@ -55,8 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ResourceCount = "resourceCount";
 
-        public const string TotalCount = "totalCount";
-
         public const string Count = "count";
 
         public const string CommitedBytes = "committedBytes";
