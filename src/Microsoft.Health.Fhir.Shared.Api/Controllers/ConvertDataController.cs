@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private static Liquid.Converter.Models.DataType GetConverterDataType(ConversionInputDataType inputDataType) => inputDataType switch
         {
             ConversionInputDataType.Hl7v2 => Liquid.Converter.Models.DataType.Hl7v2,
-            ConversionInputDataType.CCDA => Liquid.Converter.Models.DataType.Ccda,
+            ConversionInputDataType.Ccda => Liquid.Converter.Models.DataType.Ccda,
             _ => throw new RequestNotValidException(string.Format(Resources.ConvertDataParameterValueNotValid, ConvertDataProperties.InputDataType)),
         };
 

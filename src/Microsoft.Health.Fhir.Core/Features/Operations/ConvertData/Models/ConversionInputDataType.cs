@@ -8,6 +8,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models
     public enum ConversionInputDataType
     {
         Hl7v2,
-        CCDA,
+        Ccda,
     }
 }

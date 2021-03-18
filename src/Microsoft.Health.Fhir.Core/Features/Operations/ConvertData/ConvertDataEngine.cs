@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private ITemplateProvider GetTemplateProvider(ConversionInputDataType dataType, List<Dictionary<string, Template>> templateCollection) => dataType switch
         {
             ConversionInputDataType.Hl7v2 => new Hl7v2TemplateProvider(templateCollection),
-            ConversionInputDataType.CCDA => new CcdaTemplateProvider(templateCollection),
+            ConversionInputDataType.Ccda => new CcdaTemplateProvider(templateCollection),
             _ => null,
         };
 
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             };
 
             _converterMap.Add(ConversionInputDataType.Hl7v2, new Hl7v2Processor(processorSetting));
-            _converterMap.Add(ConversionInputDataType.CCDA, new CcdaProcessor(processorSetting));
+            _converterMap.Add(ConversionInputDataType.Ccda, new CcdaProcessor(processorSetting));
         }
     }
 }

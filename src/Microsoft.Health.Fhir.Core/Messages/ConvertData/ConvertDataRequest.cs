@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
         public string InputData { get; }
 
         /// <summary>
-        /// Data type of input data, currently accepts Hl7v. <see cref="ConversionInputDataType.Hl7v2"/> and C-CDA <see cref="ConversionInputDataType.CCDA"/>
+        /// Data type of input data, currently accepts Hl7v. <see cref="ConversionInputDataType.Hl7v2"/> and C-CDA <see cref="ConversionInputDataType.Ccda"/>
         /// </summary>
         public ConversionInputDataType InputDataType { get; }
 
