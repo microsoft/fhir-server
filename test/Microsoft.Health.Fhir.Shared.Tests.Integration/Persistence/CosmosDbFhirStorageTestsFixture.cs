@@ -104,7 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     () => _filebasedSearchParameterStatusDataStore,
                     new CosmosQueryFactory(
                         new CosmosResponseProcessor(fhirRequestContextAccessor, Substitute.For<IMediator>(), Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
-                        NullFhirCosmosQueryLogger.Instance)),
+                        NullFhirCosmosQueryLogger.Instance),
+                    _cosmosDataStoreConfiguration),
             };
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<Container>>>(), NullLogger<CosmosDbDistributedLock>.Instance);
