@@ -155,7 +155,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Generate separate queries for each resource type and add them to query list.
                     foreach (string resourceType in _reindexJobRecord.Resources)
                     {
-                        if (_reindexJobRecord.ResourceCounts[resourceType] > 0)
+                        // Checking resource specific counts is a performance improvement,
+                        // so if an entry for this resource failed to get added to the count dictionary, run a query anyways
+                        if (!_reindexJobRecord.ResourceCounts.ContainsKey(resourceType) || _reindexJobRecord.ResourceCounts[resourceType] > 0)
                         {
                             var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
                             {
@@ -485,14 +487,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 // update the complete total
                 SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, cancellationToken);
-                if (countOnlyResults != null)
+                if (countOnlyResults?.TotalCount != null)
                 {
-                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, countOnlyResults.TotalCount.Value); // TODO: What action should be taken if this fails?
+                    // No action needs to be taken if an entry for this resource fails to get added to the dictionary
+                    // We will reindex all resource types that do not have a dictionary entry
+                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, countOnlyResults.TotalCount.Value);
                     totalCount += countOnlyResults.TotalCount.Value;
                 }
                 else
                 {
-                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, 0); // TODO: What action should be taken if this fails?
+                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, 0);
                 }
             }
 
