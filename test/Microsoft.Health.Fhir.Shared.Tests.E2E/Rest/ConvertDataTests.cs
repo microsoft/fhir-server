@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains($"The input datatype 'Hl7v2' and default template collection 'microsofthealth/ccdatemplates:default' are inconsistent.", responseContent);
+            Assert.Contains($"The input data type 'Hl7v2' and default template collection 'microsofthealth/ccdatemplates:default' are inconsistent.", responseContent);
         }
 
         [SkippableFact]
@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains($"The input datatype 'CCDA' and default template collection 'microsofthealth/fhirconverter:default' are inconsistent.", responseContent);
+            Assert.Contains($"The input data type 'CCDA' and default template collection 'microsofthealth/fhirconverter:default' are inconsistent.", responseContent);
         }
 
         private HttpRequestMessage GenerateConvertDataRequest(

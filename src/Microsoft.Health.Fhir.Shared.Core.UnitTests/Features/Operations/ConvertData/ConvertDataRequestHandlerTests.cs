@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetSampleCCDARequest()
         {
-            return new ConvertDataRequest(GetSampleCCDAMessage(), ConversionInputDataType.CCDA, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "CCD");
+            return new ConvertDataRequest(GetSampleCCDAMessage(), ConversionInputDataType.CCDA, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
         }
 
         private static string GetSampleHl7v2Message()

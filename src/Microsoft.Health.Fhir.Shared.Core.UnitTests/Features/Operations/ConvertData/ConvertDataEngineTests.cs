@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetCCDARequestWithDefaultTemplates()
         {
-            return new ConvertDataRequest(GetSampleCCDAMessage(), ConversionInputDataType.CCDA, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Cda), "CCD");
+            return new ConvertDataRequest(GetSampleCCDAMessage(), ConversionInputDataType.CCDA, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithTemplateReference(string imageReference)
@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetCCDARequestWithInputData(string inputData)
         {
-            return new ConvertDataRequest(inputData, ConversionInputDataType.CCDA, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Cda), "CCD");
+            return new ConvertDataRequest(inputData, ConversionInputDataType.CCDA, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithRootTemplate(string rootTemplate)
@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetCCDARequestWithRootTemplate(string rootTemplate)
         {
-            return new ConvertDataRequest(GetSampleCCDAMessage(), ConversionInputDataType.CCDA, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Cda), rootTemplate);
+            return new ConvertDataRequest(GetSampleCCDAMessage(), ConversionInputDataType.CCDA, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), rootTemplate);
         }
 
         private static string GetSampleHl7v2Message()

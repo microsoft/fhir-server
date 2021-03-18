@@ -16,7 +16,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Liquid.Converter;
-using Microsoft.Health.Fhir.Liquid.Converter.Cda;
+using Microsoft.Health.Fhir.Liquid.Converter.Ccda;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
 using Microsoft.Health.Fhir.Liquid.Converter.Hl7v2;
 using Microsoft.Health.Fhir.Liquid.Converter.Models;
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private ITemplateProvider GetTemplateProvider(ConversionInputDataType dataType, List<Dictionary<string, Template>> templateCollection) => dataType switch
         {
             ConversionInputDataType.Hl7v2 => new Hl7v2TemplateProvider(templateCollection),
-            ConversionInputDataType.CCDA => new CdaTemplateProvider(templateCollection),
+            ConversionInputDataType.CCDA => new CcdaTemplateProvider(templateCollection),
             _ => null,
         };
 
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             };
 
             _converterMap.Add(ConversionInputDataType.Hl7v2, new Hl7v2Processor(processorSetting));
-            _converterMap.Add(ConversionInputDataType.CCDA, new CdaProcessor(processorSetting));
+            _converterMap.Add(ConversionInputDataType.CCDA, new CcdaProcessor(processorSetting));
         }
     }
 }
