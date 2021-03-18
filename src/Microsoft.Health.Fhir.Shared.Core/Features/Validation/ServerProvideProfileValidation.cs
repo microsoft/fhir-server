@@ -73,7 +73,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                             var queryParameters = new List<Tuple<string, string>>();
                             if (ct != null)
                             {
-                                queryParameters.Add(new Tuple<string, string>("ct", ct));
+                                ct = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(ct));
+                                queryParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, ct));
                             }
 
                             var searchResult = await searchService.Value.SearchAsync(type, queryParameters, CancellationToken.None);
