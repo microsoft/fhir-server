@@ -16,14 +16,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportOutputResponse
     {
-        public ExportOutputResponse(string type, Uri fileUri, int totalCount)
+        public ExportOutputResponse(string type, Uri fileUri, int count)
         {
             EnsureArg.IsNotNullOrWhiteSpace(type, nameof(type));
             EnsureArg.IsNotNull(fileUri, nameof(fileUri));
 
             Type = type;
             FileUri = fileUri;
-            TotalCount = totalCount;
+            Count = count;
         }
 
         [JsonConstructor]
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Url)]
         public Uri FileUri { get; private set; }
 
-        [JsonProperty(JobRecordProperties.TotalCount)]
-        public int TotalCount { get; private set; }
+        [JsonProperty(JobRecordProperties.Count)]
+        public int Count { get; private set; }
     }
 }
