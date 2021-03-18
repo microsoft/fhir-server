@@ -99,6 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// Controls the target percentage of how much of the allocated
         /// data store resources to use
         /// </summary>
+        [JsonProperty(JobRecordProperties.TargetDataStoreResourcePercentage)]
         public ushort? TargetDataStoreResourcePercentage { get; set; }
 
         [JsonIgnore]
