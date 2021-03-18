@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -96,7 +95,7 @@ namespace Microsoft.Health.Fhir.Web
 
             if (!string.IsNullOrWhiteSpace(instrumentationKey))
             {
-                services.AddApplicationInsightsTelemetry(new ApplicationInsightsServiceOptions { InstrumentationKey = instrumentationKey, EnableAdaptiveSampling = false });
+                services.AddApplicationInsightsTelemetry(instrumentationKey);
                 services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
                 services.AddLogging(loggingBuilder => loggingBuilder.AddApplicationInsights(instrumentationKey));
             }

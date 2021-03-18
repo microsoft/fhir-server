@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 chained.ResourceTypes.Length != ResourceTypes.Length ||
                 chained.TargetResourceTypes.Length != TargetResourceTypes.Length ||
                 chained.Reversed != Reversed ||
-                chained.Expression.ValueInsensitiveEquals(Expression))
+                !chained.Expression.ValueInsensitiveEquals(Expression))
             {
                 return false;
             }

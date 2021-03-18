@@ -267,8 +267,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <inheritdoc />
         public abstract override string ToString();
 
+        /// <summary>
+        /// Accumulates a "value-insensitive" hash code of this instance, meaning it ignores parameterizable values.
+        /// For example, date=2013&name=Smith and date=2014&name=Trudeau would have the same hash code.
+        /// </summary>
+        /// <param name="hashCode">The HashCode instance to accumulate into</param>
         public abstract void AddValueInsensitiveHashCode(ref HashCode hashCode);
 
+        /// <summary>
+        /// Determines whether the given expression is equal to this instance, ignoring any parameterizable values.
+        /// For example, date=2013&name=Smith and date=2014&name=Trudeau would be considered equal
+        /// </summary>
+        /// <param name="other">The expression to compare this instance to.</param>
         public abstract bool ValueInsensitiveEquals(Expression other);
     }
 }

@@ -21,20 +21,24 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    internal class CosmosDbPhysicalPartitionInfo : IRequireInitializationOnFirstRequest, IAsyncDisposable, ICosmosDbPhysicalPartitionInfo
+    /// <summary>
+    /// Maintains the count of physical partitions in a Cosmos DB collection. We have to resort to the REST API to get this information.
+    /// The count can evolve over time, so we periodically query the collection to update the value.
+    /// </summary>
+    internal class CosmosDbCollectionPhysicalPartitionInfo : IRequireInitializationOnFirstRequest, IAsyncDisposable, ICosmosDbCollectionPhysicalPartitionInfo
     {
         private readonly CosmosDataStoreConfiguration _dataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _collectionConfiguration;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly ILogger<CosmosDbPhysicalPartitionInfo> _logger;
+        private readonly ILogger<CosmosDbCollectionPhysicalPartitionInfo> _logger;
         private readonly CancellationTokenSource _backgroundLoopCancellationTokenSource = new();
         private Task _backgroundLoopTask;
 
-        public CosmosDbPhysicalPartitionInfo(
+        public CosmosDbCollectionPhysicalPartitionInfo(
             CosmosDataStoreConfiguration dataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             IHttpClientFactory httpClientFactory,
-            ILogger<CosmosDbPhysicalPartitionInfo> logger)
+            ILogger<CosmosDbCollectionPhysicalPartitionInfo> logger)
         {
             EnsureArg.IsNotNull(dataStoreConfiguration, nameof(dataStoreConfiguration));
             EnsureArg.IsNotNull(collectionConfiguration, nameof(collectionConfiguration));
@@ -48,19 +52,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         public int PhysicalPartitionCount { get; private set; }
-
-        private static string GenerateAuthToken(string verb, string resourceType, string resourceId, string date, string key)
-        {
-#pragma warning disable CA1308 // Normalize strings to uppercase
-            string payLoad = $"{verb.ToLowerInvariant()}\n{resourceType.ToLowerInvariant()}\n{resourceId}\n{date.ToLowerInvariant()}\n\n";
-#pragma warning restore CA1308 // Normalize strings to uppercase
-
-            using var hmacSha256 = new HMACSHA256 { Key = Convert.FromBase64String(key) };
-            byte[] hashPayLoad = hmacSha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payLoad));
-            string signature = Convert.ToBase64String(hashPayLoad);
-
-            return $"type=master&ver=1.0&sig={signature}";
-        }
 
         public async Task EnsureInitialized()
         {
@@ -153,6 +144,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             await _backgroundLoopTask;
             _backgroundLoopCancellationTokenSource.Dispose();
             _backgroundLoopTask.Dispose();
+        }
+
+        private static string GenerateAuthToken(string verb, string resourceType, string resourceId, string date, string key)
+        {
+#pragma warning disable CA1308 // Normalize strings to uppercase. Required to be lowercase.
+            string payLoad = $"{verb.ToLowerInvariant()}\n{resourceType.ToLowerInvariant()}\n{resourceId}\n{date.ToLowerInvariant()}\n\n";
+#pragma warning restore CA1308 // Normalize strings to uppercase
+
+            using var hmacSha256 = new HMACSHA256 { Key = Convert.FromBase64String(key) };
+            byte[] hashPayLoad = hmacSha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payLoad));
+            string signature = Convert.ToBase64String(hashPayLoad);
+
+            return $"type=master&ver=1.0&sig={signature}";
         }
 
         private record PartitionKeyRange;

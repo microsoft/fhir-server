@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
 using System.Threading;
@@ -25,16 +25,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
+        private readonly ICosmosQueryLogger _queryLogger;
         private readonly ILogger<CosmosResponseProcessor> _logger;
 
-        public CosmosResponseProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, IMediator mediator, ILogger<CosmosResponseProcessor> logger)
+        public CosmosResponseProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, IMediator mediator, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(queryLogger, nameof(queryLogger));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _mediator = mediator;
+            _queryLogger = queryLogger;
             _logger = logger;
         }
 
@@ -89,7 +92,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public async Task ProcessResponse(ResponseMessage responseMessage)
         {
             var responseRequestCharge = responseMessage.Headers.RequestCharge;
-            _logger.LogInformation("Processing Cosmos DB Response {RequestCharge}", responseRequestCharge);
+
+            _queryLogger.LogQueryExecutionResult(
+                responseMessage.Headers.ActivityId,
+                responseMessage.Headers.RequestCharge,
+                responseMessage.ContinuationToken == null ? null : "<nonempty>",
+                int.TryParse(responseMessage.Headers["x-ms-item-count"], out var count) ? count : 0,
+                double.TryParse(responseMessage.Headers["x-ms-request-duration-ms"], out var duration) ? duration : 0,
+                responseMessage.Headers["x-ms-documentdb-partitionkeyrangeid"]);
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
             if (fhirRequestContext == null)
@@ -104,17 +114,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
             }
 
-            List<ResponseMessage> responses;
-            if (fhirRequestContext.Properties.TryGetValue(Constants.CosmosDbResponseMessages, out var existingList))
+            if (fhirRequestContext.Properties.TryGetValue(Constants.CosmosDbResponseMessagesProperty, out object propertyValue))
             {
-                responses = (List<ResponseMessage>)existingList;
+                // This is planted in FhirCosmosSearchService in order for us to relay the individual responses
+                // back for analysis of the selectivity of the search.
+                ((ConcurrentBag<ResponseMessage>)propertyValue).Add(responseMessage);
             }
-            else
-            {
-                fhirRequestContext.Properties.Add(Constants.CosmosDbResponseMessages, responses = new List<ResponseMessage>(1));
-            }
-
-            responses.Add(responseMessage);
 
             await AddRequestChargeToFhirRequestContext(responseRequestCharge, responseMessage.StatusCode);
         }

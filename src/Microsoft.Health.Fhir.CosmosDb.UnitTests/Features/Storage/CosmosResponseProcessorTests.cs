@@ -16,6 +16,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
+using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using NSubstitute;
 using Xunit;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _mediator = Substitute.For<IMediator>();
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;
 
-            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, nullLogger);
+            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), nullLogger);
         }
 
         [Fact]

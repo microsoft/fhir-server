@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public interface ICosmosDbPhysicalPartitionInfo
+    public interface ICosmosDbCollectionPhysicalPartitionInfo
     {
         int PhysicalPartitionCount { get; }
     }

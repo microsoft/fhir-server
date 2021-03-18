@@ -10,7 +10,10 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public class CosmosQueryInfoCache
+    /// <summary>
+    /// Maintains an LRU cache of <see cref="QueryPartitionStatistics"/>, keyed by search expression ignoring values in the expression.
+    /// </summary>
+    public class QueryPartitionStatisticsCache
     {
         private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 512 });
 
@@ -28,24 +31,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private class ExpressionWrapper
         {
             private readonly int _hashCode;
+            private readonly Expression _expression;
 
             public ExpressionWrapper(Expression expression)
             {
                 EnsureArg.IsNotNull(expression, nameof(expression));
 
-                Expression = expression;
+                _expression = expression;
 
                 HashCode hashCode = default;
-
-                Expression.AddValueInsensitiveHashCode(ref hashCode);
+                expression.AddValueInsensitiveHashCode(ref hashCode);
                 _hashCode = hashCode.ToHashCode();
             }
 
-            public Expression Expression { get; }
-
             public override int GetHashCode() => _hashCode;
 
-            public override bool Equals(object obj) => obj is ExpressionWrapper e && Expression.ValueInsensitiveEquals(e.Expression);
+            public override bool Equals(object obj) => obj is ExpressionWrapper e && _expression.ValueInsensitiveEquals(e._expression);
         }
     }
 }
