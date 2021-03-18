@@ -139,15 +139,18 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     var config = sp.GetService<CosmosDataStoreConfiguration>();
                     var upgradeManager = sp.GetService<CollectionUpgradeManager>();
+                    var retryExceptionPolicyFactory = sp.GetService<RetryExceptionPolicyFactory>();
                     var loggerFactory = sp.GetService<ILoggerFactory>();
+                    var cosmosClientTestProvider = sp.GetService<ICosmosClientTestProvider>();
                     var namedCosmosCollectionConfiguration = sp.GetService<IOptionsMonitor<CosmosCollectionConfiguration>>();
                     var cosmosCollectionConfiguration = namedCosmosCollectionConfiguration.Get(Constants.CollectionConfigurationName);
 
                     return new CollectionInitializer(
-                        cosmosCollectionConfiguration.CollectionId,
+                        cosmosCollectionConfiguration,
                         config,
-                        cosmosCollectionConfiguration.InitialCollectionThroughput,
                         upgradeManager,
+                        retryExceptionPolicyFactory,
+                        cosmosClientTestProvider,
                         loggerFactory.CreateLogger<CollectionInitializer>());
                 })
                 .Singleton()
@@ -222,6 +225,10 @@ namespace Microsoft.Extensions.DependencyInjection
             fhirServerBuilder.Services.AddSingleton<IQueryBuilder, QueryBuilder>();
 
             fhirServerBuilder.Services.Add<CosmosDbSortingValidator>()
+                .Singleton()
+                .AsImplementedInterfaces();
+
+            fhirServerBuilder.Services.Add<CosmosDbSearchParameterValidator>()
                 .Singleton()
                 .AsImplementedInterfaces();
 

@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
-using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
 
@@ -26,27 +26,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
         private readonly RequestDelegate _next;
         private readonly ILogger<BaseExceptionMiddleware> _logger;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly CorrelationIdProvider _correlationIdProvider;
-        private readonly IContentTypeService _contentTypeService;
+        private readonly IFormatParametersValidator _parametersValidator;
 
         public BaseExceptionMiddleware(
             RequestDelegate next,
             ILogger<BaseExceptionMiddleware> logger,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            CorrelationIdProvider correlationIdProvider,
-            IContentTypeService contentTypeService)
+            IFormatParametersValidator parametersValidator)
         {
             EnsureArg.IsNotNull(next, nameof(next));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(correlationIdProvider, nameof(correlationIdProvider));
-            EnsureArg.IsNotNull(contentTypeService, nameof(contentTypeService));
+            EnsureArg.IsNotNull(parametersValidator, nameof(parametersValidator));
 
             _next = next;
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _correlationIdProvider = correlationIdProvider;
-            _contentTypeService = contentTypeService;
+            _parametersValidator = parametersValidator;
         }
 
         public async Task Invoke(HttpContext context)
@@ -97,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
 
                 try
                 {
-                    await _contentTypeService.CheckRequestedContentTypeAsync(context);
+                    await _parametersValidator.CheckRequestedContentTypeAsync(context);
                 }
                 catch (UnsupportedMediaTypeException)
                 {

@@ -51,5 +51,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         /// Enables chained searches in CosmosDB
         /// </summary>
         public bool EnableChainedSearch { get; set; }
+
+        /// <summary>
+        /// A list of Search Parameter URIs that will be enabled on first initialization
+        /// </summary>
+        public HashSet<string> InitialSortParameterUris { get; } = new();
     }
 }

@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public static class SearchHelperUtilities
+    public static class SearchParameterInfoExtensions
     {
         /// <summary>
         /// Given a list of <see cref="SearchParameterInfo"/> calculates a hash using the
@@ -24,17 +24,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="searchParamaterInfos">A list of <see cref="SearchParameterInfo" /></param>
         /// <returns>A hash based on the search parameter uri and last updated value.</returns>
-        public static string CalculateSearchParameterHash(IEnumerable<SearchParameterInfo> searchParamaterInfos)
+        internal static string CalculateSearchParameterHash(this IEnumerable<SearchParameterInfo> searchParamaterInfos)
         {
             EnsureArg.IsNotNull(searchParamaterInfos, nameof(searchParamaterInfos));
             EnsureArg.IsGt(searchParamaterInfos.Count(), 0, nameof(searchParamaterInfos));
 
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
             foreach (SearchParameterInfo searchParamInfo in searchParamaterInfos.OrderBy(x => x.Url.ToString()))
             {
-                sb.Append(searchParamInfo.Url.ToString());
-                sb.Append(searchParamInfo.Type.ToString());
+                sb.Append(searchParamInfo.Url);
+                sb.Append(searchParamInfo.Type);
                 sb.Append(searchParamInfo.Expression);
+
+                if (searchParamInfo.SortStatus != SortParameterStatus.Disabled)
+                {
+                    sb.Append("sortable");
+                }
 
                 if (searchParamInfo.TargetResourceTypes != null &&
                     searchParamInfo.TargetResourceTypes.Any())

@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return new ResourceKey(ResourceTypeName, ResourceId, Version);
         }
 
-        public void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        public virtual void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
             SearchIndices = searchIndices;
         }

@@ -17,8 +17,8 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -376,7 +376,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal(applicationXml, context.HttpContext.Response.ContentType);
         }
 
-        private ValidateContentTypeFilterAttribute CreateFilter(IEnumerable<TextOutputFormatter> formatters = null)
+        private ValidateFormatParametersAttribute CreateFilter(IEnumerable<TextOutputFormatter> formatters = null)
         {
             if (formatters == null)
             {
@@ -388,9 +388,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 formatters = new[] { formatter };
             }
 
-            var service = new ContentTypeService(_conformanceProvider, formatters);
+            var service = new FormatParametersValidator(_conformanceProvider, formatters);
 
-            return new ValidateContentTypeFilterAttribute(service);
+            return new ValidateFormatParametersAttribute(service);
         }
 
         private static ActionExecutingContext CreateContext(string id)
