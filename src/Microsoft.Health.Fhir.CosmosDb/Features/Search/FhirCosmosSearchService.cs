@@ -361,29 +361,33 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             QueryPartitionStatistics queryPartitionStatistics = null;
             IFhirRequestContext fhirRequestContext = null;
+            ConcurrentBag<ResponseMessage> messagesList = null;
             if (_physicalPartitionInfo.PhysicalPartitionCount > 1)
             {
                 if (searchOptions.Sort?.Count > 0)
                 {
                     feedOptions.MaxConcurrency = MaxQueryConcurrency;
                 }
-                else if (string.IsNullOrEmpty(searchOptions.ContinuationToken))
+                else
                 {
-                    // Telemetry currently shows that when there is a continuation token, the the query only hits one partition.
-                    // This may not be true forever, in which case we would want to encode the max concurrency in the continuation token.
-
-                    queryPartitionStatistics = _queryPartitionStatisticsCache.GetQueryPartitionStatistics(searchOptions.Expression);
-                    if (IsQuerySelective(queryPartitionStatistics))
+                    if (string.IsNullOrEmpty(searchOptions.ContinuationToken))
                     {
-                        feedOptions.MaxConcurrency = MaxQueryConcurrency;
+                        // Telemetry currently shows that when there is a continuation token, the the query only hits one partition.
+                        // This may not be true forever, in which case we would want to encode the max concurrency in the continuation token.
+
+                        queryPartitionStatistics = _queryPartitionStatisticsCache.GetQueryPartitionStatistics(searchOptions.Expression);
+                        if (IsQuerySelective(queryPartitionStatistics))
+                        {
+                            feedOptions.MaxConcurrency = MaxQueryConcurrency;
+                        }
+
+                        // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
+                        // knows to add the individual ResponseMessages sent as part of this search.
+
+                        fhirRequestContext = _requestContextAccessor.FhirRequestContext;
+                        messagesList = new ConcurrentBag<ResponseMessage>();
+                        fhirRequestContext.Properties[Constants.CosmosDbResponseMessagesProperty] = messagesList;
                     }
-
-                    // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
-                    // knows to add the individual ResponseMessages sent as part of this search.
-
-                    fhirRequestContext = _requestContextAccessor.FhirRequestContext;
-                    var messagesList = new ConcurrentBag<ResponseMessage>();
-                    fhirRequestContext.Properties[Constants.CosmosDbResponseMessagesProperty] = messagesList;
                 }
             }
 
@@ -393,12 +397,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 if (queryPartitionStatistics != null)
                 {
-                    object messagesObject = fhirRequestContext.Properties[Constants.CosmosDbResponseMessagesProperty];
-
                     // determine the number of unique physical partitions queried as part of this search.
-                    int physicalPartitionCount = messagesObject is List<ResponseMessage> messagesList
-                        ? messagesList.Select(r => r.Headers["x-ms-documentdb-partitionkeyrangeid"]).Distinct().Count()
-                        : 1;
+                    int physicalPartitionCount = messagesList.Select(r => r.Headers["x-ms-documentdb-partitionkeyrangeid"]).Distinct().Count();
 
                     queryPartitionStatistics.Update(physicalPartitionCount);
                 }
