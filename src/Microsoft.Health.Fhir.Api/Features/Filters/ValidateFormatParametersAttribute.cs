@@ -10,39 +10,45 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
+    /// <summary>
+    /// Validate format related parameters in query string and headers.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class)]
-    internal class ValidateContentTypeFilterAttribute : ActionFilterAttribute
+    internal class ValidateFormatParametersAttribute : ActionFilterAttribute
     {
-        private readonly IContentTypeService _contentTypeService;
+        private readonly IFormatParametersValidator _parametersValidator;
 
-        public ValidateContentTypeFilterAttribute(IContentTypeService contentTypeService)
+        public ValidateFormatParametersAttribute(IFormatParametersValidator parametersValidator)
         {
-            EnsureArg.IsNotNull(contentTypeService, nameof(contentTypeService));
+            EnsureArg.IsNotNull(parametersValidator, nameof(parametersValidator));
 
-            _contentTypeService = contentTypeService;
+            _parametersValidator = parametersValidator;
         }
 
         public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            HttpContext contextHttpContext = context.HttpContext;
+            HttpContext httpContext = context.HttpContext;
 
-            await _contentTypeService.CheckRequestedContentTypeAsync(contextHttpContext);
+            _parametersValidator.CheckPrettyParameter(httpContext);
+            _parametersValidator.CheckSummaryParameter(httpContext);
+            _parametersValidator.CheckElementsParameter(httpContext);
+            await _parametersValidator.CheckRequestedContentTypeAsync(httpContext);
 
             // If the request is a put or post and has a content-type, check that it's supported
-            if (contextHttpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.InvariantCultureIgnoreCase) ||
-                contextHttpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.InvariantCultureIgnoreCase))
+            if (httpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.InvariantCultureIgnoreCase) ||
+                httpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.InvariantCultureIgnoreCase))
             {
-                if (contextHttpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
+                if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
                 {
-                    if (!await _contentTypeService.IsFormatSupportedAsync(headerValue[0]))
+                    if (!await _parametersValidator.IsFormatSupportedAsync(headerValue[0]))
                     {
                         throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
                     }

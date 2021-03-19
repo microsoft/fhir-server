@@ -114,7 +114,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     resource.Version = newVersion.ToString();
 
-                    return new UpsertOutcome(resource, newVersion == 1 ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
+                    SaveOutcomeType saveOutcomeType;
+                    if (newVersion == 1)
+                    {
+                        saveOutcomeType = SaveOutcomeType.Created;
+                    }
+                    else
+                    {
+                        saveOutcomeType = SaveOutcomeType.Updated;
+                        resource.RawResource.IsMetaSet = false;
+                    }
+
+                    return new UpsertOutcome(resource, saveOutcomeType);
                 }
                 catch (SqlException e)
                 {

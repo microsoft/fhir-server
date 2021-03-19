@@ -23,29 +23,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private IModelInfoProvider _modelInfoProvider;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
+        private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterSupportResolver searchParameterSupportResolver,
+            IDataStoreSearchParameterValidator dataStoreSearchParameterValidator)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
+            EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
 
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _modelInfoProvider = modelInfoProvider;
+            _searchParameterSupportResolver = searchParameterSupportResolver;
+            _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
         }
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam)
         {
             try
             {
+                // verify the parameter is supported before continuing
+                var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+
+                if (!supportedResult.Supported)
+                {
+                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                }
+
+                // check data store specific support for SearchParameter
+                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                {
+                    throw new SearchParameterNotSupportedException(errorMessage);
+                }
+
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
 
                 var searchParameterUrl = searchParam.GetStringScalar("url");
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterUrl });
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
             }
             catch (FhirException fex)
             {
@@ -107,6 +131,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             try
             {
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+                var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
+                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+
+                if (!supportedResult.Supported)
+                {
+                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                }
+
+                // check data store specific support for SearchParameter
+                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                {
+                    throw new SearchParameterNotSupportedException(errorMessage);
+                }
 
                 var prevSearchParam = _modelInfoProvider.ToTypedElement(prevSearchParamRaw);
                 var prevSearchParamUrl = prevSearchParam.GetStringScalar("url");

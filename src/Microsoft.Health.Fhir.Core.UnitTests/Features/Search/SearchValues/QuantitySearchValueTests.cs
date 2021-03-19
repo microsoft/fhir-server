@@ -81,6 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData(@"234.5|system|", "system", "", 234.5)]
         [InlineData(@"0|system|code", "system", "code", 0)]
         [InlineData(@"98.565656||code", "", "code", 98.565656)]
+        [InlineData(@"5.40e-3|system|code", "system", "code", 0.00540)]
         [InlineData(@"12|sys\|tem|co\$de", "sys|tem", "co$de", 12)]
         public void GivenAValidString_WhenParsed_ThenCorrectSearchValueShouldBeReturned(string s, string expectedSystem, string expectedCode, decimal expectedQuantity)
         {

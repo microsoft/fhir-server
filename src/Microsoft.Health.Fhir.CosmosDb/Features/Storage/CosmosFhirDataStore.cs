@@ -5,7 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -20,14 +24,17 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.IO;
+using Polly;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -39,10 +46,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
+        private readonly Lazy<ISupportedSearchParameterDefinitionManager> _supportedSearchParameters;
 
-        private static readonly UpsertWithHistory _upsertWithHistoryProc = new UpsertWithHistory();
         private static readonly HardDelete _hardDelete = new HardDelete();
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
+        private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
@@ -58,6 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
+        /// <param name="supportedSearchParameters">The supported search parameters</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -65,7 +74,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosQueryFactory cosmosQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
-            IOptions<CoreFeatureConfiguration> coreFeatures)
+            IOptions<CoreFeatureConfiguration> coreFeatures,
+            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -74,12 +84,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
+            EnsureArg.IsNotNull(supportedSearchParameters, nameof(supportedSearchParameters));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _cosmosQueryFactory = cosmosQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
+            _supportedSearchParameters = supportedSearchParameters;
             _coreFeatures = coreFeatures.Value;
         }
 
@@ -93,53 +105,142 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
+            UpdateSortIndex(cosmosWrapper);
 
-            try
+            var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
+            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.GetRetryPolicy();
+
+            _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
+
+            if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
-                _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
-
-                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
-                    async ct => await _upsertWithHistoryProc.Execute(
-                        _containerScope.Value.Scripts,
-                        cosmosWrapper,
-                        weakETag?.VersionId,
-                        allowCreate,
-                        keepHistory,
-                        ct),
-                    cancellationToken);
-
-                return new UpsertOutcome(response.Wrapper, response.OutcomeType);
-            }
-            catch (CosmosException exception)
-            {
-                switch (exception.GetSubStatusCode())
+                // Optimistically try to create this as a new resource
+                try
                 {
-                    case HttpStatusCode.PreconditionFailed:
-                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
-                    case HttpStatusCode.NotFound:
-                        if (cosmosWrapper.IsDeleted)
-                        {
-                            return null;
-                        }
+                    await retryPolicy.ExecuteAsync(
+                        async ct => await _containerScope.Value.CreateItemAsync(
+                            cosmosWrapper,
+                            partitionKey,
+                            cancellationToken: ct,
+                            requestOptions: new ItemRequestOptions { EnableContentResponseOnWrite = false }),
+                        cancellationToken);
 
-                        if (weakETag != null)
-                        {
-                            throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
-                        }
-                        else if (!allowCreate)
-                        {
-                            throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
-                        }
+                    return new UpsertOutcome(cosmosWrapper, SaveOutcomeType.Created);
+                }
+                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
+                {
+                    // this means there is already an existing version of this resource
+                }
+            }
 
-                        break;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-                    case HttpStatusCode.ServiceUnavailable:
-                        throw new ServiceUnavailableException();
+                FhirCosmosResourceWrapper existingItemResource;
+                try
+                {
+                    ItemResponse<FhirCosmosResourceWrapper> existingItem = await retryPolicy.ExecuteAsync(
+                        async ct => await _containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, partitionKey, cancellationToken: ct),
+                        cancellationToken);
+                    existingItemResource = existingItem.Resource;
+                }
+                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+                {
+                    if (cosmosWrapper.IsDeleted)
+                    {
+                        return null;
+                    }
+
+                    if (weakETag != null)
+                    {
+                        throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                    }
+
+                    if (!allowCreate)
+                    {
+                        throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                    }
+
+                    throw;
                 }
 
-                _logger.LogError(exception, "Unhandled Document Client Exception");
+                if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
+                {
+                    throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                }
 
-                throw;
+                if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
+                {
+                    return null;
+                }
+
+                cosmosWrapper.Version = int.TryParse(existingItemResource.Version, out int existingVersion) ? (existingVersion + 1).ToString(CultureInfo.InvariantCulture) : Guid.NewGuid().ToString();
+
+                // indicate that the version in the raw resource's meta property does not reflect the actual version.
+                cosmosWrapper.RawResource.IsMetaSet = false;
+
+                if (cosmosWrapper.RawResource.Format == FhirResourceFormat.Json)
+                {
+                    // Update the raw resource based on the new version.
+                    // This is a lot faster than re-serializing the POCO.
+                    // Unfortunately, we need to allocate a string, but at least it is reused for the HTTP response.
+
+                    // If the format is not XML, IsMetaSet will remain false and we will update the version when the resource is read.
+
+                    using MemoryStream memoryStream = _recyclableMemoryStreamManager.GetStream();
+                    await new RawResourceElement(cosmosWrapper).SerializeToStreamAsUtf8Json(memoryStream);
+                    memoryStream.Position = 0;
+                    using var reader = new StreamReader(memoryStream, Encoding.UTF8);
+                    cosmosWrapper.RawResource = new RawResource(reader.ReadToEnd(), FhirResourceFormat.Json, isMetaSet: true);
+                }
+
+                if (keepHistory)
+                {
+                    existingItemResource.IsHistory = true;
+                    existingItemResource.ActivePeriodEndDateTime = cosmosWrapper.LastModified;
+                    existingItemResource.SearchIndices = null;
+
+                    TransactionalBatchResponse transactionalBatchResponse = await retryPolicy.ExecuteAsync(
+                        async ct =>
+                            await _containerScope.Value.CreateTransactionalBatch(partitionKey)
+                                .ReplaceItem(cosmosWrapper.Id, cosmosWrapper, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag })
+                                .CreateItem(existingItemResource, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false })
+                                .ExecuteAsync(cancellationToken: ct),
+                        cancellationToken);
+
+                    if (!transactionalBatchResponse.IsSuccessStatusCode)
+                    {
+                        if (transactionalBatchResponse.StatusCode == HttpStatusCode.PreconditionFailed)
+                        {
+                            // someone else beat us to it, re-read and try again
+                            continue;
+                        }
+
+                        throw new InvalidOperationException(transactionalBatchResponse.ErrorMessage);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        await retryPolicy.ExecuteAsync(
+                            async ct => await _containerScope.Value.ReplaceItemAsync(
+                                cosmosWrapper,
+                                cosmosWrapper.Id,
+                                partitionKey,
+                                new ItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag },
+                                cancellationToken: ct),
+                            cancellationToken);
+                    }
+                    catch (CosmosException e) when (e.StatusCode == HttpStatusCode.PreconditionFailed)
+                    {
+                        // someone else beat us to it, re-read and try again
+                        continue;
+                    }
+                }
+
+                return new UpsertOutcome(cosmosWrapper, SaveOutcomeType.Updated);
             }
         }
 
@@ -231,6 +332,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(weakETag, nameof(weakETag));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
+            UpdateSortIndex(cosmosWrapper);
 
             try
             {
@@ -362,6 +464,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return (results, page.ContinuationToken);
+        }
+
+        private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)
+        {
+            IEnumerable<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value
+                .GetSearchParameters(cosmosWrapper.ResourceTypeName)
+                .Where(x => x.SortStatus != SortParameterStatus.Disabled);
+
+            if (searchParameters.Any())
+            {
+                foreach (SearchParameterInfo field in searchParameters)
+                {
+                    if (cosmosWrapper.SortValues.All(x => x.Value.SearchParameterUri != field.Url))
+                    {
+                        // Ensure sort property exists
+                        cosmosWrapper.SortValues.Add(field.Code, new SortValue(field.Url));
+                    }
+                }
+            }
+            else
+            {
+                cosmosWrapper.SortValues?.Clear();
+            }
         }
 
         public void Build(ICapabilityStatementBuilder builder)

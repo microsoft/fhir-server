@@ -6,6 +6,7 @@
 using System;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
@@ -17,13 +18,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         /// </summary>
         /// <param name="responseHeaders">The response headers</param>
         /// <param name="retryAfterTimeSpan">The time</param>
-        public static void AddRetryAfterHeaders(this IHeaderDictionary responseHeaders, TimeSpan retryAfterTimeSpan)
+        public static void AddRetryAfterHeaders(this IHeaderDictionary responseHeaders, TimeSpan? retryAfterTimeSpan)
         {
+            retryAfterTimeSpan ??= TimeSpan.FromSeconds(1); // in case this is missing, provide some value so we that the header is always there
+
             responseHeaders.Add(
                 KnownHeaders.RetryAfterMilliseconds,
-                ((int)retryAfterTimeSpan.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+                ((int)retryAfterTimeSpan.Value.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
 
-            int retryAfterSeconds = retryAfterTimeSpan == default ? 0 : Math.Max(1, (int)Math.Round(retryAfterTimeSpan.TotalSeconds));
+            int retryAfterSeconds = retryAfterTimeSpan == default ? 0 : Math.Max(1, (int)Math.Round(retryAfterTimeSpan.Value.TotalSeconds));
 
             responseHeaders.Add(
                 KnownHeaders.RetryAfter,

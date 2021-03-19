@@ -12,9 +12,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
@@ -22,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
-    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService
+    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService, INotificationHandler<SearchParametersUpdated>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
@@ -145,7 +147,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             foreach (string resourceName in TypeLookup.Keys)
             {
-                string searchParamHash = SearchHelperUtilities.CalculateSearchParameterHash(TypeLookup[resourceName].Values);
+                string searchParamHash = TypeLookup[resourceName].Values.CalculateSearchParameterHash();
                 _resourceTypeSearchParameterHashMap.AddOrUpdate(
                     resourceName,
                     searchParamHash,
@@ -170,6 +172,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             CalculateSearchParameterHash();
+        }
+
+        public Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
+        {
+            CalculateSearchParameterHash();
+
+            return Task.CompletedTask;
         }
     }
 }
