@@ -259,7 +259,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
-                    await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + _throttleController.GetThrottleBasedDelay());
+                    var throttleDelayTime = _throttleController.GetThrottleBasedDelay();
+                    _logger.LogTrace($"Reindex throttle delay: {throttleDelayTime}");
+                    await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + throttleDelayTime);
 
                     // Remove all finished tasks from the collections of tasks
                     // and cancellationTokens
