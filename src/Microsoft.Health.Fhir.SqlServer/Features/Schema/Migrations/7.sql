@@ -1499,7 +1499,12 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE OR ALTER PROCEDURE dbo.UpsertResource_2
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'UpsertResource_2' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.UpsertResource_2
+END
+GO
+CREATE PROCEDURE dbo.UpsertResource_2
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -1819,7 +1824,12 @@ GO
 -- RETURN VALUE
 --         A result set with 0 or 1 rows.
 --
-CREATE OR ALTER PROCEDURE dbo.ReadResource
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'ReadResource' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.ReadResource
+END
+GO
+CREATE PROCEDURE dbo.ReadResource
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @version int = NULL
@@ -1852,7 +1862,12 @@ GO
 --     @resourceId
 --         * The resource ID (must be the same as in the resource itself)
 --
-CREATE OR ALTER PROCEDURE dbo.HardDeleteResource
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'HardDeleteResource' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.HardDeleteResource
+END
+GO
+CREATE PROCEDURE dbo.HardDeleteResource
     @resourceTypeId smallint,
     @resourceId varchar(64)
 AS
@@ -1977,7 +1992,12 @@ GO
 -- RETURN VALUE
 --     The row version of the created export job.
 --
-CREATE OR ALTER PROCEDURE dbo.CreateExportJob
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'CreateExportJob' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.CreateExportJob
+END
+GO
+CREATE PROCEDURE dbo.CreateExportJob
     @id varchar(64),
     @hash varchar(64),
     @status varchar(10),
@@ -2014,7 +2034,12 @@ GO
 -- RETURN VALUE
 --     The matching export job.
 --
-CREATE OR ALTER PROCEDURE dbo.GetExportJobById
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'GetExportJobById' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.GetExportJobById
+END
+GO
+CREATE PROCEDURE dbo.GetExportJobById
     @id varchar(64)
 AS
     SET NOCOUNT ON
@@ -2038,7 +2063,12 @@ GO
 -- RETURN VALUE
 --     The matching export job.
 --
-CREATE OR ALTER PROCEDURE dbo.GetExportJobByHash
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'GetExportJobByHash' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.GetExportJobByHash
+END
+GO
+CREATE PROCEDURE dbo.GetExportJobByHash
     @hash varchar(64)
 AS
     SET NOCOUNT ON
@@ -2069,6 +2099,11 @@ GO
 -- RETURN VALUE
 --     The row version of the updated export job.
 --
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'UpdateExportJob' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.UpdateExportJob
+END
+GO
 CREATE PROCEDURE dbo.UpdateExportJob
     @id varchar(64),
     @status varchar(10),
@@ -2124,7 +2159,12 @@ GO
 -- RETURN VALUE
 --     The updated jobs that are now running.
 --
-CREATE OR ALTER PROCEDURE dbo.AcquireExportJobs
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'AcquireExportJobs' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.AcquireExportJobs
+END
+GO
+CREATE PROCEDURE dbo.AcquireExportJobs
     @jobHeartbeatTimeoutThresholdInSeconds bigint,
     @maximumNumberOfConcurrentJobsAllowed int
 AS
@@ -2196,7 +2236,12 @@ GO
 -- RETURN VALUE
 --     The search parameters and their statuses.
 --
-CREATE OR ALTER PROCEDURE dbo.GetSearchParamStatuses
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'GetSearchParamStatuses' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.GetSearchParamStatuses
+END
+GO
+CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
     SET NOCOUNT ON
 
@@ -2214,7 +2259,12 @@ GO
 --     @searchParams
 --         * The updated existing search parameters or the new search parameters
 --
-CREATE OR ALTER PROCEDURE dbo.UpsertSearchParams
+IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'UpsertSearchParams' AND type = 'p')
+BEGIN
+DROP PROCEDURE dbo.UpsertSearchParams
+END
+GO
+CREATE PROCEDURE dbo.UpsertSearchParams
     @searchParams dbo.SearchParamTableType_1 READONLY
 AS
     SET NOCOUNT ON
