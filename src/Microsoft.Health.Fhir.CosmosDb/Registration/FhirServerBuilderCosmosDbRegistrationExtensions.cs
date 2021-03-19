@@ -13,7 +13,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -204,12 +203,8 @@ namespace Microsoft.Extensions.DependencyInjection
             // FhirCosmosClientInitializer is Singleton, so provide a factory that can resolve new RequestHandlers
             services.AddFactory<IEnumerable<RequestHandler>>();
 
-            services.Add<ReindexJobCosmosThrottleController>(sp =>
-                {
-                    var config = sp.GetService<CosmosDataStoreConfiguration>();
-                    return new ReindexJobCosmosThrottleController(config.InitialDatabaseThroughput);
-                })
-                .Singleton()
+            services.Add<ReindexJobCosmosThrottleController>()
+                .Transient()
                 .AsImplementedInterfaces();
 
             services.Add<CosmosDbCollectionPhysicalPartitionInfo>()

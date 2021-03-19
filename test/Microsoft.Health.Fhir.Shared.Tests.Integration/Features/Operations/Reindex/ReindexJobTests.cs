@@ -481,6 +481,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             return new ReindexJobTask(
                 () => _scopedOperationDataStore,
+                () => _scopedDataStore,
                 Options.Create(_jobConfiguration),
                 () => _searchService,
                 _supportedSearchParameterDefinitionManager,

@@ -29,12 +29,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public class ReindexJobTask : IReindexJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly IReindexUtilities _reindexUtilities;
         private readonly IFhirRequestContextAccessor _contextAccessor;
-        private readonly IReindexJobThrottleController _throttleControllerFactory;
+        private readonly IReindexJobThrottleController _throttleController;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger _logger;
 
@@ -43,24 +44,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public ReindexJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IReindexJobThrottleController throttleControllerFactory,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
+            EnsureArg.IsNotNull(throttleControllerFactory, nameof(throttleControllerFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
+            _contextAccessor = fhirRequestContextAccessor;
+            _throttleControllerFactory = throttleControllerFactory;
             _logger = logger;
         }
 
@@ -93,7 +102,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _contextAccessor.FhirRequestContext = fhirRequestContext;
 
-                _throttleControllerFactory.Initialize(_reindexJobRecord);
+                using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
+                {
+                    var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(cancellationToken);
+                    _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
+                }
 
                 if (_reindexJobRecord.Status != OperationStatus.Running ||
                     _reindexJobRecord.StartTime == null)
@@ -190,6 +203,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     await UpdateJobAsync(cancellationToken);
+
+                    _throttleController.UpdateDatastoreUsage();
                 }
 
                 var queryTasks = new List<Task<ReindexJobQueryStatus>>();
@@ -244,7 +259,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
-                    await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + _throttleControllerFactory.GetThrottleBasedDelay());
+                    await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + _throttleController.GetThrottleBasedDelay());
 
                     // Remove all finished tasks from the collections of tasks
                     // and cancellationTokens
@@ -355,6 +370,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     await UpdateJobAsync(cancellationToken);
+                    _throttleController.UpdateDatastoreUsage();
                 }
                 finally
                 {
@@ -363,6 +379,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
                 await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.ResourceTypeSearchParameterHashMap, cancellationToken);
+                _throttleController.UpdateDatastoreUsage();
 
                 if (!cancellationToken.IsCancellationRequested)
                 {

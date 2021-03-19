@@ -315,5 +315,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             throw new NotImplementedException();
         }
+
+        public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
+        {
+            return await Task.FromResult((int?)null);
+        }
     }
 }
