@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenATargetRUConsumption_WhenConsumedRUsIsTooHigh_QueryDelayIsIncreased()
         {
-            var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor);
+            var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
             var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreUsagePercentage: 80);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, 1000);
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenATargetRUConsumption_WhenConsumedRUsDecreases_QueryDelayIsDecreased()
         {
-            var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor);
+            var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
             var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreUsagePercentage: 80);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, 1000);
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
         [Fact]
         public void GivenThrottleControllerNotInitialized_WhenGetThrottleDelayCalled_ZeroReturned()
         {
-            var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor);
+            var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
             Assert.Equal(0, throttleController.GetThrottleBasedDelay());
 
             var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreUsagePercentage: null);

@@ -26,11 +26,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
         private double? _targetRUs = null;
         private bool _initialized = false;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly ILogger _logger;
+        private readonly ILogger<ReindexJobCosmosThrottleController> _logger;
 
         public ReindexJobCosmosThrottleController(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            ILogger logger)
+            ILogger<ReindexJobCosmosThrottleController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
