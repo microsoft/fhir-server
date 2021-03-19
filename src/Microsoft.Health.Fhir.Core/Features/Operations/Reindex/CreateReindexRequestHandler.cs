@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
                 request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds,
-                request.TargetDataStoreResourcePercentage);
+                request.TargetDataStoreUsagePercentage);
             var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
 
             return new CreateReindexResponse(outcome);

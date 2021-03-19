@@ -121,6 +121,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string QueryDelayIntervalInMilliseconds = "queryDelayIntervalInMilliseconds";
 
-        public const string TargetDataStoreResourcePercentage = "targetDataStoreResourcePercentage";
+        public const string TargetDataStoreUsagePercentage = "targetDataStoreUsagePercentage";
     }
 }

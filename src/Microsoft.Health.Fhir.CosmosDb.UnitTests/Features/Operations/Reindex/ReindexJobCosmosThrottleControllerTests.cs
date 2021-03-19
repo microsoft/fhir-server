@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
         public async Task GivenATargetRUConsumption_WhenConsumedRUsIsTooHigh_QueryDelayIsIncreased()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor);
-            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreResourcePercentage: 80);
+            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreUsagePercentage: 80);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, 1000);
 
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
         public async Task GivenATargetRUConsumption_WhenConsumedRUsDecreases_QueryDelayIsDecreased()
         {
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor);
-            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreResourcePercentage: 80);
+            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreUsagePercentage: 80);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, 1000);
 
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor);
             Assert.Equal(0, throttleController.GetThrottleBasedDelay());
 
-            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreResourcePercentage: null);
+            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreUsagePercentage: null);
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, null);
             Assert.Equal(0, throttleController.GetThrottleBasedDelay());

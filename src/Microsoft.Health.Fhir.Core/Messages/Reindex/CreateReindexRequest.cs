@@ -13,12 +13,12 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
             ushort? maximumConcurrency = null,
             uint? maximumResourcesPerQuery = null,
             int? queryDelayIntervalInMilliseconds = null,
-            ushort? targetDataStoreResourcePercentage = null)
+            ushort? targetDataStoreUsagePercentage = null)
         {
             MaximumConcurrency = maximumConcurrency;
             MaximumResourcesPerQuery = maximumResourcesPerQuery;
             QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
-            TargetDataStoreResourcePercentage = targetDataStoreResourcePercentage;
+            TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
         }
 
         public ushort? MaximumConcurrency { get; }
@@ -27,6 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 
         public int? QueryDelayIntervalInMilliseconds { get; }
 
-        public ushort? TargetDataStoreResourcePercentage { get; }
+        public ushort? TargetDataStoreUsagePercentage { get; }
     }
 }

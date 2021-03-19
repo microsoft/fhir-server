@@ -42,12 +42,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
             ReindexJobRecord = reindexJobRecord;
             _provisionedRUThroughput = provisionedDatastoreCapacity;
 
-            if (ReindexJobRecord.TargetDataStoreResourcePercentage.HasValue
-                && ReindexJobRecord.TargetDataStoreResourcePercentage.Value > 0
+            if (ReindexJobRecord.TargetDataStoreUsagePercentage.HasValue
+                && ReindexJobRecord.TargetDataStoreUsagePercentage.Value > 0
                 && _provisionedRUThroughput.HasValue
                 && _provisionedRUThroughput > 0)
             {
-                _targetRUs = _provisionedRUThroughput.Value * (ReindexJobRecord.TargetDataStoreResourcePercentage.Value / 100.0);
+                _targetRUs = _provisionedRUThroughput.Value * (ReindexJobRecord.TargetDataStoreUsagePercentage.Value / 100.0);
                 _delayFactor = 0;
                 _rUsConsumedDuringInterval = 0.0;
                 _initialized = true;
