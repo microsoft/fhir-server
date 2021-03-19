@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         foreach (var baseResourceType in param.BaseResourceTypes)
                         {
-                            if (baseResourceType == "Resource")
+                            if (baseResourceType == KnownResourceTypes.Resource)
                             {
                                 resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
 
@@ -119,14 +119,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                                 break;
                             }
 
-                            if (baseResourceType == "DomainResource")
+                            if (baseResourceType == KnownResourceTypes.DomainResource)
                             {
                                 var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
 
                                 // Remove types that inherit from Resource directly
-                                domainResourceChildResourceTypes.Remove("Binary");
-                                domainResourceChildResourceTypes.Remove("Bundle");
-                                domainResourceChildResourceTypes.Remove("Parameters");
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
 
                                 resourceList.UnionWith(domainResourceChildResourceTypes);
                             }
