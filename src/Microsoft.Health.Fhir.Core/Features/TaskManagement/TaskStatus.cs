@@ -5,14 +5,11 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
-    public static class Constants
+    public enum TaskStatus
     {
-        public const int DefaultPollingFrequencyInSeconds = 10;
-
-        public const int DefaultMaxRunningTaskCount = 1;
-
-        public const int DefaultTaskHeartbeatTimeoutThresholdInSeconds = 600;
-
-        public const int DefaultTaskHeartbeatIntervalInSeconds = 10;
+        Created,
+        Queued,
+        Running,
+        Completed,
     }
 }

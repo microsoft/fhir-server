@@ -5,14 +5,16 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
-    public static class Constants
+    public class TaskResultData
     {
-        public const int DefaultPollingFrequencyInSeconds = 10;
+        public TaskResultData(TaskResult result, string resultData)
+        {
+            Result = result;
+            ResultData = resultData;
+        }
 
-        public const int DefaultMaxRunningTaskCount = 1;
+        public TaskResult Result { get; set; }
 
-        public const int DefaultTaskHeartbeatTimeoutThresholdInSeconds = 600;
-
-        public const int DefaultTaskHeartbeatIntervalInSeconds = 10;
+        public string ResultData { get; set; }
     }
 }

@@ -13,11 +13,15 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
         public string QueueId { get; set; }
 
-        public int Status { get; set; }
+        public TaskStatus? Status { get; set; }
 
         public int TaskTypeId { get; set; }
 
         public bool IsCanceled { get; set; }
+
+        public int RetryCount { get; set; }
+
+        public string Etag { get; set; }
 
         public DateTime HeartbeatDateTime { get; set; }
 

@@ -4,13 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
-    public interface ITask
+    public interface ITask : IDisposable
     {
-        public Task ExecuteAsync(IProgress<string> contextProgress, CancellationToken cancellationToken);
+        public Task<TaskResultData> ExecuteAsync();
+
+        public void Cancel();
     }
 }
