@@ -18,8 +18,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         int GetThrottleBasedDelay();
 
         /// <summary>
-        /// Updates the current usage of the datastore.  Call after a query to the datastore.
+        /// Captures the currently recorded database consumption
         /// </summary>
-        void UpdateDatastoreUsage();
+        /// <returns>Returns an average database resource consumtion per second</returns>
+        double UpdateDatastoreUsage();
     }
 }

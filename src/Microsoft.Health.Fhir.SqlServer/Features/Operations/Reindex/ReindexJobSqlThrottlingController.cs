@@ -20,9 +20,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
             return;
         }
 
-        public void UpdateDatastoreUsage()
+        public double UpdateDatastoreUsage()
         {
-            return;
+            return 0.0;
         }
     }
 }

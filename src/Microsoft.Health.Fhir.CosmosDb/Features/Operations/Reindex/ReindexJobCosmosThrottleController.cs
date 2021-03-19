@@ -6,6 +6,7 @@
 using System;
 using System.Diagnostics;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -25,12 +26,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
         private double? _targetRUs = null;
         private bool _initialized = false;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly ILogger _logger;
 
-        public ReindexJobCosmosThrottleController(IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public ReindexJobCosmosThrottleController(
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            ILogger logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _logger = logger;
         }
 
         public ReindexJobRecord ReindexJobRecord { get; set; } = null;
@@ -48,6 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                 && _provisionedRUThroughput > 0)
             {
                 _targetRUs = _provisionedRUThroughput.Value * (ReindexJobRecord.TargetDataStoreUsagePercentage.Value / 100.0);
+                _logger.LogInformation($"Reindex throttling initialized, target RUs: {_targetRUs}");
                 _delayFactor = 0;
                 _rUsConsumedDuringInterval = 0.0;
                 _initialized = true;
@@ -65,8 +72,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
             return ReindexJobRecord.QueryDelayIntervalInMilliseconds * _delayFactor;
         }
 
-        public void UpdateDatastoreUsage()
+        /// <summary>
+        /// Captures the currently recorded database consumption
+        /// </summary>
+        /// <returns>Returns an average database resource consumtion per second</returns>
+        public double UpdateDatastoreUsage()
         {
+            double averageRUsConsumed = 0.0;
+
             if (_initialized)
             {
                 var requestContext = _fhirRequestContextAccessor.FhirRequestContext;
@@ -89,25 +102,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                     }
                 }
 
+                _rUsConsumedDuringInterval += responseRequestCharge;
+
+                // calculate average RU consumption per second
+                averageRUsConsumed = _rUsConsumedDuringInterval / (Clock.UtcNow - _intervalStart).Value.TotalSeconds;
+
                 // we want to sum all the consumed RUs over a period of time
                 // that is about 5x the current delay between queries
                 // then we average that RU consumption per second
                 // and compare it against the target
-                if ((Clock.UtcNow - _intervalStart).Value.TotalMilliseconds <
+                if ((Clock.UtcNow - _intervalStart).Value.TotalMilliseconds >=
                     (5 * (ReindexJobRecord.QueryDelayIntervalInMilliseconds + GetThrottleBasedDelay())))
                 {
-                    _rUsConsumedDuringInterval += responseRequestCharge;
-                }
-                else
-                {
-                    // calculate average RU consumption per second
-                    _rUsConsumedDuringInterval += responseRequestCharge;
-
-                    double averageRUsConsumed = _rUsConsumedDuringInterval / (Clock.UtcNow - _intervalStart).Value.TotalSeconds;
-
                     if (averageRUsConsumed > _targetRUs)
                     {
                         _delayFactor += 1;
+                        _logger.LogInformation($"Reindex RU consumption high, delay factor increase to: {_delayFactor}");
                     }
                     else if (averageRUsConsumed < (_targetRUs * 0.75)
                         && _delayFactor > 0)
@@ -122,6 +132,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                 // clear out the value in the FhirRequestContext
                 requestContext.ResponseHeaders.Remove(CosmosDbHeaders.RequestCharge);
             }
+
+            return averageRUsConsumed;
         }
     }
 }

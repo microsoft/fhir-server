@@ -259,8 +259,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
+                    var averageDbConsumption = _throttleController.UpdateDatastoreUsage();
+                    _logger.LogInformation($"Reindex avaerage DB consumption: {averageDbConsumption}");
                     var throttleDelayTime = _throttleController.GetThrottleBasedDelay();
-                    _logger.LogTrace($"Reindex throttle delay: {throttleDelayTime}");
+                    _logger.LogInformation($"Reindex throttle delay: {throttleDelayTime}");
                     await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + throttleDelayTime);
 
                     // Remove all finished tasks from the collections of tasks
