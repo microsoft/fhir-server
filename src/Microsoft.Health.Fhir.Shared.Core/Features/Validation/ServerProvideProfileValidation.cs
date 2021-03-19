@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _validateOperationConfig = options.Value;
         }
 
-        public HashSet<string> GetProfilesTypes() => _supportedTypes;
+        public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
 
         public IEnumerable<ArtifactSummary> ListSummaries()
         {

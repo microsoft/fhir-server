@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public interface IProvideProfilesForValidation : IResourceResolver, ISummarySource
     {
-        HashSet<string> GetProfilesTypes();
+        IReadOnlySet<string> GetProfilesTypes();
     }
 }
