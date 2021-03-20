@@ -4,7 +4,11 @@
 # Next, it creates a search parameter resource and triggers a reindexing operation.
 # Finally, it uses the new search parameter to confirm the search parameter
 # is enabled and the resources were successfully reindexed.
-# Note: this assumes that appsettings.json has Security.Enabled = false and Reindex.Enabled = true
+#
+# This test assumes the following local environment setup:
+# 1. appsettings.json has Security.Enabled = false and Reindex.Enabled = true
+# 2. The datastore is Cosmos DB
+# 3. The version is R4 or R5
 
 @baseUrl = https://localhost:44348
 @contentType = application/json
