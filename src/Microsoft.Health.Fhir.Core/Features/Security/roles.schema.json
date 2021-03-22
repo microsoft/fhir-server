@@ -13,7 +13,7 @@
                 "resourceValidate",
                 "reindex",
                 "convertData",
-                "profileAdmin"
+                "profileDefinitionsEditor"
             ]
         }
     },
