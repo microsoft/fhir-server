@@ -7,31 +7,18 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSortingValidator : ISortingValidator
     {
-        internal static readonly HashSet<Uri> SupportedParameterUris = new()
+        internal static readonly HashSet<SearchParamType> SupportedSortParamTypes = new HashSet<SearchParamType>()
         {
-            new Uri("http://hl7.org/fhir/SearchParameter/Resource-lastUpdated"),
-            new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
-            new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
-            new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-date"),
-            new Uri("http://hl7.org/fhir/SearchParameter/Condition-onset-date"),
-            new Uri("http://hl7.org/fhir/SearchParameter/DiagnosticReport-issued"),
-            new Uri("http://hl7.org/fhir/SearchParameter/Claim-created"),
-            new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-created"),
-            new Uri("http://hl7.org/fhir/SearchParameter/DocumentManifest-created"),
-            new Uri("http://hl7.org/fhir/SearchParameter/ExplanationOfBenefit-created"),
-            new Uri("http://hl7.org/fhir/SearchParameter/Media-created"),
-            new Uri("http://hl7.org/fhir/SearchParameter/PaymentNotice-created"),
-            new Uri("http://hl7.org/fhir/SearchParameter/PaymentReconciliation-created"),
-            new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-started"),
-            new Uri("http://hl7.org/fhir/SearchParameter/MedicationRequest-authoredon"),
+            SearchParamType.Date,
+            SearchParamType.String,
         };
 
         public bool ValidateSorting(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sorting, out IReadOnlyList<string> errorMessages)
@@ -41,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
-                case { Count: 1 } when SupportedParameterUris.Contains(sorting[0].searchParameter.Url):
+                case { Count: 1 } when SupportedSortParamTypes.Contains(sorting[0].searchParameter.Type):
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:

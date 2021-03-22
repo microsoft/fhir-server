@@ -120,7 +120,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => SqlConnectionWrapperFactory.CreateMockScope(),
                 upsertSearchParamsTvpGenerator,
                 () => _filebasedSearchParameterStatusDataStore,
-                schemaInformation);
+                schemaInformation,
+                _searchParameterDefinitionManager);
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 
