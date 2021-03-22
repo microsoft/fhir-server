@@ -8,6 +8,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\Export\ExportAnonymizerFactoryTests.cs" Link="Operations\Export\ExportAnonymizerFactoryTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\ConvertData\ContainerRegistryTemplateProviderTests.cs" Link="Operations\ConvertData\ContainerRegistryTemplateProviderTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\ConvertData\ConvertDataEngineTests.cs" Link="Operations\ConvertData\ConvertDataEngineTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\ConvertData\ConvertDataRequestHandlerTests.cs" Link="Operations\ConvertData\ConvertDataRequestHandlerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />

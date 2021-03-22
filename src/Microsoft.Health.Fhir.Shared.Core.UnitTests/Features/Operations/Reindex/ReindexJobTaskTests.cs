@@ -25,6 +25,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
+    [CollectionDefinition("ReindexTaskTests", DisableParallelization = true)]
     public class ReindexJobTaskTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
     {
         private readonly SearchParameterFixtureData _fixture;
