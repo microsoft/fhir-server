@@ -72,7 +72,14 @@ jobs:
         }
         
         $acrSecretName = "AcrLoginServer"
-        $acrLoginServer = (Get-AzKeyVaultSecret -VaultName $keyVault -Name $acrSecretName).SecretValueText
+        $acrSecretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $acrSecretName
+        $acrLoginServer = $acrSecretValue.SecretValueText
+        Write-Host "LoginServer : $($acrLoginServer)"
+
+        $ssPtr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($acrSecretValue.SecretValue)
+        $secretValueText = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($ssPtr)
+        Write-Host "LoginServer : $($secretValueText)"
+
         $acrAccountName = ($acrLoginServer -split '\.')[0]
         $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
