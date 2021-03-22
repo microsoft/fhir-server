@@ -44,7 +44,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             searchParam.Name = randomName;
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
-            searchParam.Id = randomName;
 
             // POST a new appointment
             var appointment = Samples.GetJsonSample<Appointment>("Appointment");
@@ -56,6 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // POST a second appointment to show it is filtered and not returned when using the new search parameter
             var appointment2 = Samples.GetJsonSample<Appointment>("Appointment");
+            appointment2.Status = Appointment.AppointmentStatus.Booked;
             appointment2.Meta = new Meta();
             appointment2.Meta.Tag.Add(tag);
             await Client.CreateAsync(appointment2);
@@ -91,7 +91,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.True(resourcesReindexed > 0.0);
 
                 // When job complete, search for resources using new parameter
-                await ExecuteAndValidateBundle($"Appointment?{searchParam.Code}=noshow&_tag={tag.Code}", expectedAppointment.Resource);
+                await ExecuteAndValidateBundle(
+                    $"Appointment?{searchParam.Code}={Appointment.AppointmentStatus.Noshow.ToString().ToLower()}& _tag={tag.Code}", expectedAppointment.Resource);
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
