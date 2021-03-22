@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string inputData = ReadStringParameter(inputParams, ConvertDataProperties.InputData);
             string templateCollectionReference = ReadStringParameter(inputParams, ConvertDataProperties.TemplateCollectionReference);
             string rootTemplate = ReadStringParameter(inputParams, ConvertDataProperties.RootTemplate);
-            ConversionInputDataType inputDataType = ReadEnumParameter<ConversionInputDataType>(inputParams, ConvertDataProperties.InputDataType);
+            Liquid.Converter.Models.DataType inputDataType = ReadEnumParameter<Liquid.Converter.Models.DataType>(inputParams, ConvertDataProperties.InputDataType);
 
             // Validate template reference format.
             if (!ImageInfo.IsValidImageReference(templateCollectionReference))
@@ -183,23 +183,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void CheckInputDataTypeAndDefaultTemplateImageReferenceConsistent(ConversionInputDataType inputDataType, string templateCollectionReference)
+        private void CheckInputDataTypeAndDefaultTemplateImageReferenceConsistent(Liquid.Converter.Models.DataType inputDataType, string templateCollectionReference)
         {
-            var dataType = DefaultTemplateInfo.DefaultTemplateMap.GetValueOrDefault(templateCollectionReference).DataType;
+            var defaultTemplatesDataType = DefaultTemplateInfo.DefaultTemplateMap.GetValueOrDefault(templateCollectionReference).DataType;
 
-            if (dataType != GetConverterDataType(inputDataType))
+            if (defaultTemplatesDataType != inputDataType)
             {
                 _logger.LogError("The default template collection and input data type are inconsistent.");
                 throw new RequestNotValidException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));
             }
         }
-
-        private static Liquid.Converter.Models.DataType GetConverterDataType(ConversionInputDataType inputDataType) => inputDataType switch
-        {
-            ConversionInputDataType.Hl7v2 => Liquid.Converter.Models.DataType.Hl7v2,
-            ConversionInputDataType.Ccda => Liquid.Converter.Models.DataType.Ccda,
-            _ => throw new RequestNotValidException(string.Format(Resources.ConvertDataParameterValueNotValid, ConvertDataProperties.InputDataType)),
-        };
 
         private void CheckIfConvertDataIsEnabled()
         {

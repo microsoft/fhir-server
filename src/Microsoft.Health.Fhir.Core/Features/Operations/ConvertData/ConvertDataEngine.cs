@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private readonly ConvertDataConfiguration _convertDataConfiguration;
         private readonly ILogger<ConvertDataEngine> _logger;
 
-        private readonly Dictionary<ConversionInputDataType, IFhirConverter> _converterMap = new Dictionary<ConversionInputDataType, IFhirConverter>();
+        private readonly Dictionary<DataType, IFhirConverter> _converterMap = new Dictionary<DataType, IFhirConverter>();
 
         public ConvertDataEngine(
             IConvertDataTemplateProvider convertDataTemplateProvider,
@@ -64,10 +64,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             return new ConvertDataResponse(result);
         }
 
-        private ITemplateProvider GetTemplateProvider(ConversionInputDataType dataType, List<Dictionary<string, Template>> templateCollection) => dataType switch
+        private ITemplateProvider GetTemplateProvider(DataType dataType, List<Dictionary<string, Template>> templateCollection) => dataType switch
         {
-            ConversionInputDataType.Hl7v2 => new Hl7v2TemplateProvider(templateCollection),
-            ConversionInputDataType.Ccda => new CcdaTemplateProvider(templateCollection),
+            DataType.Hl7v2 => new Hl7v2TemplateProvider(templateCollection),
+            DataType.Ccda => new CcdaTemplateProvider(templateCollection),
             _ => null,
         };
 
@@ -115,8 +115,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 TimeOut = (int)_convertDataConfiguration.OperationTimeout.TotalMilliseconds,
             };
 
-            _converterMap.Add(ConversionInputDataType.Hl7v2, new Hl7v2Processor(processorSetting));
-            _converterMap.Add(ConversionInputDataType.Ccda, new CcdaProcessor(processorSetting));
+            _converterMap.Add(DataType.Hl7v2, new Hl7v2Processor(processorSetting));
+            _converterMap.Add(DataType.Ccda, new CcdaProcessor(processorSetting));
         }
     }
 }
