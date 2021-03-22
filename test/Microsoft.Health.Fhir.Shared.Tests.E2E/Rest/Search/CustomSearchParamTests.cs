@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // When job complete, search for resources using new parameter
                 await ExecuteAndValidateBundle(
-                    $"Appointment?{searchParam.Code}={Appointment.AppointmentStatus.Noshow.ToString().ToLower()}& _tag={tag.Code}", expectedAppointment.Resource);
+                    $"Appointment?{searchParam.Code}={Appointment.AppointmentStatus.Noshow.ToString().ToLower()}&_tag={tag.Code}", expectedAppointment.Resource);
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
