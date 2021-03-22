@@ -71,8 +71,10 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
         
+        $acrKeyVault = "${{ parameters.keyVaultName }}"
+        Write-Host "Keyvault: $($acrKeyVault)"
         $acrSecretName = "AcrLoginServer"
-        $acrSecretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $acrSecretName
+        $acrSecretValue = Get-AzKeyVaultSecret -VaultName $acrKeyVault -Name $acrSecretName
         $acrLoginServer = $acrSecretValue.SecretValueText
         Write-Host "LoginServer : $($acrLoginServer)"
 
