@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "hl7v2", $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}", "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}", "ADT_A01");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "hl7v2", $"{registry.Server}/{imageReference}", "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", $"{registry.Server}/{imageReference}", "ADT_A01");
 
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);

@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private ConvertDataRequest GetRequestWithTemplateReference(string templateReference)
         {
-            return new ConvertDataRequest(Samples.GetSampleHl7v2Message(), ConversionInputDataType.Hl7v2, templateReference.Split('/')[0], true, templateReference, "ADT_A01");
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, ConversionInputDataType.Hl7v2, templateReference.Split('/')[0], true, templateReference, "ADT_A01");
         }
     }
 }

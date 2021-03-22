@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (dataType != GetConverterDataType(inputDataType))
             {
                 _logger.LogError("The default template collection and input data type are inconsistent.");
-                throw new InputDataTypeAndDefaultTemplateCollectionInconsistentException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));
+                throw new RequestNotValidException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));
             }
         }
 

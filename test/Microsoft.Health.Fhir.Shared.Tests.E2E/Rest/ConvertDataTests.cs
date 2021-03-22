@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "hl7v2", templateReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", templateReference, "ADT_A01");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleCcdaMessage(), "Ccda", CcdaDefaultTemplateSetReference, "CCD");
+            var parameters = GetConvertDataParams(Samples.SampleCcdaMessage, "Ccda", CcdaDefaultTemplateSetReference, "CCD");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleHl7v2Message(), inputDataType, DefaultTemplateSetReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, inputDataType, DefaultTemplateSetReference, "ADT_A01");
 
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "hl7v2", DefaultTemplateSetReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", DefaultTemplateSetReference, "ADT_A01");
             parameters.Parameter.Add(new Parameters.ParameterComponent { Name = unsupportedParameter, Value = new FhirString("test") });
 
             var requestMessage = GenerateConvertDataRequest(parameters);
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "hl7v2", templateReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", templateReference, "ADT_A01");
 
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "hl7v2", templateReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", templateReference, "ADT_A01");
 
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "Ccda", CcdaDefaultTemplateSetReference, "CCD");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "Ccda", CcdaDefaultTemplateSetReference, "CCD");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleCcdaMessage(), "Hl7v2", CcdaDefaultTemplateSetReference, "CCD");
+            var parameters = GetConvertDataParams(Samples.SampleCcdaMessage, "Hl7v2", CcdaDefaultTemplateSetReference, "CCD");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.GetSampleCcdaMessage(), "Ccda", DefaultTemplateSetReference, "CCD");
+            var parameters = GetConvertDataParams(Samples.SampleCcdaMessage, "Ccda", DefaultTemplateSetReference, "CCD");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 

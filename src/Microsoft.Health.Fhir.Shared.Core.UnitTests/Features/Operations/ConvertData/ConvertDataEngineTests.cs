@@ -181,22 +181,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetHl7V2RequestWithDefaultTemplates()
         {
-            return new ConvertDataRequest(Samples.GetSampleHl7v2Message(), ConversionInputDataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "ADT_A01");
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, ConversionInputDataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "ADT_A01");
         }
 
         private static ConvertDataRequest GetCcdaRequestWithDefaultTemplates()
         {
-            return new ConvertDataRequest(Samples.GetSampleCcdaMessage(), ConversionInputDataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
+            return new ConvertDataRequest(Samples.SampleCcdaMessage, ConversionInputDataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithTemplateReference(string imageReference)
         {
-            return new ConvertDataRequest(Samples.GetSampleHl7v2Message(), ConversionInputDataType.Hl7v2, imageReference.Split('/')[0], false, imageReference, "ADT_A01");
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, ConversionInputDataType.Hl7v2, imageReference.Split('/')[0], false, imageReference, "ADT_A01");
         }
 
         private static ConvertDataRequest GetCcdaRequestWithTemplateReference(string imageReference)
         {
-            return new ConvertDataRequest(Samples.GetSampleCcdaMessage(), ConversionInputDataType.Ccda, imageReference.Split('/')[0], false, imageReference, "CCD");
+            return new ConvertDataRequest(Samples.SampleCcdaMessage, ConversionInputDataType.Ccda, imageReference.Split('/')[0], false, imageReference, "CCD");
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithInputData(string inputData)
@@ -211,12 +211,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetHl7V2RequestWithRootTemplate(string rootTemplate)
         {
-            return new ConvertDataRequest(Samples.GetSampleHl7v2Message(), ConversionInputDataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), rootTemplate);
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, ConversionInputDataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), rootTemplate);
         }
 
         private static ConvertDataRequest GetCcdaRequestWithRootTemplate(string rootTemplate)
         {
-            return new ConvertDataRequest(Samples.GetSampleCcdaMessage(), ConversionInputDataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), rootTemplate);
+            return new ConvertDataRequest(Samples.SampleCcdaMessage, ConversionInputDataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), rootTemplate);
         }
 
         private IConvertDataEngine GetDefaultEngine()

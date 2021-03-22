@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         public async Task GivenAConvertDataRequest_WhenInconsistentBodySent_ThenInconsistentThrown(Parameters body)
         {
             _convertDataeEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
-            await Assert.ThrowsAsync<InputDataTypeAndDefaultTemplateCollectionInconsistentException>(() => _convertDataeEnabledController.ConvertData(body));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataeEnabledController.ConvertData(body));
         }
 
         [Theory]
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         [InlineData("testimage:tag")]
         public async Task GivenAConvertDataRequest_WithInvalidReference_WhenInvalidBodySent_ThenRequestNotValidThrown(string templateCollectionReference)
         {
-            var body = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "Hl7v2", templateCollectionReference, _testHl7v2RootTemplate);
+            var body = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", templateCollectionReference, _testHl7v2RootTemplate);
 
             _convertDataeEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataeEnabledController.ConvertData(body));
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             _mediator.ClearReceivedCalls();
         }
 
-        private static ConvertDataResponse GetConvertDataResponse() => new ConvertDataResponse(Samples.GetSampleConvertDataResponse());
+        private static ConvertDataResponse GetConvertDataResponse() => new ConvertDataResponse(Samples.SampleConvertDataResponse);
 
         private ConvertDataController GetController(ConvertDataConfiguration convertDataConfiguration)
         {
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            AddParamComponent(parametersResource, ConvertDataProperties.InputData, Samples.GetSampleHl7v2Message());
+            AddParamComponent(parametersResource, ConvertDataProperties.InputData, Samples.SampleHl7v2Message);
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
 
             return parametersResource;
@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            AddParamComponent(parametersResource, ConvertDataProperties.InputData, Samples.GetSampleHl7v2Message());
+            AddParamComponent(parametersResource, ConvertDataProperties.InputData, Samples.SampleHl7v2Message);
             AddParamComponent(parametersResource, ConvertDataProperties.InputDataType, "Hl7v2");
             AddParamComponent(parametersResource, ConvertDataProperties.TemplateCollectionReference, _testImageReference);
 
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
 
         private static Parameters GetParamsResourceWithTooManyParams()
         {
-            var parametersResource = GetConvertDataParams(Samples.GetSampleHl7v2Message(), "Hl7v2", _testImageReference, _testHl7v2RootTemplate);
+            var parametersResource = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", _testImageReference, _testHl7v2RootTemplate);
 
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
 
@@ -192,37 +192,37 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         }
 
         private static Parameters GetParamsResourceWithInconsistentParamsWrongDataType()
-        => GetConvertDataParams(Samples.GetSampleHl7v2Message(), "Ccda", "microsofthealth/fhirconverter:default", _testHl7v2RootTemplate);
+        => GetConvertDataParams(Samples.SampleHl7v2Message, "Ccda", "microsofthealth/fhirconverter:default", _testHl7v2RootTemplate);
 
         private static Parameters GetParamsResourceWithInconsistentParamsWrongDefaultTemplates()
-        => GetConvertDataParams(Samples.GetSampleCcdaMessage(), "Ccda", "microsofthealth/fhirconverter:default", _testCcdaRootTemplate);
+        => GetConvertDataParams(Samples.SampleCcdaMessage, "Ccda", "microsofthealth/fhirconverter:default", _testCcdaRootTemplate);
 
         private static Parameters GetParamsResourceWithInconsistentParamsWrongHl7v2DefaultTemplates()
-        => GetConvertDataParams(Samples.GetSampleCcdaMessage(), "Ccda", "microsofthealth/hl7v2templates:default", _testCcdaRootTemplate);
+        => GetConvertDataParams(Samples.SampleCcdaMessage, "Ccda", "microsofthealth/hl7v2templates:default", _testCcdaRootTemplate);
 
         private static Parameters GetParamsResourceWithInconsistentParamsWrongCcdaDefaultTemplates()
-        => GetConvertDataParams(Samples.GetSampleHl7v2Message(), "Hl7v2", "microsofthealth/ccdatemplates:default", _testHl7v2RootTemplate);
+        => GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", "microsofthealth/ccdatemplates:default", _testHl7v2RootTemplate);
 
         private static Parameters GetParamsResourceWithUnsupportedDataType()
-        => GetConvertDataParams(Samples.GetSampleHl7v2Message(), "invalid", _testImageReference, _testHl7v2RootTemplate);
+        => GetConvertDataParams(Samples.SampleHl7v2Message, "invalid", _testImageReference, _testHl7v2RootTemplate);
 
         private static Parameters GetHl7v2ValidConvertDataParams()
-        => GetConvertDataParams(Samples.GetSampleHl7v2Message(), "Hl7v2", _testImageReference, _testHl7v2RootTemplate);
+        => GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", _testImageReference, _testHl7v2RootTemplate);
 
         private static Parameters GetHl7v2ValidConvertDataParamsIgnoreCasesAllLowercase()
-        => GetConvertDataParams(Samples.GetSampleHl7v2Message(), "hl7v2", _testImageReference, _testHl7v2RootTemplate);
+        => GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", _testImageReference, _testHl7v2RootTemplate);
 
         private static Parameters GetHl7v2ValidConvertDataParamsIgnoreCasesAllUppercase()
-        => GetConvertDataParams(Samples.GetSampleHl7v2Message(), "HL7V2", _testImageReference, _testHl7v2RootTemplate);
+        => GetConvertDataParams(Samples.SampleHl7v2Message, "HL7V2", _testImageReference, _testHl7v2RootTemplate);
 
         private static Parameters GetCcdaValidConvertDataParams()
-        => GetConvertDataParams(Samples.GetSampleCcdaMessage(), "Ccda", _testImageReference, _testCcdaRootTemplate);
+        => GetConvertDataParams(Samples.SampleCcdaMessage, "Ccda", _testImageReference, _testCcdaRootTemplate);
 
         private static Parameters GetCcdaValidConvertDataParamsIgnoreCasesAllLowercase()
-        => GetConvertDataParams(Samples.GetSampleCcdaMessage(), "ccda", _testImageReference, _testCcdaRootTemplate);
+        => GetConvertDataParams(Samples.SampleCcdaMessage, "ccda", _testImageReference, _testCcdaRootTemplate);
 
         private static Parameters GetCcdaValidConvertDataParamsIgnoreCasesAllUppercase()
-        => GetConvertDataParams(Samples.GetSampleCcdaMessage(), "CCDA", _testImageReference, _testCcdaRootTemplate);
+        => GetConvertDataParams(Samples.SampleCcdaMessage, "CCDA", _testImageReference, _testCcdaRootTemplate);
 
         private static Parameters GetConvertDataParams(string inputData, string inputDataType, string templateSetReference, string rootTemplate)
         {

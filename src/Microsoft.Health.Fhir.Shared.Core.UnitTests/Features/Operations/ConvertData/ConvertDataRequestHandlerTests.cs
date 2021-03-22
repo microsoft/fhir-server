@@ -97,12 +97,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetSampleHl7v2Request()
         {
-            return new ConvertDataRequest(Samples.GetSampleHl7v2Message(), ConversionInputDataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "ADT_A01");
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, ConversionInputDataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "ADT_A01");
         }
 
         private static ConvertDataRequest GetSampleCcdaRequest()
         {
-            return new ConvertDataRequest(Samples.GetSampleCcdaMessage(), ConversionInputDataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
+            return new ConvertDataRequest(Samples.SampleCcdaMessage, ConversionInputDataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
         }
 
         private static string GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType dataType)
