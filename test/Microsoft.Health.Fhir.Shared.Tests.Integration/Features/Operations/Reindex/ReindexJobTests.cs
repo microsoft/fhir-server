@@ -411,14 +411,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             ReindexJobWrapper reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
             int delayCount = 0;
-            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < 10)
+
+            // Set the delay count limit to be higher here for debugging purposes
+            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < 100)
             {
                 await Task.Delay(1000);
                 delayCount++;
                 reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
             }
 
-            Assert.InRange(delayCount, 0, 9);
+            Assert.InRange(delayCount, 0, 19);
         }
 
         private async Task<CreateReindexResponse> SetUpForReindexing()
