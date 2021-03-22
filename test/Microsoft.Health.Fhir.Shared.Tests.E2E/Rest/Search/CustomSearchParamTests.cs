@@ -40,19 +40,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-            var appointment = Samples.GetJsonSample<Appointment>("Appointment");
-            appointment.Status = Appointment.AppointmentStatus.Noshow;
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-AppointmentStatus");
             searchParam.Name = randomName;
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
             searchParam.Id = randomName;
 
-            // POST a new patient
+            // POST a new appointment
+            var appointment = Samples.GetJsonSample<Appointment>("Appointment");
+            appointment.Status = Appointment.AppointmentStatus.Noshow;
+            var tag = new Coding(null, randomName);
+            appointment.Meta = new Meta();
+            appointment.Meta.Tag.Add(tag);
             FhirResponse<Appointment> expectedAppointment = await Client.CreateAsync(appointment);
 
-            // POST a second patient to show it is filtered and not returned when using the new search parameter
-            await Client.CreateAsync(Samples.GetJsonSample<Appointment>("Appointment"));
+            // POST a second appointment to show it is filtered and not returned when using the new search parameter
+            var appointment2 = Samples.GetJsonSample<Appointment>("Appointment");
+            appointment2.Meta = new Meta();
+            appointment2.Meta.Tag.Add(tag);
+            await Client.CreateAsync(appointment2);
 
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
@@ -73,19 +79,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Contains(searchParamPosted.Resource.Url, param.Value.ToString());
 
                 reindexJobResult = await WaitForReindexStatus(reindexJobUri, "Completed");
-                _output.WriteLine($"Reindex job is completed, it should have reindexed the Patient resources with {randomName}");
+                _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with {randomName}");
 
                 var floatParse = float.TryParse(
                     reindexJobResult.Resource.Parameter.FirstOrDefault(predicate => predicate.Name == "resourcesSuccessfullyReindexed").Value.ToString(),
                     out float resourcesReindexed);
 
-                _output.WriteLine($"Reindex job is completed, {resourcesReindexed} Patient resources Reindexed");
+                _output.WriteLine($"Reindex job is completed, {resourcesReindexed} resources Reindexed");
 
                 Assert.True(floatParse);
                 Assert.True(resourcesReindexed > 0.0);
 
                 // When job complete, search for resources using new parameter
-                await ExecuteAndValidateBundle($"Appointment?{searchParam.Code}:exact={searchParamPosted.Resource.Status}", expectedAppointment.Resource);
+                await ExecuteAndValidateBundle($"Appointment?{searchParam.Code}=noshow&_tag={tag.Code}", expectedAppointment.Resource);
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {

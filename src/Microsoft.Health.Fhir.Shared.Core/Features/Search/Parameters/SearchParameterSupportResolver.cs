@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ISearchParameterDefinitionManager _definitionManager;
         private readonly IFhirNodeToSearchValueTypeConverterManager _searchValueTypeConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
+        private const string _codeOfTName = "codeOfT";
 
         public SearchParameterSupportResolver(
             ISearchParameterDefinitionManager definitionManager,
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     .Select(result => (
                         result,
                         hasConverter: _searchValueTypeConverterManager.TryGetConverter(
-                            result.ClassMapping.Name,
+                            GetBaseType(result.ClassMapping.Name),
                             SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
                             out IFhirNodeToSearchValueTypeConverter converter),
                         converter))
@@ -84,6 +85,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     bool partialSupport = converters.Any(x => x.hasConverter);
                     return (partialSupport, partialSupport);
                 }
+            }
+
+            string GetBaseType(string classMapping)
+            {
+                return classMapping.StartsWith(_codeOfTName, StringComparison.Ordinal) ? _codeOfTName : classMapping;
             }
 
             return (true, false);
