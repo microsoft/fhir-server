@@ -236,12 +236,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Contains("AppointmentResponse", job.ResourceList);
             Assert.Contains("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
             Assert.Contains("http://hl7.org/fhir/SearchParameter/Appointment-date", job.SearchParamList);
-            Assert.Collection<ReindexJobQueryStatus>(
-                job.QueryList.Keys.OrderBy(q => q.LastModified),
-                item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed && item.ResourceType == "Appointment"),
-                item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed && item2.ResourceType == "AppointmentResponse"),
-                item3 => Assert.True(item3.ContinuationToken == Base64EncodedToken && item3.Status == OperationStatus.Completed && item3.ResourceType == "Appointment"),
-                item4 => Assert.True(item4.ContinuationToken == Base64EncodedToken && item4.Status == OperationStatus.Completed && item4.ResourceType == "AppointmentResponse"));
+
+            Assert.Equal(4, job.QueryList.Count);
+            Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == null && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse");
+            Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == null && item.Status == OperationStatus.Completed && item.ResourceType == "Appointment");
+            Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse");
+            Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed && item.ResourceType == "Appointment");
 
             await _reindexUtilities.Received().UpdateSearchParameterStatus(
                 Arg.Is<IReadOnlyCollection<string>>(r => r.Any(s => s.Contains("Appointment")) && r.Any(s => s.Contains("AppointmentResponse"))),
