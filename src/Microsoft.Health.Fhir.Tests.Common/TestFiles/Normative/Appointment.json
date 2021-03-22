@@ -47,23 +47,12 @@
             }
         ]
     },
-    "reasonReference": [
-        {
-            "reference": "Condition/example",
-            "display": "Severe burn of left ear"
-        }
-    ],
     "priority": 5,
     "description": "Discussion on the results of your recent MRI",
     "start": "2013-12-10T09:00:00Z",
     "end": "2013-12-10T11:00:00Z",
     "created": "2013-10-10",
     "comment": "Further expand on the results of the MRI and determine the next actions that may be appropriate.",
-    "basedOn": [
-        {
-            "reference": "ServiceRequest/myringotomy"
-        }
-    ],
     "participant": [
         {
             "actor": {
