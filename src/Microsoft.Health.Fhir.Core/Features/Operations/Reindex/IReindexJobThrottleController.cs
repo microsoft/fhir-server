@@ -22,5 +22,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// </summary>
         /// <returns>Returns an average database resource consumtion per second</returns>
         double UpdateDatastoreUsage();
+
+        /// <summary>
+        /// If one single query consumes more than the target datastore resources
+        /// reduce the batch size to help acheive the desired level of usage
+        /// If one query is not too expensive, this will return the same number as is configured
+        /// for the Reindex job.
+        /// </summary>
+        /// <returns>The query batch size</returns>
+        public uint GetThrottleBatchSize();
     }
 }

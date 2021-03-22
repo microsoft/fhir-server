@@ -10,6 +10,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
 {
     public class ReindexJobSqlThrottlingController : IReindexJobThrottleController
     {
+        private uint _targetBatchSize;
+
         public int GetThrottleBasedDelay()
         {
             return 0;
@@ -17,12 +19,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
 
         public void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDatastoreCapacity)
         {
+            _targetBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             return;
         }
 
         public double UpdateDatastoreUsage()
         {
             return 0.0;
+        }
+
+        public uint GetThrottleBatchSize()
+        {
+            return _targetBatchSize;
         }
     }
 }

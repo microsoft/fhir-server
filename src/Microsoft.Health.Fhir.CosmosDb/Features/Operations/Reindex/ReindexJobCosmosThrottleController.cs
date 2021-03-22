@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
         private double _rUsConsumedDuringInterval = 0.0;
         private ushort _delayFactor = 0;
         private double? _targetRUs = null;
+        private uint _targetBatchSize;
+        private uint _jobConfiguredBatchSize;
         private bool _initialized = false;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ILogger<ReindexJobCosmosThrottleController> _logger;
@@ -58,6 +60,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                 _delayFactor = 0;
                 _rUsConsumedDuringInterval = 0.0;
                 _initialized = true;
+                _jobConfiguredBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
+                _targetBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             }
         }
 
@@ -70,6 +74,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
             }
 
             return ReindexJobRecord.QueryDelayIntervalInMilliseconds * _delayFactor;
+        }
+
+        public uint GetThrottleBatchSize()
+        {
+            return _targetBatchSize;
         }
 
         /// <summary>
@@ -100,6 +109,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                     {
                         responseRequestCharge += headerRequestCharge;
                     }
+                }
+
+                if (responseRequestCharge > _targetRUs)
+                {
+                    double batchPercent = _targetRUs.Value / responseRequestCharge;
+                    _targetBatchSize = (uint)(_targetBatchSize * batchPercent);
+                    _targetBatchSize = _targetBatchSize >= 10 ? _targetBatchSize : 10;
+                    _logger.LogInformation($"Reindex query for one batch was larger than target RUs, current query cost: {responseRequestCharge}.  Reduced batch size to: {_targetBatchSize}");
+                }
+                else
+                {
+                    _targetBatchSize = _jobConfiguredBatchSize;
                 }
 
                 _rUsConsumedDuringInterval += responseRequestCharge;

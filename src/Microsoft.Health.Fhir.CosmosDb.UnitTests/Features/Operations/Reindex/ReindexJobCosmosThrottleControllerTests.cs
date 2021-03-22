@@ -108,5 +108,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             throttleController.Initialize(reindexJob, null);
             Assert.Equal(0, throttleController.GetThrottleBasedDelay());
         }
+
+        [Fact]
+        public void GivenBatchSizeCostAboveTarget_WhenGetBatchSizeCalled_ReducedBatchSizeReturned()
+        {
+            var throttleController = new ReindexJobCosmosThrottleController(_fhirRequestContextAccessor, new NullLogger<ReindexJobCosmosThrottleController>());
+            var reindexJob = new ReindexJobRecord(new Dictionary<string, string>(), targetDataStoreUsagePercentage: 80);
+            reindexJob.QueryDelayIntervalInMilliseconds = 50;
+            throttleController.Initialize(reindexJob, 1000);
+
+            _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "1000.0");
+            throttleController.UpdateDatastoreUsage();
+
+            Assert.Equal<uint>(80, throttleController.GetThrottleBatchSize());
+
+            _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "500.0");
+            throttleController.UpdateDatastoreUsage();
+
+            Assert.Equal<uint>(100, throttleController.GetThrottleBatchSize());
+        }
     }
 }
