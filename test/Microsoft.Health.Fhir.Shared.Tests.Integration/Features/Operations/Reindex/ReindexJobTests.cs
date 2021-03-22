@@ -420,7 +420,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
             }
 
-            Assert.InRange(delayCount, 0, 19);
+            Assert.InRange(delayCount, 0, 39);
         }
 
         private async Task<CreateReindexResponse> SetUpForReindexing()
