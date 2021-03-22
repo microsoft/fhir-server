@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public void Update(int partitionCount)
         {
-            lock (this)
+            lock (this) // lgtm[cs/lock-this] no need to allocate another lock object for this internal class
             {
                 _partitionSum += partitionCount;
                 _executionCount++;
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public int? GetAveragePartitionCount()
         {
-            lock (this)
+            lock (this) // lgtm[cs/lock-this] no need to allocate another lock object for this internal class
             {
                 return _executionCount == 0 ? null : (int)(_partitionSum / _executionCount);
             }

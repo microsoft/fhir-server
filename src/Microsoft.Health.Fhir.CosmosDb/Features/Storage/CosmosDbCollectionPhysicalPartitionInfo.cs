@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         date,
                         key));
 
-            var httpRequestMessage = new HttpRequestMessage(
+            using var httpRequestMessage = new HttpRequestMessage(
                 HttpMethod.Get,
                 $"{host}/dbs/{_dataStoreConfiguration.DatabaseId}/colls/{_collectionConfiguration.CollectionId}/pkranges")
             {

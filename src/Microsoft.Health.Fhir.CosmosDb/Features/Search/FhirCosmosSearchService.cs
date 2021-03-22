@@ -385,8 +385,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // knows to add the individual ResponseMessages sent as part of this search.
 
                         fhirRequestContext = _requestContextAccessor.FhirRequestContext;
-                        messagesList = new ConcurrentBag<ResponseMessage>();
-                        fhirRequestContext.Properties[Constants.CosmosDbResponseMessagesProperty] = messagesList;
+                        if (fhirRequestContext != null)
+                        {
+                            messagesList = new ConcurrentBag<ResponseMessage>();
+                            fhirRequestContext.Properties[Constants.CosmosDbResponseMessagesProperty] = messagesList;
+                        }
                     }
                 }
             }
@@ -395,7 +398,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 var result = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, cancellationToken);
 
-                if (queryPartitionStatistics != null)
+                if (queryPartitionStatistics != null && messagesList != null)
                 {
                     // determine the number of unique physical partitions queried as part of this search.
                     int physicalPartitionCount = messagesList.Select(r => r.Headers["x-ms-documentdb-partitionkeyrangeid"]).Distinct().Count();
@@ -407,7 +410,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
             finally
             {
-                if (queryPartitionStatistics != null)
+                if (queryPartitionStatistics != null && fhirRequestContext != null)
                 {
                     fhirRequestContext.Properties.Remove(Constants.CosmosDbResponseMessagesProperty);
                 }
