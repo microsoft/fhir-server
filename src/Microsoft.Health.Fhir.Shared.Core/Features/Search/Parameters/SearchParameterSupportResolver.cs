@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Introspection;
 using Hl7.FhirPath;
 using Hl7.FhirPath.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     .Select(result => (
                         result,
                         hasConverter: _searchValueTypeConverterManager.TryGetConverter(
-                            GetBaseType(result.ClassMapping.Name),
+                            GetBaseType(result.ClassMapping),
                             SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
                             out IFhirNodeToSearchValueTypeConverter converter),
                         converter))
@@ -87,9 +88,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
             }
 
-            string GetBaseType(string classMapping)
+            string GetBaseType(ClassMapping classMapping)
             {
-                return classMapping.StartsWith(_codeOfTName, StringComparison.Ordinal) ? _codeOfTName : classMapping;
+                return classMapping.IsCodeOfT ? _codeOfTName : classMapping.Name;
             }
 
             return (true, false);
