@@ -71,22 +71,6 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
         
-        $acrKeyVault = "${{ parameters.keyVaultName }}"
-        Write-Host "Keyvault: $($acrKeyVault)"
-        $acrSecretName = "AcrLoginServer"
-        $acrSecretValue = Get-AzKeyVaultSecret -VaultName $acrKeyVault -Name $acrSecretName
-        $acrLoginServer = $acrSecretValue.SecretValueText
-        Write-Host "LoginServer : $($acrLoginServer)"
-
-        $ssPtr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($acrSecretValue.SecretValue)
-        $secretValueText = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($ssPtr)
-        Write-Host "LoginServer : $($secretValueText)"
-
-        $acrAccountName = ($acrLoginServer -split '\.')[0]
-        $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
-        Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
-        Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
-        
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
         $allStorageAccounts = ""
         foreach ($storageAccount in $storageAccounts) {
@@ -97,6 +81,15 @@ jobs:
             $allStorageAccounts += "$($storageSecretName)|$($accKey.Value)|"
         }
         Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
+
+        $acrKeyVault = "${{ parameters.keyVaultName }}"
+        $acrSecretName = "TestAcrLoginServer"
+        $acrSecretValue = Get-AzKeyVaultSecret -VaultName $acrKeyVault -Name $acrSecretName
+        $acrLoginServer = $acrSecretValue.SecretValueText
+        $acrAccountName = ($acrLoginServer -split '\.')[0]
+        $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
@@ -183,6 +176,15 @@ jobs:
             $allStorageAccounts += "|$($storageSecretName)|$($accKey.Value)"
         }
         Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
+
+        $acrKeyVault = "${{ parameters.keyVaultName }}-sql"
+        $acrSecretName = "TestAcrLoginServer"
+        $acrSecretValue = Get-AzKeyVaultSecret -VaultName $acrKeyVault -Name $acrSecretName
+        $acrLoginServer = $acrSecretValue.SecretValueText
+        $acrAccountName = ($acrLoginServer -split '\.')[0]
+        $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         

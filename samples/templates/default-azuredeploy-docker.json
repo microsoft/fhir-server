@@ -490,7 +490,7 @@
         {
             "condition": "[parameters('enableConvertData')]",
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/AcrLoginServer')]",
+            "name": "[concat(variables('serviceName'), '/TestAcrLoginServer')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
