@@ -70,7 +70,14 @@ jobs:
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
-
+        
+        $acrSecretName = "AcrLoginServer"
+        $acrLoginServer = (Get-AzKeyVaultSecret -VaultName $keyVault -Name $acrSecretName).SecretValueText
+        $acrAccountName = ($acrLoginServer -split '\.')[0]
+        $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
+        
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
         $allStorageAccounts = ""
         foreach ($storageAccount in $storageAccounts) {
