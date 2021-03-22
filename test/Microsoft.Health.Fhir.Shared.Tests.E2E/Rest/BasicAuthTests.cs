@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenUserWithNoProfileAdminPermission_WhenCreate_ThenServerShouldReturnForbidden()
+        public async Task GivenUserWithNoProfileAdminPermission_WhenCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
@@ -253,7 +253,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenUserWithNoProfileAdminPermission_WhenUpdate_ThenServerShouldReturnForbidden()
+        public async Task GivenUserWithNoProfileAdminPermission_WhenUpdateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalCreate_ThenServerShouldReturnForbidden()
+        public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalUpdate_ThenServerShouldReturnForbidden()
+        public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalUpdateProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenUserWithNoProfileAdminPermission_WhenDelete_ThenServerShouldReturnForbidden()
+        public async Task GivenUserWithNoProfileAdminPermission_WhenDeleteProfileDefinitionResource_ThenServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
@@ -301,7 +301,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenUserWithProfileAdminPermission_WhenCUDAction_ThenServerShouldReturnOk()
+        public async Task GivenUserWithProfileAdminPermission_WhenCUDActionOnProfileDefinitionResource_ThenServerShouldReturnOk()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.AdminUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
