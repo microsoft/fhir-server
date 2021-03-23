@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -39,6 +40,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             return $"({(!IsMissing ? "Not" : null)}MissingParam {Parameter.Name})";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(MissingSearchParameterExpression));
+            hashCode.Add(Parameter);
+            hashCode.Add(IsMissing);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            return other is MissingSearchParameterExpression missing && missing.IsMissing == IsMissing && missing.Parameter.Equals(Parameter);
         }
     }
 }

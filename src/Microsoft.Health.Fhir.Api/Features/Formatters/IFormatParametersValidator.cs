@@ -6,11 +6,17 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 
-namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
+namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {
-    public interface IContentTypeService
+    public interface IFormatParametersValidator
     {
         Task CheckRequestedContentTypeAsync(HttpContext httpContext);
+
+        void CheckPrettyParameter(HttpContext httpContext);
+
+        void CheckSummaryParameter(HttpContext httpContext);
+
+        void CheckElementsParameter(HttpContext httpContext);
 
         Task<bool> IsFormatSupportedAsync(string resourceFormat);
     }

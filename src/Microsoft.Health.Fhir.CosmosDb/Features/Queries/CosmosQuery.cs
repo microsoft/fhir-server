@@ -61,16 +61,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         /// <inheritdoc />
         public async Task<FeedResponse<T>> ExecuteNextAsync(CancellationToken token = default)
         {
-            Guid queryId = Guid.NewGuid();
-
             if (!_hasLoggedQuery)
             {
                 _logger.LogQueryExecution(
-                    queryId,
                     _queryContext.SqlQuerySpec,
                     _queryContext.FeedOptions?.PartitionKey?.ToString(),
                     _continuationToken,
-                    _queryContext.FeedOptions?.MaxItemCount);
+                    _queryContext.FeedOptions?.MaxItemCount,
+                    _queryContext.FeedOptions?.MaxConcurrency);
                 _hasLoggedQuery = true;
             }
 
@@ -79,14 +77,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                 FeedResponse<T> response = await _feedIterator.ReadNextAsync(token);
 
                 _continuationToken = response.ContinuationToken;
-
-                _logger.LogQueryExecutionResult(
-                    queryId,
-                    response.ActivityId,
-                    response.RequestCharge,
-                    response.ContinuationToken,
-                    response.ETag,
-                    response.Count);
 
                 return response;
             }
@@ -99,15 +89,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                 {
                     _processor.ProcessErrorResponse(ex.StatusCode, ex.Headers, ex.Message);
                 }
-
-                _logger.LogQueryExecutionResult(
-                    queryId,
-                    ex.ActivityId,
-                    ex.RequestCharge,
-                    null,
-                    null,
-                    0,
-                    fhirException ?? ex);
 
                 throw;
             }

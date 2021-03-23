@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
@@ -49,6 +50,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             return $"({MultiaryOperation} {string.Join(' ', Expressions)})";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(MultiaryExpression));
+            hashCode.Add(MultiaryOperation);
+            foreach (Expression expression in Expressions)
+            {
+                expression.AddValueInsensitiveHashCode(ref hashCode);
+            }
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            if (other is not MultiaryExpression multiary ||
+                multiary.MultiaryOperation != MultiaryOperation ||
+                multiary.Expressions.Count != Expressions.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < Expressions.Count; i++)
+            {
+                if (!multiary.Expressions[i].ValueInsensitiveEquals(Expressions[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

@@ -332,6 +332,7 @@ stages:
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
+      appServiceName: $(DeploymentEnvironmentName)
 
 - stage: testR4
   displayName: 'Run R4 Tests'
@@ -345,6 +346,7 @@ stages:
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
+      appServiceName: $(DeploymentEnvironmentNameR4)
 
 - stage: testR5
   displayName: 'Run R5 Tests'
@@ -358,6 +360,7 @@ stages:
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
+      appServiceName: $(DeploymentEnvironmentNameR5)
 
 - stage: cleanupAks
   displayName: 'Cleanup AKS Deployments'

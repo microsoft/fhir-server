@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
@@ -18,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// to more than one action by ORing values together.
         /// </summary>
         /// <param name="dataActions">The set of data actions to check</param>
+        /// <param name="cancellationToken">Cancellation token to cancel access check.</param>
         /// <returns>
         /// Either:
         /// (a) the same value as the input (return == input), which means that all actions are permitted
@@ -25,6 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
         /// (c) None, (0), meaning none of the requested actions are permitted.
         /// In all cases, no bits will set on the return value that were not set on input.
         /// </returns>
-        ValueTask<DataActions> CheckAccess(DataActions dataActions);
+        ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken = default);
     }
 }

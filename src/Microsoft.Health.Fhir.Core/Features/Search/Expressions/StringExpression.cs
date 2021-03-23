@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
@@ -60,6 +61,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             return $"(String{StringOperator}{(IgnoreCase ? "IgnoreCase" : null)} {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName} '{Value}')";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(StringExpression));
+            hashCode.Add(StringOperator);
+            hashCode.Add(FieldName);
+            hashCode.Add(ComponentIndex);
+            hashCode.Add(IgnoreCase);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            return other is StringExpression stringExpression &&
+                   stringExpression.StringOperator == StringOperator &&
+                   stringExpression.FieldName == FieldName &&
+                   stringExpression.ComponentIndex == ComponentIndex &&
+                   stringExpression.IgnoreCase == IgnoreCase;
         }
     }
 }

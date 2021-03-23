@@ -9,7 +9,6 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
-using Hl7.Fhir.Support;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;

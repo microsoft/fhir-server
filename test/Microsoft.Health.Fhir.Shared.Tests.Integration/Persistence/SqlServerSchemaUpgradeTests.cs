@@ -5,9 +5,11 @@
 
 using System;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -16,10 +18,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlServerSchemaUpgradeTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly ISqlServerFhirStorageTestHelper _testHelper;
+        private readonly SchemaUpgradeRunner _schemaRunner;
 
         public SqlServerSchemaUpgradeTests(FhirStorageTestsFixture fixture)
         {
             _testHelper = (SqlServerFhirStorageTestHelper)fixture.TestHelper;
+            _schemaRunner = fixture.SchemaUpgradeRunner;
         }
 
         [Fact]
@@ -44,6 +48,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await _testHelper.DeleteDatabase(snapshotDatabaseName);
                 await _testHelper.DeleteDatabase(diffDatabaseName);
             }
+        }
+
+        [Fact]
+        public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
+        {
+            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+
+            await _testHelper.CreateAndInitializeDatabase(snapshotDatabaseName, SchemaVersionConstants.Max - 1, forceIncrementalSchemaUpgrade: false);
+
+            await _schemaRunner.ApplySchemaAsync(SchemaVersionConstants.Max, applyFullSchemaSnapshot: false, CancellationToken.None);
+
+            await _schemaRunner.ApplySchemaAsync(SchemaVersionConstants.Max, applyFullSchemaSnapshot: false, CancellationToken.None);
         }
     }
 }

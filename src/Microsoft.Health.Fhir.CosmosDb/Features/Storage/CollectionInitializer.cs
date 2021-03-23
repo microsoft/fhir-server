@@ -62,20 +62,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             _logger.LogInformation("Creating Cosmos Container if not exits: {collectionId}", _cosmosCollectionConfiguration.CollectionId);
 
-            var containerResponse = await retryPolicy.ExecuteAsync(async () =>
+            ContainerResponse containerResponse = await retryPolicy.ExecuteAsync(async () =>
                 await database.CreateContainerIfNotExistsAsync(
                     _cosmosCollectionConfiguration.CollectionId,
                     $"/{KnownDocumentProperties.PartitionKey}",
                     _cosmosCollectionConfiguration.InitialCollectionThroughput));
 
-            containerResponse.Resource.DefaultTimeToLive = -1;
-
-            existingContainer = await retryPolicy.ExecuteAsync(async () => await containerClient.ReplaceContainerAsync(containerResponse));
-
-            if (_cosmosCollectionConfiguration.InitialCollectionThroughput.HasValue)
+            if (containerResponse.StatusCode == HttpStatusCode.Created || containerResponse.Resource.DefaultTimeToLive != -1)
             {
-                ThroughputProperties throughputProperties = ThroughputProperties.CreateManualThroughput(_cosmosCollectionConfiguration.InitialCollectionThroughput.Value);
-                await retryPolicy.ExecuteAsync(async () => await containerClient.ReplaceThroughputAsync(throughputProperties));
+                if (_cosmosCollectionConfiguration.InitialCollectionThroughput.HasValue)
+                {
+                    var throughputProperties = ThroughputProperties.CreateManualThroughput(_cosmosCollectionConfiguration.InitialCollectionThroughput.Value);
+                    await retryPolicy.ExecuteAsync(async () => await containerClient.ReplaceThroughputAsync(throughputProperties));
+                }
+
+                containerResponse.Resource.DefaultTimeToLive = -1;
+                existingContainer = await retryPolicy.ExecuteAsync(async () => await containerClient.ReplaceContainerAsync(containerResponse));
             }
 
             await retryPolicy.ExecuteAsync(async () =>

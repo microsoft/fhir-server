@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// </summary>
     public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation
     {
-        private static List<string> _supportedTypes = new List<string>() { "ValueSet", "StructureDefinition", "CodeSystem", };
+        private static HashSet<string> _supportedTypes = new HashSet<string>() { "ValueSet", "StructureDefinition", "CodeSystem" };
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private List<ArtifactSummary> _summaries;
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _validateOperationConfig = options.Value;
         }
 
-        public static IEnumerable<string> GetProfilesTypes => _supportedTypes;
+        public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
 
         public IEnumerable<ArtifactSummary> ListSummaries()
         {
@@ -73,7 +73,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                             var queryParameters = new List<Tuple<string, string>>();
                             if (ct != null)
                             {
-                                queryParameters.Add(new Tuple<string, string>("ct", ct));
+                                ct = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(ct));
+                                queryParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, ct));
                             }
 
                             var searchResult = await searchService.Value.SearchAsync(type, queryParameters, CancellationToken.None);

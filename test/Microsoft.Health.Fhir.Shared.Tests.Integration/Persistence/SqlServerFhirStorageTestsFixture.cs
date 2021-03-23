@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
+        private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
         private readonly FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly ISearchService _searchService;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -82,8 +83,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory);
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
-            _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, NullLogger<SchemaInitializer>.Instance);
+            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
+            _schemaInitializer = new SchemaInitializer(config, _schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, NullLogger<SchemaInitializer>.Instance);
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
 
@@ -246,6 +247,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(SupportedSearchParameterDefinitionManager))
             {
                 return _supportedSearchParameterDefinitionManager;
+            }
+
+            if (serviceType == typeof(SchemaInitializer))
+            {
+                return _schemaInitializer;
+            }
+
+            if (serviceType == typeof(SchemaUpgradeRunner))
+            {
+                return _schemaUpgradeRunner;
             }
 
             return null;

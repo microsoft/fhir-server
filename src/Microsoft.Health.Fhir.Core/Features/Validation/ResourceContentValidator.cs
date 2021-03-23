@@ -3,44 +3,41 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using EnsureThat;
-using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
 using Microsoft.Health.Fhir.Core.Models;
-using Task = System.Threading.Tasks.Task;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public class AttributeValidator : IPropertyValidator
+    /// <summary>
+    /// Validates content of resource.
+    /// </summary>
+    /// <remarks>
+    /// Even if we correctly parsed resource into object it doesn't mean resource is valid.
+    /// We need to check that properties have right cardinality, correct types, proper format, etc.
+    /// </remarks>
+    public class ResourceContentValidator : NoopPropertyValidator
     {
-        private IModelAttributeValidator _modelAttributeValidator;
+        private readonly IModelAttributeValidator _modelAttributeValidator;
 
-        public AttributeValidator(IModelAttributeValidator modelAttributeValidator)
+        public ResourceContentValidator(IModelAttributeValidator modelAttributeValidator)
         {
             EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
 
             _modelAttributeValidator = modelAttributeValidator;
         }
 
-        public PropertyValidatorOptions Options { get; set; } = new PropertyValidatorOptions();
-
-        public bool ShouldValidateAsynchronously(IValidationContext context) => true;
-
-        public IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
+        public override IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
             if (context.PropertyValue is ResourceElement resourceElement)
             {
                 var results = new List<ValidationResult>();
-
-                if (!_modelAttributeValidator.TryValidate(resourceElement, results, recurse: false))
+                if (!_modelAttributeValidator.TryValidate(resourceElement, results, false))
                 {
                     foreach (var error in results)
                     {
@@ -51,11 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     }
                 }
             }
-        }
-
-        public Task<IEnumerable<ValidationFailure>> ValidateAsync(PropertyValidatorContext context, CancellationToken cancellation)
-        {
-            return Task.FromResult(Validate(context));
         }
     }
 }

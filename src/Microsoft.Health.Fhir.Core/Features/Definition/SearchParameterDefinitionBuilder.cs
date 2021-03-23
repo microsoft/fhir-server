@@ -96,6 +96,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
+        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, IDictionary<Uri, SearchParameterInfo> uriDictionary)
+        {
+            // Return SearchParameterInfo that has already been created for this Uri
+            if (uriDictionary.TryGetValue(new Uri(searchParameter.Url), out var spi))
+            {
+                return spi;
+            }
+
+            return new SearchParameterInfo(searchParameter);
+        }
+
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
             IReadOnlyCollection<ITypedElement> searchParamCollection,
             IDictionary<Uri, SearchParameterInfo> uriDictionary,
@@ -252,37 +263,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         issues.ToArray());
                 }
             }
-        }
-
-        private static SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter, IDictionary<Uri, SearchParameterInfo> uriDictionary)
-        {
-            // Return SearchParameterInfo that has already been created for this Uri
-            if (uriDictionary.TryGetValue(new Uri(searchParameter.Url), out var spi))
-            {
-                return spi;
-            }
-
-            var components = searchParameter.Component
-                .Select(x => new SearchParameterComponentInfo(
-                    new Uri(GetComponentDefinition(x)),
-                    x.Scalar("expression")?.ToString()))
-                .ToArray();
-
-            SearchParamType searchParamType = EnumUtility.ParseLiteral<SearchParamType>(searchParameter.Type)
-                .GetValueOrDefault();
-
-            var sp = new SearchParameterInfo(
-                searchParameter.Name,
-                searchParameter.Code,
-                searchParamType,
-                new Uri(searchParameter.Url),
-                expression: searchParameter.Expression,
-                description: searchParameter.Description,
-                components: components,
-                targetResourceTypes: searchParameter.Target,
-                baseResourceTypes: searchParameter.Base);
-
-            return sp;
         }
 
         private static HashSet<SearchParameterInfo> BuildSearchParameterDefinition(
