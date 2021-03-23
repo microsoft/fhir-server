@@ -135,8 +135,7 @@ CREATE TYPE dbo.ResourceWriteClaimTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkResourceWriteClaimTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     ClaimTypeId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL
 )
@@ -177,8 +176,7 @@ CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkCompartmentAssignmentTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     CompartmentTypeId tinyint NOT NULL,
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
@@ -230,8 +228,7 @@ CREATE TYPE dbo.ReferenceSearchParamTableType_2 AS TABLE
 
 CREATE TYPE dbo.BulkReferenceSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId smallint NULL,
@@ -289,8 +286,7 @@ CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
@@ -341,8 +337,7 @@ CREATE TYPE dbo.TokenTextTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
 )
@@ -391,8 +386,7 @@ CREATE TYPE dbo.StringSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkStringSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
@@ -456,8 +450,7 @@ CREATE TYPE dbo.UriSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkUriSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
@@ -514,8 +507,7 @@ CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkNumberSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SingleValue decimal(18,6) NULL,
     LowValue decimal(18,6) NULL,
@@ -598,8 +590,7 @@ CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkQuantitySearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     QuantityCodeId int NULL,
@@ -688,8 +679,7 @@ CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkDateTimeSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     StartDateTime datetimeoffset(7) NOT NULL,
     EndDateTime datetimeoffset(7) NOT NULL,
@@ -788,8 +778,7 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_2 AS TABLE
 
 CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId1 smallint NULL,
@@ -854,8 +843,7 @@ CREATE TYPE dbo.TokenTokenCompositeSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -916,8 +904,7 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -1034,8 +1021,7 @@ CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -1138,8 +1124,7 @@ CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -1226,8 +1211,7 @@ CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
 
 CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
 (
-    ResourceTypeId smallint NOT NULL,
-    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -2587,6 +2571,7 @@ GO
 
 CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE
 (
+    Offset int NOT NULL,
     ResourceTypeId smallint NOT NULL,
     ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ETag int NULL,
@@ -2664,8 +2649,8 @@ AS
 
     DECLARE @computedValues TABLE
     (
+        Offset int NOT NULL,
         ResourceTypeId smallint NOT NULL,
-        ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
         VersionProvided bigint NULL,
         SearchParamHash varchar(64) NOT NULL,
         ResourceSurrogateId bigint NULL,
@@ -2674,8 +2659,8 @@ AS
 
     INSERT INTO @computedValues
     SELECT
+        resourceToReindex.Offset,
         resourceToReindex.ResourceTypeId,
-        resourceToReindex.ResourceId,
         resourceToReindex.ETag,
         resourceToReindex.SearchParamHash,
         resourceInDB.ResourceSurrogateId,
@@ -2779,129 +2764,97 @@ AS
         (ResourceSurrogateId, ClaimTypeId, ClaimValue)
     SELECT DISTINCT resourceToReindex.ResourceSurrogateId, searchIndex.ClaimTypeId, searchIndex.ClaimValue
     FROM @bulkResourceWriteClaims searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.CompartmentAssignment
         (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.CompartmentTypeId, searchIndex.ReferenceResourceId, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.CompartmentTypeId, searchIndex.ReferenceResourceId, 0
     FROM @bulkCompartmentAssignments searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.ReferenceSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.BaseUri, searchIndex.ReferenceResourceTypeId, searchIndex.ReferenceResourceId, searchIndex.ReferenceResourceVersion, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.BaseUri, searchIndex.ReferenceResourceTypeId, searchIndex.ReferenceResourceId, searchIndex.ReferenceResourceVersion, 0
     FROM @bulkReferenceSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId, searchIndex.Code, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId, searchIndex.Code, 0
     FROM @bulkTokenSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenText
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Text, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Text, 0
     FROM @bulkTokenTextSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.StringSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Text, searchIndex.TextOverflow, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Text, searchIndex.TextOverflow, 0
     FROM @bulkStringSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.UriSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Uri, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Uri, 0
     FROM @bulkUriSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.NumberSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SingleValue, searchIndex.LowValue, searchIndex.HighValue, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SingleValue, searchIndex.LowValue, searchIndex.HighValue, 0
     FROM @bulkNumberSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.QuantitySearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId, searchIndex.QuantityCodeId, searchIndex.SingleValue, searchIndex.LowValue, searchIndex.HighValue, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId, searchIndex.QuantityCodeId, searchIndex.SingleValue, searchIndex.LowValue, searchIndex.HighValue, 0
     FROM @bulkQuantitySearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.DateTimeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.StartDateTime, searchIndex.EndDateTime, searchIndex.IsLongerThanADay, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.StartDateTime, searchIndex.EndDateTime, searchIndex.IsLongerThanADay, 0
     FROM @bulkDateTimeSearchParms searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.BaseUri1, searchIndex.ReferenceResourceTypeId1, searchIndex.ReferenceResourceId1, searchIndex.ReferenceResourceVersion1, searchIndex.SystemId2, searchIndex.Code2, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.BaseUri1, searchIndex.ReferenceResourceTypeId1, searchIndex.ReferenceResourceId1, searchIndex.ReferenceResourceVersion1, searchIndex.SystemId2, searchIndex.Code2, 0
     FROM @bulkReferenceTokenCompositeSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenTokenCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SystemId2, searchIndex.Code2, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SystemId2, searchIndex.Code2, 0
     FROM @bulkTokenTokenCompositeSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenDateTimeCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.StartDateTime2, searchIndex.EndDateTime2, searchIndex.IsLongerThanADay2, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.StartDateTime2, searchIndex.EndDateTime2, searchIndex.IsLongerThanADay2, 0
     FROM @bulkTokenDateTimeCompositeSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenQuantityCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SingleValue2, searchIndex.SystemId2, searchIndex.QuantityCodeId2, searchIndex.LowValue2, searchIndex.HighValue2, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SingleValue2, searchIndex.SystemId2, searchIndex.QuantityCodeId2, searchIndex.LowValue2, searchIndex.HighValue2, 0
     FROM @bulkTokenQuantityCompositeSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenStringCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.Text2, searchIndex.TextOverflow2, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.Text2, searchIndex.TextOverflow2, 0
     FROM @bulkTokenStringCompositeSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenNumberNumberCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
-    SELECT DISTINCT searchIndex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SingleValue2, searchIndex.LowValue2, searchIndex.HighValue2, searchIndex.SingleValue3, searchIndex.LowValue3, searchIndex.HighValue3, searchIndex.HasRange, 0
+    SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SingleValue2, searchIndex.LowValue2, searchIndex.HighValue2, searchIndex.SingleValue3, searchIndex.LowValue3, searchIndex.HighValue3, searchIndex.HasRange, 0
     FROM @bulkTokenNumberNumberCompositeSearchParams searchIndex
-    INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId
-            AND searchIndex.ResourceId = resourceToReindex.ResourceId
+    INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     COMMIT TRANSACTION
 GO

@@ -15,13 +15,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, QuantitySearchValue searchValue, out BulkQuantitySearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, QuantitySearchValue searchValue, out BulkQuantitySearchParamTableTypeV1Row row)
         {
             bool isSingleValue = searchValue.Low == searchValue.High;
 
             row = new BulkQuantitySearchParamTableTypeV1Row(
-                resourceTypeId,
-                resourceId,
+                offset,
                 searchParamId,
                 string.IsNullOrWhiteSpace(searchValue.System) ? default(int?) : Model.GetSystemId(searchValue.System),
                 string.IsNullOrWhiteSpace(searchValue.Code) ? default(int?) : Model.GetQuantityCodeId(searchValue.Code),

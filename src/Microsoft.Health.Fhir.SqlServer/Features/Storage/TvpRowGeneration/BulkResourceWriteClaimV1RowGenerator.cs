@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
                 foreach (var claim in writeClaims)
                 {
-                    yield return new BulkResourceWriteClaimTableTypeV1Row(resourceTypeId, resourceId, _model.GetClaimTypeId(claim.Key), claim.Value);
+                    yield return new BulkResourceWriteClaimTableTypeV1Row(index, _model.GetClaimTypeId(claim.Key), claim.Value);
                 }
             }
         }

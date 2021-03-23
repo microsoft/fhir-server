@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, StringSearchValue searchValue, out BulkStringSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, StringSearchValue searchValue, out BulkStringSearchParamTableTypeV1Row row)
         {
             string indexedPrefix;
             string overflow;
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 overflow = null;
             }
 
-            row = new BulkStringSearchParamTableTypeV1Row(resourceTypeId, resourceId, searchParamId, indexedPrefix, overflow);
+            row = new BulkStringSearchParamTableTypeV1Row(offset, searchParamId, indexedPrefix, overflow);
             return true;
         }
     }

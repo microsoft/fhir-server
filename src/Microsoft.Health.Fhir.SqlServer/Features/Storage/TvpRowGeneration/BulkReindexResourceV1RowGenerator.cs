@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 }
 
                 yield return new BulkReindexResourceTableTypeV1Row(
+                    index,
                     resourceTypeId,
                     resourceId,
                     resource.Version == null ? null : (int?)etag,

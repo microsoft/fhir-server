@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, UriSearchValue searchValue, out BulkUriSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, UriSearchValue searchValue, out BulkUriSearchParamTableTypeV1Row row)
         {
-            row = new BulkUriSearchParamTableTypeV1Row(resourceTypeId, resourceId, searchParamId, searchValue.Uri);
+            row = new BulkUriSearchParamTableTypeV1Row(offset, searchParamId, searchValue.Uri);
             return true;
         }
     }

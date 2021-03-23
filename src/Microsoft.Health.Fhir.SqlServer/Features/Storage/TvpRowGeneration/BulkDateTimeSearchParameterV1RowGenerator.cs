@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, DateTimeSearchValue searchValue, out BulkDateTimeSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, DateTimeSearchValue searchValue, out BulkDateTimeSearchParamTableTypeV1Row row)
         {
             if (searchParamId == _lastUpdatedSearchParamId)
             {
@@ -29,8 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             }
 
             row = new BulkDateTimeSearchParamTableTypeV1Row(
-                resourceTypeId,
-                resourceId,
+                offset,
                 searchParamId,
                 searchValue.Start,
                 searchValue.End,

@@ -41,8 +41,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             for (var index = 0; index < resources.Count; index++)
             {
                 ResourceWrapper resource = resources[index];
-                var resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
-                var resourceId = resource.ResourceId;
 
                 var resourceMetadata = new ResourceMetadata(
                     resource.CompartmentIndices,
@@ -59,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.PatientCompartmentEntry)
                     {
-                        yield return new BulkCompartmentAssignmentTableTypeV1Row(resourceTypeId, resourceId, _patientCompartmentId, entry);
+                        yield return new BulkCompartmentAssignmentTableTypeV1Row(index, _patientCompartmentId, entry);
                     }
                 }
 
@@ -67,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.EncounterCompartmentEntry)
                     {
-                        yield return new BulkCompartmentAssignmentTableTypeV1Row(resourceTypeId, resourceId, _encounterCompartmentId, entry);
+                        yield return new BulkCompartmentAssignmentTableTypeV1Row(index, _encounterCompartmentId, entry);
                     }
                 }
 
@@ -75,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.RelatedPersonCompartmentEntry)
                     {
-                        yield return new BulkCompartmentAssignmentTableTypeV1Row(resourceTypeId, resourceId, _relatedPersonCompartmentId, entry);
+                        yield return new BulkCompartmentAssignmentTableTypeV1Row(index, _relatedPersonCompartmentId, entry);
                     }
                 }
 
@@ -83,7 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.PractitionerCompartmentEntry)
                     {
-                        yield return new BulkCompartmentAssignmentTableTypeV1Row(resourceTypeId, resourceId, _practitionerCompartmentId, entry);
+                        yield return new BulkCompartmentAssignmentTableTypeV1Row(index, _practitionerCompartmentId, entry);
                     }
                 }
 
@@ -91,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 {
                     foreach (var entry in compartments.DeviceCompartmentEntry)
                     {
-                        yield return new BulkCompartmentAssignmentTableTypeV1Row(resourceTypeId, resourceId, _deviceCompartmentId, entry);
+                        yield return new BulkCompartmentAssignmentTableTypeV1Row(index, _deviceCompartmentId, entry);
                     }
                 }
             }

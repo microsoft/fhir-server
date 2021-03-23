@@ -21,8 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         }
 
         internal override bool TryGenerateRow(
-            short resourceTypeId,
-            string resourceId,
+            int offset,
             short searchParamId,
             (TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3) searchValue,
             out BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row row)
@@ -33,8 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 bool hasRange = token2Row.SingleValue == null || token3Row.SingleValue == null;
                 row = new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(
-                    resourceTypeId,
-                    resourceId,
+                    offset,
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,

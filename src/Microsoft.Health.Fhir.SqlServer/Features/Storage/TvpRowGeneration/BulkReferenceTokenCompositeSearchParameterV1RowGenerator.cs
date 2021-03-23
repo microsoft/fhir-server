@@ -24,14 +24,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _tokenRowGenerator = tokenRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, (ReferenceSearchValue component1, TokenSearchValue component2) searchValue, out BulkReferenceTokenCompositeSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, (ReferenceSearchValue component1, TokenSearchValue component2) searchValue, out BulkReferenceTokenCompositeSearchParamTableTypeV1Row row)
         {
             if (_referenceRowGenerator.TryGenerateRow(default, searchValue.component1, out var reference1Row) &&
                 _tokenRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row))
             {
                 row = new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(
-                    resourceTypeId,
-                    resourceId,
+                    offset,
                     searchParamId,
                     reference1Row.BaseUri,
                     reference1Row.ReferenceResourceTypeId,

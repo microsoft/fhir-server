@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, TokenSearchValue searchValue, out BulkTokenSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, TokenSearchValue searchValue, out BulkTokenSearchParamTableTypeV1Row row)
         {
             // don't store if the code is empty or if this is the Resource _id parameter. The id is already maintained on the Resource table.
             if (string.IsNullOrWhiteSpace(searchValue.Code) ||
@@ -29,8 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             }
 
             row = new BulkTokenSearchParamTableTypeV1Row(
-                resourceTypeId,
-                resourceId,
+                offset,
                 searchParamId,
                 searchValue.System == null ? (int?)null : Model.GetSystemId(searchValue.System),
                 searchValue.Code);

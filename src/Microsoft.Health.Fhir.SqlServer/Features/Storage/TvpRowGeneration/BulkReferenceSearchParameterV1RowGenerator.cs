@@ -15,11 +15,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, ReferenceSearchValue searchValue, out BulkReferenceSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, ReferenceSearchValue searchValue, out BulkReferenceSearchParamTableTypeV1Row row)
         {
             row = new BulkReferenceSearchParamTableTypeV1Row(
-                resourceTypeId,
-                resourceId,
+                offset,
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 searchValue.ResourceType == null ? (short?)null : Model.GetResourceTypeId(searchValue.ResourceType),

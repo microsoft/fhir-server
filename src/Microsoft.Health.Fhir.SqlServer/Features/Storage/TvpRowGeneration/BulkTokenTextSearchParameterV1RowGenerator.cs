@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, TokenSearchValue searchValue, out BulkTokenTextTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, TokenSearchValue searchValue, out BulkTokenTextTableTypeV1Row row)
         {
             if (string.IsNullOrWhiteSpace(searchValue.Text))
             {
@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 return false;
             }
 
-            row = new BulkTokenTextTableTypeV1Row(resourceTypeId, resourceId, searchParamId, searchValue.Text);
+            row = new BulkTokenTextTableTypeV1Row(offset, searchParamId, searchValue.Text);
             return true;
         }
     }

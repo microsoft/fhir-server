@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     if (!_isConvertSearchValueOverridden)
                     {
                         // save an array allocation
-                        if (TryGenerateRow(resourceTypeId, resourceId, searchParamId, (TSearchValue)v.Value, out TRow row))
+                        if (TryGenerateRow(index, searchParamId, (TSearchValue)v.Value, out TRow row))
                         {
                             yield return row;
                         }
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     {
                         foreach (var searchValue in ConvertSearchValue(v))
                         {
-                            if (TryGenerateRow(resourceTypeId, resourceId, searchParamId, searchValue, out TRow row))
+                            if (TryGenerateRow(index, searchParamId, searchValue, out TRow row))
                             {
                                 yield return row;
                             }
@@ -92,6 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal abstract bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, TSearchValue searchValue, out TRow row);
+        internal abstract bool TryGenerateRow(int index, short searchParamId, TSearchValue searchValue, out TRow row);
     }
 }

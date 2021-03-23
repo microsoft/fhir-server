@@ -15,13 +15,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short resourceTypeId, string resourceId, short searchParamId, NumberSearchValue searchValue, out BulkNumberSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, NumberSearchValue searchValue, out BulkNumberSearchParamTableTypeV1Row row)
         {
             bool isSingleValue = searchValue.Low == searchValue.High;
 
             row = new BulkNumberSearchParamTableTypeV1Row(
-                resourceTypeId,
-                resourceId,
+                offset,
                 searchParamId,
                 isSingleValue ? searchValue.Low : null,
                 isSingleValue ? null : searchValue.Low ?? (decimal?)VLatest.NumberSearchParam.LowValue.MinValue,
