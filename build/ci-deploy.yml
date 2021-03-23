@@ -41,6 +41,8 @@ stages:
   - DockerBuild
   jobs:
   - job: setup
+    pool:
+      vmImage: '$(WindowsVmImage)'
     steps:
     - template: ./jobs/add-aad-test-environment.yml
 
