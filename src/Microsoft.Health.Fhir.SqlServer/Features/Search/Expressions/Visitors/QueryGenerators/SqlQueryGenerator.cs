@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 case SearchParamTableExpressionKind.NotExists:
                     StringBuilder.Append("SELECT Sid1");
-                    StringBuilder.AppendLine(context.Sort?.Count > 0 ? ", SortValue" : string.Empty);
+                    StringBuilder.AppendLine(IsInSortMode(context) ? ", SortValue" : string.Empty);
                     StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
                     StringBuilder.AppendLine("WHERE Sid1 NOT IN").AppendLine("(");
 
