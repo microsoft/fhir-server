@@ -24,8 +24,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
         private double _rUsConsumedDuringInterval = 0.0;
         private ushort _delayFactor = 0;
         private double? _targetRUs = null;
-        private uint _targetBatchSize;
-        private uint _jobConfiguredBatchSize;
+        private uint _targetBatchSize = 100;
+        private uint _jobConfiguredBatchSize = 100;
         private bool _initialized = false;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ILogger<ReindexJobCosmosThrottleController> _logger;
@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
 
             ReindexJobRecord = reindexJobRecord;
             _provisionedRUThroughput = provisionedDatastoreCapacity;
+            _jobConfiguredBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
 
             if (ReindexJobRecord.TargetDataStoreUsagePercentage.HasValue
                 && ReindexJobRecord.TargetDataStoreUsagePercentage.Value > 0
@@ -60,7 +61,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                 _delayFactor = 0;
                 _rUsConsumedDuringInterval = 0.0;
                 _initialized = true;
-                _jobConfiguredBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
                 _targetBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             }
         }
@@ -78,6 +78,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
 
         public uint GetThrottleBatchSize()
         {
+            if (!_initialized)
+            {
+                // not initialized
+                return _jobConfiguredBatchSize;
+            }
+
             return _targetBatchSize;
         }
 

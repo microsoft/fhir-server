@@ -122,6 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
 
             _throttleController.GetThrottleBasedDelay().Returns(0);
+            _throttleController.GetThrottleBatchSize().Returns(100U);
         }
 
         public Task DisposeAsync()
