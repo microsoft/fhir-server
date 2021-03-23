@@ -68,6 +68,7 @@
     <None Remove="TestFiles\Normative\ValueSet-omb-race-category.json" />
     <None Remove="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
     <None Remove="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
+    <None Remove="TestFiles\Normative\ValueSet.json" />
     <None Remove="TestFiles\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
@@ -307,6 +308,7 @@
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-omb-race-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValueSet.json" />
     <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
     <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\Normative\conversion_templates.tar.gz" />
