@@ -85,7 +85,7 @@ jobs:
 
         $appServiceName = "${{ parameters.appServiceName }}"
         $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
-        $acrSettings = $appSettings | where{$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
+        $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
         $acrLoginServer = $acrSettings[0].Value
         $acrAccountName = ($acrLoginServer -split '\.')[0]
         $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
@@ -182,7 +182,7 @@ jobs:
 
         $appServiceName = "${{ parameters.appServiceName }}-sql"
         $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
-        $acrSettings = $appSettings | where{$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
+        $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
         $acrLoginServer = $acrSettings[0].Value
         $acrAccountName = ($acrLoginServer -split '\.')[0]
         $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
