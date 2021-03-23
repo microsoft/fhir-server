@@ -88,12 +88,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
             using (var writer = new XmlTextWriter(textWriter))
             {
-                if (context.HttpContext.GetIsPretty())
+                if (context.HttpContext.GetPrettyOrDefault())
                 {
                     writer.Formatting = Formatting.Indented;
                 }
 
-                _fhirXmlSerializer.Serialize(resourceObject, writer, context.HttpContext.GetSummaryType(_logger), elements: context.HttpContext.GetElementsSearchParameter(_logger));
+                _fhirXmlSerializer.Serialize(resourceObject, writer, context.HttpContext.GetSummaryTypeOrDefault(), elements: context.HttpContext.GetElementsOrDefault());
             }
 
             return Task.CompletedTask;

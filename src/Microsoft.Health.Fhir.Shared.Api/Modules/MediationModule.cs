@@ -25,12 +25,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddMediatR(KnownAssemblies.All);
 
-            Predicate<Type> isPipelineBehavior = y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
-
-            services.TypesInSameAssembly(KnownAssemblies.All)
-                .Transient()
-                .AsImplementedInterfaces(isPipelineBehavior);
-
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]
             {

@@ -8,5 +8,6 @@ namespace Microsoft.Health.Fhir.CosmosDb
     internal static class Constants
     {
         public const string CollectionConfigurationName = "fhirCosmosDb";
+        public const string CosmosDbResponseMessagesProperty = nameof(CosmosDbResponseMessagesProperty);
     }
 }

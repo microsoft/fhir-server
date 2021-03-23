@@ -530,6 +530,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;handling&apos; value &apos;{0}&apos; is invalid. The supported values are: {1}..
+        /// </summary>
+        internal static string InvalidHandlingValue {
+            get {
+                return ResourceManager.GetString("InvalidHandlingValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The count must be greater than zero..
         /// </summary>
         internal static string InvalidSearchCountSpecified {

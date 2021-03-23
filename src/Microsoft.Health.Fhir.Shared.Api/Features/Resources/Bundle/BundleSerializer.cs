@@ -16,15 +16,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public class BundleSerializer
     {
-        private readonly JsonWriterOptions _writerOptions = new JsonWriterOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        private readonly JsonWriterOptions _writerOptions = new JsonWriterOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
+
+        private readonly JsonWriterOptions _indentedWriterOptions = new JsonWriterOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            Indented = true,
+        };
 
         public BundleSerializer()
         {
         }
 
-        public async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream)
+        public async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream, bool pretty = false)
         {
-            await using Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, _writerOptions);
+            await using Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, pretty ? _indentedWriterOptions : _writerOptions);
             await using StreamWriter streamWriter = new StreamWriter(outputStream, leaveOpen: true);
 
             writer.WriteStartObject();

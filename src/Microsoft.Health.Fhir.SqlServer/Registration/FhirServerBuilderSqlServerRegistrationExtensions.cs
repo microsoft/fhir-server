@@ -97,6 +97,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsImplementedInterfaces();
 
+            services.Add<SqlServerSearchParameterValidator>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

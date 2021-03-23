@@ -41,5 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public bool ExecutingBatchOrTransaction { get; set; }
 
         public bool IsBackgroundTask { get; set; }
+
+        public IDictionary<string, object> Properties { get; } = new Dictionary<string, object>();
     }
 }

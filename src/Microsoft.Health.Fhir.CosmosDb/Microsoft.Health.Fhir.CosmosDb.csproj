@@ -10,8 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.16.0" />
-    <PackageReference Include="Microsoft.Azure.Cosmos.Direct" Version="3.17.1" /> <!-- Workaround for https://github.com/dotnet/roslyn/issues/47304 when building in VS-->
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.17.0" />
     <PackageReference Include="System.Private.ServiceModel" Version="4.8.1" /><!-- Microsoft.Azure.Cosmos.Direct is referencing an insecure version of System.Private.ServiceModel (4.5.0) -->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(RuntimePackageVersion)" />
@@ -19,7 +18,7 @@
     <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.4.0" />
+    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.4.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="$(RuntimePackageVersion)" />
   </ItemGroup>
   <ItemGroup>

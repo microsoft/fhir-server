@@ -11,6 +11,9 @@
   
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ExportAnonymizerFactoryTests.cs" />
+    <None Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\ContainerRegistryTemplateProviderTests.cs" />
+    <None Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\ConvertDataEngineTests.cs" />
+    <None Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\ConvertDataRequestHandlerTests.cs" />
   </ItemGroup>
   
   <Import Project="Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems" Label="Shared" />

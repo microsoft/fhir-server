@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly IReindexUtilities _reindexUtilities;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger _logger;
 
         private ReindexJobRecord _reindexJobRecord;
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
+            IModelInfoProvider modelInfoProvider,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -49,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -56,6 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
+            _modelInfoProvider = modelInfoProvider;
             _logger = logger;
         }
 
@@ -105,21 +109,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var resourceList = new HashSet<string>();
                     foreach (var param in notYetIndexedParams)
                     {
-                        if (param.TargetResourceTypes != null)
+                        foreach (var baseResourceType in param.BaseResourceTypes)
                         {
-                            resourceList.UnionWith(param.TargetResourceTypes);
-                        }
+                            if (baseResourceType == KnownResourceTypes.Resource)
+                            {
+                                resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
 
-                        if (param.BaseResourceTypes != null)
-                        {
-                            resourceList.UnionWith(param.BaseResourceTypes);
+                                // We added all possible resource types, so no need to continue
+                                break;
+                            }
+
+                            if (baseResourceType == KnownResourceTypes.DomainResource)
+                            {
+                                var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+
+                                // Remove types that inherit from Resource directly
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
+
+                                resourceList.UnionWith(domainResourceChildResourceTypes);
+                            }
+                            else
+                            {
+                                resourceList.UnionWith(new[] { baseResourceType });
+                            }
                         }
                     }
 
                     _reindexJobRecord.Resources.AddRange(resourceList);
                     _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Url.ToString()));
 
-                    await CalculateTotalCount(cancellationToken);
+                    await CalculateTotalAndResourceCounts(cancellationToken);
 
                     if (_reindexJobRecord.Count == 0)
                     {
@@ -134,13 +155,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Generate separate queries for each resource type and add them to query list.
                     foreach (string resourceType in _reindexJobRecord.Resources)
                     {
-                        var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                        // Checking resource specific counts is a performance improvement,
+                        // so if an entry for this resource failed to get added to the count dictionary, run a query anyways
+                        if (!_reindexJobRecord.ResourceCounts.ContainsKey(resourceType) || _reindexJobRecord.ResourceCounts[resourceType] > 0)
                         {
-                            LastModified = Clock.UtcNow,
-                            Status = OperationStatus.Queued,
-                        };
+                            var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                            {
+                                LastModified = Clock.UtcNow,
+                                Status = OperationStatus.Queued,
+                            };
 
-                        _reindexJobRecord.QueryList.Add(query);
+                            _reindexJobRecord.QueryList.TryAdd(query, 1);
+                        }
                     }
 
                     await UpdateJobAsync(cancellationToken);
@@ -150,16 +176,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var queryCancellationTokens = new Dictionary<ReindexJobQueryStatus, CancellationTokenSource>();
 
                 // while not all queries are finished
-                while (_reindexJobRecord.QueryList.Where(q =>
+                while (_reindexJobRecord.QueryList.Keys.Where(q =>
                     q.Status == OperationStatus.Queued ||
                     q.Status == OperationStatus.Running).Any())
                 {
-                    if (_reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).Any())
+                    if (_reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Queued).Any())
                     {
                         // grab the next query from the list which is labeled as queued and run it
-                        var query = _reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
+                        var query = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
                         CancellationTokenSource queryTokensSource = new CancellationTokenSource();
-                        queryCancellationTokens.Add(query, queryTokensSource);
+                        queryCancellationTokens.TryAdd(query, queryTokensSource);
 
 #pragma warning disable CS4014 // Suppressed as we want to continue execution and begin processing the next query while this continues to run
                         queryTasks.Add(ProcessQueryAsync(query, jobSemaphore, queryTokensSource.Token));
@@ -169,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     // reset stale queries to pending
-                    var staleQueries = _reindexJobRecord.QueryList.Where(
+                    var staleQueries = _reindexJobRecord.QueryList.Keys.Where(
                         q => q.Status == OperationStatus.Running && q.LastModified < Clock.UtcNow - _reindexJobConfiguration.JobHeartbeatTimeoutThreshold);
                     foreach (var staleQuery in staleQueries)
                     {
@@ -304,7 +330,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             LastModified = Clock.UtcNow,
                             Status = OperationStatus.Queued,
                         };
-                        _reindexJobRecord.QueryList.Add(nextQuery);
+                        _reindexJobRecord.QueryList.TryAdd(nextQuery, 1);
                     }
 
                     await UpdateJobAsync(cancellationToken);
@@ -324,6 +350,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         _reindexJobRecord.Progress += results.Results.Count();
                         query.Status = OperationStatus.Completed;
+
+                        // Remove oldest completed queryStatus object if count > 10
+                        // to ensure reindex job document doesn't grow too large
+                        if (_reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).Count() > 10)
+                        {
+                            var queryStatusToRemove = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified).FirstOrDefault();
+                            _reindexJobRecord.QueryList.TryRemove(queryStatusToRemove, out var removedByte);
+                        }
+
                         await UpdateJobAsync(cancellationToken);
                     }
                     finally
@@ -366,7 +401,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CheckJobCompletionStatus(CancellationToken cancellationToken)
         {
             // If any query still in progress then we are not done
-            if (_reindexJobRecord.QueryList.Where(q =>
+            if (_reindexJobRecord.QueryList.Keys.Where(q =>
                 q.Status == OperationStatus.Queued ||
                 q.Status == OperationStatus.Running).Any())
             {
@@ -375,7 +410,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             else
             {
                 // all queries marked as complete, reindex job is done, check success or failure
-                if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
+                if (_reindexJobRecord.QueryList.Keys.All(q => q.Status == OperationStatus.Completed))
                 {
                     await UpdateParametersAndCompleteJob(cancellationToken);
                 }
@@ -439,7 +474,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task CalculateTotalCount(CancellationToken cancellationToken)
+        private async Task CalculateTotalAndResourceCounts(CancellationToken cancellationToken)
         {
             int totalCount = 0;
             foreach (string resourceType in _reindexJobRecord.Resources)
@@ -452,9 +487,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 // update the complete total
                 SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, cancellationToken);
-                if (countOnlyResults != null)
+                if (countOnlyResults?.TotalCount != null)
                 {
+                    // No action needs to be taken if an entry for this resource fails to get added to the dictionary
+                    // We will reindex all resource types that do not have a dictionary entry
+                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, countOnlyResults.TotalCount.Value);
                     totalCount += countOnlyResults.TotalCount.Value;
+                }
+                else
+                {
+                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, 0);
                 }
             }
 

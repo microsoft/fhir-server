@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
@@ -37,6 +38,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             return $"(Not {Expression})";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(NotExpression));
+            Expression.AddValueInsensitiveHashCode(ref hashCode);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            return other is NotExpression notExpression && notExpression.ValueInsensitiveEquals(Expression);
         }
     }
 }

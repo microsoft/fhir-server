@@ -13,11 +13,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         public static ICosmosQueryLogger Instance { get; } = new NullFhirCosmosQueryLogger();
 
-        public void LogQueryExecution(Guid queryId, QueryDefinition sqlQuerySpec, string partitionKey, string continuationToken, int? maxItemCount)
+        public void LogQueryExecution(QueryDefinition sqlQuerySpec, string partitionKey, string continuationToken, int? maxItemCount, int? maxConcurrency)
         {
         }
 
-        public void LogQueryExecutionResult(Guid queryId, string activityId, double requestCharge, string continuationToken, string eTag, int count, Exception exception = null)
+        public void LogQueryExecutionResult(string activityId, double requestCharge, string continuationToken, int count, double durationMs, string partitionKeyRangeId, Exception exception = null)
         {
         }
     }
