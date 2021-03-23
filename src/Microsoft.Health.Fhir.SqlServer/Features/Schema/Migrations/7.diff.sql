@@ -1,3 +1,5 @@
+IF TYPE_ID(N'ReferenceSearchParamTableType_2') IS NULL
+BEGIN
 CREATE TYPE dbo.ReferenceSearchParamTableType_2 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -6,10 +8,14 @@ CREATE TYPE dbo.ReferenceSearchParamTableType_2 AS TABLE
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL
 );
+END
+GO
 
 ALTER TABLE dbo.ReferenceSearchParam
     ALTER COLUMN ReferenceResourceTypeId smallint NULL;
 
+IF TYPE_ID(N'ReferenceTokenCompositeSearchParamTableType_2') IS NULL
+BEGIN
 CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_2 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -20,6 +26,8 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_2 AS TABLE
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
+END
+GO
 
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
     ALTER COLUMN ReferenceResourceTypeId1 smallint NULL;
@@ -93,7 +101,7 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_2
+CREATE OR ALTER PROCEDURE dbo.UpsertResource_2
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
