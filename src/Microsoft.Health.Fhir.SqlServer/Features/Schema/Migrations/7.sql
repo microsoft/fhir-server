@@ -4,20 +4,16 @@
     Schema Version
 **************************************************************/
 
-IF NOT EXISTS (SELECT 'X' FROM dbo.SchemaVersion WHERE VERSION = 7)
-BEGIN
 INSERT INTO dbo.SchemaVersion
 VALUES
     (7, 'started')
-END
+
 GO
 
 /*************************************************************
     Model tables
 **************************************************************/
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'SearchParam')
-BEGIN
 CREATE TABLE dbo.SearchParam
 (
     SearchParamId smallint IDENTITY(1,1) NOT NULL,
@@ -26,75 +22,51 @@ CREATE TABLE dbo.SearchParam
     LastUpdated datetimeoffset(7) NULL,
     IsPartiallySupported bit NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_SearchParam' AND OBJECT_ID = OBJECT_ID('SearchParam'))
-BEGIN
 CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam ON dbo.SearchParam
 (
     Uri
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ResourceType')
-BEGIN
 CREATE TABLE dbo.ResourceType
 (
     ResourceTypeId smallint IDENTITY(1,1) NOT NULL,
     Name nvarchar(50) COLLATE Latin1_General_100_CS_AS  NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_ResourceType' AND OBJECT_ID = OBJECT_ID('ResourceType'))
-BEGIN
-CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType ON dbo.ResourceType
+CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType on dbo.ResourceType
 (
     Name
 )
-END
 
 -- Create System and QuantityCode tables
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'System')
-BEGIN
 CREATE TABLE dbo.System
 (
     SystemId int IDENTITY(1,1) NOT NULL,
     Value nvarchar(256) NOT NULL,
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_System' AND OBJECT_ID = OBJECT_ID('System'))
-BEGIN
 CREATE UNIQUE CLUSTERED INDEX IXC_System ON dbo.System
 (
     Value
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'QuantityCode')
-BEGIN
 CREATE TABLE dbo.QuantityCode
 (
     QuantityCodeId int IDENTITY(1,1) NOT NULL,
     Value nvarchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_QuantityCode' AND OBJECT_ID = OBJECT_ID('QuantityCode'))
-BEGIN
-CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode ON dbo.QuantityCode
+CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
 (
     Value
 )
-END
 
 /*************************************************************
     Resource table
 **************************************************************/
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Resource')
-BEGIN
 CREATE TABLE dbo.Resource
 (
     ResourceTypeId smallint NOT NULL,
@@ -107,28 +79,19 @@ CREATE TABLE dbo.Resource
     RawResource varbinary(max) NOT NULL,
     IsRawResourceMetaSet bit NOT NULL DEFAULT 0
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_Resource' AND OBJECT_ID = OBJECT_ID('Resource'))
-BEGIN
 CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource
 (
     ResourceSurrogateId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_Resource_ResourceTypeId_ResourceId_Version' AND OBJECT_ID = OBJECT_ID('Resource'))
-BEGIN
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON dbo.Resource
 (
     ResourceTypeId,
     ResourceId,
     Version
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_Resource_ResourceTypeId_ResourceId' AND OBJECT_ID = OBJECT_ID('Resource'))
-BEGIN
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId ON dbo.Resource
 (
     ResourceTypeId,
@@ -140,99 +103,69 @@ INCLUDE -- We want the query in UpsertResource, which is done with UPDLOCK AND H
     IsDeleted
 )
 WHERE IsHistory = 0
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_Resource_ResourceTypeId_ResourceSurrgateId' AND OBJECT_ID = OBJECT_ID('Resource'))
-BEGIN
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId ON dbo.Resource
 (
     ResourceTypeId,
     ResourceSurrogateId
 )
 WHERE IsHistory = 0 AND IsDeleted = 0
-END
 
 /*************************************************************
     Capture claims on write
 **************************************************************/
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ClaimType')
-BEGIN
 CREATE TABLE dbo.ClaimType
 (
     ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
     Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_Claim' AND OBJECT_ID = OBJECT_ID('ClaimType'))
-BEGIN
-CREATE UNIQUE CLUSTERED INDEX IXC_Claim ON dbo.ClaimType
+CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
 (
     Name
 )
-END
 
-IF TYPE_ID(N'ResourceWriteClaimTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.ResourceWriteClaimTableType_1 AS TABLE
 (
     ClaimTypeId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ResourceWriteClaim')
-BEGIN
 CREATE TABLE dbo.ResourceWriteClaim
 (
     ResourceSurrogateId bigint NOT NULL,
     ClaimTypeId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_ResourceWriteClaim' AND OBJECT_ID = OBJECT_ID('ResourceWriteClaim'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_ResourceWriteClaim on dbo.ResourceWriteClaim
 (
     ResourceSurrogateId,
     ClaimTypeId
 )
-END
 
 /*************************************************************
     Compartments
 **************************************************************/
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'CompartmentType')
-BEGIN
 CREATE TABLE dbo.CompartmentType
 (
     CompartmentTypeId tinyint IDENTITY(1,1) NOT NULL,
     Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_CompartmentType' AND OBJECT_ID = OBJECT_ID('CompartmentType'))
-BEGIN
-CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType ON dbo.CompartmentType
+CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
 (
     Name
 )
-END
 
-IF TYPE_ID(N'CompartmentAssignmentTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE
 (
     CompartmentTypeId tinyint NOT NULL,
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'CompartmentAssignment')
-BEGIN
 CREATE TABLE dbo.CompartmentAssignment
 (
     ResourceTypeId smallint NOT NULL,
@@ -241,10 +174,7 @@ CREATE TABLE dbo.CompartmentAssignment
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_CompartmentAssignment' AND OBJECT_ID = OBJECT_ID('CompartmentAssignment'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_CompartmentAssignment
 ON dbo.CompartmentAssignment
 (
@@ -252,10 +182,7 @@ ON dbo.CompartmentAssignment
     CompartmentTypeId,
     ReferenceResourceId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId' AND OBJECT_ID = OBJECT_ID('CompartmentAssignment'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId
 ON dbo.CompartmentAssignment
 (
@@ -268,15 +195,13 @@ INCLUDE
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
+
 GO
 
 /*************************************************************
     Reference Search Param
 **************************************************************/
 
-IF TYPE_ID(N'ReferenceSearchParamTableType_2') IS NULL
-BEGIN
 CREATE TYPE dbo.ReferenceSearchParamTableType_2 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -285,10 +210,7 @@ CREATE TYPE dbo.ReferenceSearchParamTableType_2 AS TABLE
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ReferenceSearchParam')
-BEGIN
 CREATE TABLE dbo.ReferenceSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -300,20 +222,14 @@ CREATE TABLE dbo.ReferenceSearchParam
     ReferenceResourceVersion int NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_ReferenceSearchParam' AND OBJECT_ID = OBJECT_ID('ReferenceSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
 ON dbo.ReferenceSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion' AND OBJECT_ID = OBJECT_ID('ReferenceSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
 ON dbo.ReferenceSearchParam
 (
@@ -329,7 +245,6 @@ INCLUDE
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -337,18 +252,13 @@ GO
     Token Search Param
 **************************************************************/
 
-IF TYPE_ID(N'TokenSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TokenSearchParam')
-BEGIN
 CREATE TABLE dbo.TokenSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -358,20 +268,14 @@ CREATE TABLE dbo.TokenSearchParam
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_TokenSearchParam' AND OBJECT_ID = OBJECT_ID('TokenSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_TokenSearchParam
 ON dbo.TokenSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenSeachParam_SearchParamId_Code_SystemId' AND OBJECT_ID = OBJECT_ID('TokenSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
 ON dbo.TokenSearchParam
 (
@@ -385,7 +289,6 @@ INCLUDE
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -393,17 +296,12 @@ GO
     Token Text
 **************************************************************/
 
-IF TYPE_ID(N'TokenTextTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.TokenTextTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TokenText')
-BEGIN
 CREATE TABLE dbo.TokenText
 (
     ResourceTypeId smallint NOT NULL,
@@ -412,20 +310,14 @@ CREATE TABLE dbo.TokenText
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL,
     IsHistory bit NOT NULL
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_TokenText' AND OBJECT_ID = OBJECT_ID('TokenText'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_TokenText
 ON dbo.TokenText
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenText_SearchParamId_Text' AND OBJECT_ID = OBJECT_ID('TokenText'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
 ON dbo.TokenText
 (
@@ -438,7 +330,6 @@ INCLUDE
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -446,18 +337,13 @@ GO
     String Search Param
 **************************************************************/
 
-IF TYPE_ID(N'StringSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.StringSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'StringSearchParam')
-BEGIN
 CREATE TABLE dbo.StringSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -467,20 +353,14 @@ CREATE TABLE dbo.StringSearchParam
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsHistory bit NOT NULL
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_StringSearchParam' AND OBJECT_ID = OBJECT_ID('StringSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_StringSearchParam
 ON dbo.StringSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_StringSearchParam_SearchParamId_Text' AND OBJECT_ID = OBJECT_ID('StringSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
 ON dbo.StringSearchParam
 (
@@ -494,10 +374,7 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND TextOverflow IS NULL
 WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_StringSearchParam_SearchParamId_TextWithOverflow' AND OBJECT_ID = OBJECT_ID('StringSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 ON dbo.StringSearchParam
 (
@@ -510,24 +387,19 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-END
+
 GO
 
 /*************************************************************
     URI Search Param
 **************************************************************/
 
-IF TYPE_ID(N'UriSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.UriSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'UriSearchParam')
-BEGIN
 CREATE TABLE dbo.UriSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -536,20 +408,14 @@ CREATE TABLE dbo.UriSearchParam
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_UriSearchParam' AND OBJECT_ID = OBJECT_ID('UriSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_UriSearchParam
 ON dbo.UriSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_UriSearchParam_SearchParamId_Uri' AND OBJECT_ID = OBJECT_ID('UriSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
 ON dbo.UriSearchParam
 (
@@ -562,7 +428,6 @@ INCLUDE
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -577,8 +442,6 @@ GO
 --  (2) SingleValue is null and LowValue and HighValue are both not null
 -- We make use of filtered nonclustered indexes to keep queries over the ranges limited to those rows that actually have ranges
 
-IF TYPE_ID(N'NumberSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -586,10 +449,7 @@ CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE
     LowValue decimal(18,6) NULL,
     HighValue decimal(18,6) NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'NumberSearchParam')
-BEGIN
 CREATE TABLE dbo.NumberSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -600,20 +460,14 @@ CREATE TABLE dbo.NumberSearchParam
     HighValue decimal(18,6) SPARSE NULL,
     IsHistory bit NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_NumberSearchParam' AND OBJECT_ID = OBJECT_ID('NumberSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_NumberSearchParam
 ON dbo.NumberSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_NumberSearchParam_SearchParamId_SingleValue' AND OBJECT_ID = OBJECT_ID('NumberSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
 ON dbo.NumberSearchParam
 (
@@ -625,10 +479,7 @@ INCLUDE
     ResourceTypeId
 )
 WHERE IsHistory = 0 AND SingleValue IS NOT NULL
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_NumberSearchParam_SearchParamId_LowValue_HighValue' AND OBJECT_ID = OBJECT_ID('NumberSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
 ON dbo.NumberSearchParam
 (
@@ -641,10 +492,7 @@ INCLUDE
     ResourceTypeId
 )
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_NumberSearchParam_SearchParamId_HighValue_LowValue' AND OBJECT_ID = OBJECT_ID('NumberSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
 ON dbo.NumberSearchParam
 (
@@ -657,7 +505,6 @@ INCLUDE
     ResourceTypeId
 )
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
-END
 
 GO
 
@@ -667,8 +514,6 @@ GO
 
 -- See comment above for number search params for how we store ranges
 
-IF TYPE_ID(N'QuantitySearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -678,10 +523,7 @@ CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE
     LowValue decimal(18,6) NULL,
     HighValue decimal(18,6) NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'QuantitySearchParam')
-BEGIN
 CREATE TABLE dbo.QuantitySearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -694,20 +536,14 @@ CREATE TABLE dbo.QuantitySearchParam
     HighValue decimal(18,6) SPARSE NULL,
     IsHistory bit NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_QuantitySearchParam' AND OBJECT_ID = OBJECT_ID('QuantitySearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_QuantitySearchParam
 ON dbo.QuantitySearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue' AND OBJECT_ID = OBJECT_ID('QuantitySearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
 ON dbo.QuantitySearchParam
 (
@@ -721,10 +557,7 @@ INCLUDE
     SystemId
 )
 WHERE IsHistory = 0 AND SingleValue IS NOT NULL
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue' AND OBJECT_ID = OBJECT_ID('QuantitySearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
 ON dbo.QuantitySearchParam
 (
@@ -739,10 +572,7 @@ INCLUDE
     SystemId
 )
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue' AND OBJECT_ID = OBJECT_ID('QuantitySearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
 ON dbo.QuantitySearchParam
 (
@@ -757,7 +587,6 @@ INCLUDE
     SystemId
 )
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
-END
 
 GO
 
@@ -765,8 +594,6 @@ GO
     Date Search Param
 **************************************************************/
 
-IF TYPE_ID(N'DateTimeSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -774,10 +601,7 @@ CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
     EndDateTime datetimeoffset(7) NOT NULL,
     IsLongerThanADay bit NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'DateTimeSearchParam')
-BEGIN
 CREATE TABLE dbo.DateTimeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -788,20 +612,14 @@ CREATE TABLE dbo.DateTimeSearchParam
     IsLongerThanADay bit NOT NULL,
     IsHistory bit NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_DateTimeSearchParam' AND OBJECT_ID = OBJECT_ID('DateTimeSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
 ON dbo.DateTimeSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime' AND OBJECT_ID = OBJECT_ID('DateTimeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
 ON dbo.DateTimeSearchParam
 (
@@ -815,10 +633,7 @@ INCLUDE
     IsLongerThanADay
 )
 WHERE IsHistory = 0
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime' AND OBJECT_ID = OBJECT_ID('DateTimeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
 ON dbo.DateTimeSearchParam
 (
@@ -832,11 +647,8 @@ INCLUDE
     IsLongerThanADay
 )
 WHERE IsHistory = 0
-END
 
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long' AND OBJECT_ID = OBJECT_ID('DateTimeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
 ON dbo.DateTimeSearchParam
 (
@@ -849,10 +661,7 @@ INCLUDE
     ResourceTypeId
 )
 WHERE IsHistory = 0 AND IsLongerThanADay = 1
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long' AND OBJECT_ID = OBJECT_ID('DateTimeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
 ON dbo.DateTimeSearchParam
 (
@@ -865,7 +674,6 @@ INCLUDE
     ResourceTypeId
 )
 WHERE IsHistory = 0 AND IsLongerThanADay = 1
-END
 
 GO
 
@@ -873,8 +681,6 @@ GO
     Reference$Token Composite Search Param
 **************************************************************/
 
-IF TYPE_ID(N'ReferenceTokenCompositeSearchParamTableType_2') IS NULL
-BEGIN
 CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_2 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -885,10 +691,7 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_2 AS TABLE
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ReferenceTokenCompositeSearchParam')
-BEGIN
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -902,20 +705,14 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_ReferenceTokenCompositeSearchParam' AND OBJECT_ID = OBJECT_ID('ReferenceTokenCompositeSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
 ON dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2' AND OBJECT_ID = OBJECT_ID('ReferenceTokenCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
 ON dbo.ReferenceTokenCompositeSearchParam
 (
@@ -932,7 +729,6 @@ INCLUDE
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -940,8 +736,6 @@ GO
     Token$Token Composite Search Param
 **************************************************************/
 
-IF TYPE_ID(N'TokenTokenCompositeSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.TokenTokenCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -950,10 +744,7 @@ CREATE TYPE dbo.TokenTokenCompositeSearchParamTableType_1 AS TABLE
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TokenTokenCompositeSearchParam')
-BEGIN
 CREATE TABLE dbo.TokenTokenCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -965,20 +756,14 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_TokenTokenCompositeSearchParam' AND OBJECT_ID = OBJECT_ID('TokenTokenCompositeSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
 ON dbo.TokenTokenCompositeSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenTokenCompositeSearchParam_Code1_Code2' AND OBJECT_ID = OBJECT_ID('TokenTokenCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
 ON dbo.TokenTokenCompositeSearchParam
 (
@@ -994,7 +779,6 @@ INCLUDE
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -1002,8 +786,6 @@ GO
     Token$DateTime Composite Search Param
 **************************************************************/
 
-IF TYPE_ID(N'TokenDateTimeCompositeSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -1013,10 +795,7 @@ CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
     EndDateTime2 datetimeoffset(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TokenDateTimeCompositeSearchParam')
-BEGIN
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -1029,20 +808,14 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_TokenDateTimeCompositeSearchParam' AND OBJECT_ID = OBJECT_ID('TokenDateTimeCompositeSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
 ON dbo.TokenDateTimeCompositeSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2' AND OBJECT_ID = OBJECT_ID('TokenDateTimeCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -1060,10 +833,7 @@ INCLUDE
 
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2' AND OBJECT_ID = OBJECT_ID('TokenDateTimeCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -1080,10 +850,7 @@ INCLUDE
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long' AND OBJECT_ID = OBJECT_ID('TokenDateTimeCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -1100,10 +867,7 @@ INCLUDE
 
 WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long' AND OBJECT_ID = OBJECT_ID('TokenDateTimeCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long
 ON dbo.TokenDateTimeCompositeSearchParam
 (
@@ -1119,7 +883,6 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -1127,8 +890,6 @@ GO
     Token$Quantity Composite Search Param
 **************************************************************/
 
-IF TYPE_ID(N'TokenQuantityCompositeSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -1140,10 +901,7 @@ CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TokenQuantityCompositeSearchParam')
-BEGIN
 CREATE TABLE dbo.TokenQuantityCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -1158,20 +916,14 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
     HighValue2 decimal(18,6) NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_TokenQuantityCompositeSearchParam' AND OBJECT_ID = OBJECT_ID('TokenQuantityCompositeSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
 ON dbo.TokenQuantityCompositeSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2' AND OBJECT_ID = OBJECT_ID('TokenQuantityCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
@@ -1188,10 +940,7 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND SingleValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2' AND OBJECT_ID = OBJECT_ID('TokenQuantityCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
@@ -1209,10 +958,7 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2' AND OBJECT_ID = OBJECT_ID('TokenQuantityCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
 ON dbo.TokenQuantityCompositeSearchParam
 (
@@ -1230,7 +976,6 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -1238,8 +983,6 @@ GO
     Token$String Composite Search Param
 **************************************************************/
 
-IF TYPE_ID(N'TokenStringCompositeSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -1248,10 +991,7 @@ CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
     Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TokenStringCompositeSearchParam')
-BEGIN
 CREATE TABLE dbo.TokenStringCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -1263,20 +1003,14 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_TokenStringCompositeSearchParam' AND OBJECT_ID = OBJECT_ID('TokenStringCompositeSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
 ON dbo.TokenStringCompositeSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2' AND OBJECT_ID = OBJECT_ID('TokenStringCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
 ON dbo.TokenStringCompositeSearchParam
 (
@@ -1292,10 +1026,7 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND TextOverflow2 IS NULL
 WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow' AND OBJECT_ID = OBJECT_ID('TokenStringCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
 ON dbo.TokenStringCompositeSearchParam
 (
@@ -1310,7 +1041,6 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND TextOverflow2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -1325,8 +1055,6 @@ GO
 -- (even if it is a persisted computed column).
 
 
-IF TYPE_ID(N'TokenNumberNumberCompositeSearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -1340,10 +1068,7 @@ CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
     HighValue3 decimal(18,6) NULL,
     HasRange bit NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TokenNumberNumberCompositeSearchParam')
-BEGIN
 CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -1360,20 +1085,14 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
     HasRange bit NOT NULL,
     IsHistory bit NOT NULL,
 ) WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_TokenNumberNumberCompositeSearchParam' AND OBJECT_ID = OBJECT_ID('TokenNumberNumberCompositeSearchParam'))
-BEGIN
 CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
     ResourceSurrogateId,
     SearchParamId
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2' AND OBJECT_ID = OBJECT_ID('TokenNumberNumberCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
@@ -1389,10 +1108,7 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND HasRange = 0
 WITH (DATA_COMPRESSION = PAGE)
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3' AND OBJECT_ID = OBJECT_ID('TokenNumberNumberCompositeSearchParam'))
-BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
@@ -1410,7 +1126,6 @@ INCLUDE
 )
 WHERE IsHistory = 0 AND HasRange = 1
 WITH (DATA_COMPRESSION = PAGE)
-END
 
 GO
 
@@ -1419,8 +1134,6 @@ GO
     to a base ID based on the timestamp to form a unique resource surrogate ID
 **************************************************************/
 
-IF NOT EXISTS (SELECT 'X' FROM sys.objects WHERE object_id = OBJECT_ID('ResourceSurrogateIdUniquifierSequence') AND type = 'SO')
-BEGIN
 CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
         AS int
         START WITH 0
@@ -1429,7 +1142,6 @@ CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
         MAXVALUE 79999
         CYCLE
         CACHE 1000000
-END
 GO
 
 /*************************************************************
@@ -1499,11 +1211,6 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'UpsertResource_2' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.UpsertResource_2
-END
-GO
 CREATE PROCEDURE dbo.UpsertResource_2
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
@@ -1546,7 +1253,7 @@ AS
     FROM dbo.Resource WITH (UPDLOCK, HOLDLOCK)
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
 
-    IF (@etag IS NOT NULL AND @etag <> @previousVersion) BEGIN;
+    IF (@etag IS NOT NULL AND @etag <> @previousVersion) BEGIN
         THROW 50412, 'Precondition failed', 1;
     END
 
@@ -1561,12 +1268,12 @@ AS
             RETURN
         END
 
-        IF (@etag IS NOT NULL) BEGIN;
+        IF (@etag IS NOT NULL) BEGIN
         -- You can't update a resource with a specified version if the resource does not exist
             THROW 50404, 'Resource with specified version not found', 1;
         END
 
-        IF (@allowCreate = 0) BEGIN;
+        IF (@allowCreate = 0) BEGIN
             THROW 50405, 'Resource does not exist and create is not allowed', 1;
         END
 
@@ -1824,11 +1531,6 @@ GO
 -- RETURN VALUE
 --         A result set with 0 or 1 rows.
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'ReadResource' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.ReadResource
-END
-GO
 CREATE PROCEDURE dbo.ReadResource
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -1862,11 +1564,6 @@ GO
 --     @resourceId
 --         * The resource ID (must be the same as in the resource itself)
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'HardDeleteResource' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.HardDeleteResource
-END
-GO
 CREATE PROCEDURE dbo.HardDeleteResource
     @resourceTypeId smallint,
     @resourceId varchar(64)
@@ -1937,8 +1634,6 @@ GO
 /*************************************************************
     Export Job
 **************************************************************/
-IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ExportJob')
-BEGIN
 CREATE TABLE dbo.ExportJob
 (
     Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -1948,25 +1643,19 @@ CREATE TABLE dbo.ExportJob
     RawJobRecord varchar(max) NOT NULL,
     JobVersion rowversion NOT NULL
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_ExportJob' AND OBJECT_ID = OBJECT_ID('ExportJob'))
-BEGIN
 CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob
 (
     Id
 )
-END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IX_ExportJob_Hash_Status_HeartbeatDateTime' AND OBJECT_ID = OBJECT_ID('ExportJob'))
-BEGIN
 CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime ON dbo.ExportJob
 (
     Hash,
     Status,
     HeartbeatDateTime
 )
-END
+
 GO
 
 /*************************************************************
@@ -1992,11 +1681,6 @@ GO
 -- RETURN VALUE
 --     The row version of the created export job.
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'CreateExportJob' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.CreateExportJob
-END
-GO
 CREATE PROCEDURE dbo.CreateExportJob
     @id varchar(64),
     @hash varchar(64),
@@ -2034,11 +1718,6 @@ GO
 -- RETURN VALUE
 --     The matching export job.
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'GetExportJobById' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.GetExportJobById
-END
-GO
 CREATE PROCEDURE dbo.GetExportJobById
     @id varchar(64)
 AS
@@ -2063,11 +1742,6 @@ GO
 -- RETURN VALUE
 --     The matching export job.
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'GetExportJobByHash' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.GetExportJobByHash
-END
-GO
 CREATE PROCEDURE dbo.GetExportJobByHash
     @hash varchar(64)
 AS
@@ -2099,11 +1773,6 @@ GO
 -- RETURN VALUE
 --     The row version of the updated export job.
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'UpdateExportJob' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.UpdateExportJob
-END
-GO
 CREATE PROCEDURE dbo.UpdateExportJob
     @id varchar(64),
     @status varchar(10),
@@ -2123,11 +1792,11 @@ AS
     FROM dbo.ExportJob WITH (UPDLOCK, HOLDLOCK)
     WHERE Id = @id
 
-    IF (@currentJobVersion IS NULL) BEGIN;
+    IF (@currentJobVersion IS NULL) BEGIN
         THROW 50404, 'Export job record not found', 1;
     END
 
-    IF (@jobVersion <> @currentJobVersion) BEGIN;
+    IF (@jobVersion <> @currentJobVersion) BEGIN
         THROW 50412, 'Precondition failed', 1;
     END
 
@@ -2159,11 +1828,6 @@ GO
 -- RETURN VALUE
 --     The updated jobs that are now running.
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'AcquireExportJobs' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.AcquireExportJobs
-END
-GO
 CREATE PROCEDURE dbo.AcquireExportJobs
     @jobHeartbeatTimeoutThresholdInSeconds bigint,
     @maximumNumberOfConcurrentJobsAllowed int
@@ -2212,15 +1876,13 @@ GO
 **************************************************************/
 
 -- We adopted this naming convention for table-valued parameters because they are immutable.
-IF TYPE_ID(N'SearchParamTableType_1') IS NULL
-BEGIN
 CREATE TYPE dbo.SearchParamTableType_1 AS TABLE
 (
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
     IsPartiallySupported bit NOT NULL
 )
-END
+
 GO
 
 /*************************************************************
@@ -2236,11 +1898,6 @@ GO
 -- RETURN VALUE
 --     The search parameters and their statuses.
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'GetSearchParamStatuses' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.GetSearchParamStatuses
-END
-GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
     SET NOCOUNT ON
@@ -2259,11 +1916,6 @@ GO
 --     @searchParams
 --         * The updated existing search parameters or the new search parameters
 --
-IF EXISTS (SELECT 'X' FROM sys.procedures WHERE name = 'UpsertSearchParams' AND type = 'p')
-BEGIN
-DROP PROCEDURE dbo.UpsertSearchParams
-END
-GO
 CREATE PROCEDURE dbo.UpsertSearchParams
     @searchParams dbo.SearchParamTableType_1 READONLY
 AS

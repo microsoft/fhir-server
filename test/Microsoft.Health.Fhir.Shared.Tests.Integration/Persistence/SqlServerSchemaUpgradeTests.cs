@@ -51,16 +51,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASchemaVersion_WhenApplyingFullTwice_ShouldSucceed()
-        {
-            var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-
-            await _testHelper.CreateAndInitializeDatabase(snapshotDatabaseName, SchemaVersionConstants.Max, forceIncrementalSchemaUpgrade: false);
-
-            await _schemaRunner.ApplySchemaAsync(SchemaVersionConstants.Max, applyFullSchemaSnapshot: true, CancellationToken.None);
-        }
-
-        [Fact]
         public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
         {
             var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";

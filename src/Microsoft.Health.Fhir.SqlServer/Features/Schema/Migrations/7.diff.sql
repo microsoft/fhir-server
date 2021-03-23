@@ -9,11 +9,12 @@ CREATE TYPE dbo.ReferenceSearchParamTableType_2 AS TABLE
     ReferenceResourceVersion int NULL
 );
 END
+GO
 
 ALTER TABLE dbo.ReferenceSearchParam
     ALTER COLUMN ReferenceResourceTypeId smallint NULL;
 
-IF TYPE_ID(N'ReferenceSearchParamTableType_2') IS NULL
+IF TYPE_ID(N'ReferenceTokenCompositeSearchParamTableType_2') IS NULL
 BEGIN
 CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_2 AS TABLE
 (
@@ -26,6 +27,7 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_2 AS TABLE
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 END
+GO
 
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
     ALTER COLUMN ReferenceResourceTypeId1 smallint NULL;
