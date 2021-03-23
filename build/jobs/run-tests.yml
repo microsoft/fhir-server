@@ -3,7 +3,8 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
-
+- name: appServiceName
+  type: string
 jobs:
 - job: "integrationTests"
   pool:
@@ -82,10 +83,10 @@ jobs:
         }
         Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
-        $acrKeyVault = "${{ parameters.keyVaultName }}"
-        $acrSecretName = "TestAcrLoginServer"
-        $acrSecretValue = Get-AzKeyVaultSecret -VaultName $acrKeyVault -Name $acrSecretName
-        $acrLoginServer = $acrSecretValue.SecretValueText
+        $appServiceName = "${{ parameters.appServiceName }}"
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $acrSettings = $config | where{$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"
+        $acrLoginServer = $acrSettings[0].Value
         $acrAccountName = ($acrLoginServer -split '\.')[0]
         $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
@@ -179,10 +180,10 @@ jobs:
         }
         Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
-        $acrKeyVault = "${{ parameters.keyVaultName }}-sql"
-        $acrSecretName = "TestAcrLoginServer"
-        $acrSecretValue = Get-AzKeyVaultSecret -VaultName $acrKeyVault -Name $acrSecretName
-        $acrLoginServer = $acrSecretValue.SecretValueText
+        $appServiceName = "${{ parameters.appServiceName }}-sql"
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $acrSettings = $config | where{$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"
+        $acrLoginServer = $acrSettings[0].Value
         $acrAccountName = ($acrLoginServer -split '\.')[0]
         $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"

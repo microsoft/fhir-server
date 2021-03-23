@@ -488,19 +488,6 @@
             ]
         },
         {
-            "condition": "[parameters('enableConvertData')]",
-            "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/TestAcrLoginServer')]",
-            "apiVersion": "2015-06-01",
-            "properties": {
-                "contentType": "text/plain",
-                "value": "[concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri'))]"
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]"
-            ]
-        },
-        {
             "name": "[variables('storageAccountName')]",
             "type": "Microsoft.Storage/storageAccounts",
             "apiVersion": "2019-06-01",
