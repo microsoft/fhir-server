@@ -151,10 +151,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async ValueTask DisposeAsync()
         {
-            _backgroundLoopCancellationTokenSource.Cancel();
-            await _backgroundLoopTask;
-            _backgroundLoopCancellationTokenSource.Dispose();
-            _backgroundLoopTask.Dispose();
+            if (_backgroundLoopTask != null)
+            {
+                try
+                {
+                    _backgroundLoopCancellationTokenSource.Cancel();
+                    await _backgroundLoopTask;
+                    _backgroundLoopCancellationTokenSource.Dispose();
+                    _backgroundLoopTask.Dispose();
+                }
+                finally
+                {
+                    _backgroundLoopTask = null;
+                }
+            }
         }
 
         private static string GenerateAuthToken(string verb, string resourceType, string resourceId, string date, string key)
