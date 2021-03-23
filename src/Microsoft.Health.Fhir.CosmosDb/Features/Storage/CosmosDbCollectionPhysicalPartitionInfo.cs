@@ -86,10 +86,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             string host = _dataStoreConfiguration.Host;
             string key = _dataStoreConfiguration.Key;
 
-            if (string.IsNullOrWhiteSpace(host) && string.IsNullOrWhiteSpace(key))
+            if (string.IsNullOrWhiteSpace(host))
             {
-                host = CosmosDbLocalEmulator.Host;
-                key = CosmosDbLocalEmulator.Key;
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    host = CosmosDbLocalEmulator.Host;
+                    key = CosmosDbLocalEmulator.Key;
+                }
+                else
+                {
+                    Ensure.That(host, $"{nameof(CosmosDataStoreConfiguration)}.{nameof(CosmosDataStoreConfiguration.Host)}").IsNotNullOrEmpty();
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(key))
+            {
+                Ensure.That(key, $"{nameof(CosmosDataStoreConfiguration)}.{nameof(CosmosDataStoreConfiguration.Key)}").IsNotNullOrEmpty();
             }
 
             string date = DateTime.UtcNow.ToString("R");
@@ -136,7 +147,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return 0; // will not reach this
         }
 
-        public static bool IsResourceToken(string key) => key.StartsWith("type=resource&", StringComparison.InvariantCulture);
+        private static bool IsResourceToken(string key) => key.StartsWith("type=resource&", StringComparison.InvariantCulture);
 
         public async ValueTask DisposeAsync()
         {
@@ -148,9 +159,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private static string GenerateAuthToken(string verb, string resourceType, string resourceId, string date, string key)
         {
-#pragma warning disable CA1308 // Normalize strings to uppercase. Required to be lowercase.
             string payLoad = $"{verb.ToLowerInvariant()}\n{resourceType.ToLowerInvariant()}\n{resourceId}\n{date.ToLowerInvariant()}\n\n";
-#pragma warning restore CA1308 // Normalize strings to uppercase
 
             using var hmacSha256 = new HMACSHA256 { Key = Convert.FromBase64String(key) };
             byte[] hashPayLoad = hmacSha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payLoad));

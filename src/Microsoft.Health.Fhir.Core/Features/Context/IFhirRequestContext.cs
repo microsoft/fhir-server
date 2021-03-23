@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         bool IsBackgroundTask { get; set; }
 
         /// <summary>
-        /// A weakly-typed property bag
+        /// A weakly-typed property bag that can be used for communication between components in the context of a request.
         /// </summary>
         IDictionary<string, object> Properties { get; }
     }

@@ -37,5 +37,6 @@
   </Rules>
   <Rules AnalyzerId="Microsoft.NetCore.Analyzers" RuleNamespace="Microsoft.NetCore.Analyzers">
     <Rule Id="CA1305" Action="Info" />
+    <Rule Id="CA1308" Action="None" />
   </Rules>
 </RuleSet>
