@@ -14,3 +14,20 @@ jobs:
       Inline: 'Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force'
 
 - template: ./cleanup-aad.yml
+
+- job: deleteImage
+  displayName: 'Delete Image'
+  pool:
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:
+  - task: AzureCLI@2
+    displayName: 'Delete Image'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      scriptType: pscore
+      scriptLocation: InlineScript
+      inlineScript: |
+        az acr repository delete --name $(azureContainerRegistryName) --image 'r4_fhir-server:$(ImageTag)' --yes
+        az acr repository delete --name $(azureContainerRegistryName) --image 'stu3_fhir-server:$(ImageTag)' --yes
+        az acr repository delete --name $(azureContainerRegistryName) --image 'r5_fhir-server:$(ImageTag)' --yes
