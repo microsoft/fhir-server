@@ -502,5 +502,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 builder.AddRestInteraction(SystemRestfulInteraction.Batch);
             }
         }
+
+        public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
+        {
+            return await _containerScope.Value.ReadThroughputAsync(cancellationToken);
+        }
     }
 }
