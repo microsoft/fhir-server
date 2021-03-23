@@ -40,7 +40,9 @@ stages:
   - provisionEnvironment
   - DockerBuild
   jobs:
-  - template: ./jobs/add-aad-test-environment.yml
+  - job: setup
+    steps:
+    - template: ./jobs/add-aad-test-environment.yml
 
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
