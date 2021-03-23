@@ -32,6 +32,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
+using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using Xunit;
 using ResourceType = Hl7.Fhir.Model.ResourceType;
@@ -90,6 +91,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public SearchParameterDefinitionManager SearchParameterDefinitionManager => _fixture.GetRequiredService<SearchParameterDefinitionManager>();
 
         public SupportedSearchParameterDefinitionManager SupportedSearchParameterDefinitionManager => _fixture.GetRequiredService<SupportedSearchParameterDefinitionManager>();
+
+        public SchemaInitializer SchemaInitializer => _fixture.GetRequiredService<SchemaInitializer>();
+
+        public SchemaUpgradeRunner SchemaUpgradeRunner => _fixture.GetRequiredService<SchemaUpgradeRunner>();
 
         public void Dispose()
         {

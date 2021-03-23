@@ -10,14 +10,14 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
-    public class ResourceValidator : AbstractValidator<ResourceElement>
+    public class ResourceElementValidator : AbstractValidator<ResourceElement>
     {
-        public ResourceValidator(INarrativeHtmlSanitizer narrativeHtmlSanitizer, IModelAttributeValidator modelAttributeValidator)
+        public ResourceElementValidator(ResourceContentValidator contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
             RuleFor(x => x.Id)
-                .SetValidator(new IdValidator());
+              .SetValidator(new IdValidator());
             RuleFor(x => x)
-                .SetValidator(new AttributeValidator(modelAttributeValidator));
+                  .SetValidator(contentValidator);
             RuleFor(x => x)
                 .SetValidator(new NarrativeValidator(narrativeHtmlSanitizer));
         }

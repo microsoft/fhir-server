@@ -89,11 +89,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Parameter-Convert-Data");
         }
 
-        public static Stream GetDefaultConversionTemplates()
-        {
-            return EmbeddedResourceManager.GetContentAsSteam(EmbeddedResourceSubNamespace, "conversion_templates", "tar.gz");
-        }
-
         /// <summary>
         /// Gets back a resource from a json sample file.
         /// </summary>

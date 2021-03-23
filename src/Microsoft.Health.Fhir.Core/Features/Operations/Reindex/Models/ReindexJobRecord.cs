@@ -58,6 +58,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         public ConcurrentDictionary<ReindexJobQueryStatus, byte> QueryList { get; private set; } = new ConcurrentDictionary<ReindexJobQueryStatus, byte>();
 
+        [JsonProperty(JobRecordProperties.ResourceCounts)]
+        public ConcurrentDictionary<string, int> ResourceCounts { get; private set; } = new ConcurrentDictionary<string, int>();
+
         [JsonProperty(JobRecordProperties.Count)]
         public int Count { get; set; }
 

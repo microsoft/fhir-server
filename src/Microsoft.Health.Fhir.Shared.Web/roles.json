@@ -40,7 +40,8 @@
                 "*"
             ],
             "notDataActions": [
-                "hardDelete"
+                "hardDelete",
+                "profileDefinitionsEditor"
             ],
             "scopes": [
                 "/"

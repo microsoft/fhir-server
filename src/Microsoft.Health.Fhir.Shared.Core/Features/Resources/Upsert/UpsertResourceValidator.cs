@@ -4,6 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -13,13 +16,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
     public class UpsertResourceValidator : AbstractValidator<UpsertResourceRequest>
     {
-        public UpsertResourceValidator(INarrativeHtmlSanitizer htmlSanitizer, IModelAttributeValidator modelAttributeValidator)
+        public UpsertResourceValidator(
+            IModelAttributeValidator modelAttributeValidator,
+            INarrativeHtmlSanitizer narrativeHtmlSanitizer,
+            IProfileValidator profileValidator,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IOptions<CoreFeatureConfiguration> config)
         {
             RuleFor(x => x.Resource.Id)
                 .NotEmpty().WithMessage(Core.Resources.UpdateRequestsRequireId);
 
+            var contentValidator = new ResourceProfileValidator(
+              modelAttributeValidator,
+              profileValidator,
+              fhirRequestContextAccessor,
+              config.Value.ProfileValidationOnUpdate);
+
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceValidator(htmlSanitizer, modelAttributeValidator));
+                .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer));
         }
     }
 }

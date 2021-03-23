@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Introspection;
 using Hl7.FhirPath;
 using Hl7.FhirPath.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -21,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly ISearchParameterDefinitionManager _definitionManager;
         private readonly IFhirNodeToSearchValueTypeConverterManager _searchValueTypeConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
+        private const string _codeOfTName = "codeOfT";
 
         public SearchParameterSupportResolver(
             ISearchParameterDefinitionManager definitionManager,
@@ -68,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     .Select(result => (
                         result,
                         hasConverter: _searchValueTypeConverterManager.TryGetConverter(
-                            result.ClassMapping.Name,
+                            GetBaseType(result.ClassMapping),
                             SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
                             out IFhirNodeToSearchValueTypeConverter converter),
                         converter))
@@ -84,6 +86,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     bool partialSupport = converters.Any(x => x.hasConverter);
                     return (partialSupport, partialSupport);
                 }
+            }
+
+            string GetBaseType(ClassMapping classMapping)
+            {
+                return classMapping.IsCodeOfT ? _codeOfTName : classMapping.Name;
             }
 
             return (true, false);
