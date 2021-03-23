@@ -3,11 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    internal static class Constants
+    public interface ICosmosDbCollectionPhysicalPartitionInfo
     {
-        public const string CollectionConfigurationName = "fhirCosmosDb";
-        public const string CosmosDbResponseMessagesProperty = nameof(CosmosDbResponseMessagesProperty);
+        int PhysicalPartitionCount { get; }
     }
 }

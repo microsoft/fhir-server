@@ -202,6 +202,16 @@ namespace Microsoft.Extensions.DependencyInjection
             // FhirCosmosClientInitializer is Singleton, so provide a factory that can resolve new RequestHandlers
             services.AddFactory<IEnumerable<RequestHandler>>();
 
+            services.Add<CosmosDbCollectionPhysicalPartitionInfo>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<QueryPartitionStatisticsCache>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 
