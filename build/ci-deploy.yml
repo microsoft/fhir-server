@@ -81,7 +81,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'tool'
+      schemaAutomaticUpdatesEnabled: 'auto'
 
 - stage: deployR4
   displayName: 'Deploy R4 Site'
@@ -118,7 +118,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'tool'
+      schemaAutomaticUpdatesEnabled: 'auto'
 
 - stage: deployR5
   displayName: 'Deploy R5 Site'
@@ -155,4 +155,4 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'tool'
+      schemaAutomaticUpdatesEnabled: 'auto'
