@@ -50,7 +50,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IReindexJobThrottleController throttleControllerFactory,
+            IReindexJobThrottleController throttleController,
+            IModelInfoProvider modelInfoProvider,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -59,7 +60,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
-            EnsureArg.IsNotNull(throttleControllerFactory, nameof(throttleControllerFactory));
+            EnsureArg.IsNotNull(throttleController, nameof(throttleController));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -69,7 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
             _contextAccessor = fhirRequestContextAccessor;
-            _throttleControllerFactory = throttleControllerFactory;
+            _throttleController = throttleController;
+            _modelInfoProvider = modelInfoProvider;
             _logger = logger;
         }
 
