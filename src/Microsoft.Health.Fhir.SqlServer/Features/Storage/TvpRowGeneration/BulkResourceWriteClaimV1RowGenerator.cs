@@ -31,8 +31,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             for (var index = 0; index < resources.Count; index++)
             {
                 ResourceWrapper resource = resources[index];
-                var resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
-                var resourceId = resource.ResourceId;
 
                 var resourceMetadata = new ResourceMetadata(
                     resource.CompartmentIndices,
