@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Newtonsoft.Json;
 using TaskStatus = Microsoft.Health.Fhir.Core.Features.TaskManagement.TaskStatus;
@@ -37,11 +38,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             }
         }
 
-        public Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result)
+        public Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId)
         {
             _faultInjectionAction?.Invoke("CompleteAsync");
 
             TaskInfo task = _taskInfos[taskId];
+            TaskInfo taskInfo = _taskInfos[taskId];
+            if (!runId.Equals(taskInfo.RunId))
+            {
+                throw new TaskNotExistException("Task not exist");
+            }
+
             task.Status = TaskStatus.Completed;
             task.Result = JsonConvert.SerializeObject(result);
 
@@ -62,35 +69,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             foreach (TaskInfo taskInfo in tasksInQueue)
             {
                 taskInfo.Status = TaskStatus.Running;
+                taskInfo.RunId = Guid.NewGuid().ToString();
             }
 
             return Task.FromResult<IReadOnlyCollection<TaskInfo>>(tasksInQueue);
         }
 
-        public Task<TaskInfo> KeepAliveAsync(string taskId)
+        public Task<TaskInfo> KeepAliveAsync(string taskId, string runId)
         {
             _faultInjectionAction?.Invoke("KeepAliveAsync");
 
             TaskInfo taskInfo = _taskInfos[taskId];
+            if (!runId.Equals(taskInfo.RunId))
+            {
+                throw new TaskNotExistException("Task not exist");
+            }
+
             taskInfo.HeartbeatDateTime = DateTime.Now;
 
             return Task.FromResult<TaskInfo>(taskInfo);
         }
 
-        public Task ResetAsync(string taskId, TaskResultData result)
+        public Task ResetAsync(string taskId, TaskResultData result, string runId)
         {
             _faultInjectionAction?.Invoke("ResetAsync");
 
-            _taskInfos[taskId].Result = JsonConvert.SerializeObject(result);
-            _taskInfos[taskId].RetryCount += 1;
-
-            if (_taskInfos[taskId].RetryCount > _maxRetryCount)
+            TaskInfo taskInfo = _taskInfos[taskId];
+            if (!runId.Equals(taskInfo.RunId))
             {
-                _taskInfos[taskId].Status = TaskStatus.Completed;
+                throw new TaskNotExistException("Task not exist");
+            }
+
+            taskInfo.Result = JsonConvert.SerializeObject(result);
+            taskInfo.RetryCount += 1;
+
+            if (taskInfo.RetryCount > _maxRetryCount)
+            {
+                taskInfo.Status = TaskStatus.Completed;
             }
             else
             {
-                _taskInfos[taskId].Status = TaskStatus.Queued;
+                taskInfo.Status = TaskStatus.Queued;
             }
 
             return Task.CompletedTask;

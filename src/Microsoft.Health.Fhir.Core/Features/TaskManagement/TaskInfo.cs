@@ -17,6 +17,8 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
         public int TaskTypeId { get; set; }
 
+        public string RunId { get; set; }
+
         public bool IsCanceled { get; set; }
 
         public int RetryCount { get; set; }

@@ -10,8 +10,12 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
     public interface ITask : IDisposable
     {
+        public string RunId { get; set; }
+
         public Task<TaskResultData> ExecuteAsync();
 
         public void Cancel();
+
+        public bool IsCancelling();
     }
 }

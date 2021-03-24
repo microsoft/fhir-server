@@ -83,7 +83,14 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 await intervalDelayTask;
             }
 
-            _ = Task.WhenAll(runningTasks.ToArray());
+            try
+            {
+                Task.WaitAll(runningTasks.ToArray());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Task failed to execute");
+            }
         }
 
         private async Task ExecuteTaskAsync(TaskInfo taskInfo)
@@ -111,7 +118,15 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
             catch (RetriableTaskException ex)
             {
                 _logger.LogError(ex, $"Task {taskInfo.TaskId} failed with retriable exception.");
-                await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message));
+
+                try
+                {
+                    await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message), taskInfo.RunId);
+                }
+                catch (Exception resetEx)
+                {
+                    _logger.LogError(resetEx, $"Task {taskInfo.TaskId} failed to reset.");
+                }
 
                 // Not complete the task for retriable exception.
                 return;
@@ -129,8 +144,15 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 }
             }
 
-            await _consumer.CompleteAsync(taskInfo.TaskId, result);
-            _logger.LogInformation($"Task {taskInfo.TaskId} completed.");
+            try
+            {
+                await _consumer.CompleteAsync(taskInfo.TaskId, result, task.RunId);
+                _logger.LogInformation($"Task {taskInfo.TaskId} completed.");
+            }
+            catch (Exception completeEx)
+            {
+                _logger.LogError(completeEx, $"Task {taskInfo.TaskId} failed to complete.");
+            }
         }
 
         private async Task KeepAliveTasksAsync(CancellationToken cancellationToken)
@@ -151,9 +173,24 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 {
                     try
                     {
-                        TaskInfo taskInfo = await _consumer.KeepAliveAsync(taskId);
+                        if (task.IsCancelling())
+                        {
+                            continue;
+                        }
 
-                        if (taskInfo.IsCanceled)
+                        bool shouldCancel = false;
+                        try
+                        {
+                            TaskInfo taskInfo = await _consumer.KeepAliveAsync(taskId, task.RunId);
+                            shouldCancel |= taskInfo.IsCanceled;
+                        }
+                        catch (TaskNotExistException notExistEx)
+                        {
+                            _logger.LogError(notExistEx, $"Task {taskId} not exist or runid not match.");
+                            shouldCancel = true;
+                        }
+
+                        if (shouldCancel)
                         {
                             task.Cancel();
                         }

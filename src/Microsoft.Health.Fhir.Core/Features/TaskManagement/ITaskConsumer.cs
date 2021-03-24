@@ -10,12 +10,12 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
     public interface ITaskConsumer
     {
-        Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result);
+        Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId);
 
         Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(int count, int taskHeartbeatTimeoutThresholdInSeconds);
 
-        Task<TaskInfo> KeepAliveAsync(string taskId);
+        Task<TaskInfo> KeepAliveAsync(string taskId, string runId);
 
-        Task ResetAsync(string taskId, TaskResultData result);
+        Task ResetAsync(string taskId, TaskResultData result, string runId);
     }
 }
