@@ -90,6 +90,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal abstract bool TryGenerateRow(int index, short searchParamId, TSearchValue searchValue, out TRow row);
+        internal abstract bool TryGenerateRow(int offset, short searchParamId, TSearchValue searchValue, out TRow row);
     }
 }

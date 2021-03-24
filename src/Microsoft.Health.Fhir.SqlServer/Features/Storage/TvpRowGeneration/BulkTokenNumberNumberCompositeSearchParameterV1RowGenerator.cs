@@ -10,10 +10,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class BulkTokenNumberNumberCompositeSearchParameterV1RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3), BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row>
     {
-        private readonly TokenSearchParameterV1RowGenerator _tokenRowGenerator;
-        private readonly NumberSearchParameterV1RowGenerator _numberV1RowGenerator;
+        private readonly BulkTokenSearchParameterV1RowGenerator _tokenRowGenerator;
+        private readonly BulkNumberSearchParameterV1RowGenerator _numberV1RowGenerator;
 
-        public BulkTokenNumberNumberCompositeSearchParameterV1RowGenerator(SqlServerFhirModel model, TokenSearchParameterV1RowGenerator tokenRowGenerator, NumberSearchParameterV1RowGenerator numberV1RowGenerator, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
+        public BulkTokenNumberNumberCompositeSearchParameterV1RowGenerator(SqlServerFhirModel model, BulkTokenSearchParameterV1RowGenerator tokenRowGenerator, BulkNumberSearchParameterV1RowGenerator numberV1RowGenerator, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
             : base(model, searchParameterTypeMap)
         {
             _tokenRowGenerator = tokenRowGenerator;
@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             (TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3) searchValue,
             out BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row row)
         {
-            if (_tokenRowGenerator.TryGenerateRow(default, searchValue.component1, out var token1Row) &&
-                _numberV1RowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row) &&
-                _numberV1RowGenerator.TryGenerateRow(default, searchValue.component3, out var token3Row))
+            if (_tokenRowGenerator.TryGenerateRow(offset, default, searchValue.component1, out var token1Row) &&
+                _numberV1RowGenerator.TryGenerateRow(offset, default, searchValue.component2, out var token2Row) &&
+                _numberV1RowGenerator.TryGenerateRow(offset, default, searchValue.component3, out var token3Row))
             {
                 bool hasRange = token2Row.SingleValue == null || token3Row.SingleValue == null;
                 row = new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(
