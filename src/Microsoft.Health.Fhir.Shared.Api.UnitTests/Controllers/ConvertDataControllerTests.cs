@@ -9,7 +9,6 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
@@ -39,8 +38,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         {
             _convertDataJobConfig.ContainerRegistryServers.Add("test.azurecr.io");
             _convertDataeEnabledController = GetController(_convertDataJobConfig);
-            var controllerContext = new ControllerContext() { HttpContext = _httpContext };
-            _convertDataeEnabledController.ControllerContext = controllerContext;
         }
 
         public static TheoryData<Parameters> InvalidBody =>
@@ -82,7 +79,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         [MemberData(nameof(InvalidBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAConvertDataRequest_WhenInvalidBodySent_ThenRequestNotValidThrown(Parameters body)
         {
-            _convertDataeEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataeEnabledController.ConvertData(body));
         }
 
@@ -90,7 +86,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         [MemberData(nameof(InconsistentBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAConvertDataRequest_WhenInconsistentBodySent_ThenInconsistentThrown(Parameters body)
         {
-            _convertDataeEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataeEnabledController.ConvertData(body));
         }
 
@@ -102,7 +97,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         {
             var body = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", templateCollectionReference, _testHl7v2RootTemplate);
 
-            _convertDataeEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataeEnabledController.ConvertData(body));
         }
 
@@ -110,7 +104,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         [MemberData(nameof(Hl7v2ValidBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAHl7v2ConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
-            _convertDataeEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
             await _convertDataeEnabledController.ConvertData(body);
             await _mediator.Received().Send(
@@ -127,7 +120,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         [MemberData(nameof(CcdaValidBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenACcdaConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
-            _convertDataeEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
             await _convertDataeEnabledController.ConvertData(body);
             await _mediator.Received().Send(
