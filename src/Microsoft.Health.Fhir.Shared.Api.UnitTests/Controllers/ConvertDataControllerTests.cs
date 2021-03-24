@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
