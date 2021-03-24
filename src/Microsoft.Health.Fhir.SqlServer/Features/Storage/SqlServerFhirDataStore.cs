@@ -41,8 +41,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly V6.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV6;
         private readonly V7.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV7;
-        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
-        private readonly VLatest.ReindexResourceTvpGenerator<ResourceMetadata> _reindexResourceTvpGeneratorVLatest;
+        private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
+        private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
         private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
@@ -55,8 +55,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             V6.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV6,
             V7.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV7,
-            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
-            VLatest.ReindexResourceTvpGenerator<ResourceMetadata> reindexResourceTvpGeneratorVLatest,
+            VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
+            VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
             VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestMethod: resource.Request.Method,
                     searchParamHash: resource.SearchParameterHash,
                     rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
+                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportForReferencesWithMissingTypeVersion)
             {
@@ -353,11 +353,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 ? (int?)null
                 : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
-            var resourceMetadata = new ResourceMetadata(
-                resource.CompartmentIndices,
-                resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
-                resource.LastModifiedClaims);
-
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
@@ -367,7 +362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     resourceId: resource.ResourceId,
                     eTag,
                     searchParamHash: resource.SearchParameterHash,
-                    tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(resourceMetadata));
+                    tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
 
                 try
                 {
