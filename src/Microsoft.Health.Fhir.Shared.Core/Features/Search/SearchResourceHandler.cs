@@ -7,9 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly ISearchService _searchService;
         private readonly IBundleFactory _bundleFactory;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchResourceHandler"/> class.
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="searchService">The search service to execute the search operation.</param>
         /// <param name="bundleFactory">The bundle factory.</param>
         /// <param name="authorizationService">The authorization service</param>
-        public SearchResourceHandler(ISearchService searchService, IBundleFactory bundleFactory, IFhirAuthorizationService authorizationService)
+        public SearchResourceHandler(ISearchService searchService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
             EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (await _authorizationService.CheckAccess(DataActions.Read) != DataActions.Read)
+            if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
             {
                 throw new UnauthorizedFhirActionException();
             }

@@ -10,6 +10,7 @@ using System.Threading;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -17,7 +18,6 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Task = System.Threading.Tasks.Task;
 
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
     public class SearchParameterValidator : ISearchParameterValidator
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private const string HttpPostName = "POST";
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
         public SearchParameterValidator(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
-            IFhirAuthorizationService authorizationService,
+            IAuthorizationService<DataActions> authorizationService,
             ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
         public async Task ValidateSearchParamterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
         {
-            if (await _authorizationService.CheckAccess(DataActions.Reindex) != DataActions.Reindex)
+            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
             }
