@@ -313,6 +313,13 @@
   <data name="ConvertDataParametersNotValid" xml:space="preserve">
     <value>Convert data operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid.</value>
   </data>
+    <data name="BulkImportRequestConfigurationValueNotValid" xml:space="preserve">
+    <value>Value of the following configuration {0} is invalid.</value>
+    <comment>{0} = the configuration name which was invalid</comment>
+  </data>
+  <data name="BulkImportRequestConfigurationNotValid" xml:space="preserve">
+    <value>Bulk import request configuration must be specified as a BulkImportRequestConfiguration instance.  The body provided in this request is not valid.</value>
+  </data>
   <data name="InvalidTemplateCollectionReference" xml:space="preserve">
     <value>The template collection reference '{0}' is invalid.</value>
     <comment>{0}: template collection reference</comment>

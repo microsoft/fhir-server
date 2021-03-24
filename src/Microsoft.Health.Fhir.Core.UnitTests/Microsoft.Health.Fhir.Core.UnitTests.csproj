@@ -22,4 +22,7 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Features\Operations\BulkImport\" />
+  </ItemGroup>
 </Project>

@@ -62,5 +62,9 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string ConvertData = "convert-data";
 
         public const string Validate = "validate";
+        
+        public const string BulkImport = "import";
+
+        public const string Reset = "reset";
     }
 }
