@@ -2617,7 +2617,7 @@ GO
 --     @tokenDateTimeCompositeSearchParams
 --         * Extracted token$datetime search params
 --     @tokenQuantityCompositeSearchParams
---         * Extracted token$quantity search params
+--        * Extracted token$quantity search params
 --     @tokenStringCompositeSearchParams
 --         * Extracted token$string search params
 --     @tokenNumberNumberCompositeSearchParams
