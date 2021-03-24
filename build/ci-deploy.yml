@@ -21,7 +21,7 @@ stages:
   displayName: Provision Environment
   dependsOn: []
   jobs:
-  - template: ./jobs/cleanup.yml
+  - template: ./jobs/cleanup-resourcegroup-aad.yml
   - job: provision
     dependsOn: DeleteResourceGroup 
     steps:
