@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 return;
             }
 
+            TaskResultData result = null;
             try
             {
                 Task<TaskResultData> runningTask = task.ExecuteAsync();
@@ -105,20 +106,20 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                     _activeTaskRecordsForKeepAlive[taskInfo.TaskId] = task;
                 }
 
-                TaskResultData result = await runningTask;
-
-                await _consumer.CompleteAsync(taskInfo.TaskId, result);
-                _logger.LogInformation($"Task {taskInfo.TaskId} completed.");
+                result = await runningTask;
             }
             catch (RetriableTaskException ex)
             {
                 _logger.LogError(ex, $"Task {taskInfo.TaskId} failed with retriable exception.");
                 await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message));
+
+                // Not complete the task for retriable exception.
+                return;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Task {taskInfo.TaskId} failed. ");
-                await _consumer.CompleteAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message));
+                result = new TaskResultData(TaskResult.Fail, ex.Message);
             }
             finally
             {
@@ -127,6 +128,9 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                     _activeTaskRecordsForKeepAlive.Remove(taskInfo.TaskId);
                 }
             }
+
+            await _consumer.CompleteAsync(taskInfo.TaskId, result);
+            _logger.LogInformation($"Task {taskInfo.TaskId} completed.");
         }
 
         private async Task KeepAliveTasksAsync(CancellationToken cancellationToken)

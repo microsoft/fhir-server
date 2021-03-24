@@ -315,12 +315,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             int faultInjected = 0;
             TestTaskConsumer consumer = new TestTaskConsumer(
                 taskInfos.ToArray(),
-                faultInjectionAction: () =>
+                faultInjectionAction: (method) =>
                 {
                     if (random.NextDouble() < 0.1)
                     {
                         Interlocked.Increment(ref faultInjected);
-                        throw new Exception();
+                        throw new Exception($"Injected Exception in {method}");
                     }
                 });
 
@@ -349,7 +349,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
-            taskHosting.MaxRunningTaskCount = 100;
+            taskHosting.MaxRunningTaskCount = 20;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 1;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -363,11 +363,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
                 if (taskInfo.TaskTypeId == 0)
                 {
-                    if (taskResult.Result != TaskResult.Success)
-                    {
-                        Console.WriteLine();
-                    }
-
                     Assert.Equal(TaskResult.Success, taskResult.Result);
                 }
                 else

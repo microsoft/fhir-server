@@ -21,8 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
         public int RetryCount { get; set; }
 
-        public string Etag { get; set; }
-
         public DateTime HeartbeatDateTime { get; set; }
 
         public string InputData { get; set; }

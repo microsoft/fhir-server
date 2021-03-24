@@ -3,20 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Features.TaskManagement;
+
+namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    /// <summary>
-    /// Enum to keep track of available SQL schema versions.
-    /// </summary>
-    public enum SchemaVersion
+    public interface IFhirTaskDataStore
     {
-        V1 = 1,
-        V2 = 2,
-        V3 = 3,
-        V4 = 4,
-        V5 = 5,
-        V6 = 6,
-        V7 = 7,
-        V8 = 8,
+        Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(int count, int taskHeartbeatTimeoutThresholdInSeconds);
     }
 }

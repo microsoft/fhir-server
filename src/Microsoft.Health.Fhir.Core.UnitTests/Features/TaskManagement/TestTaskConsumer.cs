@@ -18,9 +18,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
         private int _maxRetryCount;
         private Dictionary<string, TaskInfo> _taskInfos;
         private HashSet<string> _taskIds = new HashSet<string>();
-        private Action _faultInjectionAction;
+        private Action<string> _faultInjectionAction;
 
-        public TestTaskConsumer(TaskInfo[] taskInfos, int maxRetryCount = 3, Action faultInjectionAction = null)
+        public TestTaskConsumer(TaskInfo[] taskInfos, int maxRetryCount = 3, Action<string> faultInjectionAction = null)
         {
             _taskInfos = taskInfos.ToDictionary(t => t.TaskId, t => t);
             _maxRetryCount = maxRetryCount;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
         public Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result)
         {
-            _faultInjectionAction?.Invoke();
+            _faultInjectionAction?.Invoke("CompleteAsync");
 
             TaskInfo task = _taskInfos[taskId];
             task.Status = TaskStatus.Completed;
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
         public Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(int count, int taskHeartbeatTimeoutThresholdInSeconds)
         {
-            _faultInjectionAction?.Invoke();
+            _faultInjectionAction?.Invoke("GetNextMessagesAsync");
 
             IReadOnlyCollection<TaskInfo> tasksInQueue = _taskInfos.Values
                                                                 .Where(t => t.Status != TaskStatus.Completed)
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
         public Task<TaskInfo> KeepAliveAsync(string taskId)
         {
-            _faultInjectionAction?.Invoke();
+            _faultInjectionAction?.Invoke("KeepAliveAsync");
 
             TaskInfo taskInfo = _taskInfos[taskId];
             taskInfo.HeartbeatDateTime = DateTime.Now;
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
         public Task ResetAsync(string taskId, TaskResultData result)
         {
-            _faultInjectionAction?.Invoke();
+            _faultInjectionAction?.Invoke("ResetAsync");
 
             _taskInfos[taskId].Result = JsonConvert.SerializeObject(result);
             _taskInfos[taskId].RetryCount += 1;
