@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
             _roles = authorizationConfiguration.Roles.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
         }
 
-        public ValueTask<DataActions> CheckAccess(DataActions dataActions)
+        public ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken = default)
         {
             ClaimsPrincipal principal = _requestContextAccessor.FhirRequestContext.Principal;
 

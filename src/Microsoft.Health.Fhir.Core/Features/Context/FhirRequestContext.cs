@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         private Uri _uri;
         private Uri _baseUri;
+        private IDictionary<string, object> _properties;
 
         public FhirRequestContext(
             string method,
@@ -70,5 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public bool ExecutingBatchOrTransaction { get; set; }
 
         public bool IsBackgroundTask { get; set; }
+
+        public IDictionary<string, object> Properties => _properties ??= new Dictionary<string, object>();
     }
 }

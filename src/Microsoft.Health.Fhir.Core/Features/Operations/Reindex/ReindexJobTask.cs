@@ -12,9 +12,11 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -27,10 +29,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public class ReindexJobTask : IReindexJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly IReindexUtilities _reindexUtilities;
+        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly IReindexJobThrottleController _throttleController;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger _logger;
 
         private ReindexJobRecord _reindexJobRecord;
@@ -38,24 +44,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public ReindexJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IReindexJobThrottleController throttleController,
+            IModelInfoProvider modelInfoProvider,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
+            EnsureArg.IsNotNull(throttleController, nameof(throttleController));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
+            _contextAccessor = fhirRequestContextAccessor;
+            _throttleController = throttleController;
+            _modelInfoProvider = modelInfoProvider;
             _logger = logger;
         }
 
@@ -69,8 +86,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _weakETag = weakETag;
             var jobSemaphore = new SemaphoreSlim(1, 1);
 
+            var existingFhirRequestContext = _contextAccessor.FhirRequestContext;
+
             try
             {
+                // Add a request context so Datastore consumption can be added
+                var fhirRequestContext = new FhirRequestContext(
+                    method: OperationsConstants.Reindex,
+                    uriString: "$reindex",
+                    baseUriString: "$reindex",
+                    correlationId: _reindexJobRecord.Id,
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
+                {
+                    IsBackgroundTask = true,
+                    AuditEventType = OperationsConstants.Reindex,
+                };
+
+                _contextAccessor.FhirRequestContext = fhirRequestContext;
+
+                using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
+                {
+                    var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(cancellationToken);
+                    _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
+                }
+
                 if (_reindexJobRecord.Status != OperationStatus.Running ||
                     _reindexJobRecord.StartTime == null)
                 {
@@ -105,21 +145,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var resourceList = new HashSet<string>();
                     foreach (var param in notYetIndexedParams)
                     {
-                        if (param.TargetResourceTypes != null)
+                        foreach (var baseResourceType in param.BaseResourceTypes)
                         {
-                            resourceList.UnionWith(param.TargetResourceTypes);
-                        }
+                            if (baseResourceType == KnownResourceTypes.Resource)
+                            {
+                                resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
 
-                        if (param.BaseResourceTypes != null)
-                        {
-                            resourceList.UnionWith(param.BaseResourceTypes);
+                                // We added all possible resource types, so no need to continue
+                                break;
+                            }
+
+                            if (baseResourceType == KnownResourceTypes.DomainResource)
+                            {
+                                var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+
+                                // Remove types that inherit from Resource directly
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
+                                domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
+
+                                resourceList.UnionWith(domainResourceChildResourceTypes);
+                            }
+                            else
+                            {
+                                resourceList.UnionWith(new[] { baseResourceType });
+                            }
                         }
                     }
 
                     _reindexJobRecord.Resources.AddRange(resourceList);
                     _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Url.ToString()));
 
-                    await CalculateTotalCount(cancellationToken);
+                    await CalculateTotalAndResourceCounts(cancellationToken);
 
                     if (_reindexJobRecord.Count == 0)
                     {
@@ -134,16 +191,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Generate separate queries for each resource type and add them to query list.
                     foreach (string resourceType in _reindexJobRecord.Resources)
                     {
-                        var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                        // Checking resource specific counts is a performance improvement,
+                        // so if an entry for this resource failed to get added to the count dictionary, run a query anyways
+                        if (!_reindexJobRecord.ResourceCounts.ContainsKey(resourceType) || _reindexJobRecord.ResourceCounts[resourceType] > 0)
                         {
-                            LastModified = Clock.UtcNow,
-                            Status = OperationStatus.Queued,
-                        };
+                            var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                            {
+                                LastModified = Clock.UtcNow,
+                                Status = OperationStatus.Queued,
+                            };
 
-                        _reindexJobRecord.QueryList.TryAdd(query, 1);
+                            _reindexJobRecord.QueryList.TryAdd(query, 1);
+                        }
                     }
 
                     await UpdateJobAsync(cancellationToken);
+
+                    _throttleController.UpdateDatastoreUsage();
                 }
 
                 var queryTasks = new List<Task<ReindexJobQueryStatus>>();
@@ -198,7 +262,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
-                    await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds);
+                    var averageDbConsumption = _throttleController.UpdateDatastoreUsage();
+                    _logger.LogInformation($"Reindex avaerage DB consumption: {averageDbConsumption}");
+                    var throttleDelayTime = _throttleController.GetThrottleBasedDelay();
+                    _logger.LogInformation($"Reindex throttle delay: {throttleDelayTime}");
+                    await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + throttleDelayTime);
 
                     // Remove all finished tasks from the collections of tasks
                     // and cancellationTokens
@@ -277,6 +345,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             finally
             {
                 jobSemaphore.Dispose();
+                _contextAccessor.FhirRequestContext = existingFhirRequestContext;
             }
         }
 
@@ -308,6 +377,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     await UpdateJobAsync(cancellationToken);
+                    _throttleController.UpdateDatastoreUsage();
                 }
                 finally
                 {
@@ -316,6 +386,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
                 await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.ResourceTypeSearchParameterHashMap, cancellationToken);
+                _throttleController.UpdateDatastoreUsage();
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
@@ -400,7 +471,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var queryParametersList = new List<Tuple<string, string>>()
             {
-                Tuple.Create(KnownQueryParameterNames.Count, _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
+                Tuple.Create(KnownQueryParameterNames.Count, _throttleController.GetThrottleBatchSize().ToString(CultureInfo.InvariantCulture)),
                 Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
             };
 
@@ -448,7 +519,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task CalculateTotalCount(CancellationToken cancellationToken)
+        private async Task CalculateTotalAndResourceCounts(CancellationToken cancellationToken)
         {
             int totalCount = 0;
             foreach (string resourceType in _reindexJobRecord.Resources)
@@ -461,9 +532,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 // update the complete total
                 SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, cancellationToken);
-                if (countOnlyResults != null)
+                if (countOnlyResults?.TotalCount != null)
                 {
+                    // No action needs to be taken if an entry for this resource fails to get added to the dictionary
+                    // We will reindex all resource types that do not have a dictionary entry
+                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, countOnlyResults.TotalCount.Value);
                     totalCount += countOnlyResults.TotalCount.Value;
+                }
+                else
+                {
+                    _reindexJobRecord.ResourceCounts.TryAdd(resourceType, 0);
                 }
             }
 

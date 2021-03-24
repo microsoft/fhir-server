@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
@@ -14,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     {
         public static readonly DisabledFhirAuthorizationService Instance = new DisabledFhirAuthorizationService();
 
-        public ValueTask<DataActions> CheckAccess(DataActions dataActions)
+        public ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken = default)
         {
             return new ValueTask<DataActions>(dataActions);
         }

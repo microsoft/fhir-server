@@ -73,5 +73,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         {
             return $"(SqlRoot (SearchParamTables:{(SearchParamTableExpressions.Any() ? " " + string.Join(" ", SearchParamTableExpressions) : null)}) (ResourceTable:{(ResourceTableExpressions.Any() ? " " + string.Join(" ", ResourceTableExpressions) : null)}))";
         }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(SqlRootExpression));
+            foreach (SearchParamTableExpression searchParamTableExpression in SearchParamTableExpressions)
+            {
+                hashCode.Add(searchParamTableExpression);
+            }
+
+            foreach (SearchParameterExpressionBase resourceTableExpression in ResourceTableExpressions)
+            {
+                hashCode.Add(resourceTableExpression);
+            }
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            if (other is not SqlRootExpression sqlRoot ||
+                sqlRoot.ResourceTableExpressions.Count != ResourceTableExpressions.Count ||
+                sqlRoot.SearchParamTableExpressions.Count != SearchParamTableExpressions.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < ResourceTableExpressions.Count; i++)
+            {
+                if (!sqlRoot.ResourceTableExpressions[i].ValueInsensitiveEquals(ResourceTableExpressions[i]))
+                {
+                    return false;
+                }
+            }
+
+            for (var i = 0; i < SearchParamTableExpressions.Count; i++)
+            {
+                if (!sqlRoot.SearchParamTableExpressions[i].ValueInsensitiveEquals(SearchParamTableExpressions[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }

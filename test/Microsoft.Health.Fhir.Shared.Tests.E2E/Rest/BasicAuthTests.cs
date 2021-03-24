@@ -11,7 +11,6 @@ using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -239,6 +238,79 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
             var result = await tempClient.ConvertDataAsync(parameters);
             Assert.NotEmpty(result);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenUserWithNoProfileAdminPermission_WhenCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync<ValueSet>(resource));
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenUserWithNoProfileAdminPermission_WhenUpdateProfileDefinitionResource_ThenServerShouldReturnForbidden()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.UpdateAsync<ValueSet>(resource));
+
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync<ValueSet>(resource, "identifier=boo"));
+
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenUserWithNoProfileAdminPermission_WhenConditionalUpdateProfileDefinitionResource_ThenServerShouldReturnForbidden()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.UpdateAsync<ValueSet>(resource, "identifier=boo"));
+
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenUserWithNoProfileAdminPermission_WhenDeleteProfileDefinitionResource_ThenServerShouldReturnForbidden()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
+            var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.DeleteAsync<ValueSet>(resource));
+
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenUserWithProfileAdminPermission_WhenCUDActionOnProfileDefinitionResource_ThenServerShouldReturnOk()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.AdminUser, TestApplications.NativeClient);
+            var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
+            var valueSetResponse = await tempClient.CreateAsync<ValueSet>(resource);
+            Assert.Equal(HttpStatusCode.Created, valueSetResponse.Response.StatusCode);
+            valueSetResponse = await tempClient.UpdateAsync<ValueSet>(valueSetResponse.Resource);
+            Assert.Equal(HttpStatusCode.OK, valueSetResponse.Response.StatusCode);
+            var response = await tempClient.DeleteAsync<ValueSet>(valueSetResponse.Resource);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         }
     }
 }

@@ -72,9 +72,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ValidateParams(inputParams);
 
-            ushort? maximumConcurrency = ReadNumericParameter(inputParams, JobRecordProperties.MaximumConcurrency);
+            ushort? maximumConcurrency = (ushort?)ReadNumericParameter(inputParams, JobRecordProperties.MaximumConcurrency);
+            uint? maxResourcesPerQuery = (uint?)ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerQuery);
+            int? queryDelay = ReadNumericParameter(inputParams, JobRecordProperties.QueryDelayIntervalInMilliseconds);
+            ushort? targetDataStoreResourcePercentage = (ushort?)ReadNumericParameter(inputParams, JobRecordProperties.TargetDataStoreUsagePercentage);
 
-            ResourceElement response = await _mediator.CreateReindexJobAsync(maximumConcurrency, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.CreateReindexJobAsync(
+                maximumConcurrency,
+                maxResourcesPerQuery,
+                queryDelay,
+                targetDataStoreResourcePercentage,
+                HttpContext.RequestAborted);
 
             var result = FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -174,7 +182,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private ushort? ReadNumericParameter(Parameters parameters, string paramName)
+        private int? ReadNumericParameter(Parameters parameters, string paramName)
         {
             var param = parameters?.Parameter.Find(p =>
                 string.Equals(p.Name, paramName, StringComparison.OrdinalIgnoreCase));
@@ -184,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return null;
             }
 
-            if (ushort.TryParse(param.Value.ToString(), out var intValue))
+            if (int.TryParse(param.Value.ToString(), out var intValue))
             {
                 return intValue;
             }
@@ -212,11 +220,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var postParams = new HashSet<string>()
             {
                 JobRecordProperties.MaximumConcurrency,
+                JobRecordProperties.QueryDelayIntervalInMilliseconds,
+                JobRecordProperties.MaximumNumberOfResourcesPerQuery,
+                JobRecordProperties.TargetDataStoreUsagePercentage,
             };
 
             var patchParams = new HashSet<string>()
             {
                 JobRecordProperties.MaximumConcurrency,
+                JobRecordProperties.QueryDelayIntervalInMilliseconds,
+                JobRecordProperties.MaximumNumberOfResourcesPerQuery,
+                JobRecordProperties.TargetDataStoreUsagePercentage,
                 JobRecordProperties.Status,
             };
 

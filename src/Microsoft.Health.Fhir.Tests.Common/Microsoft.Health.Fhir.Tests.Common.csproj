@@ -36,6 +36,7 @@
     <None Remove="TestFiles\Device-d1.json" />
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
+    <None Remove="TestFiles\Normative\Appointment.json" />
     <None Remove="TestFiles\Normative\CarePlan.json" />
     <None Remove="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <None Remove="TestFiles\Normative\MoneyWithWrongDecimal.json" />
@@ -44,6 +45,7 @@
     <None Remove="TestFiles\Normative\Profile-Organization-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
+    <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameter.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <None Remove="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
@@ -66,6 +68,7 @@
     <None Remove="TestFiles\Normative\ValueSet-omb-race-category.json" />
     <None Remove="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
     <None Remove="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
+    <None Remove="TestFiles\Normative\ValueSet.json" />
     <None Remove="TestFiles\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
@@ -236,9 +239,11 @@
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidEntries.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Appointment.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidType.json" />
@@ -303,9 +308,9 @@
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-omb-race-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Normative\ValueSet-us-core-narrative-status.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValueSet.json" />
     <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
     <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
-    <EmbeddedResource Include="TestFiles\Normative\conversion_templates.tar.gz" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />

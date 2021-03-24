@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -21,6 +22,7 @@ using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.TemplateManagement;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -137,7 +139,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await UploadBlob(acrClient, originalConfigStream, repository, originalConfigDigest);
 
             // Upload memory blob
-            using Stream byteStream = Samples.GetDefaultConversionTemplates();
+            var defaultTemplateResourceName = $"{typeof(OCIFileManager).Namespace}.Hl7v2DefaultTemplates.tar.gz";
+            using Stream byteStream = typeof(OCIFileManager).Assembly.GetManifestResourceStream(defaultTemplateResourceName);
             var blobLength = byteStream.Length;
             string blobDigest = ComputeDigest(byteStream);
             await UploadBlob(acrClient, byteStream, repository, blobDigest);
