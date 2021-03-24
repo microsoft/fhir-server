@@ -1099,55 +1099,55 @@ GO
 --         * The type IDs, IDs, eTags and hashes of the resources to reindex
 --     @resourceWriteClaims
 --         * Claims on the principal that performed the write
---     @bulkCompartmentAssignments
+--     @compartmentAssignments
 --         * Compartments that the resource is part of
---     @bulkReferenceSearchParams
+--     @referenceSearchParams
 --         * Extracted reference search params
---     @bulkTokenSearchParams
+--     @tokenSearchParams
 --         * Extracted token search params
---     @bulkTokenTextSearchParams
+--     @tokenTextSearchParams
 --         * The text representation of extracted token search params
---     @bulkStringSearchParams
+--     @stringSearchParams
 --         * Extracted string search params
---     @bulkNumberSearchParams
+--     @numberSearchParams
 --         * Extracted number search params
---     @bulkQuantitySearchParams
+--     @quantitySearchParams
 --         * Extracted quantity search params
---     @bulkUriSearchParams
+--     @uriSearchParams
 --         * Extracted URI search params
---     @bulkDateTimeSearchParms
+--     @dateTimeSearchParms
 --         * Extracted datetime search params
---     @bulkReferenceTokenCompositeSearchParams
+--     @referenceTokenCompositeSearchParams
 --         * Extracted reference$token search params
---     @bulkTokenTokenCompositeSearchParams
+--     @tokenTokenCompositeSearchParams
 --         * Extracted token$token tokensearch params
---     @bulkTokenDateTimeCompositeSearchParams
+--     @tokenDateTimeCompositeSearchParams
 --         * Extracted token$datetime search params
---     @bulkTokenQuantityCompositeSearchParams
---         * Extracted token$quantity search params
---     @bulkTokenStringCompositeSearchParams
+--     @tokenQuantityCompositeSearchParams
+--        * Extracted token$quantity search params
+--     @tokenStringCompositeSearchParams
 --         * Extracted token$string search params
---     @bulkTokenNumberNumberCompositeSearchParams
+--     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
 CREATE PROCEDURE dbo.BulkReindexResources
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
-    @bulkResourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
-    @bulkCompartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
-    @bulkReferenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
-    @bulkTokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
-    @bulkTokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
-    @bulkStringSearchParams dbo.BulkStringSearchParamTableType_1 READONLY,
-    @bulkNumberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
-    @bulkQuantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY,
-    @bulkUriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY,
-    @bulkDateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_1 READONLY,
-    @bulkReferenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY,
-    @bulkTokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY,
-    @bulkTokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY,
-    @bulkTokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
-    @bulkTokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
-    @bulkTokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+    @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
+    @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
+    @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
+    @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
+    @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
+    @stringSearchParams dbo.BulkStringSearchParamTableType_1 READONLY,
+    @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
+    @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY,
+    @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY,
+    @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_1 READONLY,
+    @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY,
+    @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY,
+    @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY,
+    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
+    @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
+    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
@@ -1270,97 +1270,97 @@ AS
     INSERT INTO dbo.ResourceWriteClaim
         (ResourceSurrogateId, ClaimTypeId, ClaimValue)
     SELECT DISTINCT resourceToReindex.ResourceSurrogateId, searchIndex.ClaimTypeId, searchIndex.ClaimValue
-    FROM @bulkResourceWriteClaims searchIndex
+    FROM @resourceWriteClaims searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.CompartmentAssignment
         (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.CompartmentTypeId, searchIndex.ReferenceResourceId, 0
-    FROM @bulkCompartmentAssignments searchIndex
+    FROM @compartmentAssignments searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.ReferenceSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.BaseUri, searchIndex.ReferenceResourceTypeId, searchIndex.ReferenceResourceId, searchIndex.ReferenceResourceVersion, 0
-    FROM @bulkReferenceSearchParams searchIndex
+    FROM @referenceSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId, searchIndex.Code, 0
-    FROM @bulkTokenSearchParams searchIndex
+    FROM @tokenSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenText
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Text, 0
-    FROM @bulkTokenTextSearchParams searchIndex
+    FROM @tokenTextSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.StringSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Text, searchIndex.TextOverflow, 0
-    FROM @bulkStringSearchParams searchIndex
+    FROM @stringSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.UriSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.Uri, 0
-    FROM @bulkUriSearchParams searchIndex
+    FROM @uriSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.NumberSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SingleValue, searchIndex.LowValue, searchIndex.HighValue, 0
-    FROM @bulkNumberSearchParams searchIndex
+    FROM @numberSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.QuantitySearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId, searchIndex.QuantityCodeId, searchIndex.SingleValue, searchIndex.LowValue, searchIndex.HighValue, 0
-    FROM @bulkQuantitySearchParams searchIndex
+    FROM @quantitySearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.DateTimeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.StartDateTime, searchIndex.EndDateTime, searchIndex.IsLongerThanADay, 0
-    FROM @bulkDateTimeSearchParms searchIndex
+    FROM @dateTimeSearchParms searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.BaseUri1, searchIndex.ReferenceResourceTypeId1, searchIndex.ReferenceResourceId1, searchIndex.ReferenceResourceVersion1, searchIndex.SystemId2, searchIndex.Code2, 0
-    FROM @bulkReferenceTokenCompositeSearchParams searchIndex
+    FROM @referenceTokenCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenTokenCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SystemId2, searchIndex.Code2, 0
-    FROM @bulkTokenTokenCompositeSearchParams searchIndex
+    FROM @tokenTokenCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenDateTimeCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.StartDateTime2, searchIndex.EndDateTime2, searchIndex.IsLongerThanADay2, 0
-    FROM @bulkTokenDateTimeCompositeSearchParams searchIndex
+    FROM @tokenDateTimeCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenQuantityCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SingleValue2, searchIndex.SystemId2, searchIndex.QuantityCodeId2, searchIndex.LowValue2, searchIndex.HighValue2, 0
-    FROM @bulkTokenQuantityCompositeSearchParams searchIndex
+    FROM @tokenQuantityCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenStringCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.Text2, searchIndex.TextOverflow2, 0
-    FROM @bulkTokenStringCompositeSearchParams searchIndex
+    FROM @tokenStringCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     INSERT INTO dbo.TokenNumberNumberCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SingleValue2, searchIndex.LowValue2, searchIndex.HighValue2, searchIndex.SingleValue3, searchIndex.LowValue3, searchIndex.HighValue3, searchIndex.HasRange, 0
-    FROM @bulkTokenNumberNumberCompositeSearchParams searchIndex
+    FROM @tokenNumberNumberCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
     COMMIT TRANSACTION
