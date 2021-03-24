@@ -8,6 +8,42 @@ ADD
 
 GO
 
+DROP PROCEDURE IF EXISTS dbo.UpsertResource;
+
+DROP PROCEDURE IF EXISTS dbo.UpsertResource_2;
+
+DROP TYPE IF EXISTS dbo.ResourceWriteClaimTableType_1;
+
+DROP TYPE IF EXISTS dbo.CompartmentAssignmentTableType_1;
+
+DROP TYPE IF EXISTS dbo.ReferenceSearchParamTableType_2;
+
+DROP TYPE IF EXISTS dbo.TokenSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.TokenTextTableType_1;
+
+DROP TYPE IF EXISTS dbo.StringSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.UriSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.NumberSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.QuantitySearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.DateTimeSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.ReferenceTokenCompositeSearchParamTableType_2;
+
+DROP TYPE IF EXISTS dbo.TokenTokenCompositeSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.TokenDateTimeCompositeSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.TokenQuantityCompositeSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.TokenStringCompositeSearchParamTableType_1;
+
+DROP TYPE IF EXISTS dbo.TokenNumberNumberCompositeSearchParamTableType_1;
+
 CREATE TYPE dbo.BulkResourceWriteClaimTableType_1 AS TABLE
 (
     Offset int NOT NULL,
