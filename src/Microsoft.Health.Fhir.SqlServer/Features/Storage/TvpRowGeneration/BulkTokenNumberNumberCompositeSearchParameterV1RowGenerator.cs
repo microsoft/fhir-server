@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             (TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3) searchValue,
             out BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row row)
         {
-            if (_tokenRowGenerator.TryGenerateRow(offset, default, searchValue.component1, out var token1Row) &&
-                _numberV1RowGenerator.TryGenerateRow(offset, default, searchValue.component2, out var token2Row) &&
-                _numberV1RowGenerator.TryGenerateRow(offset, default, searchValue.component3, out var token3Row))
+            if (_tokenRowGenerator.TryGenerateRow(default, default, searchValue.component1, out var token1Row) &&
+                _numberV1RowGenerator.TryGenerateRow(default, default, searchValue.component2, out var token2Row) &&
+                _numberV1RowGenerator.TryGenerateRow(default, default, searchValue.component3, out var token3Row))
             {
                 bool hasRange = token2Row.SingleValue == null || token3Row.SingleValue == null;
                 row = new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(

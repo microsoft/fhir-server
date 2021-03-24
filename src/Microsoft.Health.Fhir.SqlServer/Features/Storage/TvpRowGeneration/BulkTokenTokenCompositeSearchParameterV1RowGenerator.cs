@@ -20,8 +20,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         internal override bool TryGenerateRow(int offset, short searchParamId, (TokenSearchValue component1, TokenSearchValue component2) searchValue, out BulkTokenTokenCompositeSearchParamTableTypeV1Row row)
         {
-            if (_tokenRowGenerator.TryGenerateRow(offset, default, searchValue.component1, out var token1Row) &&
-                _tokenRowGenerator.TryGenerateRow(offset, default, searchValue.component2, out var token2Row))
+            if (_tokenRowGenerator.TryGenerateRow(default, default, searchValue.component1, out var token1Row) &&
+                _tokenRowGenerator.TryGenerateRow(default, default, searchValue.component2, out var token2Row))
             {
                 row = new BulkTokenTokenCompositeSearchParamTableTypeV1Row(
                     offset,

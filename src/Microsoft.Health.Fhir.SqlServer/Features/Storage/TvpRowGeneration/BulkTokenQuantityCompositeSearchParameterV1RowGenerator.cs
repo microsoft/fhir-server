@@ -30,8 +30,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             (TokenSearchValue component1, QuantitySearchValue component2) searchValue,
             out BulkTokenQuantityCompositeSearchParamTableTypeV1Row row)
         {
-            if (_tokenRowGenerator.TryGenerateRow(offset, default, searchValue.component1, out var token1Row) &&
-                _quantityV1RowGenerator.TryGenerateRow(offset, default, searchValue.component2, out var token2Row))
+            if (_tokenRowGenerator.TryGenerateRow(default, default, searchValue.component1, out var token1Row) &&
+                _quantityV1RowGenerator.TryGenerateRow(default, default, searchValue.component2, out var token2Row))
             {
                 row = new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(
                     offset,
