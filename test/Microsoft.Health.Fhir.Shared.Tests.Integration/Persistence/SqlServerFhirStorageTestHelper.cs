@@ -129,6 +129,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),
+                ("TableType", "[dbo].[CompartmentAssignmentTableType_1]"),
+                ("TableType", "[dbo].[ReferenceSearchParamTableType_2]"),
+                ("TableType", "[dbo].[TokenSearchParamTableType_1]"),
+                ("TableType", "[dbo].[TokenTextTableType_1]"),
+                ("TableType", "[dbo].[StringSearchParamTableType_1]"),
+                ("TableType", "[dbo].[UriSearchParamTableType_1]"),
+                ("TableType", "[dbo].[NumberSearchParamTableType_1]"),
+                ("TableType", "[dbo].[QuantitySearchParamTableType_1]"),
+                ("TableType", "[dbo].[DateTimeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_2]"),
+                ("TableType", "[dbo].[TokenTokenCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[TokenDateTimeCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
