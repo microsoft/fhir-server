@@ -690,7 +690,7 @@ CREATE TABLE dbo.ReindexJob
 )
 END
 
-IF NOT EXISTS (SELECT 'X' FROM sys.indexes WHERE name = 'IXC_ReindexJob' AND OBJECT_ID = OBJECT_ID('ReindexJob'))
+IF NOT EXISTS (SELECT 'X' FROM SYS.INDEXES WHERE name = 'IXC_ReindexJob' AND OBJECT_ID = OBJECT_ID('ReindexJob'))
 BEGIN
 CREATE UNIQUE CLUSTERED INDEX IXC_ReindexJob ON dbo.ReindexJob
 (
