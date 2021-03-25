@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
-        private const string LocalConnectionString = "Server=tcp:tongwu-task.database.windows.net,1433;Initial Catalog=tongwu-task-7;Persist Security Info=False;User ID=tongwu;Password=!1qaz@2wsx#3edc;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
+        private const string LocalConnectionString = "";
         private const string MasterDatabaseName = "master";
 
         private readonly int _maximumSupportedSchemaVersion;
