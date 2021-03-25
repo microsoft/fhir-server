@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
@@ -16,15 +17,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 {
     public class TestTaskConsumer : ITaskConsumer
     {
-        private int _maxRetryCount;
         private Dictionary<string, TaskInfo> _taskInfos;
         private HashSet<string> _taskIds = new HashSet<string>();
         private Action<string> _faultInjectionAction;
 
-        public TestTaskConsumer(TaskInfo[] taskInfos, int maxRetryCount = 3, Action<string> faultInjectionAction = null)
+        public TestTaskConsumer(TaskInfo[] taskInfos, Action<string> faultInjectionAction = null)
         {
             _taskInfos = taskInfos.ToDictionary(t => t.TaskId, t => t);
-            _maxRetryCount = maxRetryCount;
             _faultInjectionAction = faultInjectionAction;
 
             foreach (TaskInfo t in _taskInfos.Values)
@@ -38,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             }
         }
 
-        public Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId)
+        public Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId, CancellationToken cancellationToken)
         {
             _faultInjectionAction?.Invoke("CompleteAsync");
 
@@ -55,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             return Task.FromResult<TaskInfo>(task);
         }
 
-        public Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(int count, int taskHeartbeatTimeoutThresholdInSeconds)
+        public Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(short count, int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
         {
             _faultInjectionAction?.Invoke("GetNextMessagesAsync");
 
@@ -75,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             return Task.FromResult<IReadOnlyCollection<TaskInfo>>(tasksInQueue);
         }
 
-        public Task<TaskInfo> KeepAliveAsync(string taskId, string runId)
+        public Task<TaskInfo> KeepAliveAsync(string taskId, string runId, CancellationToken cancellationToken)
         {
             _faultInjectionAction?.Invoke("KeepAliveAsync");
 
@@ -90,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             return Task.FromResult<TaskInfo>(taskInfo);
         }
 
-        public Task ResetAsync(string taskId, TaskResultData result, string runId)
+        public Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, short maxRetryCount, CancellationToken cancellationToken)
         {
             _faultInjectionAction?.Invoke("ResetAsync");
 
@@ -103,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             taskInfo.Result = JsonConvert.SerializeObject(result);
             taskInfo.RetryCount += 1;
 
-            if (taskInfo.RetryCount > _maxRetryCount)
+            if (taskInfo.RetryCount > maxRetryCount)
             {
                 taskInfo.Status = TaskStatus.Completed;
             }
@@ -112,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
                 taskInfo.Status = TaskStatus.Queued;
             }
 
-            return Task.CompletedTask;
+            return Task.FromResult<TaskInfo>(taskInfo);
         }
     }
 }

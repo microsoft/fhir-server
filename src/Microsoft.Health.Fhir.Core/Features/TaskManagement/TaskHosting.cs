@@ -31,7 +31,9 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
         public int PollingFrequencyInSeconds { get; set; } = Constants.DefaultPollingFrequencyInSeconds;
 
-        public int MaxRunningTaskCount { get; set; } = Constants.DefaultMaxRunningTaskCount;
+        public short MaxRunningTaskCount { get; set; } = Constants.DefaultMaxRunningTaskCount;
+
+        public short MaxRetryCount { get; set; } = Constants.DefaultMaxRetryCount;
 
         public int TaskHeartbeatTimeoutThresholdInSeconds { get; set; } = Constants.DefaultTaskHeartbeatTimeoutThresholdInSeconds;
 
@@ -65,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 IReadOnlyCollection<TaskInfo> nextTasks = null;
                 try
                 {
-                    nextTasks = await _consumer.GetNextMessagesAsync(MaxRunningTaskCount - runningTasks.Count, TaskHeartbeatTimeoutThresholdInSeconds);
+                    nextTasks = await _consumer.GetNextMessagesAsync((short)(MaxRunningTaskCount - runningTasks.Count), TaskHeartbeatTimeoutThresholdInSeconds, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -76,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 {
                     foreach (TaskInfo taskInfo in nextTasks)
                     {
-                        runningTasks.Add(ExecuteTaskAsync(taskInfo));
+                        runningTasks.Add(ExecuteTaskAsync(taskInfo, cancellationToken));
                     }
                 }
 
@@ -93,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
             }
         }
 
-        private async Task ExecuteTaskAsync(TaskInfo taskInfo)
+        private async Task ExecuteTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
         {
             using ITask task = _taskFactory.Create(taskInfo);
 
@@ -121,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
                 try
                 {
-                    await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message), taskInfo.RunId);
+                    await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message), taskInfo.RunId, MaxRetryCount, cancellationToken);
                 }
                 catch (Exception resetEx)
                 {
@@ -146,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
             try
             {
-                await _consumer.CompleteAsync(taskInfo.TaskId, result, task.RunId);
+                await _consumer.CompleteAsync(taskInfo.TaskId, result, task.RunId, cancellationToken);
                 _logger.LogInformation($"Task {taskInfo.TaskId} completed.");
             }
             catch (Exception completeEx)
@@ -181,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                         bool shouldCancel = false;
                         try
                         {
-                            TaskInfo taskInfo = await _consumer.KeepAliveAsync(taskId, task.RunId);
+                            TaskInfo taskInfo = await _consumer.KeepAliveAsync(taskId, task.RunId, cancellationToken);
                             shouldCancel |= taskInfo.IsCanceled;
                         }
                         catch (TaskNotExistException notExistEx)

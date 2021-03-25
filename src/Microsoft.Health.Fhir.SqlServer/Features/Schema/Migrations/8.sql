@@ -1942,6 +1942,7 @@ AS
     COMMIT TRANSACTION
 GO
 
+
 /*************************************************************
     Task Table
 **************************************************************/
@@ -2013,7 +2014,7 @@ AS
         FROM [dbo].[TaskInfo]
         WHERE TaskId = @taskId
     ) BEGIN
-        THROW 51100, 'Task already existed', 1;
+        THROW 50409, 'Task already existed', 1;
     END
 
     -- Create new task
@@ -2089,7 +2090,7 @@ AS
         FROM [dbo].[TaskInfo]
         WHERE TaskId = @taskId and RunId = @runId
     ) BEGIN
-        THROW 51101, 'Task not exist or runid not match', 1;
+        THROW 50404, 'Task not exist or runid not match', 1;
     END
 
     -- We will timestamp the jobs when we update them to track stale jobs.
@@ -2139,7 +2140,7 @@ AS
         FROM [dbo].[TaskInfo]
         WHERE TaskId = @taskId and RunId = @runId
     ) BEGIN
-        THROW 51101, 'Task not exist or runid not match', 1;
+        THROW 50404, 'Task not exist or runid not match', 1;
     END
 
     -- We will timestamp the jobs when we update them to track stale jobs.
@@ -2191,7 +2192,7 @@ AS
         FROM [dbo].[TaskInfo]
         WHERE TaskId = @taskId and RunId = @runId
     ) BEGIN
-        THROW 51101, 'Task not exist or runid not match', 1;
+        THROW 50404, 'Task not exist or runid not match', 1;
     END
 
     -- We will timestamp the jobs when we update them to track stale jobs.
@@ -2234,11 +2235,20 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
+    IF NOT EXISTS
+    (
+        SELECT *
+        FROM [dbo].[TaskInfo]
+        WHERE TaskId = @taskId
+    ) BEGIN
+        THROW 50404, 'Task not exist', 1;
+    END
+
 	UPDATE dbo.TaskInfo
 	SET IsCanceled = 1, HeartbeatDateTime = @heartbeatDateTime
 	WHERE TaskId = @taskId
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 
@@ -2264,7 +2274,9 @@ GO
 --
 CREATE PROCEDURE [dbo].[ResetTask]
     @taskId varchar(64),
-    @runId varchar(50)
+    @runId varchar(50),
+    @result varchar(max),
+    @maxRetryCount smallint = 3
 AS
     SET NOCOUNT ON
 
@@ -2272,20 +2284,25 @@ AS
     BEGIN TRANSACTION
 	
     -- Can only reset task with same runid
-    IF NOT EXISTS
-    (
-        SELECT *
-        FROM [dbo].[TaskInfo]
-        WHERE TaskId = @taskId and RunId = @runId
-    ) BEGIN
-        THROW 51101, 'Task not exist or runid not match', 1;
+    DECLARE @retryCount smallint
+
+    SELECT @retryCount = RetryCount
+    FROM [dbo].[TaskInfo]
+    WHERE TaskId = @taskId and RunId = @runId
+
+    IF (@retryCount IS NULL) BEGIN
+        THROW 50404, 'Task not exist or runid not match', 1;
+    END
+
+    IF (@retryCount >= @maxRetryCount) BEGIN
+        THROW 50412, 'Task reach max retry count', 1;
     END
 
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
 	UPDATE dbo.TaskInfo
-	SET Status = 1, HeartbeatDateTime = @heartbeatDateTime
+	SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
 	WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result

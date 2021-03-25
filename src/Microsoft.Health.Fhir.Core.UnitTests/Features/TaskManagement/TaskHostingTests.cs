@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
         public async Task GivenTaskWithRetriableException_WhenTaskHostingStart_TaskShouldBeRetry()
         {
             string errorMessage = "Test error";
-            int maxRetryCount = 2;
+            short maxRetryCount = 2;
 
             TaskInfo taskInfo0 = new TaskInfo();
             taskInfo0.TaskId = Guid.NewGuid().ToString();
@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
             int executeCount0 = 0;
             int executeCount1 = 0;
-            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0, taskInfo1 }, maxRetryCount);
+            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0, taskInfo1 });
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 if (t.TaskTypeId == 0)
@@ -293,6 +293,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
+            taskHosting.MaxRetryCount = maxRetryCount;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 

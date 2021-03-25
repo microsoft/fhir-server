@@ -4,18 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
     public interface ITaskConsumer
     {
-        Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId);
+        Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId, CancellationToken cancellationToken);
 
-        Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(int count, int taskHeartbeatTimeoutThresholdInSeconds);
+        Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(short count, int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken);
 
-        Task<TaskInfo> KeepAliveAsync(string taskId, string runId);
+        Task<TaskInfo> KeepAliveAsync(string taskId, string runId, CancellationToken cancellationToken);
 
-        Task ResetAsync(string taskId, TaskResultData result, string runId);
+        Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, short maxRetryCount, CancellationToken cancellationToken);
     }
 }

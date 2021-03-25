@@ -9,7 +9,9 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
     {
         public const int DefaultPollingFrequencyInSeconds = 10;
 
-        public const int DefaultMaxRunningTaskCount = 1;
+        public const short DefaultMaxRunningTaskCount = 1;
+
+        public const short DefaultMaxRetryCount = 3;
 
         public const int DefaultTaskHeartbeatTimeoutThresholdInSeconds = 600;
 

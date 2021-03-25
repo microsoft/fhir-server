@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
         public TaskStatus? Status { get; set; }
 
-        public int TaskTypeId { get; set; }
+        public short TaskTypeId { get; set; }
 
         public string RunId { get; set; }
 
@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
         public int RetryCount { get; set; }
 
-        public DateTime HeartbeatDateTime { get; set; }
+        public DateTime? HeartbeatDateTime { get; set; }
 
         public string InputData { get; set; }
 
