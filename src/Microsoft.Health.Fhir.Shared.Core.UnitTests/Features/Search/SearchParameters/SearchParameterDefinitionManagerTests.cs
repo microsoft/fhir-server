@@ -9,13 +9,18 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -341,6 +346,82 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var patientParamsWithNew = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());
+        }
+
+        [Fact]
+        public async Task GivenExistingSearchParameters_WhenStartingSearchParameterDefinitionManager_ThenExistingParametersAdded()
+        {
+            var serializer = new FhirJsonSerializer();
+
+            var searchParam = new SearchParameter()
+            {
+                Id = "id",
+                Url = "http://test/Patient-preexisting",
+                Type = Hl7.Fhir.Model.SearchParamType.String,
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+                Expression = "Patient.name",
+                Name = "preexisting",
+                Code = "preexisting",
+            };
+
+            var rawResource = new RawResource(
+                    serializer.SerializeToString(searchParam),
+                    FhirResourceFormat.Json,
+                    false);
+
+            var wrapper = new ResourceWrapper(
+                new ResourceElement(
+                    rawResource.ToITypedElement(ModelInfoProvider.Instance)),
+                rawResource,
+                new ResourceRequest("POST"),
+                false,
+                null,
+                null,
+                null);
+            var searchEntry = new SearchResultEntry(wrapper);
+            SearchResult result = new SearchResult(Enumerable.Repeat(searchEntry, 1), "token", null, new List<Tuple<string, string>>());
+
+            var searchParam2 = new SearchParameter()
+            {
+                Id = "id2",
+                Url = "http://test/Patient-preexisting2",
+                Type = Hl7.Fhir.Model.SearchParamType.String,
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+                Expression = "Patient.name",
+                Name = "preexisting2",
+                Code = "preexisting2",
+            };
+
+            var rawResource2 = new RawResource(
+                    serializer.SerializeToString(searchParam2),
+                    FhirResourceFormat.Json,
+                    false);
+
+            var wrapper2 = new ResourceWrapper(
+                new ResourceElement(
+                    rawResource2.ToITypedElement(ModelInfoProvider.Instance)),
+                rawResource2,
+                new ResourceRequest("POST"),
+                false,
+                null,
+                null,
+                null);
+            var searchEntry2 = new SearchResultEntry(wrapper2);
+            SearchResult result2 = new SearchResult(Enumerable.Repeat(searchEntry2, 1), null, null, new List<Tuple<string, string>>());
+
+            var searchService = Substitute.For<ISearchService>();
+
+            searchService.SearchAsync("SearchParameter", Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Count() == 0), Arg.Any<CancellationToken>())
+                .Returns(result);
+            searchService.SearchAsync("SearchParameter", Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.FirstOrDefault().Item1 == KnownQueryParameterNames.ContinuationToken), Arg.Any<CancellationToken>())
+                .Returns(result2);
+
+            var searchParameterResourceDataStore = new SearchParameterResourceDataStore(_searchParameterDefinitionManager, _manager, () => searchService.CreateMockScope(), ModelInfoProvider.Instance);
+            await searchParameterResourceDataStore.EnsureInitialized();
+
+            var patientParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
+            Assert.False(patientParams.Where(p => p.Name == "preexisting").First().IsSearchable);
+            Assert.False(patientParams.Where(p => p.Name == "preexisting2").First().IsSearchable);
         }
 
         private static void ValidateSearchParam(SearchParameterInfo expectedSearchParam, SearchParameterInfo actualSearchParam)

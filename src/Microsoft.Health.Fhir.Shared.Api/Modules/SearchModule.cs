@@ -145,6 +145,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddTransient(typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>));
             services.AddTransient(typeof(IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>), typeof(CreateOrUpdateSearchParameterBehavior<UpsertResourceRequest, UpsertResourceResponse>));
             services.AddTransient(typeof(IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>), typeof(DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>));
+
+            services.Add<SearchParameterResourceDataStore>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
         }
     }
 }
