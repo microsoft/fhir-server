@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -49,15 +50,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
-        private readonly IFhirDataStore _fhirDataStore;
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
-        private readonly SqlServerFhirStorageTestHelper _testHelper;
-        private readonly SchemaInitializer _schemaInitializer;
-        private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
-        private readonly FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
-        private readonly ISearchService _searchService;
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
+        private IFhirDataStore _fhirDataStore;
+        private IFhirOperationDataStore _fhirOperationDataStore;
+        private SqlServerFhirStorageTestHelper _testHelper;
+        private SchemaInitializer _schemaInitializer;
+        private SchemaUpgradeRunner _schemaUpgradeRunner;
+        private FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
+        private ISearchService _searchService;
+        private SearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
+        private Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly string _initialConnectionString;
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
@@ -66,16 +69,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName)
         {
-            var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
-
             _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
             _databaseName = databaseName;
-            TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
+            _initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
+            TestConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = _databaseName }.ToString();
+        }
+
+        public string TestConnectionString { get; }
+
+        internal SqlTransactionHandler SqlTransactionHandler { get; private set; }
+
+        internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; private set; }
+
+        internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; private set; }
+
+        public async Task InitializeAsync()
+        {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true, SchemaOptions = schemaOptions };
 
-            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, _maximumSupportedSchemaVersion);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
@@ -85,8 +99,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory);
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
             _schemaInitializer = new SchemaInitializer(config, _schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, NullLogger<SchemaInitializer>.Instance);
+            _searchService = Substitute.For<ISearchService>();
+            _searchServiceFactory = () => _searchService.CreateMockScope();
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _searchServiceFactory);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
@@ -144,7 +160,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
-            _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
@@ -172,19 +188,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 fhirRequestContextAccessor,
                 NullLogger<SqlServerSearchService>.Instance);
 
-            _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, sqlConnectionFactory);
-        }
+            _testHelper = new SqlServerFhirStorageTestHelper(_initialConnectionString, MasterDatabaseName, sqlServerFhirModel, sqlConnectionFactory);
 
-        public string TestConnectionString { get; }
-
-        internal SqlTransactionHandler SqlTransactionHandler { get; }
-
-        internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
-
-        internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
-
-        public async Task InitializeAsync()
-        {
             await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
         }
 

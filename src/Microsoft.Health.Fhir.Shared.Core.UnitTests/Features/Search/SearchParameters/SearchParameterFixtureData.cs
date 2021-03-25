@@ -3,12 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.FhirPath;
 using Hl7.FhirPath;
 using MediatR;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -17,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 
@@ -71,7 +74,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManagerAsync(IModelInfoProvider modelInfoProvider)
         {
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
+            Func<IScoped<ISearchService>> searchServiceFactory = () => Substitute.For<ISearchService>().CreateMockScope();
+            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, searchServiceFactory);
             await definitionManager.StartAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(

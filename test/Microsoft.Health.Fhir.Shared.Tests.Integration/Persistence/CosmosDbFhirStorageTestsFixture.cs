@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -23,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -34,6 +37,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
@@ -88,8 +92,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+            // _searchService will be updated later, but we need a mock to get past initialization
+            _searchService = Substitute.For<ISearchService>();
+            Func<IScoped<ISearchService>> scopedSearchService = () => _searchService.CreateMockScope();
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, scopedSearchService);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, fhirRequestContextAccessor);
@@ -164,6 +170,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 retryExceptionPolicyFactory,
                 new CosmosQueryFactory(responseProcessor, new NullFhirCosmosQueryLogger()),
                 NullLogger<CosmosFhirOperationDataStore>.Instance);
+
+            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);

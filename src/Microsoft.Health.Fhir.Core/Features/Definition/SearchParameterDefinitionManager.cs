@@ -14,6 +14,8 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -29,14 +31,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IModelInfoProvider _modelInfoProvider;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
 
-        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
+        // Note that the SearchService depends on the this class, the SearchParameterDefinitionManager
+        // to provide information on SearchParameters.  Here this class uses the SearchService to query
+        // all resources of type SearchParameter in order to successfully initialize
+        // but the search service we use is not fully functional, it will only support limited searches
+        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+
+        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider, Func<IScoped<ISearchService>> searchServiceFactory)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
 
             _modelInfoProvider = modelInfoProvider;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
             UrlLookup = new ConcurrentDictionary<Uri, SearchParameterInfo>();
+            _searchServiceFactory = searchServiceFactory;
         }
 
         internal ConcurrentDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
@@ -51,8 +61,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             get { return new ReadOnlyDictionary<string, string>(_resourceTypeSearchParameterHashMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)); }
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
+            // read in the spec defined search parameters from search-parameters.json
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
 
             SearchParameterDefinitionBuilder.Build(
@@ -61,9 +72,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 TypeLookup,
                 _modelInfoProvider);
 
+            // now read in any previously POST'd SearchParameter resources
+            using (var search = _searchServiceFactory())
+            {
+                string continuationToken = null;
+                do
+                {
+                    var queryParams = new List<Tuple<string, string>>();
+                    if (continuationToken != null)
+                    {
+                        queryParams.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, continuationToken));
+                    }
+
+                    var result = await search.Value.SearchAsync("SearchParameter", queryParams, cancellationToken);
+                    if (!string.IsNullOrEmpty(result?.ContinuationToken))
+                    {
+                        continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken));
+                    }
+                    else
+                    {
+                        continuationToken = null;
+                    }
+
+                    if (result != null && result.Results != null && result.Results.Count() > 0)
+                    {
+                        var searchParams = result.Results.Select(e => e.Resource.RawResource.ToITypedElement(_modelInfoProvider));
+
+                        SearchParameterDefinitionBuilder.Build(
+                            searchParams.ToList(),
+                            UrlLookup,
+                            TypeLookup,
+                            _modelInfoProvider);
+                    }
+                }
+                while (continuationToken != null);
+            }
+
             CalculateSearchParameterHash();
 
-            return Task.CompletedTask;
+            return;
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

@@ -3,17 +3,21 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
@@ -1636,7 +1640,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     .AddKnownTypes("Device", "DiagnosticReport", "MedicationRequest", "MedicationDispense", "Location", "Practitioner", "Organization", "Bundle")
                     .Build();
 
-                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
+                Func<IScoped<ISearchService>> searchServiceFactory = () => Substitute.For<ISearchService>().CreateMockScope();
+                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider, searchServiceFactory);
             }
 
             public ISearchParameterDefinitionManager SearchParameterDefinitionManager { get; }

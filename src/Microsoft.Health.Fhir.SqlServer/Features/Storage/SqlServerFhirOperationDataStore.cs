@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            return Task.FromResult<IReadOnlyCollection<ReindexJobWrapper>>(new List<ReindexJobWrapper>());
         }
 
         private ExportJobOutcome CreateExportJobOutcome(string rawJobRecord, byte[] rowVersionAsBytes)

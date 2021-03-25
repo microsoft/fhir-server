@@ -3,13 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
-using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -17,22 +15,18 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Api.Registration;
-using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
-using Microsoft.Health.SqlServer.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static void AddSqlServer(this IServiceCollection services)
         {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-            IServiceCollection services = fhirServerBuilder.Services;
+            EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddSqlServerBase<SchemaVersion>(configuration, configureAction);
             services.AddSqlServerApi();
 
             services.Add(provider => new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max))
@@ -106,8 +100,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<ReindexJobSqlThrottlingController>()
                 .Singleton()
                 .AsImplementedInterfaces();
-
-            return fhirServerBuilder;
         }
 
         internal static void AddSqlServerTableRowParameterGenerators(this IServiceCollection serviceCollection)

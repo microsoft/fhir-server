@@ -11,6 +11,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Azure;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Registration;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -28,20 +30,22 @@ namespace Microsoft.Health.Fhir.Web
         {
             services.AddDevelopmentIdentityProvider(Configuration);
 
+            string dataStore = Configuration["DataStore"];
+            if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
+            {
+                services.AddSqlServerBase<SchemaVersion>(Configuration, null);
+                services.AddSqlServer();
+            }
+
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
                 .AddConvertData();
 
-            string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
             {
                 fhirServerBuilder.AddCosmosDb();
-            }
-            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
-            {
-                fhirServerBuilder.AddSqlServer(Configuration);
             }
 
             /*
