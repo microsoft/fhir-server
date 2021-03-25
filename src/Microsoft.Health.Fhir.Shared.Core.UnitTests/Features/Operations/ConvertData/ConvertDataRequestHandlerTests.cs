@@ -9,11 +9,11 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using NSubstitute;
@@ -65,8 +65,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
 
-            IFhirAuthorizationService authorizationService = Substitute.For<IFhirAuthorizationService>();
-            authorizationService.CheckAccess(default).ReturnsForAnyArgs(DataActions.ConvertData);
+            IAuthorizationService<DataActions> authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            authorizationService.CheckAccess(default, default).ReturnsForAnyArgs(DataActions.ConvertData);
 
             return new ConvertDataRequestHandler(
                 authorizationService,

@@ -5,17 +5,18 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Core.Features.Security.Authorization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 {
     /// <summary>
-    /// A <see cref="IFhirAuthorizationService"/> where all actions are always permitted.
+    /// A <see cref="IAuthorizationService{TDataActions}"/> where all actions are always permitted.
     /// </summary>
-    internal class DisabledFhirAuthorizationService : IFhirAuthorizationService
+    internal class DisabledFhirAuthorizationService : IAuthorizationService<DataActions>
     {
         public static readonly DisabledFhirAuthorizationService Instance = new DisabledFhirAuthorizationService();
 
-        public ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken = default)
+        public ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken)
         {
             return new ValueTask<DataActions>(dataActions);
         }

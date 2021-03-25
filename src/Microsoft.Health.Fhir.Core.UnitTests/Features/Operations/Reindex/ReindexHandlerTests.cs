@@ -9,6 +9,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -58,8 +59,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
 
-            var authorizationService = Substitute.For<IFhirAuthorizationService>();
-            authorizationService.CheckAccess(DataActions.Reindex).Returns(DataActions.None);
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.None);
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, authorizationService);
 
@@ -104,8 +105,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
 
-            var authorizationService = Substitute.For<IFhirAuthorizationService>();
-            authorizationService.CheckAccess(DataActions.Reindex).Returns(DataActions.None);
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.None);
 
             var handler = new CancelReindexRequestHandler(_fhirOperationDataStore, authorizationService);
 

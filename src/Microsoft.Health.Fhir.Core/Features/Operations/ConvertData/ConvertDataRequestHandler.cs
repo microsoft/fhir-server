@@ -8,22 +8,22 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 {
     public class ConvertDataRequestHandler : IRequestHandler<ConvertDataRequest, ConvertDataResponse>
     {
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IConvertDataEngine _convertDataEngine;
         private readonly ConvertDataConfiguration _convertDataConfiguration;
 
         public ConvertDataRequestHandler(
-            IFhirAuthorizationService authorizationService,
+            IAuthorizationService<DataActions> authorizationService,
             IConvertDataEngine convertDataEngine,
             IOptions<ConvertDataConfiguration> convertDataConfiguration)
         {
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         {
             EnsureArg.IsNotNull(request);
 
-            if (await _authorizationService.CheckAccess(DataActions.ConvertData) != DataActions.ConvertData)
+            if (await _authorizationService.CheckAccess(DataActions.ConvertData, cancellationToken) != DataActions.ConvertData)
             {
                 throw new UnauthorizedFhirActionException();
             }

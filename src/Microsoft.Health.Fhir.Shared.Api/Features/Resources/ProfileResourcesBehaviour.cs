@@ -7,9 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -24,10 +24,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         IPipelineBehavior<ConditionalUpsertResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>
     {
-        private IFhirAuthorizationService _authorizationService;
+        private IAuthorizationService<DataActions> _authorizationService;
         private IProvideProfilesForValidation _profilesResolver;
 
-        public ProfileResourcesBehaviour(IFhirAuthorizationService authorizationService, IProvideProfilesForValidation profilesResolver)
+        public ProfileResourcesBehaviour(IAuthorizationService<DataActions> authorizationService, IProvideProfilesForValidation profilesResolver)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             _authorizationService = authorizationService;
@@ -35,24 +35,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         }
 
         public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
-            => await GenericHandle(request.Resource.InstanceType, next);
+            => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(ConditionalCreateResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
-            => await GenericHandle(request.Resource.InstanceType, next);
+            => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
-            => await GenericHandle(request.Resource.InstanceType, next);
+            => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
-            => await GenericHandle(request.Resource.InstanceType, next);
+            => await GenericHandle(request.Resource.InstanceType, next, cancellationToken);
 
         public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<DeleteResourceResponse> next)
-            => await GenericHandle(request.ResourceKey.ResourceType, next);
+            => await GenericHandle(request.ResourceKey.ResourceType, next, cancellationToken);
 
-        private async Task<TResponse> GenericHandle<TResponse>(string resourceType, RequestHandlerDelegate<TResponse> next)
+        private async Task<TResponse> GenericHandle<TResponse>(string resourceType, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
             var resources = _profilesResolver.GetProfilesTypes();
-            if (resources.Contains(resourceType) && await _authorizationService.CheckAccess(DataActions.ProfileDefinitionsEditor) != DataActions.ProfileDefinitionsEditor)
+            if (resources.Contains(resourceType) && await _authorizationService.CheckAccess(DataActions.ProfileDefinitionsEditor, cancellationToken) != DataActions.ProfileDefinitionsEditor)
             {
                 throw new UnauthorizedFhirActionException();
             }
