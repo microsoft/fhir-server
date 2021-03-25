@@ -97,6 +97,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public SchemaUpgradeRunner SchemaUpgradeRunner => _fixture.GetRequiredService<SchemaUpgradeRunner>();
 
+        public SearchParameterStatusManager SearchParameterStatusManager => _fixture.GetRequiredService<SearchParameterStatusManager>();
+
         public void Dispose()
         {
             (_fixture as IDisposable)?.Dispose();

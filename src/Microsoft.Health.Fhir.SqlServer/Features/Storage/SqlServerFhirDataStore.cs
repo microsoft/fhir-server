@@ -41,8 +41,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly V6.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV6;
         private readonly V7.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV7;
-        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
-        private readonly VLatest.ReindexResourceTvpGenerator<ResourceMetadata> _reindexResourceTvpGeneratorVLatest;
+        private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
+        private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
+        private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -54,8 +55,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             V6.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV6,
             V7.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV7,
-            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
-            VLatest.ReindexResourceTvpGenerator<ResourceMetadata> reindexResourceTvpGeneratorVLatest,
+            VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
+            VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
+            VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger,
@@ -67,6 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorV7, nameof(upsertResourceTvpGeneratorV7));
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
+            EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -78,6 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _upsertResourceTvpGeneratorV7 = upsertResourceTvpGeneratorV7;
             _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
             _reindexResourceTvpGeneratorVLatest = reindexResourceTvpGeneratorVLatest;
+            _bulkReindexResourcesTvpGeneratorVLatest = bulkReindexResourcesTvpGeneratorVLatest;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -173,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestMethod: resource.Request.Method,
                     searchParamHash: resource.SearchParameterHash,
                     rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
+                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportForReferencesWithMissingTypeVersion)
             {
@@ -294,12 +298,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
-            // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
-
-            // this is a place holder update until we batch update resources
-            foreach (var resource in resources)
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                await UpdateSearchIndexForResourceAsync(resource, WeakETag.FromVersionId(resource.Version), cancellationToken);
+                VLatest.BulkReindexResources.PopulateCommand(
+                    sqlCommandWrapper,
+                    _bulkReindexResourcesTvpGeneratorVLatest.Generate(resources.ToList()));
+
+                try
+                {
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (SqlException e)
+                {
+                    switch (e.Number)
+                    {
+                        // TODO: we should attempt to reindex resources that failed to be reindexed
+                        case SqlErrorCodes.PreconditionFailed:
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflict));
+                        case SqlErrorCodes.NotFound:
+                            throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
+                        default:
+                            _logger.LogError(e, "Error from SQL database on reindex");
+                            throw;
+                    }
+                }
             }
         }
 
@@ -330,11 +353,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 ? (int?)null
                 : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
-            var resourceMetadata = new ResourceMetadata(
-                resource.CompartmentIndices,
-                resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
-                resource.LastModifiedClaims);
-
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
@@ -344,7 +362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     resourceId: resource.ResourceId,
                     eTag,
                     searchParamHash: resource.SearchParameterHash,
-                    tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(resourceMetadata));
+                    tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
 
                 try
                 {
@@ -357,9 +375,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                            // TODO: we should attempt to reindex the resource
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflict));
                         case SqlErrorCodes.NotFound:
-                            throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, resource.ResourceTypeName, resource.ResourceId));
+                            throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
                         default:
                             _logger.LogError(e, "Error from SQL database on reindex");
                             throw;
