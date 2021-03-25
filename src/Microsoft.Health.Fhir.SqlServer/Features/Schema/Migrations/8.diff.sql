@@ -2,28 +2,39 @@
     Resource table
 **************************************************************/
 
+IF NOT EXISTS (SELECT 'X' FROM SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID(N'Resource') AND NAME = 'SearchParamHash')
+BEGIN
 ALTER TABLE dbo.Resource
 ADD
     SearchParamHash varchar(64) NULL
+END
 
 GO
 
 DROP PROCEDURE IF EXISTS dbo.UpsertResource;
 
+IF TYPE_ID(N'BulkResourceWriteClaimTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkResourceWriteClaimTableType_1 AS TABLE
 (
     Offset int NOT NULL,
     ClaimTypeId tinyint NOT NULL,
     ClaimValue nvarchar(128) NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkCompartmentAssignmentTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkCompartmentAssignmentTableType_1 AS TABLE
 (
     Offset int NOT NULL,
     CompartmentTypeId tinyint NOT NULL,
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkReferenceSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkReferenceSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -33,7 +44,10 @@ CREATE TYPE dbo.BulkReferenceSearchParamTableType_1 AS TABLE
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL
 )
+END
 
+IF TYPE_ID(N'BulkTokenSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -41,14 +55,20 @@ CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE
     SystemId int NULL,
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkTokenTextTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE
 (
     Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkStringSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkStringSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -56,14 +76,20 @@ CREATE TYPE dbo.BulkStringSearchParamTableType_1 AS TABLE
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
+END
 
+IF TYPE_ID(N'BulkUriSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkUriSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkNumberSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkNumberSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -72,7 +98,10 @@ CREATE TYPE dbo.BulkNumberSearchParamTableType_1 AS TABLE
     LowValue decimal(18,6) NULL,
     HighValue decimal(18,6) NULL
 )
+END
 
+IF TYPE_ID(N'BulkQuantitySearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkQuantitySearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -83,7 +112,10 @@ CREATE TYPE dbo.BulkQuantitySearchParamTableType_1 AS TABLE
     LowValue decimal(18,6) NULL,
     HighValue decimal(18,6) NULL
 )
+END
 
+IF TYPE_ID(N'BulkDateTimeSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkDateTimeSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -92,7 +124,10 @@ CREATE TYPE dbo.BulkDateTimeSearchParamTableType_1 AS TABLE
     EndDateTime datetimeoffset(7) NOT NULL,
     IsLongerThanADay bit NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkReferenceTokenCompositeSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -104,7 +139,10 @@ CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_1 AS TABLE
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkTokenTokenCompositeSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -114,7 +152,10 @@ CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkTokenDateTimeCompositeSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -125,7 +166,10 @@ CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 AS TABLE
     EndDateTime2 datetimeoffset(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL
 )
+END
 
+IF TYPE_ID(N'BulkTokenQuantityCompositeSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -138,7 +182,10 @@ CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_1 AS TABLE
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL
 )
+END
 
+IF TYPE_ID(N'BulkTokenStringCompositeSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -148,7 +195,10 @@ CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE
     Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
+END
 
+IF TYPE_ID(N'BulkTokenNumberNumberCompositeSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -163,6 +213,7 @@ CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
     HighValue3 decimal(18,6) NULL,
     HasRange bit NOT NULL
 )
+END
 
 GO
 
@@ -235,7 +286,7 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_3
+CREATE OR ALTER PROCEDURE dbo.UpsertResource_3
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -627,6 +678,8 @@ GO
 /*************************************************************
     Reindex Job
 **************************************************************/
+IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'ReindexJob')
+BEGIN
 CREATE TABLE dbo.ReindexJob
 (
     Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -635,11 +688,15 @@ CREATE TABLE dbo.ReindexJob
     RawJobRecord varchar(max) NOT NULL,
     JobVersion rowversion NOT NULL
 )
+END
 
+IF NOT EXISTS (SELECT 'X' FROM SYS.INDEXES WHERE name = 'IXC_ReindexJob' AND OBJECT_ID = OBJECT_ID('ReindexJob'))
+BEGIN
 CREATE UNIQUE CLUSTERED INDEX IXC_ReindexJob ON dbo.ReindexJob
 (
     Id
 )
+END
 
 GO
 
@@ -664,7 +721,7 @@ GO
 -- RETURN VALUE
 --     The row version of the created reindex job.
 --
-CREATE PROCEDURE dbo.CreateReindexJob
+CREATE OR ALTER PROCEDURE dbo.CreateReindexJob
     @id varchar(64),
     @status varchar(10),
     @rawJobRecord varchar(max)
@@ -700,7 +757,7 @@ GO
 -- RETURN VALUE
 --     The matching reindex job.
 --
-CREATE PROCEDURE dbo.GetReindexJobById
+CREATE OR ALTER PROCEDURE dbo.GetReindexJobById
     @id varchar(64)
 AS
     SET NOCOUNT ON
@@ -730,7 +787,7 @@ GO
 -- RETURN VALUE
 --     The row version of the updated reindex job.
 --
-CREATE PROCEDURE dbo.UpdateReindexJob
+CREATE OR ALTER PROCEDURE dbo.UpdateReindexJob
     @id varchar(64),
     @status varchar(10),
     @rawJobRecord varchar(max),
@@ -785,7 +842,7 @@ GO
 -- RETURN VALUE
 --     The updated jobs that are now running.
 --
-CREATE PROCEDURE dbo.AcquireReindexJobs
+CREATE OR ALTER PROCEDURE dbo.AcquireReindexJobs
     @jobHeartbeatTimeoutThresholdInSeconds bigint,
     @maximumNumberOfConcurrentJobsAllowed int
 AS
@@ -842,7 +899,7 @@ GO
 -- RETURN VALUE
 --     The job IDs of any active reindex jobs.
 --
-CREATE PROCEDURE dbo.CheckActiveReindexJobs
+CREATE OR ALTER PROCEDURE dbo.CheckActiveReindexJobs
 AS
     SET NOCOUNT ON
 
@@ -900,7 +957,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE PROCEDURE dbo.ReindexResource
+CREATE OR ALTER PROCEDURE dbo.ReindexResource
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
@@ -1081,6 +1138,8 @@ AS
     COMMIT TRANSACTION
 GO
 
+IF TYPE_ID(N'BulkReindexResourceTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -1089,6 +1148,7 @@ CREATE TYPE dbo.BulkReindexResourceTableType_1 AS TABLE
     ETag int NULL,
     SearchParamHash varchar(64) NOT NULL
 )
+END
 
 GO
 
@@ -1135,7 +1195,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE PROCEDURE dbo.BulkReindexResources
+CREATE OR ALTER PROCEDURE dbo.BulkReindexResources
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,

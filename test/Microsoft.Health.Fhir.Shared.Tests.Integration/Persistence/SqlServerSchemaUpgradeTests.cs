@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        [Fact(Skip = "Disable until AB80636")]
+        [Fact]
         public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed()
         {
             var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
