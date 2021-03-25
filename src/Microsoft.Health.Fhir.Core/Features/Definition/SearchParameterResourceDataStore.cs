@@ -8,35 +8,37 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public class SearchParameterResourceDataStore : IRequireInitializationOnFirstRequest
     {
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ILogger _logger;
 
         public SearchParameterResourceDataStore(
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            SearchParameterStatusManager searchParameterStatusManager,
+            ISearchParameterOperations searchParameterOperations,
             Func<IScoped<ISearchService>> searchServiceFactory,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ILogger<SearchParameterResourceDataStore> logger)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _searchParameterStatusManager = searchParameterStatusManager;
+            _searchParameterOperations = searchParameterOperations;
             _searchServiceFactory = searchServiceFactory;
             _modelInfoProvider = modelInfoProvider;
+            _logger = logger;
         }
 
         public async Task EnsureInitialized()
@@ -67,8 +69,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     {
                         var searchParams = result.Results.Select(r => r.Resource.RawResource.ToITypedElement(_modelInfoProvider)).ToList();
 
-                        _searchParameterDefinitionManager.AddNewSearchParameters(searchParams);
-                        await _searchParameterStatusManager.AddSearchParameterStatusAsync(searchParams.Select(s => s.GetStringScalar("url")).ToList());
+                        foreach (var searchParam in searchParams)
+                        {
+                            try
+                            {
+                                await _searchParameterOperations.AddSearchParameterAsync(searchParam);
+                            }
+                            catch (SearchParameterNotSupportedException ex)
+                            {
+                                _logger.LogError(ex, $"Error loading search parameter {searchParam.GetStringScalar("url")} from data store.");
+                            }
+                            catch (InvalidDefinitionException ex)
+                            {
+                                _logger.LogError(ex, $"Error loading search parameter {searchParam.GetStringScalar("url")} from data store.");
+                            }
+                        }
                     }
                 }
                 while (continuationToken != null);
