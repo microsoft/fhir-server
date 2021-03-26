@@ -54,6 +54,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         }
 
         [Fact]
+        public void GivenARawResourceFromFhirNet1_WhenDeserializingFromJson_ThenTheObjectIsReturned()
+        {
+            var oldValidResource = @"{
+  ""resourceType"": ""Patient"",
+  ""birthDate"": ""1991-02-03T11:22:33Z""
+}";
+
+            var observation = Samples.GetDefaultPatient();
+
+            var wrapper = new ResourceWrapper(observation, new RawResource(oldValidResource, FhirResourceFormat.Json, false), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+
+            var newObject = Deserializers.ResourceDeserializer.Deserialize(wrapper);
+        }
+
+        [Fact]
         public async Task GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdNotSet_UpdatedWithVersionIdFromResourceWrapper()
         {
             var patient = Samples.GetDefaultPatient().UpdateVersion("3").UpdateLastUpdated(Clock.UtcNow - TimeSpan.FromDays(30));
