@@ -6,8 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -17,7 +19,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class SearchParameterResourceDataStore : IRequireInitializationOnFirstRequest
+    public class SearchParameterResourceDataStore : IHostedService
     {
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
@@ -41,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _logger = logger;
         }
 
-        public async Task EnsureInitialized()
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
             // now read in any previously POST'd SearchParameter resources
             using (var search = _searchServiceFactory())
@@ -55,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                         queryParams.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, continuationToken));
                     }
 
-                    var result = await search.Value.SearchAsync("SearchParameter", queryParams, cancellationToken: default);
+                    var result = await search.Value.SearchAsync("SearchParameter", queryParams, cancellationToken);
                     if (!string.IsNullOrEmpty(result?.ContinuationToken))
                     {
                         continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken));
@@ -77,17 +79,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                             }
                             catch (SearchParameterNotSupportedException ex)
                             {
-                                _logger.LogError(ex, $"Error loading search parameter {searchParam.GetStringScalar("url")} from data store.");
+                                _logger.LogWarning(ex, $"Error loading search parameter {searchParam.GetStringScalar("url")} from data store.");
                             }
                             catch (InvalidDefinitionException ex)
                             {
-                                _logger.LogError(ex, $"Error loading search parameter {searchParam.GetStringScalar("url")} from data store.");
+                                _logger.LogWarning(ex, $"Error loading search parameter {searchParam.GetStringScalar("url")} from data store.");
                             }
                         }
                     }
                 }
                 while (continuationToken != null);
             }
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
         }
     }
 }
