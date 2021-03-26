@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string inputData = ReadStringParameter(inputParams, ConvertDataProperties.InputData);
             string templateCollectionReference = ReadStringParameter(inputParams, ConvertDataProperties.TemplateCollectionReference);
             string rootTemplate = ReadStringParameter(inputParams, ConvertDataProperties.RootTemplate);
-            ConversionInputDataType inputDataType = ReadEnumParameter<ConversionInputDataType>(inputParams, ConvertDataProperties.InputDataType);
+            Liquid.Converter.Models.DataType inputDataType = ReadEnumParameter<Liquid.Converter.Models.DataType>(inputParams, ConvertDataProperties.InputDataType);
 
             // Validate template reference format.
             if (!ImageInfo.IsValidImageReference(templateCollectionReference))
@@ -75,9 +75,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             // Validate template registry has been configured.
-            bool isDefaultTemplateReference = IsDefaultTemplateReference(templateCollectionReference);
+            bool isDefaultTemplateReference = ImageInfo.IsDefaultTemplateImageReference(templateCollectionReference);
             string registryServer = ExtractRegistryServer(templateCollectionReference);
-            if (!isDefaultTemplateReference)
+            if (isDefaultTemplateReference)
+            {
+                CheckInputDataTypeAndDefaultTemplateImageReferenceConsistent(inputDataType, templateCollectionReference);
+            }
+            else
             {
                 CheckIfRegistryIsConfigured(registryServer);
             }
@@ -169,11 +173,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return supportedParams;
         }
 
-        private static bool IsDefaultTemplateReference(string templateReference)
-        {
-            return string.Equals(ImageInfo.DefaultTemplateImageReference, templateReference, StringComparison.OrdinalIgnoreCase);
-        }
-
         private void CheckIfRegistryIsConfigured(string registryServer)
         {
             if (!_config.ContainerRegistryServers.Any(server =>
@@ -181,6 +180,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 _logger.LogError("The requested ACR server is not configured.");
                 throw new ContainerRegistryNotConfiguredException(string.Format(Resources.ContainerRegistryNotConfigured, registryServer));
+            }
+        }
+
+        private void CheckInputDataTypeAndDefaultTemplateImageReferenceConsistent(Liquid.Converter.Models.DataType inputDataType, string templateCollectionReference)
+        {
+            var defaultTemplatesDataType = DefaultTemplateInfo.DefaultTemplateMap.GetValueOrDefault(templateCollectionReference).DataType;
+
+            if (defaultTemplatesDataType != inputDataType)
+            {
+                _logger.LogError("The default template collection and input data type are inconsistent.");
+                throw new RequestNotValidException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));
             }
         }
 
