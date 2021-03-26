@@ -231,20 +231,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         taskInfoTable.TaskContext,
                         taskInfoTable.Result);
 
-                    return new TaskInfo()
-                    {
-                        TaskId = taskId,
-                        QueueId = queueId,
-                        Status = (TaskStatus)status,
-                        TaskTypeId = taskTypeId,
-                        RunId = runIdResult,
-                        IsCanceled = isCanceled,
-                        RetryCount = retryCount,
-                        HeartbeatDateTime = heartbeatDateTime,
-                        InputData = inputData,
-                        Context = taskContext,
-                        Result = result,
-                    };
+                    TaskStatus taskStatus = (TaskStatus)status;
+                    return taskStatus == TaskStatus.Completed
+                        ? throw new TaskAlreadyCompletedException("Task already completed or reach max retry count.")
+                        : new TaskInfo()
+                        {
+                            TaskId = taskId,
+                            QueueId = queueId,
+                            Status = taskStatus,
+                            TaskTypeId = taskTypeId,
+                            RunId = runIdResult,
+                            IsCanceled = isCanceled,
+                            RetryCount = retryCount,
+                            HeartbeatDateTime = heartbeatDateTime,
+                            InputData = inputData,
+                            Context = taskContext,
+                            Result = result,
+                        };
                 }
                 catch (SqlException sqlEx)
                 {

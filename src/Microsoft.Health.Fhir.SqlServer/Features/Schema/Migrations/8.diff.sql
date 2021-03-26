@@ -341,25 +341,29 @@ AS
 	
     -- Can only reset task with same runid
     DECLARE @retryCount smallint
+    DECLARE @status smallint
 
-    SELECT @retryCount = RetryCount
+    SELECT @retryCount = RetryCount, @status = Status
     FROM [dbo].[TaskInfo]
     WHERE TaskId = @taskId and RunId = @runId
+
+	-- We will timestamp the jobs when we update them to track stale jobs.
+    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
     IF (@retryCount IS NULL) BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
 
     IF (@retryCount >= @maxRetryCount) BEGIN
-        THROW 50412, 'Task reach max retry count', 1;
-    END
-
-    -- We will timestamp the jobs when we update them to track stale jobs.
-    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
-
-	UPDATE dbo.TaskInfo
-	SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
-	WHERE TaskId = @taskId
+		UPDATE dbo.TaskInfo
+		SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @result
+		WHERE TaskId = @taskId
+	END
+    Else IF (@status <> 3) BEGIN
+        UPDATE dbo.TaskInfo
+		SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
+		WHERE TaskId = @taskId
+	END
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
 	FROM [dbo].[TaskInfo]
