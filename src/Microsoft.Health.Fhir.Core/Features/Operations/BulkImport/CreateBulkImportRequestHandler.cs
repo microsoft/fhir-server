@@ -12,9 +12,9 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
 using Newtonsoft.Json;
 
@@ -27,12 +27,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
     {
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
 
         public CreateBulkImportRequestHandler(
             IClaimsExtractor claimsExtractor,
             IFhirOperationDataStore fhirOperationDataStore,
-            IFhirAuthorizationService authorizationService)
+            IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.BulkImport) != DataActions.BulkImport)
+            if (await _authorizationService.CheckAccess(DataActions.BulkImport, cancellationToken) != DataActions.BulkImport)
             {
                 throw new UnauthorizedFhirActionException();
             }

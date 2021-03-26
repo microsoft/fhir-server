@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<BulkImportController> _logger;
         private readonly BulkImportJobConfiguration _bulkImportConfig;
 
-        public BulkImportController (
+        public BulkImportController(
             IMediator mediator,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IUrlResolver urlResolver,

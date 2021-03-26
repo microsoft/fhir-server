@@ -9,9 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
 using Polly;
 using Polly.Retry;
@@ -24,15 +24,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
         private static readonly Func<int, TimeSpan> DefaultSleepDurationProvider = new Func<int, TimeSpan>(retryCount => TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly AsyncRetryPolicy _retryPolicy;
 
-        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService)
+        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
             : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider)
         {
         }
 
-        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
+        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.BulkImport) != DataActions.BulkImport)
+            if (await _authorizationService.CheckAccess(DataActions.BulkImport, cancellationToken) != DataActions.BulkImport)
             {
                 throw new UnauthorizedFhirActionException();
             }
