@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId);
 
                         var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
-                        searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
+                        searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
                     }
                 }
                 else
@@ -221,9 +221,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     bool moreResults = false;
                     int matchCount = 0;
 
-                    // Currently we support only date time sort type.
-                    DateTime? sortValue = null;
-
+                    string sortValue = null;
                     var isResultPartial = false;
 
                     while (await reader.ReadAsync(cancellationToken))
@@ -246,27 +244,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             moreResults = true;
 
-                            // At this point we are at the last row.
-                            // if we have more columns, it means sort expressions were added.
-                            if (reader.FieldCount > 10)
-                            {
-                                sortValue = reader.GetValue(SortValueColumnName) as DateTime?;
-                            }
-
                             continue;
-                        }
-
-                        // See if this resource is a continuation token candidate and increase the count
-                        if (isMatch)
-                        {
-                            newContinuationId = resourceSurrogateId;
-                            matchCount++;
                         }
 
                         string rawResource;
                         using (rawResourceStream)
                         {
                             rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        }
+
+                        // See if this resource is a continuation token candidate and increase the count
+                        if (isMatch)
+                        {
+                            newContinuationId = resourceSurrogateId;
+
+                            // Keep track of sort value if this is the last row.
+                            // if we have more than 10 columns, it means sort expressions were added.
+                            if (matchCount == searchOptions.MaxItemCount - 1 && reader.FieldCount > 10)
+                            {
+                                var tempSortValue = reader.GetValue(SortValueColumnName);
+                                if ((tempSortValue as DateTime?) != null)
+                                {
+                                    sortValue = (tempSortValue as DateTime?).Value.ToString("o");
+                                }
+                                else
+                                {
+                                    sortValue = tempSortValue.ToString();
+                                }
+                            }
+
+                            matchCount++;
                         }
 
                         // as long as at least one entry was marked as partial, this resultset
@@ -295,11 +302,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     ContinuationToken continuationToken = null;
                     if (moreResults)
                     {
-                        if (sortValue.HasValue)
+                        if (sortValue != null)
                         {
                             continuationToken = new ContinuationToken(new object[]
                             {
-                                sortValue.Value.ToString("o"),
+                                sortValue,
                                 newContinuationId ?? 0,
                             });
                         }

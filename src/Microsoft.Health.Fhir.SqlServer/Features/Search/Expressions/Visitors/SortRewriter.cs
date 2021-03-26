@@ -42,14 +42,50 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
+            bool matchFound = false;
+            for (int i = 0; i < expression.SearchParamTableExpressions.Count; i++)
+            {
+                SearchParamTableExpression currentExpression = expression.SearchParamTableExpressions[i];
+                Expression updatedExpression = currentExpression.Predicate.AcceptVisitor(this, context);
+                if (ReferenceEquals(currentExpression.Predicate, updatedExpression))
+                {
+                    continue;
+                }
+                else
+                {
+                    matchFound = true;
+                    break;
+                }
+            }
+
+            SearchParamTableExpressionKind sortKind = matchFound ? SearchParamTableExpressionKind.SortWithFilter : SearchParamTableExpressionKind.Sort;
+
             var queryGenerator = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
 
             var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
             newTableExpressions.AddRange(expression.SearchParamTableExpressions);
 
-            newTableExpressions.Add(new SearchParamTableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), SearchParamTableExpressionKind.Sort));
+            newTableExpressions.Add(new SearchParamTableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), sortKind));
 
             return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+        }
+
+        public override Expression VisitSearchParameter(SearchParameterExpression expression, SearchOptions context)
+        {
+            if (context.Sort.Count > 0)
+            {
+                if (expression.Parameter.Equals(context.Sort[0].searchParameterInfo))
+                {
+                    return new SearchParameterExpression(expression.Parameter, expression.Expression);
+                }
+            }
+
+            return expression;
+        }
+
+        public override Expression VisitMultiary(MultiaryExpression expression, SearchOptions context)
+        {
+            return base.VisitMultiary(expression, context);
         }
     }
 }
