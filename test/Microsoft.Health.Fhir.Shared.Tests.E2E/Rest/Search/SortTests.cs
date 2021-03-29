@@ -45,22 +45,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
         }
 
-        [Fact]
-        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder()
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("_lastUpdated")]
+        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}", false, patients.Cast<Resource>().ToArray());
         }
 
-        [Fact]
-        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("_lastUpdated")]
+        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-{sortParameterName}", false, patients.Reverse().Cast<Resource>().ToArray());
         }
 
         // uncomment only when db cleanup happens on each run, otherwise the paging might cause expected resources to not arrive
@@ -460,18 +464,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "Seattle", "Robinson", tag),
-                p => SetPatientInfo(p, "Portland", "Williamas", tag),
-                p => SetPatientInfo(p, "Portland", "James", tag),
-                p => SetPatientInfo(p, "Seatt;e", "Alex", tag),
-                p => SetPatientInfo(p, "Portland", "Rock", tag),
-                p => SetPatientInfo(p, "Seattle", "Mike", tag),
-                p => SetPatientInfo(p, "Portland", "Christie", tag),
-                p => SetPatientInfo(p, "Portland", "Lone", tag),
-                p => SetPatientInfo(p, "Seattle", "Sophie", tag),
-                p => SetPatientInfo(p, "Portland", "Peter", tag),
-                p => SetPatientInfo(p, "Portland", "Cathy", tag),
-                p => SetPatientInfo(p, "Seattle", "Jones", tag));
+                p => SetPatientInfo(p, "Seattle", "Robinson", tag, new DateTime(1940, 01, 15)),
+                p => SetPatientInfo(p, "Portland", "Williamas", tag, new DateTime(1942, 01, 15)),
+                p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
+                p => SetPatientInfo(p, "Seatt;e", "Alex", tag, new DateTime(1943, 11, 23)),
+                p => SetPatientInfo(p, "Portland", "Rock", tag, new DateTime(1944, 06, 24)),
+                p => SetPatientInfo(p, "Seattle", "Mike", tag, new DateTime(1946, 02, 24)),
+                p => SetPatientInfo(p, "Portland", "Christie", tag, new DateTime(1947, 02, 24)),
+                p => SetPatientInfo(p, "Portland", "Lone", tag, new DateTime(1950, 05, 12)),
+                p => SetPatientInfo(p, "Seattle", "Sophie", tag, new DateTime(1953, 05, 12)),
+                p => SetPatientInfo(p, "Portland", "Peter", tag, new DateTime(1956, 06, 12)),
+                p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
 
             return patients;
         }
