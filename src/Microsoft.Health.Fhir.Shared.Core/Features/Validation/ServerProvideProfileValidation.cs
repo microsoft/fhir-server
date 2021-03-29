@@ -142,7 +142,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public IEnumerable<string> GetSupportedProfiles(string resourceType)
         {
-            var result = new List<string>();
             var summary = ListSummaries();
             return summary.Where(x => x.ResourceType == ResourceType.StructureDefinition)
                 .Where(x =>
