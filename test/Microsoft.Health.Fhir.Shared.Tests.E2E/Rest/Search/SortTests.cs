@@ -67,6 +67,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-{sortParameterName}", false, patients.Reverse().Cast<Resource>().ToArray());
         }
 
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInCorrectOrder(string sortParameterName)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithSameBirthdate(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
+        }
+
         // uncomment only when db cleanup happens on each run, otherwise the paging might cause expected resources to not arrive
         /*[Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -480,6 +491,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
+        private async Task<Patient[]> CreatePatientsWithSameBirthdate(string tag)
+        {
+            // Create various resources.
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "Seattle", "Robinson", tag),
+                p => SetPatientInfo(p, "Portland", "Williams", tag),
+                p => SetPatientInfo(p, "Portland", "James", tag),
+                p => SetPatientInfo(p, "Seattle", "Alex", tag),
+                p => SetPatientInfo(p, "Portland", "Rock", tag));
+
+            return patients;
+        }
+
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
         {
             SetPatientInfoInternal(patient, city, family, tag, "1970-01-01");
@@ -505,16 +529,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             patient.Name = new List<HumanName> { new HumanName { Family = family }, };
             patient.BirthDate = birthDate;
-        }
-
-        private async Task<Observation[]> CreateObservations(string tag)
-        {
-            Observation[] observations = await Client.CreateResourcesAsync<Observation>(
-                o => SetObservationInfo(o, "1979-12-31", tag),
-                o => SetObservationInfo(o, "1989-12-31", tag),
-                o => SetObservationInfo(o, "1999-12-31", tag));
-
-            return observations;
         }
 
         private void SetObservationInfo(Observation observation, string date, string tag, Patient patient = null)
