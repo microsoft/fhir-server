@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
@@ -27,19 +28,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly ListedCapabilityStatement _statement;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IKnowSupportedProfiles _supportedProfiles;
 
-        private CapabilityStatementBuilder(ListedCapabilityStatement statement, IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager)
+        private CapabilityStatementBuilder(
+            ListedCapabilityStatement statement,
+            IModelInfoProvider modelInfoProvider,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IKnowSupportedProfiles supportedProfiles)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
 
             _statement = statement;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _supportedProfiles = supportedProfiles;
         }
 
-        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager)
+        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IKnowSupportedProfiles supportedProfiles)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -47,8 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             using Stream resourceStream = modelInfoProvider.OpenVersionedFileStream("BaseCapabilities.json");
             using var reader = new StreamReader(resourceStream);
             var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
-
-            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager);
+            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, supportedProfiles);
         }
 
         public ICapabilityStatementBuilder Update(Action<ListedCapabilityStatement> action)
@@ -79,6 +86,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}",
                     },
                 };
+                if (!_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
+                {
+                    var supportedProfiles = _supportedProfiles.GetSupportedProfiles(resourceType);
+                    if (supportedProfiles != null)
+                    {
+                        resourceComponent.SupportedProfile.Clear();
+                        foreach (var profile in supportedProfiles)
+                        {
+                            resourceComponent.SupportedProfile.Add(profile);
+                        }
+                    }
+                }
+
                 listedRestComponent.Resource.Add(resourceComponent);
             }
 

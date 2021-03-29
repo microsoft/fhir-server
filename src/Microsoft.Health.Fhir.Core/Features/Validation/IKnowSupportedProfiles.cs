@@ -4,12 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.Fhir.Specification.Source;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public interface IProvideProfilesForValidation : IResourceResolver, ISummarySource, IKnowSupportedProfiles
+    public interface IKnowSupportedProfiles
     {
-        IReadOnlySet<string> GetProfilesTypes();
+        IEnumerable<string> GetSupportedProfiles(string resourceType);
     }
 }

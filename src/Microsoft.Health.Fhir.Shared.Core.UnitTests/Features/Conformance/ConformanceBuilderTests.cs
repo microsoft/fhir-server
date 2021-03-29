@@ -8,6 +8,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
@@ -22,13 +23,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     {
         private readonly ICapabilityStatementBuilder _builder;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IKnowSupportedProfiles _supportedProfiles;
 
         public ConformanceBuilderTests()
         {
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            _supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
-                _searchParameterDefinitionManager);
+                _searchParameterDefinitionManager,
+                _supportedProfiles);
         }
 
         [Fact]
@@ -57,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             string description = "Logical id of this artifact";
 
             _searchParameterDefinitionManager.GetSearchParameters("Account")
-                .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description),  });
+                .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description), });
 
             _builder.AddDefaultSearchParameters();
 
@@ -121,6 +125,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             object typeName = statement.Scalar($"{ResourceQuery("Account")}.searchParam.where(name = '_type').name");
 
             Assert.Null(typeName);
+        }
+
+        [Fact]
+        public void GivenAConformanceBuilder_WhenAddingSupportedProfile_ThenSupportedProfilePresent()
+        {
+            string profile = "coolProfile";
+            _supportedProfiles.GetSupportedProfiles("Account").Returns(new[] { profile });
+            _builder.AddDefaultResourceInteractions();
+            ITypedElement statement = _builder.Build();
+            object typeName = statement.Scalar($"{ResourceQuery("Account")}.supportedProfile.first()");
+
+            Assert.Equal(profile, typeName);
         }
 
         private static string ResourceQuery(string resource)

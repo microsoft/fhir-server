@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -137,6 +138,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             var summary = ListSummaries().ResolveByUri(uri);
             return LoadBySummary(summary);
+        }
+
+        public IEnumerable<string> GetSupportedProfiles(string resourceType)
+        {
+            var result = new List<string>();
+            var summary = ListSummaries();
+            return summary.Where(x => x.ResourceType == ResourceType.StructureDefinition)
+                .Where(x =>
+                    {
+                        if (!x.TryGetValue(StructureDefinitionSummaryProperties.TypeKey, out object type))
+                        {
+                            return false;
+                        }
+
+                        return string.Equals((string)type, resourceType, StringComparison.OrdinalIgnoreCase);
+                    })
+                .Select(x => x.ResourceUri).ToList();
         }
     }
 }
