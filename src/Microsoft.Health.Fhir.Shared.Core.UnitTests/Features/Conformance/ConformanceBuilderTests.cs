@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             Assert.Null(typeName);
         }
-
+#if !STU3
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingSupportedProfile_ThenSupportedProfilePresent()
         {
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             Assert.Equal(profile, typeName);
         }
-
+#endif
         private static string ResourceQuery(string resource)
         {
             return $"CapabilityStatement.rest.resource.where(type = '{resource}')";
