@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
@@ -50,6 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
+        private readonly FeatureConfiguration _features;
         private readonly ILogger<BulkImportController> _logger;
         private readonly BulkImportTaskConfiguration _bulkImportConfig;
 
@@ -58,17 +60,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<FeatureConfiguration> features,
             ILogger<BulkImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(features?.Value, nameof(features));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _bulkImportConfig = operationsConfig.Value.BulkImport;
             _urlResolver = urlResolver;
+            _features = features.Value;
             _mediator = mediator;
             _logger = logger;
         }
@@ -134,7 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckIfBulkImportIsEnabled()
         {
-            if (!_bulkImportConfig.Enabled)
+            if (!_features.SupportsBulkImport || !_bulkImportConfig.Enabled)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.BulkImport));
             }
