@@ -71,9 +71,9 @@ jobs:
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
             # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
             $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
-            if([string]::IsNullOrEmpty($plainText))
+            if([string]::IsNullOrEmpty($plainValue))
             {
-                Write-Host "$($secret.Name) is empty"
+                throw "$($secret.Name) is empty"
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
@@ -109,9 +109,9 @@ jobs:
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
             # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
             $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
-            if([string]::IsNullOrEmpty($plainText))
+            if([string]::IsNullOrEmpty($plainValue))
             {
-                Write-Host "$($secret.Name) is empty"
+                throw "$($secret.Name) is empty"
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
@@ -180,9 +180,9 @@ jobs:
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
             # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
             $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
-            if([string]::IsNullOrEmpty($plainText))
+            if([string]::IsNullOrEmpty($plainValue))
             {
-                Write-Host "$($secret.Name) is empty"
+                throw "$($secret.Name) is empty"
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
@@ -218,9 +218,9 @@ jobs:
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
             # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
             $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
-            if([string]::IsNullOrEmpty($plainText))
+            if([string]::IsNullOrEmpty($plainValue))
             {
-                Write-Host "$($secret.Name) is empty"
+                throw "$($secret.Name) is empty"
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
