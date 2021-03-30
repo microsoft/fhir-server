@@ -15,6 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public ValidateOperationConfiguration Validate { get; set; } = new ValidateOperationConfiguration();
 
-        public BulkImportJobConfiguration BulkImport { get; set; } = new BulkImportJobConfiguration();
+        public BulkImportTaskConfiguration BulkImport { get; set; } = new BulkImportTaskConfiguration();
     }
 }

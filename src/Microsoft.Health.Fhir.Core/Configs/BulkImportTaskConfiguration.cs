@@ -5,10 +5,10 @@
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class BulkImportJobConfiguration
+    public class BulkImportTaskConfiguration
     {
         /// <summary>
-        /// Determines whether export is enabled or not.
+        /// Determines whether bulk import is enabled or not.
         /// </summary>
         public bool Enabled { get; set; } = true;
 
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public ushort JobPollingFrequencyInMilliseconds { get; set; } = 30;
 
         /// <summary>
-        /// Controls how many resources will be returned for each search query while exporting the data.
+        /// Controls how many resources will be returned for each search query while importing the data.
         /// </summary>
         public uint MaximumConcurrency { get; set; } = 5;
     }

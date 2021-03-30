@@ -3,14 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Models
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models
 {
-    public class BulkImportRequestStorageDetailConfiguration
+    public class BulkImportRequestStorageDetail
     {
         /// <summary>
         /// Determines the types of the storage
         /// </summary>
-        public string Type { get; set; } = "https";
+        public string Type { get; set; } = "azure-blob";
 
         /// <summary>
         /// Determines the parameters of the storage depending on type

@@ -11,12 +11,11 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models
 {
     /// <summary>
-    /// Class used to hold data that needs to be returned to the client when the
-    /// bulk impoty job completes. This is a subset of the data present in <see cref="BulkImportJobRecord"/>.
+    /// Class used to hold data that needs to be returned to the client when the bulk import task completes.
     /// </summary>
-    public class BulkImportJobResult
+    public class BulkImportTaskResult
     {
-        public BulkImportJobResult(DateTimeOffset transactionTime, Uri requestUri, IList<BulkImportOutputResponse> output, IList<BulkImportOutputResponse> errors, IList<Core.Models.OperationOutcomeIssue> issues = null)
+        public BulkImportTaskResult(DateTimeOffset transactionTime, Uri requestUri, IList<BulkImportOutputResponse> output, IList<BulkImportOutputResponse> errors, IList<Core.Models.OperationOutcomeIssue> issues = null)
         {
             EnsureArg.IsNotDefault<DateTimeOffset>(transactionTime, nameof(transactionTime));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
@@ -31,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models
         }
 
         [JsonConstructor]
-        private BulkImportJobResult()
+        private BulkImportTaskResult()
         {
         }
 

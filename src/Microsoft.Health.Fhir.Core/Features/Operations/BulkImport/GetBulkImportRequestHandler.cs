@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
 
             // fake result
             var dateTimeOffset = new DateTimeOffset(new DateTime(2021, 1, 19, 7, 0, 0), TimeSpan.Zero);
-            var jobResult = new BulkImportJobResult(
+            var jobResult = new BulkImportTaskResult(
                 dateTimeOffset,
                 new Uri("https://localhost/123"),
                 new List<BulkImportOutputResponse>(),

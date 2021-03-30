@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -15,6 +16,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Api.Features.Operations.BulkImport.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
@@ -364,6 +366,30 @@ namespace Microsoft.Health.Fhir.Client
             await EnsureSuccessStatusCodeAsync(response);
 
             return await response.Content.ReadAsStringAsync(cancellationToken);
+        }
+
+        public async Task<Uri> BulkImportAsync(BulkImportRequest requestConfig, CancellationToken cancellationToken = default)
+        {
+            string requestPath = "import";
+            using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(requestConfig), Encoding.UTF8, "application/json"),
+            };
+            message.Headers.Add("Accept", "application/fhir+json");
+            message.Headers.Add("Prefer", "respond-async");
+            message.Headers.Add("Content-Type", "application/fhir+json");
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return response.Content.Headers.ContentLocation;
+        }
+
+        public async Task CancelBulkImport(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            await HttpClient.SendAsync(message, cancellationToken);
         }
 
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)

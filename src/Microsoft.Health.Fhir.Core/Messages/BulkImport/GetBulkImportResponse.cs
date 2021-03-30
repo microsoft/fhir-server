@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
         {
         }
 
-        public GetBulkImportResponse(HttpStatusCode statusCode, BulkImportJobResult jobResult)
+        public GetBulkImportResponse(HttpStatusCode statusCode, BulkImportTaskResult jobResult)
         {
             StatusCode = statusCode;
             JobResult = jobResult;
@@ -23,6 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
 
         public HttpStatusCode StatusCode { get; }
 
-        public BulkImportJobResult JobResult { get; }
+        public BulkImportTaskResult JobResult { get; }
     }
 }

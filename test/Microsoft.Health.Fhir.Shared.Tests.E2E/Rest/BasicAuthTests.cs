@@ -240,6 +240,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEmpty(result);
         }
 
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAUserWithNoImportDataPermissions_WhenBulkImport_TheServerShouldReturnForbidden()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+
+            var request = Samples.GetDefaultBulkImportRequest();
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.BulkImportAsync(request));
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAUserWithImportDataPermissions_WhenBulkImport_TheServerShouldReturnSuccess()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
+
+            var request = Samples.GetDefaultBulkImportRequest();
+            Uri contentLocation = await tempClient.BulkImportAsync(request);
+            await tempClient.CancelBulkImport(contentLocation);
+        }
+
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUserWithNoProfileAdminPermission_WhenCreateProfileDefinitionResource_ThenServerShouldReturnForbidden()

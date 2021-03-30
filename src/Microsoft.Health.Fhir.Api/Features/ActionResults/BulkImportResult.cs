@@ -10,23 +10,23 @@ using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models;
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
-    /// Used to return the result of an export operation.
+    /// Used to return the result of a bulk import operation.
     /// </summary>
-    public class BulkImportResult : ResourceActionResult<BulkImportJobResult>
+    public class BulkImportResult : ResourceActionResult<BulkImportTaskResult>
     {
         public BulkImportResult(HttpStatusCode statusCode)
             : base(null, statusCode)
         {
         }
 
-        public BulkImportResult(BulkImportJobResult jobResult, HttpStatusCode statusCode)
+        public BulkImportResult(BulkImportTaskResult jobResult, HttpStatusCode statusCode)
             : base(jobResult, statusCode)
         {
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
         }
 
         /// <summary>
-        /// Creates an ExportResult with HttpStatusCode Accepted.
+        /// Creates an BulkImportResult with HttpStatusCode Accepted.
         /// </summary>
         public static BulkImportResult Accepted()
         {
@@ -34,12 +34,12 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         }
 
         /// <summary>
-        /// Creates an ExportResult with HttpStatusCode Ok.
+        /// Creates an BulkImportResult with HttpStatusCode Ok.
         /// </summary>
-        /// <param name="jobResult">The job payload that must be returned as part of the ExportResult.</param>
-        public static BulkImportResult Ok(BulkImportJobResult jobResult)
+        /// <param name="taskResult">The job payload that must be returned as part of the BulkImportResult.</param>
+        public static BulkImportResult Ok(BulkImportTaskResult taskResult)
         {
-            return new BulkImportResult(jobResult, HttpStatusCode.OK);
+            return new BulkImportResult(taskResult, HttpStatusCode.OK);
         }
     }
 }

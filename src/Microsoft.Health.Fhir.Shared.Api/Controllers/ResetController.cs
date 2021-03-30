@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class ResetController : Controller
     {
         /*
-         * We are currently hardcoding the routing attribute to be specific to Export and
+         * We are currently hardcoding the routing attribute to be specific to Reset and
          * get forwarded to this controller. As we add more operations we would like to resolve
          * the routes in a more dynamic manner. One way would be to use a regex route constraint
          * - eg: "{operation:regex(^\\$([[a-zA-Z]]+))}" - and use the appropriate operation handler.

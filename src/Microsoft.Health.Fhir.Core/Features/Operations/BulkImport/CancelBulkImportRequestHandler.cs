@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -26,21 +27,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly AsyncRetryPolicy _retryPolicy;
+        private readonly ILogger<CancelBulkImportRequestHandler> _logger;
 
-        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
-            : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider)
+        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, ILogger<CancelBulkImportRequestHandler> logger)
+            : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider, logger)
         {
         }
 
-        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
+        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider, ILogger<CancelBulkImportRequestHandler> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
             EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
+            _logger = logger;
+
             _retryPolicy = Policy.Handle<JobConflictException>()
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
@@ -54,11 +59,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
                 throw new UnauthorizedFhirActionException();
             }
 
-            return await _retryPolicy.ExecuteAsync(async () =>
+            CancelBulkImportResponse cancelResponse;
+            try
             {
-                await Task.Delay(1000);
-                return new CancelBulkImportResponse(HttpStatusCode.Accepted);
-            });
+                cancelResponse = await _retryPolicy.ExecuteAsync(async () =>
+                {
+                    await Task.Delay(1000);
+                    _logger.LogInformation($"Attempting to cancel bulk import job");
+                    return new CancelBulkImportResponse(HttpStatusCode.Accepted);
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Unable to cancel bulk import job");
+                throw;
+            }
+
+            return cancelResponse;
         }
     }
 }

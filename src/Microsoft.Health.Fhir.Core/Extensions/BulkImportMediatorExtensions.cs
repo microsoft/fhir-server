@@ -4,12 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
@@ -18,13 +19,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static async Task<CreateBulkImportResponse> BulkImportAsync(
             this IMediator mediator,
             Uri requestUri,
-            BulkImportRequestConfiguration requestConfiguration,
+            string inputFormat,
+            Uri inputSource,
+            IReadOnlyList<BulkImportRequestInput> input,
+            BulkImportRequestStorageDetail storageDetail,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateBulkImportRequest(requestUri, requestConfiguration);
+            var request = new CreateBulkImportRequest(requestUri, inputFormat, inputSource, input, storageDetail);
 
             CreateBulkImportResponse response = await mediator.Send(request, cancellationToken);
             return response;

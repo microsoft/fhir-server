@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reset
 
             // fake result
             var dateTimeOffset = new DateTimeOffset(new DateTime(2021, 1, 19, 7, 0, 0), TimeSpan.Zero);
-            var jobResult = new ResetJobResult(
+            var jobResult = new ResetTaskResult(
                 dateTimeOffset,
                 new Uri("https://localhost/123"),
                 new List<ResetOutputResponse>());

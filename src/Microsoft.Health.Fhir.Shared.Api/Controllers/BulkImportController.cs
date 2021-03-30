@@ -17,6 +17,7 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Operations.BulkImport.Models;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -25,7 +26,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class BulkImportController : Controller
     {
         /*
-         * We are currently hardcoding the routing attribute to be specific to Export and
+         * We are currently hardcoding the routing attribute to be specific to BulkImport and
          * get forwarded to this controller. As we add more operations we would like to resolve
          * the routes in a more dynamic manner. One way would be to use a regex route constraint
          * - eg: "{operation:regex(^\\$([[a-zA-Z]]+))}" - and use the appropriate operation handler.
@@ -46,12 +46,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
          */
 
         private readonly IReadOnlyList<string> allowedImportFormat = new List<string> { "application/fhir+ndjson" };
-        private readonly IReadOnlyList<string> allowedStorageType = new List<string> { "https", "aws-s3", "gcp-bucket", "azure-blob" };
+        private readonly IReadOnlyList<string> allowedStorageType = new List<string> { "azure-blob" };
         private readonly IMediator _mediator;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly ILogger<BulkImportController> _logger;
-        private readonly BulkImportJobConfiguration _bulkImportConfig;
+        private readonly BulkImportTaskConfiguration _bulkImportConfig;
 
         public BulkImportController(
             IMediator mediator,
@@ -77,14 +77,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.BulkImport)]
         [ServiceFilter(typeof(ValidateBulkImportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.BulkImport)]
-        public async Task<IActionResult> BulkImport([FromBody] BulkImportRequestConfiguration importRequestConfig)
+        public async Task<IActionResult> BulkImport([FromBody] BulkImportRequest importRequestConfig)
         {
             CheckIfBulkImportIsEnabled();
             ValidateImportRequestConfiguration(importRequestConfig);
 
             CreateBulkImportResponse response = await _mediator.BulkImportAsync(
                  _fhirRequestContextAccessor.FhirRequestContext.Uri,
-                 importRequestConfig,
+                 importRequestConfig.InputFormat,
+                 importRequestConfig.InputSource,
+                 importRequestConfig.Input,
+                 importRequestConfig.StorageDetail,
                  HttpContext.RequestAborted);
 
             var bulkImportResult = BulkImportResult.Accepted();
@@ -137,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void ValidateImportRequestConfiguration(BulkImportRequestConfiguration importData)
+        private void ValidateImportRequestConfiguration(BulkImportRequest importData)
         {
             if (importData == null)
             {

@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reset.Models
 {
     /// <summary>
-    /// This is the output response that we send back to the client once bulk import is complete.
+    /// This is the output response that we send back to the client once reset is complete.
     /// Subset of <see cref="ResetFileInfo"/>.
     /// </summary>
     public class ResetOutputResponse

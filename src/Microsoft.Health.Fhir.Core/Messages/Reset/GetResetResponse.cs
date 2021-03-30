@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reset
         {
         }
 
-        public GetResetResponse(HttpStatusCode statusCode, ResetJobResult jobResult)
+        public GetResetResponse(HttpStatusCode statusCode, ResetTaskResult jobResult)
         {
             StatusCode = statusCode;
             JobResult = jobResult;
@@ -23,6 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reset
 
         public HttpStatusCode StatusCode { get; }
 
-        public ResetJobResult JobResult { get; }
+        public ResetTaskResult JobResult { get; }
     }
 }

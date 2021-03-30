@@ -5,9 +5,9 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.Core.Models
+namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models
 {
-    public class BulkImportRequestInputConfiguration
+    public class BulkImportRequestInput
     {
         /// <summary>
         /// Determines the resource type of the input

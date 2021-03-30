@@ -10,23 +10,23 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reset.Models;
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
-    /// Used to return the result of an export operation.
+    /// Used to return the result of an reset operation.
     /// </summary>
-    public class ResetResult : ResourceActionResult<ResetJobResult>
+    public class ResetResult : ResourceActionResult<ResetTaskResult>
     {
         public ResetResult(HttpStatusCode statusCode)
             : base(null, statusCode)
         {
         }
 
-        public ResetResult(ResetJobResult jobResult, HttpStatusCode statusCode)
+        public ResetResult(ResetTaskResult jobResult, HttpStatusCode statusCode)
             : base(jobResult, statusCode)
         {
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
         }
 
         /// <summary>
-        /// Creates an ExportResult with HttpStatusCode Accepted.
+        /// Creates an ResetResult with HttpStatusCode Accepted.
         /// </summary>
         public static ResetResult Accepted()
         {
@@ -34,12 +34,12 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         }
 
         /// <summary>
-        /// Creates an ExportResult with HttpStatusCode Ok.
+        /// Creates an ResetResult with HttpStatusCode Ok.
         /// </summary>
-        /// <param name="jobResult">The job payload that must be returned as part of the ExportResult.</param>
-        public static ResetResult Ok(ResetJobResult jobResult)
+        /// <param name="taskResult">The job payload that must be returned as part of the ResetResult.</param>
+        public static ResetResult Ok(ResetTaskResult taskResult)
         {
-            return new ResetResult(jobResult, HttpStatusCode.OK);
+            return new ResetResult(taskResult, HttpStatusCode.OK);
         }
     }
 }

@@ -11,12 +11,10 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reset.Models
 {
     /// <summary>
-    /// Class used to hold data that needs to be returned to the client when the
-    /// bulk impoty job completes. This is a subset of the data present in <see cref="BulkImportJobRecord"/>.
-    /// </summary>
-    public class ResetJobResult
+    /// Class used to hold data that needs to be returned to the client when the reset task completes.
+    public class ResetTaskResult
     {
-        public ResetJobResult(DateTimeOffset transactionTime, Uri requestUri, IList<ResetOutputResponse> output)
+        public ResetTaskResult(DateTimeOffset transactionTime, Uri requestUri, IList<ResetOutputResponse> output)
         {
             EnsureArg.IsNotDefault<DateTimeOffset>(transactionTime, nameof(transactionTime));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
@@ -27,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reset.Models
         }
 
         [JsonConstructor]
-        private ResetJobResult()
+        private ResetTaskResult()
         {
         }
 
