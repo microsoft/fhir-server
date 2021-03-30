@@ -63,19 +63,7 @@ function Add-AadTestAuthEnvironment {
 
     if (!$keyVault) {
         Write-Host "Creating keyvault with the name $KeyVaultName"
-        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation | Out-Null
-    }
-
-    $retryCount = 0
-    # Make sure key vault exists and is ready
-    while (!(Get-AzKeyVault -VaultName $KeyVaultName )) {
-        $retryCount += 1
-
-        if ($retryCount -gt 7) {
-            throw "Could not connect to the vault $KeyVaultName"
-        }
-
-        sleep 10
+        New-AzKeyVault -VaultName $KeyVaultName -ResourceGroupName $ResourceGroupName -Location $EnvironmentLocation
     }
 
     if ($azContext.Account.Type -eq "User") {
