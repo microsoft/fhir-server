@@ -32,7 +32,8 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
         $dataStore = "${{parameters.dataStore}}"
@@ -67,7 +68,8 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
         $storageAccountName="$(DeploymentEnvironmentName)${{parameters.version}}${{parameters.dataStore}}".ToLower()

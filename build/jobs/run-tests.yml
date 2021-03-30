@@ -69,7 +69,8 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
         
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
@@ -101,7 +102,8 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
         # ----------------------------------------
 
@@ -166,7 +168,8 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
@@ -198,7 +201,8 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
         # ----------------------------------------
 
