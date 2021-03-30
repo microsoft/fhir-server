@@ -32,7 +32,7 @@ jobs:
             $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
             if([string]::IsNullOrEmpty($plainText))
             {
-                throw "Secret is empty"
+                Write-Host "$($secret.Name) is empty"
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
@@ -61,7 +61,7 @@ jobs:
             $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
             if([string]::IsNullOrEmpty($plainText))
             {
-                throw "Secret is empty"
+                Write-Host "$($secret.Name) is empty"
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
@@ -130,7 +130,7 @@ jobs:
             $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
             if([string]::IsNullOrEmpty($plainText))
             {
-                throw "Secret is empty"
+                Write-Host "$($secret.Name) is empty"
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
@@ -159,7 +159,7 @@ jobs:
             $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
             if([string]::IsNullOrEmpty($plainText))
             {
-                throw "Secret is empty"
+                Write-Host "$($secret.Name) is empty"
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
