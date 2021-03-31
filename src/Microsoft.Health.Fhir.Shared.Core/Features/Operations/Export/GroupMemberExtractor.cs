@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
         {
             ResourceWrapper groupResource;
-            using (IScoped<IFhirDataStore> dataStore = _fhirDataStoreFactory())
+            using (IScoped<IFhirDataStore> dataStore = _fhirDataStoreFactory.Invoke())
             {
                 groupResource = await dataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
             }
