@@ -23,14 +23,7 @@ Note - The tool can't downgrade a schema version.
 
 - #### How to install the tool
 
-    - ##### If available as .NET Core global tool (not available yet)
-
-        It can be installed using below steps:
-
-        - Open a terminal/command prompt 
-        - Type 'dotnet tool install -g Microsoft.Health.SchemaManager'
-
-     - ##### If not available as .NET core global tool, then install it from public feed
+     - ##### Install the tool from public feed
 
         It can be installed using below steps:
             
