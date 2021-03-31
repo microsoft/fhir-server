@@ -68,7 +68,13 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
@@ -91,7 +97,13 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
         # ----------------------------------------
 
@@ -154,7 +166,13 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
@@ -177,7 +195,13 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
         # ----------------------------------------
 
