@@ -10,11 +10,11 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
@@ -55,11 +55,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return _resourceElement;
                 })));
 
-            var fhirDataScope = Substitute.For<IScoped<IFhirDataStore>>();
-            fhirDataScope.Value.Returns(_fhirDataStore);
-
             _groupMemberExtractor = new GroupMemberExtractor(
-                fhirDataScope,
+                () => _fhirDataStore.CreateMockScope(),
                 _resourceDeserializer,
                 _referenceToElementResolver);
         }
@@ -171,11 +168,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     }
                 })));
 
-            var fhirDataScope = Substitute.For<IScoped<IFhirDataStore>>();
-            fhirDataScope.Value.Returns(_fhirDataStore);
-
             _groupMemberExtractor = new GroupMemberExtractor(
-                fhirDataScope,
+                () => _fhirDataStore.CreateMockScope(),
                 resourceDeserializer,
                 _referenceToElementResolver);
 
