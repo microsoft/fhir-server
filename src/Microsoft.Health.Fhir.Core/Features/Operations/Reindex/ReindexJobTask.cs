@@ -498,7 +498,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogError(ex, message);
                     queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
 
-                    throw;
+                    throw reindexJobException;
                 }
             }
         }
