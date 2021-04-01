@@ -106,20 +106,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             IFhirRequestContext requestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-            // If there has already been a request to the database for this request, then we want to add to it.
-            if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingHeaderValue))
+            lock (requestContext.ResponseHeaders)
             {
-                if (double.TryParse(existingHeaderValue.ToString(), out double existing))
-                {
-                    responseRequestCharge += existing;
-                }
-                else
-                {
-                    _logger.LogWarning("Unable to parse request charge header: {request change}", existingHeaderValue);
-                }
-            }
+                // If there has already been a request to the database for this request, then we want to add to it.
 
-            requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+                if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingHeaderValue))
+                {
+                    if (double.TryParse(existingHeaderValue.ToString(), out double existing))
+                    {
+                        responseRequestCharge += existing;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Unable to parse request charge header: {request change}", existingHeaderValue);
+                    }
+                }
+
+                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+            }
 
             var cosmosMetrics = new CosmosStorageRequestMetricsNotification(requestContext.AuditEventType, requestContext.ResourceType)
             {

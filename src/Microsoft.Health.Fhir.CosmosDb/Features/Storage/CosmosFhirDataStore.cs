@@ -382,9 +382,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="feedOptions">The feed options.</param>
         /// <param name="continuationToken">The continuation token from a previous query.</param>
         /// <param name="mustNotExceedMaxItemCount">If set to true, no more than <see cref="FeedOptions.MaxItemCount"/> entries will be returned. Otherwise, up to 2 * MaxItemCount - 1 items could be returned</param>
+        /// <param name="minimumDesiredPercentage">The minimum percentage of <see cref="FeedOptions.MaxItemCount"/> to attempt to fetch</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The results and possible continuation token</returns>
-        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, CancellationToken cancellationToken = default)
+        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, int minimumDesiredPercentage = 50, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
@@ -426,7 +427,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             using var timeoutTokenSource = new CancellationTokenSource(timeout);
             using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
-            while (cosmosQuery.HasMoreResults && results.Count < totalDesiredCount / 2)
+            while (cosmosQuery.HasMoreResults && results.Count < totalDesiredCount * minimumDesiredPercentage / 100)
             {
                 // The FHIR spec says we cannot return more items in a bundle than the _count parameter, if specified.
                 // If not specified, mustNotExceedMaxItemCount will be false, and we can allow ourselves to go over the limit.

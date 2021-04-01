@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -332,7 +333,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxItemCount = searchOptions.MaxItemCount,
             };
 
-            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, cancellationToken);
+            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, cancellationToken: cancellationToken);
         }
 
         private async Task<int> ExecuteCountSearchAsync(
@@ -392,9 +393,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 foreach (IEnumerable<ResourceTypeAndId> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
                 {
-                    foreach (ResourceTypeAndId resourceTypeAndId in resourceTypeAndIds)
+                    // issue the requests in parallel
+                    var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(new ResourceKey(r.ResourceTypeName, r.ResourceId), cancellationToken)).ToList();
+
+                    foreach (Task<ResourceWrapper> task in tasks)
                     {
-                        var resourceWrapper = (FhirCosmosResourceWrapper)await _fhirDataStore.GetAsync(new ResourceKey(resourceTypeAndId.ResourceTypeName, resourceTypeAndId.ResourceId), cancellationToken);
+                        var resourceWrapper = (FhirCosmosResourceWrapper)await task;
                         if (resourceWrapper != null)
                         {
                             includes.Add(resourceWrapper);
@@ -449,14 +453,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         var queryRequestOptions = new QueryRequestOptions
                         {
                             MaxItemCount = revIncludeSearchOptions.MaxItemCount,
-                            MaxConcurrency = -1,
+                            MaxConcurrency = -1, // making a guess that this will be selective, so executing across all partitions in parallel
                         };
 
                         includeResponse = await _fhirDataStore.ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
                             revIncludeQuery,
                             queryRequestOptions,
-                            null,
+                            includeResponse.continuationToken,
                             false,
+                            minimumDesiredPercentage: 100, // since we are executing across partitions in parallel, we will have results from all partitions, so fill up the page.
                             cancellationToken);
 
                         includes.AddRange(includeResponse.results);
