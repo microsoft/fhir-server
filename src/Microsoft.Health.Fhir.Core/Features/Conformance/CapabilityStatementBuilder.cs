@@ -86,15 +86,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}",
                     },
                 };
-                if (!_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
+
+                var supportedProfiles = _supportedProfiles.GetSupportedProfiles(resourceType);
+                if (supportedProfiles != null)
                 {
-                    var supportedProfiles = _supportedProfiles.GetSupportedProfiles(resourceType);
-                    if (supportedProfiles != null)
+                    if (!_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
                     {
                         resourceComponent.SupportedProfile.Clear();
                         foreach (var profile in supportedProfiles)
                         {
                             resourceComponent.SupportedProfile.Add(profile);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var profile in supportedProfiles)
+                        {
+                            _statement.Profile.Add(new ReferenceComponent
+                            {
+                                Reference = profile,
+                            });
                         }
                     }
                 }

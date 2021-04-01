@@ -15,13 +15,13 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public sealed class SystemConformanceProvider
-        : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<SearchParametersUpdated>, IDisposable
+        : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<RebuildCapabilityStatement>, IDisposable
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -113,9 +113,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _sem = null;
         }
 
-        public Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
+        public Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
-            // If search parameters change, rebuild the capability statement
             _listedCapabilityStatement = null;
 
             return Task.CompletedTask;
