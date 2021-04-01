@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     internal class FhirCosmosSearchService : SearchService
     {
+        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new(SearchValueConstants.TypeIdCompositeSearchParameterName, SearchValueConstants.TypeIdCompositeSearchParameterName);
         private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new(SearchValueConstants.WildcardReferenceSearchParameterName, SearchValueConstants.WildcardReferenceSearchParameterName);
 
         private readonly CosmosFhirDataStore _fhirDataStore;
@@ -390,23 +391,49 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     .Distinct()
                     .ToList();
 
-                foreach (IEnumerable<ResourceTypeAndId> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
+                // partition the references to avoid creating an excessively large query
+                foreach (IEnumerable<ResourceTypeAndId> batchOfReferencesToInclude in referencesToInclude.TakeBatch(100))
                 {
-                    // issue the requests in parallel
-                    var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(new ResourceKey(r.ResourceTypeName, r.ResourceId), cancellationToken)).ToList();
+                    // construct the expression typeAndId = <Include1Type, Include1Id> OR  typeAndId = <Include2Type, Include2Id> OR ...
 
-                    foreach (Task<ResourceWrapper> task in tasks)
+                    SearchParameterExpression expression = Expression.SearchParameter(
+                        _typeIdCompositeSearchParameter,
+                        Expression.Or(batchOfReferencesToInclude.Select(r =>
+                            Expression.And(
+                                Expression.Equals(FieldName.TokenCode, 0, r.ResourceTypeName),
+                                Expression.Equals(FieldName.TokenCode, 1, r.ResourceId))).ToList()));
+
+                    var includeSearchOptions = new SearchOptions
                     {
-                        var resourceWrapper = (FhirCosmosResourceWrapper)await task;
-                        if (resourceWrapper != null)
+                        Expression = expression,
+                        MaxItemCount = maxIncludeCount,
+                        Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
+                    };
+
+                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions);
+
+                    (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
+                    do
+                    {
+                        if (includes.Count >= maxIncludeCount)
                         {
-                            includes.Add(resourceWrapper);
-                            if (includes.Count > maxIncludeCount)
-                            {
-                                includesTruncated = true;
-                                break;
-                            }
+                            includesTruncated = true;
+                            break;
                         }
+
+                        includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                            includeQuery,
+                            includeSearchOptions,
+                            includeResponse.continuationToken,
+                            cancellationToken);
+                        includes.AddRange(includeResponse.results);
+                    }
+                    while (!string.IsNullOrEmpty(includeResponse.continuationToken));
+
+                    if (includes.Count >= maxIncludeCount)
+                    {
+                        includesTruncated = true;
+                        break;
                     }
                 }
             }
@@ -451,7 +478,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                         var queryRequestOptions = new QueryRequestOptions
                         {
-                            MaxItemCount = revIncludeSearchOptions.MaxItemCount,
+                            MaxItemCount = 10, // to limit excess buffering in case this is not selective
                             MaxConcurrency = -1, // making a guess that this will be selective, so executing across all partitions in parallel
                         };
 
