@@ -127,17 +127,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.Null(typeName);
         }
 
-        [SkippableFact]
+        [Fact]
         public void GivenAConformanceBuilder_WhenAddingSupportedProfile_ThenSupportedProfilePresent()
         {
-            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3);
             string profile = "coolProfile";
             _supportedProfiles.GetSupportedProfiles("Account").Returns(new[] { profile });
             _builder.AddDefaultResourceInteractions();
             ITypedElement statement = _builder.Build();
-            object typeName = statement.Scalar($"{ResourceQuery("Account")}.supportedProfile.first()");
-
-            Assert.Equal(profile, typeName);
+            string fhirPath = ModelInfoProvider.Version == FhirSpecification.Stu3
+                ? $"CapabilityStatement.profile.where(reference='{profile}').exists()"
+                : $"{ResourceQuery("Account")}.supportedProfile.first()='{profile}'";
+            var profileFound = (bool)statement.Scalar(fhirPath);
+            Assert.True(profileFound);
         }
 
         private static string ResourceQuery(string resource)
