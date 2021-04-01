@@ -370,7 +370,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 }
                 else
                 {
-                    if (string.IsNullOrEmpty(searchOptions.ContinuationToken))
+                    if (searchOptions.Expression != null && // without a filter the query will not be selective
+                        string.IsNullOrEmpty(searchOptions.ContinuationToken))
                     {
                         // Telemetry currently shows that when there is a continuation token, the the query only hits one partition.
                         // This may not be true forever, in which case we would want to encode the max concurrency in the continuation token.
