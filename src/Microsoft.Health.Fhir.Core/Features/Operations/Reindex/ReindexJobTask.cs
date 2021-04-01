@@ -493,8 +493,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error running reindex query.");
-                    queryStatus.Error = ex.Message;
+                    var message = $"Error running reindex query for resource type {queryStatus.ResourceType}.";
+                    var reindexJobException = new ReindexJobException(message, ex);
+                    _logger.LogError(ex, message);
+                    queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
 
                     throw;
                 }
