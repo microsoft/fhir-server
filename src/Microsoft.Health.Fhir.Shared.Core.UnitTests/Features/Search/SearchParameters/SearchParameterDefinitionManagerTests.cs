@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
             _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator);
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 

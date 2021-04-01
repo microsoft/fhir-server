@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private SearchParameterDefinitionManager _searchDefinitionManager;
         private SupportedSearchParameterDefinitionManager _supportedSearchDefinitionManager;
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         static SearchParameterFixtureData()
         {
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public async Task<SearchParameterDefinitionManager> GetSearchDefinitionManagerAsync()
         {
-            return _searchDefinitionManager ??= await CreateSearchParameterDefinitionManagerAsync(new VersionSpecificModelInfoProvider());
+            return _searchDefinitionManager ??= await CreateSearchParameterDefinitionManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
         }
 
         public async Task<SupportedSearchParameterDefinitionManager> GetSupportedSearchDefinitionManagerAsync()
@@ -69,9 +70,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return new FhirNodeToSearchValueTypeConverterManager(fhirNodeToSearchValueTypeConverters);
         }
 
-        public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManagerAsync(IModelInfoProvider modelInfoProvider)
+        public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManagerAsync(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
+            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator);
             await definitionManager.StartAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(
