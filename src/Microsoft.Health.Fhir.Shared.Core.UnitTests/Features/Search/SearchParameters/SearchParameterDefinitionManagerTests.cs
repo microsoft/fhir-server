@@ -9,13 +9,18 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -122,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenSupportedParams_WhenGettingSupported_ThenSupportedParamsReturned()
         {
-            await _manager.EnsureInitialized();
+            await _manager.StartAsync(CancellationToken.None);
             var supportedDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var paramList = supportedDefinitionManager.GetSearchParametersRequiringReindexing();
 
@@ -143,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenSearchableParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
-            await _manager.EnsureInitialized();
+            await _manager.StartAsync(CancellationToken.None);
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var paramList = searchableDefinitionManager.AllSearchParameters;
 
@@ -164,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenContextToIncludePatialIndexedParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
-            await _manager.EnsureInitialized();
+            await _manager.StartAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var paramList = searchableDefinitionManager.AllSearchParameters.OrderBy(p => p.Code);
@@ -198,7 +203,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenNoHeaderForPatiallyIndexedParams_WhenSearchingSupportedParameterByName_ThenExceptionThrown()
         {
-            await _manager.EnsureInitialized();
+            await _manager.StartAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
 
@@ -210,7 +215,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenHeaderToIncludePatialIndexedParams_WhenSearchingSupportedParameterByName_ThenSupportedParamsReturned()
         {
-            await _manager.EnsureInitialized();
+            await _manager.StartAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
 
@@ -343,11 +348,136 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());
         }
 
+        [Fact]
+        public async Task GivenExistingSearchParameters_WhenStartingSearchParameterDefinitionManager_ThenExistingParametersAdded()
+        {
+            var searchParam = new SearchParameter()
+            {
+                Id = "id",
+                Url = "http://test/Patient-preexisting",
+                Type = Hl7.Fhir.Model.SearchParamType.String,
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+                Expression = "Patient.name",
+                Name = "preexisting",
+                Code = "preexisting",
+            };
+            SearchResult result = GetSearchResultFromSearchParam(searchParam, "token");
+
+            var searchParam2 = new SearchParameter()
+            {
+                Id = "id2",
+                Url = "http://test/Patient-preexisting2",
+                Type = Hl7.Fhir.Model.SearchParamType.String,
+                Base = new List<ResourceType?>() { ResourceType.Patient },
+                Expression = "Patient.name",
+                Name = "preexisting2",
+                Code = "preexisting2",
+            };
+            SearchResult result2 = GetSearchResultFromSearchParam(searchParam2, "token2");
+
+            var searchParam3 = new SearchParameter()
+            {
+                Id = "QuestionnaireResponse-questionnaire2",
+                Url = "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire2",
+                Type = Hl7.Fhir.Model.SearchParamType.Reference,
+                Base = new List<ResourceType?>() { ResourceType.QuestionnaireResponse },
+                Expression = "QuestionnaireResponse.questionnaire",
+                Name = "questionnaire2",
+                Code = "questionnaire2",
+            };
+            SearchResult result3 = GetSearchResultFromSearchParam(searchParam3, "token3");
+
+            var searchParam4 = new SearchParameter()
+            {
+                Id = "QuestionnaireResponse-questionnaire",
+                Url = "http://hl7.org/fhir/SearchParameter/QuestionnaireResponse-questionnaire",
+                Type = Hl7.Fhir.Model.SearchParamType.Reference,
+                Base = new List<ResourceType?>() { ResourceType.QuestionnaireResponse },
+                Expression = "QuestionnaireResponse.questionnaire",
+                Name = "questionnaire",
+                Code = "questionnaire",
+            };
+            SearchResult result4 = GetSearchResultFromSearchParam(searchParam4, null);
+
+            var searchService = Substitute.For<ISearchService>();
+
+            searchService.SearchAsync("SearchParameter", Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Count() == 0), Arg.Any<CancellationToken>())
+                .Returns(result);
+            searchService.SearchAsync(
+                "SearchParameter",
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(
+                    l => l.FirstOrDefault().Item2 == Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("token"))),
+                Arg.Any<CancellationToken>())
+                .Returns(result2);
+            searchService.SearchAsync(
+                "SearchParameter",
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(
+                    l => l.FirstOrDefault().Item2 == Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("token2"))),
+                Arg.Any<CancellationToken>())
+                .Returns(result3);
+            searchService.SearchAsync(
+                "SearchParameter",
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(
+                    l => l.FirstOrDefault().Item2 == Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("token3"))),
+                Arg.Any<CancellationToken>())
+                .Returns(result4);
+
+            var dataStoreSearchParamValidator = Substitute.For<IDataStoreSearchParameterValidator>();
+            dataStoreSearchParamValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true);
+
+            var searchParameterOperations = new SearchParameterOperations(
+                _manager,
+                _searchParameterDefinitionManager,
+                ModelInfoProvider.Instance,
+                _searchParameterSupportResolver,
+                dataStoreSearchParamValidator);
+            var searchParameterResourceDataStore = new SearchParameterResourceDataStore(
+                searchParameterOperations,
+                () => searchService.CreateMockScope(),
+                ModelInfoProvider.Instance,
+                NullLogger<SearchParameterResourceDataStore>.Instance);
+
+            _searchParameterSupportResolver
+                .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(s => s.Name.StartsWith("preexisting")))
+                .Returns((true, false));
+
+            await searchParameterResourceDataStore.StartAsync(CancellationToken.None);
+
+            var patientParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
+            Assert.False(patientParams.Where(p => p.Name == "preexisting").First().IsSearchable);
+            Assert.False(patientParams.Where(p => p.Name == "preexisting2").First().IsSearchable);
+
+            var questionnaireParams = _searchParameterDefinitionManager.GetSearchParameters("QuestionnaireResponse");
+            Assert.Empty(questionnaireParams.Where(p => p.Name == "questionnaire2"));
+        }
+
         private static void ValidateSearchParam(SearchParameterInfo expectedSearchParam, SearchParameterInfo actualSearchParam)
         {
             Assert.Equal(expectedSearchParam.Code, actualSearchParam.Code);
             Assert.Equal(expectedSearchParam.Type, actualSearchParam.Type);
             Assert.Equal(expectedSearchParam.Url, actualSearchParam.Url);
+        }
+
+        private static SearchResult GetSearchResultFromSearchParam(SearchParameter searchParam, string continuationToken)
+        {
+            var serializer = new FhirJsonSerializer();
+
+            var rawResource = new RawResource(
+                    serializer.SerializeToString(searchParam),
+                    FhirResourceFormat.Json,
+                    false);
+
+            var wrapper = new ResourceWrapper(
+                new ResourceElement(
+                    rawResource.ToITypedElement(ModelInfoProvider.Instance)),
+                rawResource,
+                new ResourceRequest("POST"),
+                false,
+                null,
+                null,
+                null);
+            var searchEntry = new SearchResultEntry(wrapper);
+            return new SearchResult(Enumerable.Repeat(searchEntry, 1), continuationToken, null, new List<Tuple<string, string>>());
         }
     }
 }
