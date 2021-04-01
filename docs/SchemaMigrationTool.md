@@ -23,30 +23,19 @@ Note - The tool can't downgrade a schema version.
 
 - #### How to install the tool
 
-    - ##### If available as .NET Core global tool 
+     - ##### Install the tool from public feed
 
-        It can be installed like this:
-
-        - Open a terminal/command prompt 
-        - Type 'dotnet tool install -g Microsoft.Health.SchemaManager'
-
-     - ##### If not available as .NET core global tool, then install it from public feed
-
-        It can be installed like this:
+        It can be installed using below steps:
             
-        - Visual Studio setup - Start Visual Studio as admin. On the Tools menu, select Options > NuGet Package Manager > Package Sources. Select the green plus in the upper-right corner and enter the name and source URL as below:
+        - Copy [nuget.config](https://github.com/microsoft/fhir-server/blob/main/nuget.config) in the current folder or any desired folder
+        -  Open a terminal/command prompt and hit command
 
-                Name: "Microsoft Health OSS"
-                Source: https://microsofthealthoss.pkgs.visualstudio.com/FhirServer/_packaging/Public/nuget/v3/index.json
-        
-        - In the Package Manager Console, type the below command
-        
-                PM> dotnet tool install -g Microsoft.Health.SchemaManager --version [latestversion]
+                dotnet tool install -g Microsoft.Health.SchemaManager
 
 - #### How to uninstall the tool
-    In any case, if the tool needs to be uninstalled, the command is as follows
+    Open a terminal/command prompt and hit command
 
-        PM> dotnet tool uninstall -g Microsoft.Health.SchemaManager          
+        dotnet tool uninstall -g Microsoft.Health.SchemaManager          
 
 - #### Commands
     The tool supports following commands:
