@@ -18,11 +18,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static async Task<ResourceElement> CreateReindexJobAsync(
             this IMediator mediator,
             ushort? maximumConcurrency,
+            uint? maxResourcesPerQuery,
+            int? queryDelay,
+            ushort? targetDataStoreResourcePercentage,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new CreateReindexRequest(maximumConcurrency);
+            var request = new CreateReindexRequest(maximumConcurrency, maxResourcesPerQuery, queryDelay, targetDataStoreResourcePercentage);
 
             CreateReindexResponse response = await mediator.Send(request, cancellationToken);
             return response.Job.ToParametersResourceElement();

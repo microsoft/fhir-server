@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Azure;
 
 namespace Microsoft.Health.Fhir.Web
@@ -43,6 +44,8 @@ namespace Microsoft.Health.Fhir.Web
             {
                 fhirServerBuilder.AddSqlServer(Configuration);
             }
+
+            fhirServerBuilder.AddSearchParametersModules();
 
             /*
             The execution of IHostedServices depends on the order they are added to the dependency injection container, so we

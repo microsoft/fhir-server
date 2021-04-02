@@ -46,5 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// currently fixed at 1
         /// </summary>
         public ushort MaximumNumberOfConcurrentJobsAllowed { get; internal set; } = 1;
+
+        /// <summary>
+        /// Controls the target percentage of how much of the allocated
+        /// data store resources to use
+        /// </summary>
+        public ushort? TargetDataStoreResourcePercentage { get; set; } = null;
     }
 }
