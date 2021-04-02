@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using static Hl7.Fhir.Model.CapabilityStatement;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -215,24 +214,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-#if !Stu3
         [Fact]
         public async void GivenPostedProfiles_WhenCallingForMetadata_ThenMetadataHasSupportedProfiles()
         {
             using FhirResponse<CapabilityStatement> response = await _client.ReadAsync<CapabilityStatement>("metadata");
-            var supportedProfiles = response.Resource.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server).
+#if !Stu3
+            var supportedProfiles = response.Resource.Rest.Where(r => r.Mode == CapabilityStatement.RestfulCapabilityMode.Server).
                 SelectMany(x => x.Resource.Where(x => x.SupportedProfile.Any()).Select(x => x.SupportedProfile)).
-                SelectMany(x => x).ToList();
+                SelectMany(x => x).OrderBy(x => x).ToList();
+#else
+            var supportedProfiles = response.Resource.Profile.Select(x => x.Url.ToString()).OrderBy(x => x).ToList();
+#endif
             Assert.Equal(
                 new[]
                 {
-                    "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
                     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan",
                     "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization",
+                    "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient",
                 },
                 supportedProfiles);
         }
-#endif
 
         private void CheckOperationOutcomeIssue(
             OperationOutcome.IssueComponent issue,

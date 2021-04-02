@@ -56,11 +56,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public IReadOnlySet<string> GetProfilesTypes() => _supportedTypes;
 
+        public void Refresh()
+        {
+            _expirationTime = DateTime.UtcNow.AddMilliseconds(-1);
+            ListSummaries();
+        }
+
         public IEnumerable<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true)
         {
             lock (_lockSummaries)
             {
-                if (DateTime.UtcNow >= _expirationTime)
+                if (_expirationTime < DateTime.UtcNow)
                 {
                     var oldHash = resetStatementIfNew ? GetHashForSupportedProfiles(_summaries) : string.Empty;
                     var result = System.Threading.Tasks.Task.Run(() => GetSummaries()).GetAwaiter().GetResult();
@@ -70,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                     if (newHash != oldHash)
                     {
-                        _mediator.Publish(new RebuildCapabilityStatement());
+                        System.Threading.Tasks.Task.Run(() => _mediator.Publish(new RebuildCapabilityStatement())).GetAwaiter().GetResult();
                     }
                 }
 
