@@ -69,11 +69,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<ISupportedSearchParameterDefinitionManager>();
 
-            services.Add<SearchParameterStatusManager>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<FilebasedSearchParameterStatusDataStore>()
                 .Transient()
                 .AsSelf()
