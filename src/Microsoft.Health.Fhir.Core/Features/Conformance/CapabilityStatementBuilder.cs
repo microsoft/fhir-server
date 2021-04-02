@@ -87,6 +87,108 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     },
                 };
 
+                listedRestComponent.Resource.Add(resourceComponent);
+            }
+
+            action(resourceComponent);
+
+            return this;
+        }
+
+        public ICapabilityStatementBuilder AddRestInteraction(string resourceType, string interaction)
+        {
+            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
+            EnsureArg.IsNotNullOrEmpty(interaction, nameof(interaction));
+            EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
+
+            UpdateRestResourceComponent(resourceType, c =>
+            {
+                if (!c.Interaction.Where(x => x.Code == interaction).Any())
+                {
+                    c.Interaction.Add(new ResourceInteractionComponent
+                    {
+                        Code = interaction,
+                    });
+                }
+            });
+
+            return this;
+        }
+
+        private void RemoveRestInteraction(string resourceType, string interaction)
+        {
+            UpdateRestResourceComponent(resourceType, c =>
+            {
+                var toRemove = c.Interaction.Where(x => x.Code == interaction).FirstOrDefault();
+                if (toRemove != null)
+                {
+                    c.Interaction.Remove(toRemove);
+                }
+            });
+        }
+
+        public ICapabilityStatementBuilder AddRestInteraction(string systemInteraction)
+        {
+            EnsureArg.IsNotNullOrEmpty(systemInteraction, nameof(systemInteraction));
+
+            _statement.Rest.Server().Interaction.Add(new ResourceInteractionComponent { Code = systemInteraction });
+
+            return this;
+        }
+
+        public ICapabilityStatementBuilder AddSharedSearchParameters()
+        {
+            _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
+
+            return this;
+        }
+
+        private ICapabilityStatementBuilder SyncSearchParams(string resourceType)
+        {
+            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
+            EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
+
+            IEnumerable<SearchParameterInfo> searchParams = _searchParameterDefinitionManager.GetSearchParameters(resourceType);
+
+            if (searchParams.Any())
+            {
+                UpdateRestResourceComponent(resourceType, c =>
+                {
+                    c.SearchParam.Clear();
+                    foreach (SearchParamComponent searchParam in searchParams.Select(x => new SearchParamComponent
+                    {
+                        Name = x.Name,
+                        Type = x.Type,
+                        Definition = x.Url,
+                        Documentation = x.Description,
+                    }))
+                    {
+                        // Exclude _type search param under resource
+                        if (string.Equals("_type", searchParam.Name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        c.SearchParam.Add(searchParam);
+                    }
+                });
+                AddRestInteraction(resourceType, TypeRestfulInteraction.SearchType);
+            }
+            else
+            {
+                RemoveRestInteraction(resourceType, TypeRestfulInteraction.SearchType);
+            }
+
+            return this;
+        }
+
+        private ICapabilityStatementBuilder SyncProfile(string resourceType)
+        {
+            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
+            EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
+
+            UpdateRestResourceComponent(resourceType, resourceComponent =>
+            {
                 var supportedProfiles = _supportedProfiles.GetSupportedProfiles(resourceType);
                 if (supportedProfiles != null)
                 {
@@ -108,66 +210,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                             });
                         }
                     }
-                }
-
-                listedRestComponent.Resource.Add(resourceComponent);
-            }
-
-            action(resourceComponent);
-
-            return this;
-        }
-
-        public ICapabilityStatementBuilder AddRestInteraction(string resourceType, string interaction)
-        {
-            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
-            EnsureArg.IsNotNullOrEmpty(interaction, nameof(interaction));
-            EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
-
-            UpdateRestResourceComponent(resourceType, c =>
-            {
-                c.Interaction.Add(new ResourceInteractionComponent
-                {
-                    Code = interaction,
-                });
-            });
-
-            return this;
-        }
-
-        public ICapabilityStatementBuilder AddRestInteraction(string systemInteraction)
-        {
-            EnsureArg.IsNotNullOrEmpty(systemInteraction, nameof(systemInteraction));
-
-            _statement.Rest.Server().Interaction.Add(new ResourceInteractionComponent { Code = systemInteraction });
-
-            return this;
-        }
-
-        public ICapabilityStatementBuilder AddDefaultRestSearchParams()
-        {
-            _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
-
-            return this;
-        }
-
-        public ICapabilityStatementBuilder AddSearchParams(string resourceType, IEnumerable<SearchParamComponent> searchParameters)
-        {
-            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
-            EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
-            EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
-
-            UpdateRestResourceComponent(resourceType, c =>
-            {
-                foreach (SearchParamComponent searchParam in searchParameters)
-                {
-                    // Exclude _type search param under resource
-                    if (string.Equals("_type", searchParam.Name, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    c.SearchParam.Add(searchParam);
                 }
             });
 
@@ -222,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder AddDefaultSearchParameters()
+        public ICapabilityStatementBuilder SyncSearchParameters()
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
@@ -232,20 +274,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     continue;
                 }
 
-                IEnumerable<SearchParameterInfo> searchParams = _searchParameterDefinitionManager.GetSearchParameters(resource);
+                SyncSearchParams(resource);
+            }
 
-                if (searchParams.Any())
-                {
-                    AddSearchParams(resource, searchParams.Select(x => new SearchParamComponent
-                    {
-                        Name = x.Name,
-                        Type = x.Type,
-                        Definition = x.Url,
-                        Documentation = x.Description,
-                    }));
+            return this;
+        }
 
-                    AddRestInteraction(resource, TypeRestfulInteraction.SearchType);
-                }
+        public ICapabilityStatementBuilder SyncProfiles()
+        {
+            foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
+            {
+                SyncProfile(resource);
             }
 
             return this;
@@ -275,7 +314,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return jsonStatement.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
         }
 
-        private EnsureOptions GenerateTypeErrorMessage(EnsureOptions options, string resourceType)
+        private static EnsureOptions GenerateTypeErrorMessage(EnsureOptions options, string resourceType)
         {
             return options.WithMessage($"Unknown resource type {resourceType}");
         }

@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                 .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description), });
 
-            _builder.AddDefaultSearchParameters();
+            _builder.SyncSearchParameters();
 
             ITypedElement statement = _builder.Build();
 
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingRestSearchParam_ThenTypeSearchParamIsAdded()
         {
-            _builder.AddDefaultRestSearchParams();
+            _builder.SyncSearchParameters();
 
             ITypedElement statement = _builder.Build();
 
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                .Returns(new[] { new SearchParameterInfo("_type", "_type", SearchParamType.Token, description: "description"), });
 
-            _builder.AddDefaultSearchParameters();
+            _builder.SyncSearchParameters();
 
             ITypedElement statement = _builder.Build();
 

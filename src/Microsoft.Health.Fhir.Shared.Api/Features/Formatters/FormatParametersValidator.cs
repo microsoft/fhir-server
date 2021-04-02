@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 return isSupported;
             }
 
-            ResourceElement typedStatement = await _conformanceProvider.GetCapabilityStatementAsync();
+            ResourceElement typedStatement = await _conformanceProvider.GetCapabilityStatementOnStartup();
 
             IEnumerable<string> formats = typedStatement.Select("CapabilityStatement.format").Select(x => (string)x.Value);
 

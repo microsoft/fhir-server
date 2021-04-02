@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Func<IScoped<IEnumerable<IProvideCapability>>> _capabilityProviders;
         private ResourceElement _listedCapabilityStatement;
+        private ResourceElement _metadata;
+        private ICapabilityStatementBuilder _builder;
         private SemaphoreSlim _sem = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IKnowSupportedProfiles _supportedProfiles;
@@ -48,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _supportedProfiles = supportedProfiles;
         }
 
-        public override async Task<ResourceElement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken))
+        public override async Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken))
         {
             if (_listedCapabilityStatement == null)
             {
@@ -58,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        ICapabilityStatementBuilder builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _supportedProfiles)
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _supportedProfiles)
                             .Update(x =>
                             {
                                 x.FhirVersion = _modelInfoProvider.SupportedVersion.ToString();
@@ -73,16 +75,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         {
                             foreach (IProvideCapability provider in providerFactory.Value)
                             {
-                                provider.Build(builder);
+                                provider.Build(_builder);
                             }
                         }
 
                         foreach (Action<ListedCapabilityStatement> postConfiguration in _configurationUpdates)
                         {
-                            builder.Update(statement => postConfiguration(statement));
+                            _builder.Update(statement => postConfiguration(statement));
                         }
 
-                        _listedCapabilityStatement = builder.Build().ToResourceElement();
+                        _listedCapabilityStatement = _builder.Build().ToResourceElement();
                     }
                 }
                 finally
@@ -115,9 +117,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
-            _listedCapabilityStatement = null;
+            _metadata = null;
 
             return Task.CompletedTask;
+        }
+
+        public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
+        {
+            if (_metadata == null)
+            {
+                if (_builder == null)
+                {
+                    // this should initialize _builder
+                    await GetCapabilityStatementOnStartup(cancellationToken);
+                }
+
+                // Update search params;
+                _builder.SyncSearchParameters();
+
+                // Update supported profiles;
+                _builder.SyncProfiles();
+
+                _metadata = _builder.Build().ToResourceElement();
+            }
+
+            return _metadata;
         }
     }
 }
