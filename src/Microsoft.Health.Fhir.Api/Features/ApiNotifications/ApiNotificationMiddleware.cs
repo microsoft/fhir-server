@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 }
                 finally
                 {
-                    apiNotification.Latency = timer?.ElapsedTime ?? TimeSpan.Zero;
+                    apiNotification.Latency = timer.ElapsedTime;
 
                     try
                     {
