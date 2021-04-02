@@ -24,14 +24,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 {
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
-    public class FhirOperationDataStoreTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
+    public class FhirOperationDataStoreExportTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly IFhirOperationDataStore _operationDataStore;
         private readonly IFhirStorageTestHelper _testHelper;
 
         private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), ExportJobType.All);
 
-        public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
+        public FhirOperationDataStoreExportTests(FhirStorageTestsFixture fixture)
         {
             _operationDataStore = fixture.OperationDataStore;
             _testHelper = fixture.TestHelper;
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenANewExportRequest_WhenCreatingExportJob_ThenGetsJobCreated()
+        public async Task GivenANewExportRequest_WhenCreatingAnExportJob_ThenAnExportJobGetsCreated()
         {
             var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.RequestType, ExportFormatTags.ResourceName, _exportRequest.ResourceType, null, "hash", rollingFileSizeInMB: 64);
 
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenAMatchingJob_WhenGettingById_ThenTheMatchingJobShouldBeReturned()
+        public async Task GivenAMatchingExportJob_WhenGettingById_ThenTheMatchingExportJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenNoMatchingJob_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
+        public async Task GivenNoMatchingExportJob_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenAMatchingJob_WhenGettingByHash_ThenTheMatchingJobShouldBeReturned()
+        public async Task GivenAMatchingExportJob_WhenGettingByHash_ThenTheMatchingExportJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenNoMatchingJob_WhenGettingByHash_ThenNoMatchingJobShouldBeReturned()
+        public async Task GivenNoMatchingExportJob_WhenGettingByHash_ThenNoMatchingExportJobShouldBeReturned()
         {
             var jobRecord = await InsertNewExportJobRecordAsync();
 
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenThereIsNoRunningJob_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned()
+        public async Task GivenThereIsNoRunningExportJob_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned()
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync();
 
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(OperationStatus.Completed)]
         [InlineData(OperationStatus.Failed)]
         [InlineData(OperationStatus.Running)]
-        public async Task GivenJobIsNotInQueuedState_WhenAcquiringJobs_ThenNoJobShouldBeReturned(OperationStatus operationStatus)
+        public async Task GivenExportJobIsNotInQueuedState_WhenAcquiringExportJobs_ThenNoExportJobShouldBeReturned(OperationStatus operationStatus)
         {
             ExportJobRecord jobRecord = await InsertNewExportJobRecordAsync(jr => jr.Status = operationStatus);
 
@@ -133,9 +133,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [InlineData(1, 0)]
         [InlineData(2, 1)]
         [InlineData(3, 2)]
-        public async Task GivenNumberOfRunningJobs_WhenAcquiringJobs_ThenAvailableJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
+        public async Task GivenNumberOfRunningExportJobs_WhenAcquiringExportJobs_ThenAvailableExportJobsShouldBeReturned(ushort limit, int expectedNumberOfJobsReturned)
         {
-            await CreateRunningJob();
+            await CreateRunningExportJob();
             ExportJobRecord jobRecord1 = await InsertNewExportJobRecordAsync(); // Queued
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Canceled);
             await InsertNewExportJobRecordAsync(jr => jr.Status = OperationStatus.Completed);
@@ -165,9 +165,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenThereIsRunningJobThatExpired_WhenAcquiringJobs_ThenTheExpiredJobShouldBeReturned()
+        public async Task GivenThereIsARunningExportJobThatExpired_WhenAcquiringExportJobs_ThenTheExpiredExportJobShouldBeReturned()
         {
-            ExportJobOutcome jobOutcome = await CreateRunningJob();
+            ExportJobOutcome jobOutcome = await CreateRunningExportJob();
 
             await Task.Delay(1200);
 
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenThereAreQueuedJobs_WhenSimultaneouslyAcquiringJobs_ThenCorrectJobsShouldBeReturned()
+        public async Task GivenThereAreQueuedExportJobs_WhenSimultaneouslyAcquiringExportJobs_ThenCorrectExportJobsShouldBeReturned()
         {
             ExportJobRecord[] jobRecords = new[]
             {
@@ -217,9 +217,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenARunningJob_WhenUpdatingTheJob_ThenTheJobShouldBeUpdated()
+        public async Task GivenARunningExportJob_WhenUpdatingTheExportJob_ThenTheExportJobShouldBeUpdated()
         {
-            ExportJobOutcome jobOutcome = await CreateRunningJob();
+            ExportJobOutcome jobOutcome = await CreateRunningExportJob();
             ExportJobRecord job = jobOutcome.JobRecord;
 
             job.Status = OperationStatus.Completed;
@@ -231,9 +231,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenAnOldVersionOfAJob_WhenUpdatingTheJob_ThenJobConflictExceptionShouldBeThrown()
+        public async Task GivenAnOldVersionOfAnExportJob_WhenUpdatingTheExportJob_ThenJobConflictExceptionShouldBeThrown()
         {
-            ExportJobOutcome jobOutcome = await CreateRunningJob();
+            ExportJobOutcome jobOutcome = await CreateRunningExportJob();
             ExportJobRecord job = jobOutcome.JobRecord;
 
             // Update the job for a first time. This should not fail.
@@ -246,9 +246,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenANonexistentJob_WhenUpdatingTheJob_ThenJobNotFoundExceptionShouldBeThrown()
+        public async Task GivenANonexistentExportJob_WhenUpdatingTheExportJob_ThenJobNotFoundExceptionShouldBeThrown()
         {
-            ExportJobOutcome jobOutcome = await CreateRunningJob();
+            ExportJobOutcome jobOutcome = await CreateRunningExportJob();
 
             ExportJobRecord job = jobOutcome.JobRecord;
             WeakETag jobVersion = jobOutcome.ETag;
@@ -259,9 +259,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         }
 
         [Fact]
-        public async Task GivenThereIsARunningJob_WhenSimultaneousUpdateCallsOccur_ThenJobConflictExceptionShouldBeThrown()
+        public async Task GivenThereIsARunningExportJob_WhenSimultaneousUpdateCallsOccur_ThenJobConflictExceptionShouldBeThrown()
         {
-            ExportJobOutcome runningJobOutcome = await CreateRunningJob();
+            ExportJobOutcome runningJobOutcome = await CreateRunningExportJob();
 
             var completionSource = new TaskCompletionSource<bool>();
 
@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
             }
         }
 
-        private async Task<ExportJobOutcome> CreateRunningJob()
+        private async Task<ExportJobOutcome> CreateRunningExportJob()
         {
             // Create a queued job.
             await InsertNewExportJobRecordAsync();
