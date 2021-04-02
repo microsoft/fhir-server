@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         {
             string profile = "coolProfile";
             _supportedProfiles.GetSupportedProfiles("Account").Returns(new[] { profile });
-            _builder.AddDefaultResourceInteractions();
+            _builder.AddDefaultResourceInteractions().SyncProfiles();
             ITypedElement statement = _builder.Build();
             string fhirPath = ModelInfoProvider.Version == FhirSpecification.Stu3
                 ? $"CapabilityStatement.profile.where(reference='{profile}').exists()"
