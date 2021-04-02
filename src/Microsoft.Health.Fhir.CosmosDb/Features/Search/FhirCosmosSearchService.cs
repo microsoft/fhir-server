@@ -479,7 +479,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         var queryRequestOptions = new QueryRequestOptions
                         {
                             MaxItemCount = 10, // to limit excess buffering in case this is not selective
-                            MaxConcurrency = -1, // making a guess that this will be selective, so executing across all partitions in parallel
+                            MaxConcurrency = int.MaxValue, // making a guess that this will be selective, so executing across all partitions in parallel
                         };
 
                         includeResponse = await _fhirDataStore.ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
