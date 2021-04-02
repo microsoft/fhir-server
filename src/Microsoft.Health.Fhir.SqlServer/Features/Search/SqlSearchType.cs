@@ -16,8 +16,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     [Flags]
     internal enum SqlSearchType
     {
-        // Default value, set if we do not need to consider history or reindexing
-        None = 0,
+        // Set if we do not need to consider history or reindexing
+        Default = 0,
 
         // Set if we are including previous resource versions or deleted resources
         History = 1 << 0,
