@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
 using Xunit;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenATransactionScope_WhenReading_TheUncommittedValuesShouldOnlyBeAvailableWithTheTransactionAndWithHints()
         {
             var newId = Guid.NewGuid().ToString();
+            var searchParamHash = new string("RandomSearchParam").ComputeHash();
 
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
@@ -38,9 +40,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     sqlCommandWrapper.CommandText = @"
                         INSERT INTO Resource
-                        VALUES(97, @newId, 1, 0, 5095719085917680000, 0, null, CAST('test' AS VARBINARY(MAX)), 0)";
+                        VALUES(97, @newId, 1, 0, 5095719085917680000, 0, null, CAST('test' AS VARBINARY(MAX)), 0, @searchParamHash)";
 
                     sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
+                    sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "searchParamHash", Value = searchParamHash });
 
                     await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
                 }
@@ -81,6 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenATransactionScope_WhenReadingAfterComplete_TheValuesShouldBeAvailable()
         {
             var newId = Guid.NewGuid().ToString();
+            var searchParamHash = new string("RandomSearchParam").ComputeHash();
 
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
@@ -89,9 +93,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     sqlCommandWrapper.CommandText = @"
                         INSERT INTO Resource
-                        VALUES(97, @newId, 1, 0, 5095719085917680001, 0, null, CAST('test' AS VARBINARY(MAX)), 0)";
+                        VALUES(97, @newId, 1, 0, 5095719085917680001, 0, null, CAST('test' AS VARBINARY(MAX)), 0, @searchParamHash)";
 
                     sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
+                    sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "searchParamHash", Value = searchParamHash });
 
                     await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
                 }
