@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ISortingValidator _sortingValidator;
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
-        private const int _resourceTableColumnCount = 11;
+        private const int _resourceTableColumnCount = 10;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // If we should include the total count of matching search results
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                searchResult = await SearchImpl(searchOptions, SqlSearchType.None, null, cancellationToken);
+                searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
 
                 // If this is the first page and there aren't any more pages
                 if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         searchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(searchOptions, SqlSearchType.None, null, cancellationToken);
+                        var countOnlySearchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
             else
             {
-                searchResult = await SearchImpl(searchOptions, SqlSearchType.None, null, cancellationToken);
+                searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
             }
 
             return searchResult;
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             // At this point we are at the last row.
                             // if we have more columns, it means sort expressions were added.
-                            if (reader.FieldCount > _resourceTableColumnCount)
+                            if (reader.FieldCount > _resourceTableColumnCount + 1)
                             {
                                 sortValue = reader.GetValue(SortValueColumnName) as DateTime?;
                             }
