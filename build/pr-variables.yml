@@ -7,4 +7,6 @@ variables:
     CrucibleEnvironmentUrl: ''
     TestEnvironmentName: 'OSS PR$(prName)'
     ImageTag: '$(build.BuildNumber)'
-    # prName: $(system.pullRequest.pullRequestNumber) # passed in as build variable
+
+    # The following is passed in from a Pipeline variable, this allows it to be overriden if required.
+    # prName: $(system.pullRequest.pullRequestNumber)
