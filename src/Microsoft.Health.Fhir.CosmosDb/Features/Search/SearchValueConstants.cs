@@ -57,8 +57,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string SelectedFields = "r.id,r.isSystem,r.partitionKey,r.lastModified,r.rawResource,r.request,r.isDeleted,r.resourceId,r.resourceTypeName,r.isHistory,r.version,r._self,r._etag, r.searchParameterHash";
 
-        public const string TypeIdCompositeSearchParameterName = "_typeAndId";
-
         public const string WildcardReferenceSearchParameterName = "_wildcardReference";
 
         public const string SortLowValueFieldName = "l";
