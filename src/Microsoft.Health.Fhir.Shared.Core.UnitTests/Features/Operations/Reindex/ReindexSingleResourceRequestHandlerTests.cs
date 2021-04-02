@@ -9,6 +9,7 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -16,7 +17,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
     public class ReindexSingleResourceRequestHandlerTests
     {
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ISearchIndexer _searchIndexer;
         private readonly IResourceDeserializer _resourceDeserializer;
@@ -40,13 +40,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         public ReindexSingleResourceRequestHandlerTests()
         {
-            _authorizationService = Substitute.For<IFhirAuthorizationService>();
+            _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
             _fhirDataStore = Substitute.For<IFhirDataStore>();
             _searchIndexer = Substitute.For<ISearchIndexer>();
             _resourceDeserializer = Substitute.For<IResourceDeserializer>();
             _cancellationToken = CancellationToken.None;
 
-            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex)).Returns(DataActions.Reindex);
+            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex);
 
             _reindexHandler = new ReindexSingleResourceRequestHandler(
                 _authorizationService,
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenUserDoesNotHavePermissionForReindex_WhenHandle_ThenUnauthorizedExceptionIsThrown()
         {
-            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex)).Returns(DataActions.None);
+            _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.None);
             var request = GetReindexRequest(HttpGetName);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.Handle(request, _cancellationToken));

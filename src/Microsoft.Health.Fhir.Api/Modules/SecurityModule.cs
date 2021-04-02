@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -68,16 +69,16 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     services.Add<RoleLoader>().Transient().AsImplementedInterfaces();
                     services.AddSingleton(_securityConfiguration.Authorization);
 
-                    services.AddSingleton<IFhirAuthorizationService, RoleBasedFhirAuthorizationService>();
+                    services.AddSingleton<IAuthorizationService<DataActions>, RoleBasedFhirAuthorizationService>();
                 }
                 else
                 {
-                    services.AddSingleton<IFhirAuthorizationService>(DisabledFhirAuthorizationService.Instance);
+                    services.AddSingleton<IAuthorizationService<DataActions>>(DisabledFhirAuthorizationService.Instance);
                 }
             }
             else
             {
-                services.AddSingleton<IFhirAuthorizationService>(DisabledFhirAuthorizationService.Instance);
+                services.AddSingleton<IAuthorizationService<DataActions>>(DisabledFhirAuthorizationService.Instance);
             }
         }
     }

@@ -27,8 +27,10 @@ For the F5 experience and test environments, an in-process identity provider is 
 To enable the development identity provider, add the following code to your app configuration:
 
 ```csharp
-builder.AddDevelopmentAuthEnvironment("path/to/testAuthEnvironment.json");
+builder.AddDevelopmentAuthEnvironmentIfConfigured(configurationRoot);
 ```
+
+`configurationRoot` object should had key "TestAuthEnvironment:FilePath" pointing to [TestAuthEnvironment.json](https://github.com/microsoft/fhir-server/blob/main/testauthenvironment.json) location.
 
 The code above, along with the `TestAuthEnvironment.json` file will configure and start the identity provider for use by the FHIR API.
 
@@ -45,14 +47,15 @@ Content-Type: application/x-www-form-urlencoded
 client_id=globalAdminServicePrincipal&client_secret=globalAdminServicePrincipal&grant_type=client_credentials&scope=fhir-api
 ```
 
-To authenticate with the FHIR API take the `access_token` from the previous command and attach it as an `Authorization` header with the sytax: `Bearer {access_token}`.
+To authenticate with the FHIR API take the `access_token` from the previous command and attach it as an `Authorization` header with the syntax: `Bearer {access_token}`.
 
 Example token response
 ```json
 {
     "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ijc4YWJlMDM0OGEyNDg4NzU0MmUwOGJjNTg3YWFjY2Q4IiwidHlwIjoiSldUIn0.eyJuYmYiOjE1MjM1NTQ3OTQsImV4cCI6MTUyMzU1ODM5NCwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo1MzcyNyIsImF1ZCI6WyJodHRwOi8vbG9jYWxob3N0OjUzNzI3L3Jlc291cmNlcyIsImZoaXItYXBpIl0sImNsaWVudF9pZCI6Imtub3duLWNsaWVudC1pZCIsInNjb3BlIjpbImZoaXItYXBpIl19.pZWIWy3RdDHp5zgcYs8bb9VrxIHXbYu8LolC3YTy6xWsPxMoPUQwbAltYmC6WDXFiDygpsC5ofkGlR4BH0Bt1FMvFWqFYhPcOOKvBqLLc055EHZfTcNcmiUUf4y4KRuQFqWZsH_HrfWwykSGVio2OnYcQvytrbjAi_EzHf2vrHJUHX2JFY4A_F6WpJbQiI1hUVEOd7h1jfmAptWlNGwNRbCF2Wd1Hf_Hodym8mEOKQz21VHdvNJ_B-owPMvLjalV5Nrvpv0yC9Ly5YablrkzB583eHwQNSA7A4ZMm49O8MWv8kUwwF5TF0lJJDyyw3ruqmPWCM-058chenU0rtCsPQ",
     "expires_in": 3600,
-    "token_type": "Bearer"
+    "token_type": "Bearer",
+    "scope": "fhir-api"
 }
 ```
 

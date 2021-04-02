@@ -7,9 +7,11 @@ using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -43,11 +45,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .ReplaceService<ISearchParameterStatusDataStore>();
-
-            services.Add<SqlServerFhirModel>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
 
             services.Add<SearchParameterToSearchValueTypeMap>()
                 .Singleton()
@@ -93,6 +90,11 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
 
+            services.Add<SqlServerFhirModel>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>();
+
             services.Add<SchemaUpgradedHandler>()
                 .Transient()
                 .AsImplementedInterfaces();
@@ -100,6 +102,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SqlServerSearchParameterValidator>()
                 .Singleton()
                 .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<ReindexJobSqlThrottlingController>()
+                .Singleton()
                 .AsImplementedInterfaces();
 
             return fhirServerBuilder;
