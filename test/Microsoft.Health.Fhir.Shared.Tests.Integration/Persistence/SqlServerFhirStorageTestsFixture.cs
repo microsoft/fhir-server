@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInformation);
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, config, Substitute.For<IPollyRetryLoggerFactory>(), NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());

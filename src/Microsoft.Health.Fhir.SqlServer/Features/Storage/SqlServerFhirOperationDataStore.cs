@@ -20,26 +20,39 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Extensions;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Newtonsoft.Json;
+using Polly;
+using Polly.Contrib.WaitAndRetry;
+using Polly.Retry;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlServerFhirOperationDataStore : IFhirOperationDataStore
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly IPollyRetryLoggerFactory _pollyRetryLoggerFactory;
         private readonly ILogger<SqlServerFhirOperationDataStore> _logger;
         private readonly JsonSerializerSettings _jsonSerializerSettings;
+        private readonly IEnumerable<TimeSpan> _sleepDurations;
+        private readonly PolicyBuilder _preconditionFailedPolicyBuilder;
 
         public SqlServerFhirOperationDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration,
+            IPollyRetryLoggerFactory pollyRetryLoggerFactory,
             ILogger<SqlServerFhirOperationDataStore> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
+            EnsureArg.IsNotNull(pollyRetryLoggerFactory, nameof(pollyRetryLoggerFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _pollyRetryLoggerFactory = pollyRetryLoggerFactory;
             _logger = logger;
 
             _jsonSerializerSettings = new JsonSerializerSettings
@@ -49,6 +62,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     new EnumLiteralJsonConverter(),
                 },
             };
+
+            // By default, we use the retry SQL command wrapper, which will retry on transient and timeout exceptions.
+            // Set up to enable custom retry logic that would execute on precondition failed exceptions.
+            SqlServerTransientFaultRetryPolicyConfiguration transientFaultRetryPolicyConfiguration = sqlServerDataStoreConfiguration.TransientFaultRetryPolicy;
+
+            _sleepDurations = Backoff.ExponentialBackoff(
+                transientFaultRetryPolicyConfiguration.InitialDelay,
+                transientFaultRetryPolicyConfiguration.RetryCount,
+                transientFaultRetryPolicyConfiguration.Factor,
+                transientFaultRetryPolicyConfiguration.FastFirst);
+
+            _preconditionFailedPolicyBuilder = Policy
+                .Handle<SqlException>(sqlException => sqlException.IsTransient())
+                .Or<TimeoutException>()
+                .Or<SqlException>(sqlException => sqlException.Number == 50412);
         }
 
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
@@ -129,8 +157,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
+                async void OnRetry(Exception exception, TimeSpan timeSpan, int i, Context context)
+                {
+                    _pollyRetryLoggerFactory.Create();
+
+                    if (exception is SqlException { Number: SqlErrorCodes.PreconditionFailed })
+                    {
+                        // Get the updated job version
+                        ExportJobOutcome jobWrapper = await GetExportJobByIdAsync(jobRecord.Id, cancellationToken);
+                        sqlCommandWrapper.Parameters["@jobVersion"].Value = GetRowVersionAsBytes(jobWrapper.ETag);
+                    }
+                }
+
+                // Explicitly set a retry policy that will get the updated job and retry on precondition failed exceptions.
+                AsyncRetryPolicy retryPolicy = _preconditionFailedPolicyBuilder.WaitAndRetryAsync(_sleepDurations, OnRetry);
+                var retrySqlCommandWrapper = new RetrySqlCommandWrapper(sqlCommandWrapper, retryPolicy);
+
                 VLatest.UpdateExportJob.PopulateCommand(
-                    sqlCommandWrapper,
+                    retrySqlCommandWrapper,
                     jobRecord.Id,
                     jobRecord.Status.ToString(),
                     JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings),
@@ -138,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var rowVersion = (byte[])await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                    var rowVersion = (byte[])await retrySqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
 
                     if (rowVersion.NullIfEmpty() == null)
                     {
@@ -248,8 +292,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
+                async void OnRetry(Exception exception, TimeSpan timeSpan, int i, Context context)
+                {
+                    _pollyRetryLoggerFactory.Create();
+
+                    if (exception is SqlException { Number: SqlErrorCodes.PreconditionFailed })
+                    {
+                        // Get the updated job version
+                        ReindexJobWrapper jobWrapper = await GetReindexJobByIdAsync(jobRecord.Id, cancellationToken);
+                        sqlCommandWrapper.Parameters["@jobVersion"].Value = GetRowVersionAsBytes(jobWrapper.ETag);
+                    }
+                }
+
+                // Explicitly set a retry policy that will get the updated job and retry on precondition failed exceptions.
+                AsyncRetryPolicy retryPolicy = _preconditionFailedPolicyBuilder.WaitAndRetryAsync(_sleepDurations, OnRetry);
+                var retrySqlCommandWrapper = new RetrySqlCommandWrapper(sqlCommandWrapper, retryPolicy);
+
                 VLatest.UpdateReindexJob.PopulateCommand(
-                    sqlCommandWrapper,
+                    retrySqlCommandWrapper,
                     jobRecord.Id,
                     jobRecord.Status.ToString(),
                     JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings),
@@ -257,7 +317,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var rowVersion = (byte[])await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                    var rowVersion = (byte[])await retrySqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
 
                     if (rowVersion.NullIfEmpty() == null)
                     {
