@@ -17,6 +17,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
 {
+    [CollectionDefinition("ReindexThrottle", DisableParallelization = true)]
     public class ReindexJobCosmosThrottleControllerTests
     {
         private ITestOutputHelper _output;
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             }
 
             _output.WriteLine($"Final throttle based delay is: {throttleController.GetThrottleBasedDelay()}");
-            Assert.Equal(100, throttleController.GetThrottleBasedDelay());
+            Assert.True(throttleController.GetThrottleBasedDelay() > 0);
         }
 
         [Fact]

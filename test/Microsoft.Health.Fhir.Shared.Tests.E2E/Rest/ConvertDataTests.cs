@@ -33,6 +33,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     public class ConvertDataTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private const string DefaultTemplateSetReference = "microsofthealth/fhirconverter:default";
+        private const string Hl7v2DefaultTemplateSetReference = "microsofthealth/hl7v2templates:default";
+        private const string CcdaDefaultTemplateSetReference = "microsofthealth/ccdatemplates:default";
+
         private readonly TestFhirClient _testFhirClient;
         private readonly bool _convertDataEnabled = false;
 
@@ -43,12 +46,36 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             _convertDataEnabled = convertDataConfiguration?.Enabled ?? false;
         }
 
-        [SkippableFact]
-        public async Task GivenAValidRequestWithDefaultTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
+        [SkippableTheory]
+        [InlineData(DefaultTemplateSetReference)]
+        [InlineData(Hl7v2DefaultTemplateSetReference)]
+        public async Task GivenAHl7v2ValidRequestWithDefaultTemplateSet_WhenConvertData_CorrectResponseShouldReturn(string templateReference)
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", DefaultTemplateSetReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", templateReference, "ADT_A01");
+            var requestMessage = GenerateConvertDataRequest(parameters);
+            HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var bundleContent = await response.Content.ReadAsStringAsync();
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
+            var bundleResource = parser.Parse<Bundle>(bundleContent);
+            Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
+        }
+
+        [SkippableFact]
+        public async Task GivenACcdaValidRequestWithDefaultTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
+        {
+            Skip.IfNot(_convertDataEnabled);
+
+            var parameters = GetConvertDataParams(Samples.SampleCcdaMessage, "Ccda", CcdaDefaultTemplateSetReference, "CCD");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -74,7 +101,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), inputDataType, DefaultTemplateSetReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, inputDataType, DefaultTemplateSetReference, "ADT_A01");
 
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
@@ -91,7 +118,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", DefaultTemplateSetReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", DefaultTemplateSetReference, "ADT_A01");
             parameters.Parameter.Add(new Parameters.ParameterComponent { Name = unsupportedParameter, Value = new FhirString("test") });
 
             var requestMessage = GenerateConvertDataRequest(parameters);
@@ -110,7 +137,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", templateReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", templateReference, "ADT_A01");
 
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
@@ -130,7 +157,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", templateReference, "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", templateReference, "ADT_A01");
 
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
@@ -158,6 +185,51 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains($"The input data could not be parsed correctly", responseContent);
+        }
+
+        [SkippableFact]
+        public async Task GivenACcdaValidRequestWithDefaultTemplateSet_ButHl7v2InputData_WhenConvertData_ShouldReturnBadRequest()
+        {
+            Skip.IfNot(_convertDataEnabled);
+
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "Ccda", CcdaDefaultTemplateSetReference, "CCD");
+            var requestMessage = GenerateConvertDataRequest(parameters);
+            HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains($"The input data could not be parsed correctly", responseContent);
+        }
+
+        [SkippableFact]
+        public async Task GivenACcdaValidRequestWithDefaultTemplateSet_ButHl7v2InputDataType_WhenConvertData_ShouldReturnBadRequest()
+        {
+            Skip.IfNot(_convertDataEnabled);
+
+            var parameters = GetConvertDataParams(Samples.SampleCcdaMessage, "Hl7v2", CcdaDefaultTemplateSetReference, "CCD");
+            var requestMessage = GenerateConvertDataRequest(parameters);
+            HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains($"The input data type 'Hl7v2' and default template collection 'microsofthealth/ccdatemplates:default' are inconsistent.", responseContent);
+        }
+
+        [SkippableFact]
+        public async Task GivenACcdaValidRequestWithDefaultTemplateSet_ButHl7v2Templates_WhenConvertData_ShouldReturnBadRequest()
+        {
+            Skip.IfNot(_convertDataEnabled);
+
+            var parameters = GetConvertDataParams(Samples.SampleCcdaMessage, "Ccda", DefaultTemplateSetReference, "CCD");
+            var requestMessage = GenerateConvertDataRequest(parameters);
+            HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains($"The input data type 'Ccda' and default template collection 'microsofthealth/fhirconverter:default' are inconsistent.", responseContent);
         }
 
         private HttpRequestMessage GenerateConvertDataRequest(
@@ -189,11 +261,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.RootTemplate, Value = new FhirString(rootTemplate) });
 
             return parametersResource;
-        }
-
-        private static string GetSampleHl7v2Message()
-        {
-            return "MSH|^~\\&|AccMgr|1|||20050110045504||ADT^A01|599102|P|2.3||| \nEVN|A01|20050110045502||||| \nPID|1||10006579^^^1^MR^1||DUCK^DONALD^D||19241010|M||1|111 DUCK ST^^FOWL^CA^999990000^^M|1|8885551212|8885551212|1|2||40007716^^^AccMgr^VN^1|123121234|||||||||||NO \nNK1|1|DUCK^HUEY|SO|3583 DUCK RD^^FOWL^CA^999990000|8885552222||Y|||||||||||||| \nPV1|1|I|PREOP^101^1^1^^^S|3|||37^DISNEY^WALT^^^^^^AccMgr^^^^CI|||01||||1|||37^DISNEY^WALT^^^^^^AccMgr^^^^CI|2|40007716^^^AccMgr^VN|4|||||||||||||||||||1||G|||20050110045253|||||| \nGT1|1|8291|DUCK^DONALD^D||111^DUCK ST^^FOWL^CA^999990000|8885551212||19241010|M||1|123121234||||#Cartoon Ducks Inc|111^DUCK ST^^FOWL^CA^999990000|8885551212||PT| \nDG1|1|I9|71596^OSTEOARTHROS NOS-L/LEG ^I9|OSTEOARTHROS NOS-L/LEG ||A| \nIN1|1|MEDICARE|3|MEDICARE|||||||Cartoon Ducks Inc|19891001|||4|DUCK^DONALD^D|1|19241010|111^DUCK ST^^FOWL^CA^999990000|||||||||||||||||123121234A||||||PT|M|111 DUCK ST^^FOWL^CA^999990000|||||8291 \nIN2|1||123121234|Cartoon Ducks Inc|||123121234A|||||||||||||||||||||||||||||||||||||||||||||||||||||||||8885551212 \nIN1|2|NON-PRIMARY|9|MEDICAL MUTUAL CALIF.|PO BOX 94776^^HOLLYWOOD^CA^441414776||8003621279|PUBSUMB|||Cartoon Ducks Inc||||7|DUCK^DONALD^D|1|19241010|111 DUCK ST^^FOWL^CA^999990000|||||||||||||||||056269770||||||PT|M|111^DUCK ST^^FOWL^CA^999990000|||||8291 \nIN2|2||123121234|Cartoon Ducks Inc||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||8885551212 \nIN1|3|SELF PAY|1|SELF PAY|||||||||||5||1\n";
         }
     }
 }

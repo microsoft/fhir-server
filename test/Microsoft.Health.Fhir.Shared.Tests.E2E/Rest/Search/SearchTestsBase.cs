@@ -33,18 +33,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, Tuple<string, string> customHeader, params Resource[] expectedResources)
         {
-            return await ExecuteAndValidateBundle(searchUrl, searchUrl, true, customHeader, expectedResources);
+            return await ExecuteAndValidateBundle(searchUrl, searchUrl, true, customHeader, pageSize: 10, expectedResources);
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, params Resource[] expectedResources)
         {
-            return await ExecuteAndValidateBundle(searchUrl, searchUrl, true, null, expectedResources);
+            return await ExecuteAndValidateBundle(searchUrl, searchUrl, true, null, pageSize: 10, expectedResources);
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, params Resource[] expectedResources)
         {
             var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
-            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, null, expectedResources);
+            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, null, pageSize: 10, expectedResources);
+        }
+
+        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, int pageSize, params Resource[] expectedResources)
+        {
+            var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
+            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, null, pageSize, expectedResources);
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, Tuple<string, string> customHeader, params Resource[] expectedResources)
@@ -56,11 +62,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return bundle;
         }
 
-        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, bool sort, Tuple<string, string> customHeader = null, params Resource[] expectedResources)
+        protected async Task<Bundle> ExecuteAndValidateBundle(
+            string searchUrl,
+            string selfLink,
+            bool sort,
+            Tuple<string, string> customHeader = null,
+            int pageSize = 10,
+            params Resource[] expectedResources)
         {
             Bundle firstBundle = await Client.SearchAsync(searchUrl, customHeader);
 
-            var pageSize = 10;
             var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources.ToList().GetRange(0, pageSize).ToArray() : expectedResources;
 
             ValidateBundle(firstBundle, selfLink, sort, expectedFirstBundle);

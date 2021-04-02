@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -25,7 +26,6 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ResourceIdProvider _resourceIdProvider;
         private readonly ResourceDeserializer _deserializer;
         private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
-        private IFhirAuthorizationService _authorizationService;
+        private IAuthorizationService<DataActions> _authorizationService;
 
         public ResourceHandlerTests()
         {
@@ -90,8 +90,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var collection = new ServiceCollection();
 
             // an auth service that allows all.
-            _authorizationService = Substitute.For<IFhirAuthorizationService>();
-            _authorizationService.CheckAccess(Arg.Any<DataActions>()).Returns(ci => ci.Arg<DataActions>());
+            _authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<DataActions>());
 
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
             _resourceIdProvider = new ResourceIdProvider();
@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         [Fact]
         public async Task GivenAFhirMediator_WhenHardDeletingWithSufficientPermissions_ThenItWillBeHardDeleted()
         {
-            _authorizationService.CheckAccess(Arg.Any<DataActions>()).Returns(DataActions.Delete | DataActions.HardDelete);
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(DataActions.Delete | DataActions.HardDelete);
 
             ResourceKey resourceKey = new ResourceKey<Observation>("id1");
 
@@ -311,7 +311,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         [InlineData(DataActions.HardDelete)]
         public async Task GivenAFhirMediator_WhenHardDeletingWithInsufficientPermissions_ThenFails(DataActions permittedActions)
         {
-            _authorizationService.CheckAccess(Arg.Any<DataActions>()).Returns(permittedActions);
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(permittedActions);
 
             ResourceKey resourceKey = new ResourceKey<Observation>("id1");
 

@@ -11,7 +11,6 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Messages.Create;

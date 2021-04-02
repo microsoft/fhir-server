@@ -11,6 +11,7 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
@@ -29,14 +30,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private List<string> _includeFromCteIds;
 
         private int _curFromCteIndex = -1;
-        private readonly bool _isHistorySearch;
+        private readonly SqlSearchType _searchType;
+        private readonly string _searchParameterHash;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
-        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch, SchemaInformation schemaInfo)
+        public SqlQueryGenerator(
+            IndentedStringBuilder sb,
+            SqlQueryParameterManager parameters,
+            SqlServerFhirModel model,
+            SqlSearchType searchType,
+            SchemaInformation schemaInfo,
+            string searchParameterHash)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -46,8 +54,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder = sb;
             Parameters = parameters;
             Model = model;
-            _isHistorySearch = isHistorySearch;
+            _searchType = searchType;
             _schemaInfo = schemaInfo;
+            _searchParameterHash = searchParameterHash;
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -132,14 +141,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append(expression.SearchParamTableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
                 StringBuilder.Append(expression.SearchParamTableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
-                if (_schemaInfo.Current > 3)
+                StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
+
+                if (_schemaInfo.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
                 {
-                    // IsRawResourceMetaSet column was added in V4
-                    StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
-                }
-                else
-                {
-                    StringBuilder.Append("CAST(0 AS bit) AS IsRawResourceMetaSet, ");
+                    StringBuilder.Append(VLatest.Resource.SearchParamHash, resourceTableAlias).Append(", ");
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
@@ -156,7 +162,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
 
                 if (expression.SearchParamTableExpressions.Count == 0 &&
-                    !_isHistorySearch &&
+                    !_searchType.HasFlag(SqlSearchType.History) &&
                     expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
                     !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
                 {
@@ -187,6 +193,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendHistoryClause(delimitedClause);
                         AppendDeletedClause(delimitedClause);
+                        AppendSearchParameterHashClause(delimitedClause);
                     }
                 }
 
@@ -313,7 +320,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 case SearchParamTableExpressionKind.NotExists:
                     StringBuilder.Append("SELECT Sid1");
-                    StringBuilder.AppendLine(context.Sort?.Count > 0 ? ", SortValue" : string.Empty);
+                    StringBuilder.AppendLine(IsInSortMode(context) ? ", SortValue" : string.Empty);
                     StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
                     StringBuilder.AppendLine("WHERE Sid1 NOT IN").AppendLine("(");
 
@@ -745,7 +752,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                                 delimited.BeginDelimitedElement();
                                 StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue));
-                                StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" >= ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId)).Append(")");
+                                StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId)).Append(")");
                                 StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue)).AppendLine(")");
                             }
 
@@ -830,7 +837,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_isHistorySearch)
+            if (!_searchType.HasFlag(SqlSearchType.History))
             {
                 delimited.BeginDelimitedElement().Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0");
             }
@@ -838,11 +845,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_isHistorySearch)
+            if (!_searchType.HasFlag(SqlSearchType.History))
             {
                 delimited.BeginDelimitedElement();
 
                 StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0");
+            }
+        }
+
+        private void AppendSearchParameterHashClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
+        {
+            if (_searchType.HasFlag(SqlSearchType.Reindex))
+            {
+                delimited.BeginDelimitedElement();
+
+                StringBuilder.Append("(").Append(VLatest.Resource.SearchParamHash, tableAlias).Append(" != ").Append(Parameters.AddParameter(_searchParameterHash)).Append(" OR ").Append(VLatest.Resource.SearchParamHash, tableAlias).Append(" IS NULL)");
             }
         }
 

@@ -7,36 +7,16 @@ ignore:
   sha: []
 
 branches:
-  master:
-    regex: ^master$|^main$
-    tag: ''
-    increment: Patch
-    prevent-increment-of-merged-branch-version: true
-    track-merge-target: false
-    tracks-release-branches: false
+  main:
     is-release-branch: true
+    tag: ''
   pull-request:
     regex: ^(pull|pull\-requests|pr)[/-]
     tag: pr
-    increment: Inherit
-    prevent-increment-of-merged-branch-version: false
     tag-number-pattern: '[/-](?<number>\d+)[-/]'
-    track-merge-target: false
-    tracks-release-branches: false
-    is-release-branch: false
   hotfix:
     regex: ^hotfix(es)?[/-]
     tag: useBranchName
-    increment: Patch
-    prevent-increment-of-merged-branch-version: false
-    track-merge-target: false
-    tracks-release-branches: false
-    is-release-branch: false
   feature:
-    regex: ^(personal|dev|feature|auto\-nuget\-update)[/-]
+    regex: ^(personal|dev|feature|auto\-nuget\-update|dependabot)[/-]
     tag: useBranchName
-    increment: Patch
-    prevent-increment-of-merged-branch-version: false
-    track-merge-target: false
-    tracks-release-branches: false
-    is-release-branch: false
