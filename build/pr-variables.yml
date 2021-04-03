@@ -1,10 +1,12 @@
 variables:
     ResourceGroupRegion: 'westus2'
     resourceGroupRoot: 'msh-fhir-pr'
-    appServicePlanName: '$(resourceGroupRoot)-$(prNumber)-asp'
-    prNumber: $(system.pullRequest.pullRequestNumber)
-    ResourceGroupName: '$(resourceGroupRoot)-$(prNumber)'
+    appServicePlanName: '$(resourceGroupRoot)-$(prName)-asp'    
+    ResourceGroupName: '$(resourceGroupRoot)-$(prName)'
     DeploymentEnvironmentName: 'f$(build.BuildNumber)'
     CrucibleEnvironmentUrl: ''
-    TestEnvironmentName: 'OSS PR$(prNumber)'
+    TestEnvironmentName: 'OSS PR$(prName)'
     ImageTag: '$(build.BuildNumber)'
+
+    # The following is passed in from a Pipeline variable, this allows it to be overriden if required.
+    # prName: $(system.pullRequest.pullRequestNumber)

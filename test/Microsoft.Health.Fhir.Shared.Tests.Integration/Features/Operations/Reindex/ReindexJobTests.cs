@@ -50,7 +50,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IScoped<IFhirOperationDataStore> _scopedOperationDataStore;
         private IScoped<IFhirDataStore> _scopedDataStore;
-        private ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
 
@@ -61,7 +60,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
-        private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;
@@ -73,7 +71,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             _fixture = fixture;
             _testHelper = _fixture.TestHelper;
-            _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
         }
 
         public async Task InitializeAsync()
@@ -82,7 +79,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _fhirStorageTestHelper = _fixture.TestHelper;
             _scopedOperationDataStore = _fhirOperationDataStore.CreateMockScope();
             _scopedDataStore = _fixture.DataStore.CreateMockScope();
-            _searchParameterStatusDataStore = _fixture.SearchParameterStatusDataStore;
 
             _jobConfiguration = new ReindexJobConfiguration();
             IOptions<ReindexJobConfiguration> optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
@@ -97,11 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager,
                 Deserializers.ResourceDeserializer);
 
-            _searchParameterStatusManager = new SearchParameterStatusManager(
-                _searchParameterStatusDataStore,
-                _searchParameterDefinitionManager,
-                _searchParameterSupportResolver,
-                _mediator);
+            _searchParameterStatusManager = _fixture.SearchParameterStatusManager;
 
             _createReindexRequestHandler = new CreateReindexRequestHandler(
                                                 _fhirOperationDataStore,
@@ -263,6 +255,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // The foo search parameter can be used to filter for the first test patient
                 ResourceWrapper patient = searchResults.Results.FirstOrDefault().Resource;
                 Assert.Contains(sampleName1, patient.RawResource.Data);
+
+                // Confirm that the reindexing operation did not create a new version of the resource
+                Assert.Equal("1", searchResults.Results.FirstOrDefault().Resource.Version);
             }
             finally
             {
@@ -324,6 +319,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // The foo search parameter can be used to filter for the first test patient
                 ResourceWrapper patient = searchResults.Results.FirstOrDefault().Resource;
                 Assert.Contains(sampleName1, patient.RawResource.Data);
+
+                // Confirm that the reindexing operation did not create a new version of the resource
+                Assert.Equal("1", searchResults.Results.FirstOrDefault().Resource.Version);
             }
             finally
             {
@@ -499,7 +497,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             patientResource.Name = new List<HumanName> { new() { Family = patientName }};
             patientResource.Id = patientId;
-            patientResource.VersionId = "v1";
+            patientResource.VersionId = "1";
 
             var resourceElement = patientResource.ToResourceElement();
             var rawResource = new RawResource(patientResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
@@ -516,7 +514,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Observation observationResource = Samples.GetDefaultObservation().ToPoco<Observation>();
 
             observationResource.Id = observationId;
-            observationResource.VersionId = "v1";
+            observationResource.VersionId = "1";
 
             var resourceElement = observationResource.ToResourceElement();
             var rawResource = new RawResource(observationResource.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
