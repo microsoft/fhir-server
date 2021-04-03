@@ -59,6 +59,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
+        /// This is the maximum degree of parallelism for the SDK to use when querying physical partitions in parallel.
+        /// -1 means "System Decides", int.MaxValue sets the limit high enough that it shouldn't be limited.
+        /// </summary>
+        internal const int MaxQueryConcurrency = int.MaxValue;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
         /// </summary>
         /// <param name="containerScope">
@@ -434,7 +440,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
             while (cosmosQuery.HasMoreResults &&
-                   (feedOptions.MaxConcurrency == -1 || // in this mode, the SDK likely has already fetched pages, so we might as well consume them
+                   (feedOptions.MaxConcurrency == MaxQueryConcurrency || // in this mode, the SDK likely has already fetched pages, so we might as well consume them
                     results.Count < totalDesiredCount * ExecuteDocumentQueryAsyncMinimumFillFactor)) // we still want to get more results
             {
                 // The FHIR spec says we cannot return more items in a bundle than the _count parameter, if specified.
@@ -442,7 +448,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // The advantage is that we don't need to construct a new query with a new page size.
 
                 int currentDesiredCount = totalDesiredCount - results.Count;
-                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount && feedOptions.MaxConcurrency != -1)
+                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount && feedOptions.MaxConcurrency != MaxQueryConcurrency)
                 {
                     // Construct a new query with a smaller page size.
                     // We do this to ensure that we will not exceed the original max page size and that
@@ -460,7 +466,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         results.AddRange(page);
                         if (mustNotExceedMaxItemCount && results.Count > feedOptions.MaxItemCount)
                         {
-                            // we might get here if feedOptions.MaxConcurrency == -1
+                            // we might get here if feedOptions.MaxConcurrency == (int.MaxValue)
 
                             int toRemove = results.Count - feedOptions.MaxItemCount.Value;
                             results.RemoveRange(results.Count - toRemove, toRemove);
