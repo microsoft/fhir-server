@@ -30,7 +30,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     internal class FhirCosmosSearchService : SearchService
     {
-        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new(SearchValueConstants.TypeIdCompositeSearchParameterName, SearchValueConstants.TypeIdCompositeSearchParameterName);
         private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new(SearchValueConstants.WildcardReferenceSearchParameterName, SearchValueConstants.WildcardReferenceSearchParameterName);
 
         private readonly CosmosFhirDataStore _fhirDataStore;
@@ -484,7 +483,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             var includes = new List<FhirCosmosResourceWrapper>();
-            bool includesTruncated = false;
 
             if (includeExpressions.Count > 0)
             {
@@ -496,54 +494,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     .Distinct()
                     .ToList();
 
-                // partition the references to avoid creating an excessively large query
-                foreach (IEnumerable<ResourceTypeAndId> batchOfReferencesToInclude in referencesToInclude.TakeBatch(100))
+                foreach (IEnumerable<ResourceTypeAndId> resourceTypeAndIds in referencesToInclude.TakeBatch(maxIncludeCount))
                 {
-                    // construct the expression typeAndId = <Include1Type, Include1Id> OR  typeAndId = <Include2Type, Include2Id> OR ...
+                    // issue the requests in parallel
+                    var tasks = resourceTypeAndIds.Select(r => _fhirDataStore.GetAsync(new ResourceKey(r.ResourceTypeName, r.ResourceId), cancellationToken)).ToList();
 
-                    SearchParameterExpression expression = Expression.SearchParameter(
-                        _typeIdCompositeSearchParameter,
-                        Expression.Or(batchOfReferencesToInclude.Select(r =>
-                            Expression.And(
-                                Expression.Equals(FieldName.TokenCode, 0, r.ResourceTypeName),
-                                Expression.Equals(FieldName.TokenCode, 1, r.ResourceId))).ToList()));
-
-                    var includeSearchOptions = new SearchOptions
+                    foreach (Task<ResourceWrapper> task in tasks)
                     {
-                        Expression = expression,
-                        MaxItemCount = maxIncludeCount,
-                        Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
-                    };
-
-                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions);
-
-                    (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
-                    do
-                    {
-                        if (includes.Count >= maxIncludeCount)
+                        var resourceWrapper = (FhirCosmosResourceWrapper)await task;
+                        if (resourceWrapper != null)
                         {
-                            includesTruncated = true;
-                            break;
+                            includes.Add(resourceWrapper);
+                            if (includes.Count > maxIncludeCount)
+                            {
+                                return (includes, true);
+                            }
                         }
-
-                        includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                            includeQuery,
-                            includeSearchOptions,
-                            includeResponse.continuationToken,
-                            cancellationToken);
-                        includes.AddRange(includeResponse.results);
-                    }
-                    while (!string.IsNullOrEmpty(includeResponse.continuationToken));
-
-                    if (includes.Count >= maxIncludeCount)
-                    {
-                        includesTruncated = true;
-                        break;
                     }
                 }
             }
 
-            if (revIncludeExpressions.Count > 0 && !includesTruncated)
+            bool includesTruncated = false;
+            if (revIncludeExpressions.Count > 0)
             {
                 // fetch in the resources to include from _revinclude parameters.
 
