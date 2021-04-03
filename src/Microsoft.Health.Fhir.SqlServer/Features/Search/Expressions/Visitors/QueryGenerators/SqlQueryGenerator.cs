@@ -806,11 +806,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         var sortOperand = searchSort == SortOrder.Ascending ? ">" : "<";
 
-                                delimited.BeginDelimitedElement();
-                                StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue));
-                                StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId)).Append(")");
-                                StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue)).AppendLine(")");
-                            }
+                        delimited.BeginDelimitedElement();
+                        StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue));
+                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId)).Append(")");
+                        StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue)).AppendLine(")");
+                    }
 
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
                 }
