@@ -21,7 +21,7 @@ stages:
   displayName: Provision Environment
   dependsOn: []
   jobs:
-  - template: ./jobs/cleanup.yml
+  - template: ./jobs/cleanup-resourcegroup-aad.yml
   - job: provision
     dependsOn: DeleteResourceGroup 
     steps:
@@ -40,7 +40,11 @@ stages:
   - provisionEnvironment
   - DockerBuild
   jobs:
-  - template: ./jobs/add-aad-test-environment.yml
+  - job: setup
+    pool:
+      vmImage: '$(WindowsVmImage)'
+    steps:
+    - template: ./jobs/add-aad-test-environment.yml
 
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
@@ -77,7 +81,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'tool'
+      schemaAutomaticUpdatesEnabled: 'auto'
 
 - stage: deployR4
   displayName: 'Deploy R4 Site'
@@ -114,7 +118,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'tool'
+      schemaAutomaticUpdatesEnabled: 'auto'
 
 - stage: deployR5
   displayName: 'Deploy R5 Site'
@@ -151,4 +155,4 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-      schemaAutomaticUpdatesEnabled: 'tool'
+      schemaAutomaticUpdatesEnabled: 'auto'

@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -751,6 +751,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReferenceResourceTypeNotSupported {
             get {
                 return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One or more resources to be reindexed were not found, indicating that they have been deleted since the reindex job kicked off..
+        /// </summary>
+        internal static string ReindexingResourceNotFound {
+            get {
+                return ResourceManager.GetString("ReindexingResourceNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The version of one or more resources did not match, indicating that they have been updated since the reindex job kicked off..
+        /// </summary>
+        internal static string ReindexingResourceVersionConflict {
+            get {
+                return ResourceManager.GetString("ReindexingResourceVersionConflict", resourceCulture);
             }
         }
         

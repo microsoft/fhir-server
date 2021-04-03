@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         [Fact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenSearchParameterIsUpdatedFromRegistry()
         {
-            await _manager.EnsureInitialized();
+            await _manager.StartAsync(CancellationToken.None);
 
             var list = _searchParameterDefinitionManager.GetSearchParameters("Account").ToList();
 
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         [Fact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenUpdatedSearchParametersInNotification()
         {
-            await _manager.EnsureInitialized();
+            await _manager.StartAsync(CancellationToken.None);
 
             // Id should not be modified in this test case
             var modifiedItems = _searchParameterInfos.Skip(1).ToArray();
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         [Fact]
         public async Task GivenASPStatusManager_WhenInitializing_ThenRegistryShouldNotUpdateNewlyFoundParameters()
         {
-            await _manager.EnsureInitialized();
+            await _manager.StartAsync(CancellationToken.None);
 
             await _searchParameterStatusDataStore
                 .DidNotReceive()
