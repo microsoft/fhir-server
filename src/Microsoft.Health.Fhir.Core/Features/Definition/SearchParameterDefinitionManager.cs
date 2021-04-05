@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public async Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
         {
             CalculateSearchParameterHash();
-            await _mediator.Publish(new RebuildCapabilityStatement());
+            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter));
         }
     }
 }

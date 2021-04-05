@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         ICapabilityStatementBuilder SyncSearchParameters();
 
-        ICapabilityStatementBuilder SyncProfiles();
+        ICapabilityStatementBuilder SyncProfiles(bool disablePull = false);
 
         ICapabilityStatementBuilder AddSharedSearchParameters();
 

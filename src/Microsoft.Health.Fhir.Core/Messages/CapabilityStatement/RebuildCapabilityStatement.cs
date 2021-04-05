@@ -9,5 +9,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.CapabilityStatement
 {
     public sealed class RebuildCapabilityStatement : INotification
     {
+        public RebuildCapabilityStatement(RebuildPart part)
+        {
+            Part = part;
+        }
+
+        public RebuildPart Part { get; }
     }
 }

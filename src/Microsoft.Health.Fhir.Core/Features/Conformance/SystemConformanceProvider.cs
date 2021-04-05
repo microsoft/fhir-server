@@ -29,7 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private ResourceElement _listedCapabilityStatement;
         private ResourceElement _metadata;
         private ICapabilityStatementBuilder _builder;
-        private SemaphoreSlim _sem = new SemaphoreSlim(1, 1);
+        private SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
+        private SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
         private readonly IKnowSupportedProfiles _supportedProfiles;
 
@@ -54,22 +55,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             if (_listedCapabilityStatement == null)
             {
-                await _sem.WaitAsync(cancellationToken);
+                await _defaultCapabilitySemaphore.WaitAsync(cancellationToken);
 
                 try
                 {
                     if (_listedCapabilityStatement == null)
                     {
                         _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _supportedProfiles)
-                            .Update(x =>
-                            {
-                                x.FhirVersion = _modelInfoProvider.SupportedVersion.ToString();
-                                x.Software = new SoftwareComponent
-                                {
-                                    Name = Resources.ServerName,
-                                    Version = Assembly.GetExecutingAssembly().GetName().Version.ToString(),
-                                };
-                            });
+                          .Update(x =>
+                          {
+                              x.FhirVersion = _modelInfoProvider.SupportedVersion.ToString();
+                              x.Software = new SoftwareComponent
+                              {
+                                  Name = Resources.ServerName,
+                                  Version = Assembly.GetExecutingAssembly().GetName().Version.ToString(),
+                              };
+                          });
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 finally
                 {
                     _configurationUpdates.Clear();
-                    _sem.Release();
+                    _defaultCapabilitySemaphore.Release();
                 }
             }
 
@@ -111,37 +112,59 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public void Dispose()
         {
-            _sem?.Dispose();
-            _sem = null;
+            _defaultCapabilitySemaphore?.Dispose();
+            _defaultCapabilitySemaphore = null;
+            _metadataSemaphore?.Dispose();
+            _metadataSemaphore = null;
         }
 
-        public Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
+        public async Task Handle(RebuildCapabilityStatement notification, CancellationToken cancellationToken)
         {
-            _metadata = null;
+            await _metadataSemaphore.WaitAsync(cancellationToken);
+            try
+            {
+                if (_builder != null)
+                {
+                    switch (notification.Part)
+                    {
+                        case RebuildPart.SearchParameter:
+                            // Update search params;
+                            _builder.SyncSearchParameters();
+                            break;
 
-            return Task.CompletedTask;
+                        case RebuildPart.Profiles:
+                            // Update supported profiles;
+                            _builder.SyncProfiles(true);
+                            break;
+                    }
+                }
+
+                _metadata = null;
+            }
+            finally
+            {
+                _metadataSemaphore.Release();
+            }
         }
 
         public override async Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default)
         {
-            if (_metadata == null)
+            await _metadataSemaphore.WaitAsync(cancellationToken);
+            try
             {
-                if (_builder == null)
+                if (_metadata == null)
                 {
-                    // this should initialize _builder
-                    await GetCapabilityStatementOnStartup(cancellationToken);
+                    _ = await GetCapabilityStatementOnStartup(cancellationToken);
+
+                    _metadata = _builder.Build().ToResourceElement();
                 }
 
-                // Update search params;
-                _builder.SyncSearchParameters();
-
-                // Update supported profiles;
-                _builder.SyncProfiles();
-
-                _metadata = _builder.Build().ToResourceElement();
+                return _metadata;
             }
-
-            return _metadata;
+            finally
+            {
+                _metadataSemaphore.Release();
+            }
         }
     }
 }

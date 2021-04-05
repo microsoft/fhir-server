@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ValidateOperationConfiguration _validateOperationConfig;
         private readonly IMediator _mediator;
-        private List<ArtifactSummary> _summaries;
+        private List<ArtifactSummary> _summaries = new List<ArtifactSummary>();
         private DateTime _expirationTime;
         private object _lockSummaries = new object();
 
@@ -62,8 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             ListSummaries();
         }
 
-        public IEnumerable<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true)
+        public IEnumerable<ArtifactSummary> ListSummaries(bool resetStatementIfNew = true, bool disablePull = false)
         {
+            if (disablePull)
+            {
+                return _summaries;
+            }
+
             lock (_lockSummaries)
             {
                 if (_expirationTime < DateTime.UtcNow)
@@ -76,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
                     if (newHash != oldHash)
                     {
-                        System.Threading.Tasks.Task.Run(() => _mediator.Publish(new RebuildCapabilityStatement())).GetAwaiter().GetResult();
+                        System.Threading.Tasks.Task.Run(() => _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.Profiles))).GetAwaiter().GetResult();
                     }
                 }
 
@@ -164,9 +169,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return LoadBySummary(summary);
         }
 
-        public IEnumerable<string> GetSupportedProfiles(string resourceType)
+        public IEnumerable<string> GetSupportedProfiles(string resourceType, bool disablePull = false)
         {
-            var summary = ListSummaries(false);
+            var summary = ListSummaries(false, disablePull);
             return summary.Where(x => x.ResourceType == ResourceType.StructureDefinition)
                 .Where(x =>
                     {

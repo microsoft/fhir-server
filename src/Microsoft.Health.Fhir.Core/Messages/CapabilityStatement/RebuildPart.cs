@@ -3,12 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-
-namespace Microsoft.Health.Fhir.Core.Features.Validation
+namespace Microsoft.Health.Fhir.Core.Messages.CapabilityStatement
 {
-    public interface IKnowSupportedProfiles
+    public enum RebuildPart
     {
-        IEnumerable<string> GetSupportedProfiles(string resourceType, bool disablePull = false);
+        SearchParameter,
+        Profiles,
     }
 }

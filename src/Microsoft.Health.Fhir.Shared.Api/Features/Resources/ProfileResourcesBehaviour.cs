@@ -11,7 +11,6 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
@@ -57,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             var resources = _profilesResolver.GetProfilesTypes();
             if (resources.Contains(resourceType))
             {
-                if (await _authorizationService.CheckAccess(DataActions.ProfileDefinitionsEditor, cancellationToken) != DataActions.ProfileDefinitionsEditor)
+                if (await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, cancellationToken) != DataActions.EditProfileDefinitions)
                 {
                     throw new UnauthorizedFhirActionException();
                 }

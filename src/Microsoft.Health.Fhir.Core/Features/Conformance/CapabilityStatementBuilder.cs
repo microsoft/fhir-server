@@ -182,14 +182,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        private ICapabilityStatementBuilder SyncProfile(string resourceType)
+        private ICapabilityStatementBuilder SyncProfile(string resourceType, bool disablePull)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
 
             UpdateRestResourceComponent(resourceType, resourceComponent =>
             {
-                var supportedProfiles = _supportedProfiles.GetSupportedProfiles(resourceType);
+                var supportedProfiles = _supportedProfiles.GetSupportedProfiles(resourceType, disablePull);
                 if (supportedProfiles != null)
                 {
                     if (!_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
@@ -280,11 +280,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder SyncProfiles()
+        public ICapabilityStatementBuilder SyncProfiles(bool disablePull = false)
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
-                SyncProfile(resource);
+                SyncProfile(resource, disablePull);
             }
 
             return this;
