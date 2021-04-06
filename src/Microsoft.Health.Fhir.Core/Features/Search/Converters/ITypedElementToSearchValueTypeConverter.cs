@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public interface IFhirNodeToSearchValueTypeConverter
+    public interface ITypedElementToSearchValueTypeConverter
     {
         IReadOnlyList<string> FhirNodeTypes { get; }
 

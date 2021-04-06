@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(systemUnsupported.PartialSupport, unsupported.PartialSupport);
         }
 
-        private async Task<IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, IFhirNodeToSearchValueTypeConverter converter)>> GetConvertsForSearchParameters(
+        private async Task<IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, ITypedElementToSearchValueTypeConverter converter)>> GetConvertsForSearchParameters(
             string resourceType,
             SearchParameterInfo parameterInfo)
         {
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     hasConverter: fhirNodeToSearchValueTypeConverterManager.TryGetConverter(
                         result.FhirNodeType,
                         TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                        out IFhirNodeToSearchValueTypeConverter converter),
+                        out ITypedElementToSearchValueTypeConverter converter),
                     converter))
                 .ToArray();
 

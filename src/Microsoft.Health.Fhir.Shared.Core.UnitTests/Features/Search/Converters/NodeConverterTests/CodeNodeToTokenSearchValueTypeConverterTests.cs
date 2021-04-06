@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         {
         }
 
-        protected override async Task<IFhirNodeToSearchValueTypeConverter> GetTypeConverterAsync()
+        protected override async Task<ITypedElementToSearchValueTypeConverter> GetTypeConverterAsync()
         {
             var resolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await resolver.StartAsync(CancellationToken.None);

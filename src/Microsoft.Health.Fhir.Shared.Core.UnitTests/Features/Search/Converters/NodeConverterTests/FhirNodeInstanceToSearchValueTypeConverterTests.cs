@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters.NodeCo
 
         protected virtual ITypedElement TypedElement => Element.ToTypedElement();
 
-        protected abstract Task<IFhirNodeToSearchValueTypeConverter> GetTypeConverterAsync();
+        protected abstract Task<ITypedElementToSearchValueTypeConverter> GetTypeConverterAsync();
 
         [Fact]
         public async Task GivenANullValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
