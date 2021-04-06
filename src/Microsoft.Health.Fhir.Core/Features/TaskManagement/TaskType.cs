@@ -3,19 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-
-namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
+namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
-    public class CreateBulkImportResponse
+    public enum TaskType
     {
-        public CreateBulkImportResponse(string taskId)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(taskId, nameof(taskId));
-
-            TaskId = taskId;
-        }
-
-        public string TaskId { get; }
+        BulkImport = 0,
+        Reset = 1,
     }
 }

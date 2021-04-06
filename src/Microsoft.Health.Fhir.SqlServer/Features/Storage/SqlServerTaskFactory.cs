@@ -3,20 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-using MediatR;
+using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
-namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class CancelBulkImportRequest : IRequest<CancelBulkImportResponse>
+    public class SqlServerTaskFactory : ITaskFactory
     {
-        public CancelBulkImportRequest(string taskId)
+        public ITask Create(TaskInfo taskInfo)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(taskId, nameof(taskId));
-
-            TaskId = taskId;
+            return new SqlServerTask
+            {
+                RunId = taskInfo.RunId,
+            };
         }
-
-        public string TaskId { get; }
     }
 }

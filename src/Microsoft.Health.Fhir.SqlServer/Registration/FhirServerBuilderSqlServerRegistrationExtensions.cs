@@ -8,6 +8,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
@@ -32,6 +33,8 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
+            services.Configure<TaskHostingConfiguration>(options => configuration.GetSection("TaskHosting").Bind(options));
+
             services.AddSqlServerBase<SchemaVersion>(configuration, configureAction);
             services.AddSqlServerApi();
 
@@ -55,6 +58,21 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<SqlServerFhirDataStore>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlServerTaskManager>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlServerTaskConsumer>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlServerTaskFactory>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -107,6 +125,15 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsImplementedInterfaces();
 
+            /*
+            var result = string.Empty;
+            foreach (var service in services)
+            {
+                result += service.ServiceType.FullName + "\n";
+            }
+
+            File.WriteAllText("C:\\Users\\peizhou\\services.txt", result);
+            */
             return fhirServerBuilder;
         }
 

@@ -11,17 +11,17 @@ namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
 {
     public class GetBulkImportRequest : IRequest<GetBulkImportResponse>
     {
-        public GetBulkImportRequest(Uri requestUri, string jobId)
+        public GetBulkImportRequest(Uri requestUri, string taskId)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+            EnsureArg.IsNotNullOrWhiteSpace(taskId, nameof(taskId));
 
             RequestUri = requestUri;
-            JobId = jobId;
+            TaskId = taskId;
         }
 
         public Uri RequestUri { get; }
 
-        public string JobId { get; }
+        public string TaskId { get; }
     }
 }

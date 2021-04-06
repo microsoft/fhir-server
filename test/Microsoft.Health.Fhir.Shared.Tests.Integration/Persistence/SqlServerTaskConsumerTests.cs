@@ -36,7 +36,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
@@ -73,7 +72,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
@@ -113,7 +111,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
@@ -148,7 +145,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
@@ -184,7 +180,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
@@ -225,7 +220,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
@@ -262,7 +256,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
@@ -303,7 +296,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
@@ -339,7 +331,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
             {
-                EnableBulkImport = true,
                 QueueId = queueId,
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };

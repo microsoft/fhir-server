@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,23 +10,23 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
 {
     public class GetBulkImportRequestHandler : IRequestHandler<GetBulkImportRequest, GetBulkImportResponse>
     {
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly ITaskManager _taskManager;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
-        public GetBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
+        public GetBulkImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService)
         {
-            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
+            EnsureArg.IsNotNull(taskManager, nameof(taskManager));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
 
-            _fhirOperationDataStore = fhirOperationDataStore;
+            _taskManager = taskManager;
             _authorizationService = authorizationService;
         }
 
@@ -36,21 +34,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.BulkImport, cancellationToken) != DataActions.BulkImport)
+            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
             GetBulkImportResponse bulkImportResponse;
 
-            // fake result
-            var dateTimeOffset = new DateTimeOffset(new DateTime(2021, 1, 19, 7, 0, 0), TimeSpan.Zero);
-            var jobResult = new BulkImportTaskResult(
-                dateTimeOffset,
-                new Uri("https://localhost/123"),
-                new List<BulkImportOutputResponse>(),
-                new List<BulkImportOutputResponse>());
-            bulkImportResponse = new GetBulkImportResponse(HttpStatusCode.OK, jobResult);
+            var taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
+
+            // We have an existing job. We will determine the response based on the status of the bulk import operation.
+            if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
+            {
+                bulkImportResponse = new GetBulkImportResponse(HttpStatusCode.OK, taskInfo.Result);
+            }
+            else if (taskInfo.IsCanceled)
+            {
+                string failureReason = $"Bulk import {taskInfo.TaskId} was canceled";
+                HttpStatusCode failureStatusCode = HttpStatusCode.BadRequest;
+
+                throw new OperationFailedException(
+                    string.Format(Resources.OperationFailed, OperationsConstants.BulkImport, failureReason), failureStatusCode);
+            }
+            else
+            {
+                bulkImportResponse = new GetBulkImportResponse(HttpStatusCode.Accepted);
+            }
 
             return bulkImportResponse;
         }

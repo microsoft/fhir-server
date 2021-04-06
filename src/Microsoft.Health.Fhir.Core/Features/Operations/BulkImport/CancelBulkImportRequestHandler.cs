@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
 using Polly;
 using Polly.Retry;
@@ -24,25 +25,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
         private const int DefaultRetryCount = 3;
         private static readonly Func<int, TimeSpan> DefaultSleepDurationProvider = new Func<int, TimeSpan>(retryCount => TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
 
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly ITaskManager _taskManager;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly AsyncRetryPolicy _retryPolicy;
         private readonly ILogger<CancelBulkImportRequestHandler> _logger;
 
-        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, ILogger<CancelBulkImportRequestHandler> logger)
-            : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider, logger)
+        public CancelBulkImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService, ILogger<CancelBulkImportRequestHandler> logger)
+            : this(taskManager, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider, logger)
         {
         }
 
-        public CancelBulkImportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider, ILogger<CancelBulkImportRequestHandler> logger)
+        public CancelBulkImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider, ILogger<CancelBulkImportRequestHandler> logger)
         {
-            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
+            EnsureArg.IsNotNull(taskManager, nameof(taskManager));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsGte(retryCount, 0, nameof(retryCount));
             EnsureArg.IsNotNull(sleepDurationProvider, nameof(sleepDurationProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _fhirOperationDataStore = fhirOperationDataStore;
+            _taskManager = taskManager;
             _authorizationService = authorizationService;
             _logger = logger;
 
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.BulkImport, cancellationToken) != DataActions.BulkImport)
+            if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
             {
                 throw new UnauthorizedFhirActionException();
             }
@@ -62,16 +63,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
             CancelBulkImportResponse cancelResponse;
             try
             {
+                var taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
+
+                // if the task is already canceled or completed, return conflict status
+                if (taskInfo.IsCanceled || taskInfo.Status == TaskManagement.TaskStatus.Completed)
+                {
+                    return new CancelBulkImportResponse(HttpStatusCode.Conflict);
+                }
+
                 cancelResponse = await _retryPolicy.ExecuteAsync(async () =>
                 {
-                    await Task.Delay(1000);
-                    _logger.LogInformation($"Attempting to cancel bulk import job");
+                    _logger.LogInformation($"Attempting to cancel bulk import task {request.TaskId}");
+                    await _taskManager.CancelTaskAsync(request.TaskId, cancellationToken);
                     return new CancelBulkImportResponse(HttpStatusCode.Accepted);
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Unable to cancel bulk import job");
+                _logger.LogError(ex, $"Unable to cancel bulk import task {request.TaskId}");
                 throw;
             }
 

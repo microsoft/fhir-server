@@ -4,25 +4,24 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
 {
     public class GetBulkImportResponse
     {
         public GetBulkImportResponse(HttpStatusCode statusCode)
-            : this(statusCode, jobResult: null)
+            : this(statusCode, taskResult: null)
         {
         }
 
-        public GetBulkImportResponse(HttpStatusCode statusCode, BulkImportTaskResult jobResult)
+        public GetBulkImportResponse(HttpStatusCode statusCode, string taskResult)
         {
             StatusCode = statusCode;
-            JobResult = jobResult;
+            TaskResult = taskResult;
         }
 
         public HttpStatusCode StatusCode { get; }
 
-        public BulkImportTaskResult JobResult { get; }
+        public string TaskResult { get; }
     }
 }

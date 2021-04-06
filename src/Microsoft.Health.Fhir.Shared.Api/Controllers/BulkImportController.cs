@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  HttpContext.RequestAborted);
 
             var bulkImportResult = BulkImportResult.Accepted();
-            bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkImport, response.JobId);
+            bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkImport, response.TaskId);
             return bulkImportResult;
         }
 
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             BulkImportResult bulkImportActionResult;
             if (getBulkImportResult.StatusCode == HttpStatusCode.OK)
             {
-                bulkImportActionResult = BulkImportResult.Ok(getBulkImportResult.JobResult);
+                bulkImportActionResult = BulkImportResult.Ok(getBulkImportResult.TaskResult);
                 bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
             }
             else

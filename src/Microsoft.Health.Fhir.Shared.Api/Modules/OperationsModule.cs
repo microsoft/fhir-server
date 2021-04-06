@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -55,6 +56,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<ReindexJobWorker>()
                 .Singleton()
                 .AsSelf();
+
+            services.Add<TaskHosting>()
+                .Scoped()
+                .AsSelf();
+
+            services.AddFactory<IScoped<TaskHosting>>();
 
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
 
