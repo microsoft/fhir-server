@@ -282,6 +282,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public ICapabilityStatementBuilder SyncProfiles(bool disablePull = false)
         {
+            _statement.Profile.Clear();
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
                 SyncProfile(resource, disablePull);
