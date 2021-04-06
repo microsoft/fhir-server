@@ -85,6 +85,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                             {
                                 _logger.LogWarning(ex, $"Error loading search parameter {searchParam.GetStringScalar("url")} from data store.");
                             }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, $"Error loading search parameter {searchParam.GetStringScalar("url")} from data store.");
+                            }
                         }
                     }
                 }

@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         private async Task<TResponse> GenericHandle<TResponse>(string resourceType, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
             var resources = _profilesResolver.GetProfilesTypes();
-            if (resources.Contains(resourceType) && await _authorizationService.CheckAccess(DataActions.ProfileDefinitionsEditor, cancellationToken) != DataActions.ProfileDefinitionsEditor)
+            if (resources.Contains(resourceType) && await _authorizationService.CheckAccess(DataActions.EditProfileDefinitions, cancellationToken) != DataActions.EditProfileDefinitions)
             {
                 throw new UnauthorizedFhirActionException();
             }
