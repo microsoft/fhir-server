@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
     {
         private void AddExportDetailsHelper(ICapabilityStatementBuilder builder)
         {
-            builder.Update(AddExportDetails);
+            builder.Apply(AddExportDetails);
         }
 
         public void AddExportDetails(ListedCapabilityStatement capabilityStatement)

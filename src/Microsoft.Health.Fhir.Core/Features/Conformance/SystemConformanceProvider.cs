@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     if (_listedCapabilityStatement == null)
                     {
                         _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _supportedProfiles)
-                          .Update(x =>
+                          .Apply(x =>
                           {
                               x.FhirVersion = _modelInfoProvider.SupportedVersion.ToString();
                               x.Software = new SoftwareComponent
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
                         foreach (Action<ListedCapabilityStatement> postConfiguration in _configurationUpdates)
                         {
-                            _builder.Update(statement => postConfiguration(statement));
+                            _builder.Apply(statement => postConfiguration(statement));
                         }
 
                         _listedCapabilityStatement = _builder.Build().ToResourceElement();

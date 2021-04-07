@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, supportedProfiles);
         }
 
-        public ICapabilityStatementBuilder Update(Action<ListedCapabilityStatement> action)
+        public ICapabilityStatementBuilder Apply(Action<ListedCapabilityStatement> action)
         {
             EnsureArg.IsNotNull(action, nameof(action));
 
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder UpdateRestResourceComponent(string resourceType, Action<ListedResourceComponent> action)
+        public ICapabilityStatementBuilder ApplyToResource(string resourceType, Action<ListedResourceComponent> action)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(action, nameof(action));
@@ -95,13 +95,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder AddRestInteraction(string resourceType, string interaction)
+        public ICapabilityStatementBuilder AddResourceInteraction(string resourceType, string interaction)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNullOrEmpty(interaction, nameof(interaction));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
 
-            UpdateRestResourceComponent(resourceType, c =>
+            ApplyToResource(resourceType, c =>
             {
                 if (!c.Interaction.Where(x => x.Code == interaction).Any())
                 {
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         private void RemoveRestInteraction(string resourceType, string interaction)
         {
-            UpdateRestResourceComponent(resourceType, c =>
+            ApplyToResource(resourceType, c =>
             {
                 var toRemove = c.Interaction.Where(x => x.Code == interaction).FirstOrDefault();
                 if (toRemove != null)
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             });
         }
 
-        public ICapabilityStatementBuilder AddRestInteraction(string systemInteraction)
+        public ICapabilityStatementBuilder AddSharedInteraction(string systemInteraction)
         {
             EnsureArg.IsNotNullOrEmpty(systemInteraction, nameof(systemInteraction));
 
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder AddSharedSearchParameters()
+        public ICapabilityStatementBuilder AddGlobalSearchParameters()
         {
             _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (searchParams.Any())
             {
-                UpdateRestResourceComponent(resourceType, c =>
+                ApplyToResource(resourceType, c =>
                 {
                     c.SearchParam.Clear();
                     foreach (SearchParamComponent searchParam in searchParams.Select(x => new SearchParamComponent
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         c.SearchParam.Add(searchParam);
                     }
                 });
-                AddRestInteraction(resourceType, TypeRestfulInteraction.SearchType);
+                AddResourceInteraction(resourceType, TypeRestfulInteraction.SearchType);
             }
             else
             {
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
 
-            UpdateRestResourceComponent(resourceType, resourceComponent =>
+            ApplyToResource(resourceType, resourceComponent =>
             {
                 var supportedProfiles = _supportedProfiles.GetSupportedProfiles(resourceType, disablePull);
                 if (supportedProfiles != null)
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder AddDefaultResourceInteractions()
+        public ICapabilityStatementBuilder PopulateDefaultResourceInteractions()
         {
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
@@ -226,20 +226,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     continue;
                 }
 
-                AddRestInteraction(resource, TypeRestfulInteraction.Create);
-                AddRestInteraction(resource, TypeRestfulInteraction.Read);
-                AddRestInteraction(resource, TypeRestfulInteraction.Vread);
-                AddRestInteraction(resource, TypeRestfulInteraction.HistoryType);
-                AddRestInteraction(resource, TypeRestfulInteraction.HistoryInstance);
+                AddResourceInteraction(resource, TypeRestfulInteraction.Create);
+                AddResourceInteraction(resource, TypeRestfulInteraction.Read);
+                AddResourceInteraction(resource, TypeRestfulInteraction.Vread);
+                AddResourceInteraction(resource, TypeRestfulInteraction.HistoryType);
+                AddResourceInteraction(resource, TypeRestfulInteraction.HistoryInstance);
 
                 // AuditEvents should not allow Update or Delete
                 if (!string.Equals(resource, KnownResourceTypes.AuditEvent, StringComparison.Ordinal))
                 {
-                    AddRestInteraction(resource, TypeRestfulInteraction.Update);
-                    AddRestInteraction(resource, TypeRestfulInteraction.Delete);
+                    AddResourceInteraction(resource, TypeRestfulInteraction.Update);
+                    AddResourceInteraction(resource, TypeRestfulInteraction.Delete);
                 }
 
-                UpdateRestResourceComponent(resource, component =>
+                ApplyToResource(resource, component =>
                 {
                     component.Versioning.Add(ResourceVersionPolicy.NoVersion);
                     component.Versioning.Add(ResourceVersionPolicy.Versioned);
@@ -259,7 +259,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 });
             }
 
-            AddRestInteraction(SystemRestfulInteraction.HistorySystem);
+            AddSharedInteraction(SystemRestfulInteraction.HistorySystem);
 
             return this;
         }

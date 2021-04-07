@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         {
             if (_securityConfiguration.Enabled)
             {
-                builder.Update(statement =>
+                builder.Apply(statement =>
                 {
                     if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                     {

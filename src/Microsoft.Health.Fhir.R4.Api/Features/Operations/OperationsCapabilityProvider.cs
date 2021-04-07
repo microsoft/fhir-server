@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         {
             AddResourceSpecificExportDetails(builder, OperationsConstants.PatientExport, KnownResourceTypes.Patient);
             AddResourceSpecificExportDetails(builder, OperationsConstants.GroupExport, KnownResourceTypes.Group);
-            builder.Update(AddExportDetails);
+            builder.Apply(AddExportDetails);
         }
 
         public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         private void AddResourceSpecificExportDetails(ICapabilityStatementBuilder builder, string operationType, string resourceType)
         {
             Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
-            builder.UpdateRestResourceComponent(resourceType, resourceComponent =>
+            builder.ApplyToResource(resourceType, resourceComponent =>
             {
                 resourceComponent.Operation.Add(new OperationComponent()
                 {
