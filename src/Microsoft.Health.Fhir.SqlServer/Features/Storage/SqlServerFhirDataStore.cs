@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
-using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -93,7 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
         {
             int? eTag = weakETag == null
-                ? (int?)null
+                ? null
                 : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
             var resourceMetadata = new ResourceMetadata(
@@ -350,7 +349,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
         {
             int? eTag = weakETag == null
-                ? (int?)null
+                ? null
                 : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
