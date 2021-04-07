@@ -7,9 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -22,10 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
               OperationOutcomeConstants.IssueType.Informational,
               Resources.ValidationPassed);
 
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IProfileValidator _profileValidator;
 
-        public ValidateOperationHandler(IFhirAuthorizationService authorizationService, IProfileValidator profileValidator)
+        public ValidateOperationHandler(IAuthorizationService<DataActions> authorizationService, IProfileValidator profileValidator)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(profileValidator, nameof(profileValidator));
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// <param name="cancellationToken">The CancellationToken</param>
         public async Task<ValidateOperationResponse> Handle(ValidateOperationRequest request, CancellationToken cancellationToken)
         {
-            if (await _authorizationService.CheckAccess(DataActions.ResourceValidate) != DataActions.ResourceValidate)
+            if (await _authorizationService.CheckAccess(DataActions.ResourceValidate, cancellationToken) != DataActions.ResourceValidate)
             {
                 throw new UnauthorizedFhirActionException();
             }

@@ -19,7 +19,10 @@ stages:
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
-        $buildNumber = "$(semVer)" -replace "\.", "" 
+
+        $buildNumber = "$(semVer)".replace(".", "").replace("-", "")
+        $buildNumber = $buildNumber.subString(0, [System.Math]::Min(15, $buildNumber.Length))
+
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
@@ -332,6 +335,7 @@ stages:
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
+      appServiceName: $(DeploymentEnvironmentName)
 
 - stage: testR4
   displayName: 'Run R4 Tests'
@@ -345,6 +349,7 @@ stages:
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
+      appServiceName: $(DeploymentEnvironmentNameR4)
 
 - stage: testR5
   displayName: 'Run R5 Tests'
@@ -358,6 +363,7 @@ stages:
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
+      appServiceName: $(DeploymentEnvironmentNameR5)
 
 - stage: cleanupAks
   displayName: 'Cleanup AKS Deployments'

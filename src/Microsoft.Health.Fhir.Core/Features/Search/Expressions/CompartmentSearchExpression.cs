@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -46,6 +47,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             return $"(Compartment {CompartmentType} '{CompartmentId}')";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(CompartmentSearchExpression));
+            hashCode.Add(CompartmentType);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            return other is CompartmentSearchExpression compartmentSearch && compartmentSearch.CompartmentType == CompartmentType;
         }
     }
 }

@@ -3,10 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public enum ConversionInputDataType
+    public interface ICosmosDbCollectionPhysicalPartitionInfo
     {
-        Hl7v2,
+        int PhysicalPartitionCount { get; }
     }
 }

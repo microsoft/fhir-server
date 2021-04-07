@@ -11,11 +11,12 @@ using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using NSubstitute;
 using Xunit;
 
@@ -63,10 +64,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         {
             var handler = CreateObject(handlerType);
 
-            // set the IFhirAuthorizationService field
-            var authServiceFields = GetFieldsIncludingFromBaseTypes(handlerType).Where(f => f.FieldType == typeof(IFhirAuthorizationService));
+            // set the IAuthorizationService<DataActions> field
+            var authServiceFields = GetFieldsIncludingFromBaseTypes(handlerType).Where(f => f.FieldType == typeof(IAuthorizationService<DataActions>));
             FieldInfo authServiceField = Assert.Single(authServiceFields);
-            authServiceField.SetValue(handler, Substitute.For<IFhirAuthorizationService>());
+            authServiceField.SetValue(handler, Substitute.For<IAuthorizationService<DataActions>>());
 
             IEnumerable<Type[]> typeArgumentSets = handlerType.GetInterfaces()
                 .Where(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IRequestHandler<,>))

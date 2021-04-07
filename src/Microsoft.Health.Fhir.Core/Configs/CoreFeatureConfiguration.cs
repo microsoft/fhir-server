@@ -46,5 +46,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the default value for included search results.
         /// </summary>
         public int DefaultIncludeCountPerSearch { get; set; } = 100;
+
+        /// <summary>
+        /// Gets or sets a value whether we need to run profile validation during resource creation.
+        /// </summary>
+        public bool ProfileValidationOnCreate { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets a value whether we need to run profile validation during resource update.
+        /// </summary>
+        public bool ProfileValidationOnUpdate { get; set; } = false;
     }
 }

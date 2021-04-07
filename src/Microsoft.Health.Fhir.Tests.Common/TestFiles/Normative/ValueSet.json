@@ -1,0 +1,44 @@
+{
+    "resourceType": "ValueSet",
+    "id": "cpt-all",
+    "url": "http://hl7.org/fhir/ValueSet/cpt-all",
+    "name": "All CPT codes",
+    "status": "active",
+    "date": "2015-03-12",
+    "publisher": "Health Level Seven International (Vocabulary)",
+    "description": "A value set that includes all CPT codes",
+    "useContext": [
+        {
+            "code": {
+                "system": "http://example.org/fhir/CodeSystem/use-contexts",
+                "code": "species"
+            },
+            "valueCodeableConcept": {
+                "coding": [
+                    {
+                        "system": "http://snomed.info/sct",
+                        "code": "337915000",
+                        "display": "Homo sapiens (organism)"
+                    }
+                ]
+            }
+        }
+    ],
+    "jurisdiction": [
+        {
+            "coding": [
+                {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "US"
+                }
+            ]
+        }
+    ],
+    "compose": {
+        "include": [
+            {
+                "system": "http://www.ama-assn.org/go/cpt"
+            }
+        ]
+    }
+}

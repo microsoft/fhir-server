@@ -11,8 +11,6 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomConvertDataTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\ConvertDataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditTestFixture.cs" />

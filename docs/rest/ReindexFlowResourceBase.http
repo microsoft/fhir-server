@@ -1,0 +1,171 @@
+# This test flow confirms that reindexing operations can handle search parameters that
+# have base type = "Resource", meaning that they can operate on all types of resources.
+# It first creates two test resources: a patient and an observation.
+# Next, it creates a search parameter resource and triggers a reindexing operation.
+# Finally, it uses the new search parameter to confirm the search parameter
+# is enabled and the resources were successfully reindexed.
+#
+# This test assumes the following local environment setup:
+# 1. appsettings.json has Security.Enabled = false and Reindex.Enabled = true
+# 2. The datastore is Cosmos DB
+# 3. The version is R4 or R5
+
+@baseUrl = https://localhost:44348
+@contentType = application/json
+@patientId = 1407ee02-d505-49fe-9f6f-5fddcf9985f5
+@observationId = da1be095-0a16-481a-a821-e85d676c466e
+@reindexJobId = 438fc1ad-d022-4046-9a57-571488ac1426
+
+###
+# Create a patient resource.
+# Copy the patient's ID in the response body and paste it in the patientId variable.
+POST {{baseUrl}}/Patient HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "resourceType": "Patient",
+  "id": "newborn",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p><p><b>multipleBirth</b>: 2</p></div>"
+  },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/patient-mothersMaidenName",
+      "valueString": "Everywoman"
+    }
+  ],
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  },
+  "multipleBirthInteger": 2
+}
+
+###
+# Create an observation resource.
+# Copy the observation's ID in the response body and paste it in the observationId variable.
+POST {{baseUrl}}/Observation HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "resourceType": "Observation",
+  "id": "bgpanel",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: bgpanel</p><p><b>status</b>: final</p><p><b>category</b>: Laboratory <span>(Details : {http://terminology.hl7.org/CodeSystem/observation-category code 'laboratory' = 'Laboratory', given as 'Laboratory'})</span></p><p><b>code</b>: Blood Group Panel <span>(Details : {LOINC code '34532-2' = 'Blood type and Indirect antibody screen panel - Blood', given as ' Blood type and Indirect antibody screen panel - Blood'})</span></p><p><b>subject</b>: <a>Patient/infant</a></p><p><b>effective</b>: 11/03/2018 4:07:54 PM</p><p><b>hasMember</b>: </p><ul><li><a>Observation/bloodgroup</a></li><li><a>Observation/rhstatus</a></li></ul></div>"
+  },
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+          "code": "laboratory",
+          "display": "Laboratory"
+        }
+      ],
+      "text": "Laboratory"
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "34532-2",
+        "display": " Blood type and Indirect antibody screen panel - Blood"
+      }
+    ],
+    "text": "Blood Group Panel"
+  },
+  "subject": {
+    "reference": "Patient/infant"
+  },
+  "effectiveDateTime": "2018-03-11T16:07:54+00:00",
+  "hasMember": [
+    {
+      "reference": "Observation/bloodgroup"
+    },
+    {
+      "reference": "Observation/rhstatus"
+    }
+  ]
+}
+
+###
+# Create a new search parameter that will return the resource ID.
+# This will have the same behaviour as the existing search parameter, "_id".
+POST {{baseUrl}}/SearchParameter HTTP/1.1
+content-type: {{contentType}}
+
+{
+        "resourceType": "SearchParameter",
+        "id": "Resource-id",
+        "url": "http://hl7.org/fhir/SearchParameter/Resource-test-id",
+        "name": "test-id-name",
+        "status": "active",
+        "experimental": false,
+        "date": "2019-10-24T11:53:00+11:00",
+        "publisher": "Health Level Seven International (FHIR Infrastructure)",
+        "contact": [
+          {
+            "telecom": [
+              {
+                "system": "url",
+                "value": "http://hl7.org/fhir"
+              }
+            ]
+          },
+          {
+            "telecom": [
+              {
+                "system": "url",
+                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+              }
+            ]
+          }
+        ],
+        "code": "test-id-code",
+        "base": [
+          "Resource"
+        ],
+        "type": "token",
+        "description": "Logical id of this artifact",
+        "expression": "Resource.id",
+        "xpath": "f:Resource/f:id",
+        "xpathUsage": "normal"
+}
+
+###
+# Trigger a reindexing operation.
+# Copy the ID from the response's Content-Location header and paste it in the reindexJobId variable.
+POST {{baseUrl}}/$reindex HTTP/1.1
+content-type: {{contentType}}
+
+{  "resourceType": "Parameters", "parameter": [] }
+
+###
+# Check the status of the reindexing operation (scroll down in the response body to see the status).
+GET {{baseUrl}}/_operations/reindex/{{reindexJobId}} HTTP/1.1
+
+###
+# This should return a single patient.
+GET {{baseUrl}}/Patient?test-id-code={{patientId}}&_total=accurate HTTP/1.1
+
+###
+# This shouldn't return anything.
+GET {{baseUrl}}/Patient?test-id-code=nonexistent-id&_total=accurate HTTP/1.1
+
+###
+# This should return a single observation.
+GET {{baseUrl}}/Observation?test-id-code={{observationId}}&_total=accurate HTTP/1.1
+
+###
+# This shouldn't return anything.
+GET {{baseUrl}}/Observation?test-id-code=nonexistent-id&_total=accurate HTTP/1.1

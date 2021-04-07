@@ -7,10 +7,12 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
@@ -25,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     public class SearchParameterValidatorTests
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-        private readonly IFhirAuthorizationService _authorizationService = new DisabledFhirAuthorizationService();
+        private readonly IAuthorizationService<DataActions> _authorizationService = new DisabledFhirAuthorizationService();
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
 
         public SearchParameterValidatorTests()
@@ -56,8 +58,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenUnauthorizedUser_WhenValidatingSearchParam_ThenExceptionThrown()
         {
-            var authorizationService = Substitute.For<IFhirAuthorizationService>();
-            authorizationService.CheckAccess(Core.Features.Security.DataActions.Reindex).Returns(Core.Features.Security.DataActions.Write);
+            var authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            authorizationService.CheckAccess(DataActions.Reindex, Arg.Any<CancellationToken>()).Returns(DataActions.Write);
             var validator = new SearchParameterValidator(() => _fhirOperationDataStore.CreateMockScope(), authorizationService, _searchParameterDefinitionManager);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => validator.ValidateSearchParamterInput(new SearchParameter(), "POST", CancellationToken.None));

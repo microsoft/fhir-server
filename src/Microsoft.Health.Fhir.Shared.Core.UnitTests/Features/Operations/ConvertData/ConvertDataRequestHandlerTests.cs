@@ -9,13 +9,14 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
-using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
+using Microsoft.Health.Fhir.Liquid.Converter.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
     public class ConvertDataRequestHandlerTests
     {
         [Fact]
-        public async Task GivenAConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
+        public async Task GivenAHl7v2ConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
         {
             var convertDataRequestHandler = GetRequestHandler();
             var response = await convertDataRequestHandler.Handle(GetSampleHl7v2Request(), default);
@@ -40,8 +41,28 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             var patient = bundleResource.Entry.ByResourceType<Patient>().First();
             Assert.NotEmpty(patient.Id);
-            Assert.Equal("Kinmonth", patient.Name.First().Family);
-            Assert.Equal("1987-06-24", patient.BirthDate);
+            Assert.Equal("DUCK", patient.Name.First().Family);
+            Assert.Equal("1924-10-10", patient.BirthDate);
+        }
+
+        [Fact]
+        public async Task GivenACcdaConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
+        {
+            var convertDataRequestHandler = GetRequestHandler();
+            var response = await convertDataRequestHandler.Handle(GetSampleCcdaRequest(), default);
+
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
+            var bundleResource = parser.Parse<Bundle>(response.Resource);
+
+            var patient = bundleResource.Entry.ByResourceType<Patient>().First();
+            Assert.NotEmpty(patient.Id);
+            Assert.Equal("Nelson", patient.Name.First().Family);
+            Assert.Equal("1962-08-28", patient.BirthDate);
         }
 
         private ConvertDataRequestHandler GetRequestHandler()
@@ -65,8 +86,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                 convertDataConfiguration,
                 new NullLogger<ConvertDataEngine>());
 
-            IFhirAuthorizationService authorizationService = Substitute.For<IFhirAuthorizationService>();
-            authorizationService.CheckAccess(default).ReturnsForAnyArgs(DataActions.ConvertData);
+            IAuthorizationService<DataActions> authorizationService = Substitute.For<IAuthorizationService<DataActions>>();
+            authorizationService.CheckAccess(default, default).ReturnsForAnyArgs(DataActions.ConvertData);
 
             return new ConvertDataRequestHandler(
                 authorizationService,
@@ -76,12 +97,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetSampleHl7v2Request()
         {
-            return new ConvertDataRequest(GetSampleHl7v2Message(), ConversionInputDataType.Hl7v2, "microsofthealth", true, ImageInfo.DefaultTemplateImageReference, "ADT_A01");
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "ADT_A01");
         }
 
-        private static string GetSampleHl7v2Message()
+        private static ConvertDataRequest GetSampleCcdaRequest()
         {
-            return "MSH|^~\\&|SIMHOSP|SFAC|RAPP|RFAC|20200508131015||ADT^A01|517|T|2.3|||AL||44|ASCII\nEVN|A01|20200508131015|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|\nPID|1|3735064194^^^SIMULATOR MRN^MRN|3735064194^^^SIMULATOR MRN^MRN~2021051528^^^NHSNBR^NHSNMBR||Kinmonth^Joanna^Chelsea^^Ms^^CURRENT||19870624000000|F|||89 Transaction House^Handmaiden Street^Wembley^^FV75 4GJ^GBR^HOME||020 3614 5541^HOME|||||||||C^White - Other^^^||||||||\nPD1|||FAMILY PRACTICE^^12345|\nPV1|1|I|OtherWard^MainRoom^Bed 183^Simulated Hospital^^BED^Main Building^4|28b|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|||CAR|||||||||16094728916771313876^^^^visitid||||||||||||||||||||||ARRIVED|||20200508131015||";
+            return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
+        }
+
+        private static string GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType dataType)
+        {
+            return DefaultTemplateInfo.DefaultTemplateMap.Values.FirstOrDefault(value => value.DataType == dataType).ImageReference;
         }
     }
 }

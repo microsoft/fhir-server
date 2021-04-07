@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -73,6 +74,59 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         public override string ToString()
         {
             return $"({(Reversed ? "Reverse " : string.Empty)}SqlChainLink {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {(ExpressionOnSource == null ? string.Empty : $" Source:{ExpressionOnSource}")}{(ExpressionOnTarget == null ? string.Empty : $" Target:{ExpressionOnTarget}")})";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(SqlChainLinkExpression));
+            foreach (string resourceType in ResourceTypes)
+            {
+                hashCode.Add(resourceType);
+            }
+
+            foreach (string targetResourceType in TargetResourceTypes)
+            {
+                hashCode.Add(targetResourceType);
+            }
+
+            hashCode.Add(ReferenceSearchParameter);
+
+            hashCode.Add(Reversed);
+
+            ExpressionOnSource?.AddValueInsensitiveHashCode(ref hashCode);
+            ExpressionOnTarget?.AddValueInsensitiveHashCode(ref hashCode);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            if (other is not SqlChainLinkExpression chainLink ||
+                chainLink.ResourceTypes.Length != ResourceTypes.Length ||
+                chainLink.TargetResourceTypes.Length != TargetResourceTypes.Length ||
+                !chainLink.ReferenceSearchParameter.Equals(ReferenceSearchParameter) ||
+                chainLink.Reversed != Reversed ||
+                !(chainLink.ExpressionOnSource?.ValueInsensitiveEquals(ExpressionOnSource) ?? ExpressionOnSource == null) ||
+                !(chainLink.ExpressionOnTarget?.ValueInsensitiveEquals(ExpressionOnTarget) ?? ExpressionOnTarget == null))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < ResourceTypes.Length; i++)
+            {
+                if (chainLink.ResourceTypes[i] != ResourceTypes[i])
+                {
+                    return false;
+                }
+            }
+
+            for (var i = 0; i < TargetResourceTypes.Length; i++)
+            {
+                if (chainLink.TargetResourceTypes[i] != TargetResourceTypes[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

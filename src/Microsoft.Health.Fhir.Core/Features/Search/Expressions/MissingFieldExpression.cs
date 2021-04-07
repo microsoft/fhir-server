@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
@@ -39,6 +40,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             return $"(MissingField {(ComponentIndex == null ? null : $"[{ComponentIndex}].")}{FieldName})";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(MissingFieldException));
+            hashCode.Add(FieldName);
+            hashCode.Add(ComponentIndex);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            return other is MissingFieldExpression missing && missing.FieldName == FieldName && missing.ComponentIndex == ComponentIndex;
         }
     }
 }

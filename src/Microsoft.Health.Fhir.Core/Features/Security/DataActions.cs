@@ -23,8 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         ResourceValidate = 1 << 5,
         Reindex = 1 << 6,
         ConvertData = 1 << 7,
+        EditProfileDefinitions = 1 << 8, // Allows to Create/Update/Delete resources related to profile's resources.
 
         [EnumMember(Value = "*")]
-        All = (ConvertData << 1) - 1,
+        All = (EditProfileDefinitions << 1) - 1,
     }
 }
