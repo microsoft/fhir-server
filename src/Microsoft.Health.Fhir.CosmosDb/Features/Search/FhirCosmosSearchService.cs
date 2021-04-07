@@ -541,10 +541,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     SearchParameterExpression referenceExpression = Expression.SearchParameter(
                         referenceSearchParameter,
                         Expression.Or(
-                            matches.Select(m =>
-                                Expression.And(
-                                    Expression.Equals(FieldName.ReferenceResourceType, null, m.ResourceTypeName),
-                                    Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId))).ToList()));
+                            matches
+                                .GroupBy(m => m.ResourceTypeName)
+                                .Select(g =>
+                                    Expression.And(
+                                        Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
+                                        Expression.Or(g.Select(m => Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId)).ToList()))).ToList()));
 
                     Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
 
