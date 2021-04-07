@@ -451,10 +451,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     SearchParameterExpression referenceExpression = Expression.SearchParameter(
                         referenceSearchParameter,
                         Expression.Or(
-                            matches.Select(m =>
-                                Expression.And(
-                                    Expression.Equals(FieldName.ReferenceResourceType, null, m.ResourceTypeName),
-                                    Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId))).ToList()));
+                            matches
+                                .GroupBy(m => m.ResourceTypeName)
+                                .Select(g =>
+                                    Expression.And(
+                                        Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
+                                        Expression.Or(g.Select(m => Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId)).ToList()))).ToList()));
 
                     Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
 
@@ -487,7 +489,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                             queryRequestOptions,
                             includeResponse.continuationToken,
                             false,
-                            minimumDesiredPercentage: 100, // since we are executing across partitions in parallel, we will have results from all partitions, so fill up the page.
+                            minimumDesiredPercentage: (int)Math.Ceiling(maxIncludeCount * 100.0 / queryRequestOptions.MaxItemCount.Value), // ensure we fill up to maxIncludeCount in the initial query, as the SDK does not parallelize queries when there is a continuation token
                             cancellationToken);
 
                         includes.AddRange(includeResponse.results);
