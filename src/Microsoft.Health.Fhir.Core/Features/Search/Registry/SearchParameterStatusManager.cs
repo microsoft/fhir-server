@@ -10,16 +10,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class SearchParameterStatusManager : IHostedService
+    public class SearchParameterStatusManager : INotificationHandler<StorageInitializedNotification>
     {
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -93,12 +93,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
-            await _mediator.Publish(new SearchParametersUpdated(updated));
+            await _mediator.Publish(new SearchParametersUpdated(updated), cancellationToken);
         }
 
-        public Task StopAsync(CancellationToken cancellationToken)
+        public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            await StartAsync(cancellationToken);
         }
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)

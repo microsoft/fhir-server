@@ -100,6 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => _filebasedSearchParameterStatusDataStore,
                 Options.Create(securityConfiguration),
                 sqlConnectionStringProvider,
+                Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
