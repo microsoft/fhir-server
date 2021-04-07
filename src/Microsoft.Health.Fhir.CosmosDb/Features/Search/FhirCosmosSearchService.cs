@@ -478,10 +478,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                             break;
                         }
 
+                        var remainingItemsToFind = maxIncludeCount - includes.Count;
+
                         var queryRequestOptions = new QueryRequestOptions
                         {
-                            MaxItemCount = 10, // to limit excess buffering in case this is not selective
-                            MaxConcurrency = int.MaxValue, // making a guess that this will be selective, so executing across all partitions in parallel
+                            MaxItemCount = includeResponse.continuationToken == null ? 10 : remainingItemsToFind, // to limit excess buffering in case this is not selective or if there is a continuation token, we know the query will not be done in parallel.
+                            MaxConcurrency = int.MaxValue, // This will only execute in parallel on the first iteration of this loop; the SDK ignores this value when there is a continuation token.
                         };
 
                         includeResponse = await _fhirDataStore.ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
@@ -489,7 +491,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                             queryRequestOptions,
                             includeResponse.continuationToken,
                             false,
-                            minimumDesiredPercentage: (int)Math.Ceiling(maxIncludeCount * 100.0 / queryRequestOptions.MaxItemCount.Value), // ensure we fill up to maxIncludeCount in the initial query, as the SDK does not parallelize queries when there is a continuation token
+                            minimumDesiredPercentage: (int)Math.Ceiling(remainingItemsToFind * 100.0 / queryRequestOptions.MaxItemCount.Value), // ensure we fill up to maxIncludeCount in the initial query, as the SDK does not parallelize queries when there is a continuation token
                             cancellationToken);
 
                         includes.AddRange(includeResponse.results);
