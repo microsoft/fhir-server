@@ -160,6 +160,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     // we do two loop iterations only when we need to queue up the request.
                     lock (_queue)
                     {
+                        _logger.LogInformation($"Requests in flight {_requestsInFlight}, concurrent request limit {_concurrentRequestLimit}.");
                         if (_requestsInFlight < _concurrentRequestLimit)
                         {
                             canRun = true;
@@ -274,7 +275,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         {
             Interlocked.Increment(ref _currentPeriodRejectedCount);
 
-            _logger.LogWarning($"{Resources.TooManyConcurrentRequests}. Limit is {_concurrentRequestLimit}.");
+            _logger.LogWarning($"{Resources.TooManyConcurrentRequests} Limit is {_concurrentRequestLimit}. Requests in flight {_requestsInFlight}");
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
