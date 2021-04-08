@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             });
         }
 
-        public ICapabilityStatementBuilder AddSharedInteraction(string systemInteraction)
+        public ICapabilityStatementBuilder AddGlobalInteraction(string systemInteraction)
         {
             EnsureArg.IsNotNullOrEmpty(systemInteraction, nameof(systemInteraction));
 
@@ -259,7 +259,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 });
             }
 
-            AddSharedInteraction(SystemRestfulInteraction.HistorySystem);
+            AddGlobalInteraction(SystemRestfulInteraction.HistorySystem);
 
             return this;
         }

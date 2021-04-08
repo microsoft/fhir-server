@@ -337,13 +337,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (_coreFeatures.SupportsBatch)
             {
                 // Batch supported added in listedCapability
-                builder.AddSharedInteraction(SystemRestfulInteraction.Batch);
+                builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
             }
 
             if (_coreFeatures.SupportsTransaction)
             {
                 // Transaction supported added in listedCapability
-                builder.AddSharedInteraction(SystemRestfulInteraction.Transaction);
+                builder.AddGlobalInteraction(SystemRestfulInteraction.Transaction);
             }
         }
 

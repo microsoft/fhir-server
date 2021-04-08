@@ -513,7 +513,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (_coreFeatures.SupportsBatch)
             {
-                builder.AddSharedInteraction(SystemRestfulInteraction.Batch);
+                builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
             }
         }
 
