@@ -771,23 +771,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             object sortValue = null;
             Health.SqlServer.Features.Schema.Model.Column sortColumnName = default(Health.SqlServer.Features.Schema.Model.Column);
 
-                    if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
-                    {
-                        sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
-                    }
-                    else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
-                    {
-                        sortColumnName = VLatest.StringSearchParam.Text;
-                    }
+            if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
+            {
+                sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
+            }
+            else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
+            {
+                sortColumnName = VLatest.StringSearchParam.Text;
+            }
 
-                    if (continuationToken != null)
-                    {
-                        DateTime dateSortValue;
-                        if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
-                        {
-                            sortValue = dateSortValue;
-                        }
-                    }
+            if (continuationToken != null)
+            {
+                DateTime dateSortValue;
+                if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
+                {
+                    sortValue = dateSortValue;
+                }
+            }
 
             if (!string.IsNullOrEmpty(sortColumnName) && searchParamTableExpression.QueryGenerator != null)
             {

@@ -128,6 +128,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
+                ("Procedure", "[dbo].[UpsertResource_3]"),
+                ("Procedure", "[dbo].[ReindexResource]"),
+                ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),
@@ -146,6 +149,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
