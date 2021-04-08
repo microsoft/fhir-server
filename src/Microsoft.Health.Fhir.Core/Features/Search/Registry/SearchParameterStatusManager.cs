@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _mediator = mediator;
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();
 
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
-            await StartAsync(cancellationToken);
+            await EnsureInitializedAsync(cancellationToken);
         }
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)

@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -83,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 definitionManager,
                 new SearchParameterSupportResolver(definitionManager, await GetFhirNodeToSearchValueTypeConverterManagerAsync()),
                 Substitute.For<IMediator>());
-            await statusManager.StartAsync(CancellationToken.None);
+            await statusManager.EnsureInitializedAsync(CancellationToken.None);
 
             return definitionManager;
         }

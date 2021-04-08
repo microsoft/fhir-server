@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _logger = logger;
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
              // now read in any previously POST'd SearchParameter resources
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
         {
-            await StartAsync(cancellationToken);
+            await EnsureInitializedAsync(cancellationToken);
         }
     }
 }
