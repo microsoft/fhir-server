@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.GetRetryPolicy();
 
-            _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
+            _logger.LogDebug("Upserting {0}/{1}, ETag: \"{2}\", AllowCreate: {3}, KeepHistory: {4}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
             if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
+                _logger.LogDebug("Obliterating {0}/{1}", key.ResourceType, key.Id);
 
                 StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _hardDelete.Execute(
@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         ct),
                     cancellationToken);
 
-                _logger.LogDebug($"Hard-deleted {response.Resource.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Resource)}.");
+                _logger.LogDebug("Hard-deleted {0} documents, which consumed {1} RUs. The list of hard-deleted documents: {2}.", response.Resource.Count, response.RequestCharge, string.Join(", ", response.Resource));
             }
             catch (CosmosException exception)
             {
@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogDebug($"Replacing {resourceWrapper.ResourceTypeName}/{resourceWrapper.ResourceId}, ETag: \"{weakETag.VersionId}\"");
+                _logger.LogDebug("Replacing {0}/{1}, ETag: \"{2}\"", resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, weakETag.VersionId);
 
                 FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _replaceSingleResource.Execute(

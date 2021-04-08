@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             }
             else
             {
-                logger.LogWarning($"The OpenId Configuration request from \"{openIdConfigurationUrl}\" returned an {openIdConfigurationResponse.StatusCode} status code.");
+                logger.LogWarning("The OpenId Configuration request from \"{0}\" returned an {1} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
                 throw new OpenIdConfigurationException();
             }
 

@@ -135,6 +135,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Client", "Client", "{83B3EE
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.Smart", "test\Microsoft.Health.Fhir.Shared.Tests.Smart\Microsoft.Health.Fhir.Shared.Tests.Smart.shproj", "{A955963B-D766-492D-94FD-98A8B9EA8931}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogsAndInterpolations", "tools\FhirAnalyzer\FhirAnalyzer.csproj", "{389C844A-4DC2-4780-9821-464580396850}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -348,6 +350,10 @@ Global
 		{743EA25C-A6F5-4B41-BC56-69D9A89386A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{743EA25C-A6F5-4B41-BC56-69D9A89386A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{743EA25C-A6F5-4B41-BC56-69D9A89386A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{389C844A-4DC2-4780-9821-464580396850}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{389C844A-4DC2-4780-9821-464580396850}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{389C844A-4DC2-4780-9821-464580396850}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{389C844A-4DC2-4780-9821-464580396850}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -411,9 +417,10 @@ Global
 		{743EA25C-A6F5-4B41-BC56-69D9A89386A3} = {83B3EE6D-693E-4E86-A925-28B1A108268E}
 		{83B3EE6D-693E-4E86-A925-28B1A108268E} = {7457B218-2651-49B5-BED8-22233889516A}
 		{A955963B-D766-492D-94FD-98A8B9EA8931} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
+		{389C844A-4DC2-4780-9821-464580396850} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 EndGlobal
