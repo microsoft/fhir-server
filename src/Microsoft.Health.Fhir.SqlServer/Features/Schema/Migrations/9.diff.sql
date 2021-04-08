@@ -1,8 +1,10 @@
 /*
 We are making the following changes in this version of the schema
--- Adding two bit columns to StringSearchParam table - IsMin and IsMax
+-- Adding two bit columns to dbo.StringSearchParam table - IsMin and IsMax
+-- Adding two bit columns to dbo.DataTimeSearchParam table - IsMin and IsMax
 -- Updating the corresponding table value type to include these two new values
--- Updating the Upsert stored procedure to handle these two new values
+-- Updating the UpsertResources, ReindexResource and BulkReindexResource 
+-- stored procedures to handle these two new values.
 */
 
 CREATE TYPE dbo.BulkStringSearchParamTableType_2 AS TABLE
@@ -181,18 +183,20 @@ GO
 --         * This value should be the current UTC datetime, truncated to millisecond precision, with its 100ns ticks component bitshifted left by 3.
 --     @resourceTypeId
 --         * The ID of the resource type (See ResourceType table)
---     @resourceid
+--     @resourceId
 --         * The resource ID (must be the same as the in the resource itself)
+--     @etag
+--         * If specified, the version of the resource to update
 --     @allowCreate
 --         * If false, an error is thrown if the resource does not already exist
 --     @isDeleted
 --         * Whether this resource marks the resource as deleted
---     @updatedDateTime
---         * The last modified time in the resource
 --     @keepHistory
 --         * Whether the existing version of the resource should be preserved
 --     @requestMethod
 --         * The HTTP method/verb used for the request
+--     @searchParamHash
+--          * A hash of the resource's latest indexed search parameters
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
 --     @resourceWriteClaims
@@ -534,7 +538,6 @@ AS
 
     COMMIT TRANSACTION
 GO
-
 -- STORED PROCEDURE
 --     ReindexResource_2
 --

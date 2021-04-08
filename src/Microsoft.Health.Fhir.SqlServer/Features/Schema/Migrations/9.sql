@@ -2220,7 +2220,6 @@ AS
     WHERE Status = 'Running' OR Status = 'Queued' OR Status = 'Paused'
 GO
 
---
 -- STORED PROCEDURE
 --     ReindexResource_2
 --
