@@ -95,12 +95,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return this;
         }
 
-        public ICapabilityStatementBuilder AddResourceInteraction(string resourceType, string interaction)
+        private ICapabilityStatementBuilder AddResourceInteraction(string resourceType, string interaction)
         {
-            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
-            EnsureArg.IsNotNullOrEmpty(interaction, nameof(interaction));
-            EnsureArg.IsTrue(_modelInfoProvider.IsKnownResource(resourceType), nameof(resourceType), x => GenerateTypeErrorMessage(x, resourceType));
-
             ApplyToResource(resourceType, c =>
             {
                 if (!c.Interaction.Where(x => x.Code == interaction).Any())

@@ -50,13 +50,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingAnUnknownResource_ThenAnArgumentExceptionIsThrown()
+        public void GivenAConformanceBuilder_WhenApplyToUnknownResource_ThenAnArgumentExceptionIsThrown()
         {
-            Assert.Throws<ArgumentException>(() => _builder.AddResourceInteraction("foo", TypeRestfulInteraction.Create));
+            Assert.Throws<ArgumentException>(() => _builder.ApplyToResource("foo", c => c.ConditionalCreate = true));
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingDefaultSearchParameters_ThenDocumentationIsAdded()
+        public void GivenAConformanceBuilder_WhenSyncSearchParameters_ThenDocumentationIsAdded()
         {
             string description = "Logical id of this artifact";
 
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingRestSearchParam_ThenTypeSearchParamIsAdded()
+        public void GivenAConformanceBuilder_WhenAddingGlobalSearchParam_ThenTypeSearchParamIsAdded()
         {
             _builder.AddGlobalSearchParameters();
 
@@ -113,12 +113,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingResourceSearchParam_ThenTypeSearchParamIsNotAddedUnderResource()
+        public void GivenAConformanceBuilder_WhenAddingResourceSearchParamAndSync_ThenTypeSearchParamIsNotAddedUnderResource()
         {
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                .Returns(new[] { new SearchParameterInfo("_type", "_type", SearchParamType.Token, description: "description"), });
 
-            _builder.AddGlobalSearchParameters();
+            _builder.SyncSearchParameters();
 
             ITypedElement statement = _builder.Build();
 

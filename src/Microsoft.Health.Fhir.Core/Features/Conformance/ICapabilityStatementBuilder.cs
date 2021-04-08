@@ -12,13 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public interface ICapabilityStatementBuilder
     {
         /// <summary>
-        /// Adds interaction to specific to <paramref name="resourceType"/> `rest.resource.interaction` section of capability statement.
-        /// </summary>
-        /// <param name="resourceType">Type of resource to add <paramref name="interaction"/> to.</param>
-        /// <param name="interaction">Type of interaction to add.</param>
-        ICapabilityStatementBuilder AddResourceInteraction(string resourceType, string interaction);
-
-        /// <summary>
         /// Adds to `rest.interaction` section of capability statement.
         /// </summary>
         /// <remarks>This type of interaction is applicable for all type of resources.</remarks>>
