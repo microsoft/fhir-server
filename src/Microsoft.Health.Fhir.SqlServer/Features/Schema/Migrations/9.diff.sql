@@ -7,21 +7,27 @@ We are making the following changes in this version of the schema
 -- stored procedures to handle these two new values.
 */
 
-CREATE TYPE dbo.BulkStringSearchParamTableType_2 AS TABLE
-(
-    Offset int NOT NULL,
-    SearchParamId smallint NOT NULL,
-    Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
-    TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
-    IsMin bit NOT NULL,
-    IsMax bit NOT NULL
-);
+IF TYPE_ID(N'BulkStringSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkStringSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+        TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
+        IsMin bit NOT NULL,
+        IsMax bit NOT NULL
+    );
+END
 
-ALTER TABLE dbo.StringSearchParam
-ADD IsMin bit NOT NULL,
-    IsMax bit NOT NULL,
-    CONSTRAINT string_IsMin_Constraint DEFAULT 0 FOR IsMin,
-    CONSTRAINT string_IsMax_Constraint DEFAULT 0 FOR IsMax;
+IF NOT EXISTS (SELECT 'X' FROM SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID(N'StringSearchParam') AND NAME = 'IsMin')
+BEGIN
+    ALTER TABLE dbo.StringSearchParam
+    ADD IsMin bit NOT NULL,
+        IsMax bit NOT NULL,
+        CONSTRAINT string_IsMin_Constraint DEFAULT 0 FOR IsMin,
+        CONSTRAINT string_IsMax_Constraint DEFAULT 0 FOR IsMax;
+END
 
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
 ON dbo.StringSearchParam
@@ -64,22 +70,28 @@ WITH
     ONLINE = ON
 )
 
-CREATE TYPE dbo.BulkDateTimeSearchParamTableType_2 AS TABLE
-(
-    Offset int NOT NULL,
-    SearchParamId smallint NOT NULL,
-    StartDateTime datetimeoffset(7) NOT NULL,
-    EndDateTime datetimeoffset(7) NOT NULL,
-    IsLongerThanADay bit NOT NULL,
-    IsMin bit NOT NULL,
-    IsMax bit NOT NULL
-);
+IF TYPE_ID(N'BulkDateTimeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkDateTimeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        StartDateTime datetimeoffset(7) NOT NULL,
+        EndDateTime datetimeoffset(7) NOT NULL,
+        IsLongerThanADay bit NOT NULL,
+        IsMin bit NOT NULL,
+        IsMax bit NOT NULL
+    );
+END
 
-ALTER TABLE dbo.DateTimeSearchParam
-ADD IsMin bit NOT NULL,
-    IsMax bit NOT NULL,
-    CONSTRAINT date_IsMin_Constraint DEFAULT 0 FOR IsMin,
-    CONSTRAINT date_IsMax_Constraint DEFAULT 0 FOR IsMax;
+IF NOT EXISTS (SELECT 'X' FROM SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID(N'DateTimeSearchParam') AND NAME = 'IsMin')
+BEGIN
+    ALTER TABLE dbo.DateTimeSearchParam
+    ADD IsMin bit NOT NULL,
+        IsMax bit NOT NULL,
+        CONSTRAINT date_IsMin_Constraint DEFAULT 0 FOR IsMin,
+        CONSTRAINT date_IsMax_Constraint DEFAULT 0 FOR IsMax;
+END
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
 ON dbo.DateTimeSearchParam
@@ -235,7 +247,7 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_4
+CREATE OR ALTER PROCEDURE dbo.UpsertResource_4
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -538,6 +550,7 @@ AS
 
     COMMIT TRANSACTION
 GO
+
 -- STORED PROCEDURE
 --     ReindexResource_2
 --
@@ -586,7 +599,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE PROCEDURE dbo.ReindexResource_2
+CREATE OR ALTER PROCEDURE dbo.ReindexResource_2
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
@@ -810,7 +823,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE PROCEDURE dbo.BulkReindexResources_2
+CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_2
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
