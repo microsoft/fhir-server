@@ -3,13 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Tasks;
+using System;
+using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public interface IContextUpdater
+    public class AccessTokenProviderException : Exception
     {
-        public Task UpdateContextAsync(string context, CancellationToken cancellationToken);
+        public AccessTokenProviderException(string message)
+            : base(message)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+        }
     }
 }

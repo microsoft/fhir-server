@@ -3,17 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using EnsureThat;
+using System.Collections.Generic;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class AccessTokenProviderException : Exception
+    public class BulkImportProgress
     {
-        public AccessTokenProviderException(string message)
-            : base(message)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
-        }
+        public Dictionary<string, ProgressRecord> ProgressRecords { get; private set; }
     }
 }

@@ -3,13 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public interface IContextUpdater
+    public interface IIntegrationDataStoreClient
     {
-        public Task UpdateContextAsync(string context, CancellationToken cancellationToken);
+        public Stream DownloadResource(Uri blobUri, long startPosition, CancellationToken cancellationToken);
     }
 }

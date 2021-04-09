@@ -5,11 +5,14 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Configs;
 
-namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public interface IContextUpdater
+    public interface IIntegrationDataStoreClientInitilizer<T>
     {
-        public Task UpdateContextAsync(string context, CancellationToken cancellationToken);
+        Task<T> GetAuthorizedClientAsync(CancellationToken cancellationToken);
+
+        Task<T> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration configuration, CancellationToken cancellationToken);
     }
 }

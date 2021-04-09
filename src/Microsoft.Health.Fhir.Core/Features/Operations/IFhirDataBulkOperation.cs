@@ -6,10 +6,10 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public interface IContextUpdater
+    public interface IFhirDataBulkOperation
     {
-        public Task UpdateContextAsync(string context, CancellationToken cancellationToken);
+        public Task CleanResourceAsync(long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken);
     }
 }

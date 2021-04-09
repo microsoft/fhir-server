@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             {
                 TaskInfo taskInfo = new TaskInfo();
                 taskInfo.TaskId = Guid.NewGuid().ToString();
-                taskInfo.TaskTypeId = i % 10 == 0 ? 1 : 0;
+                taskInfo.TaskTypeId = (short)(i % 10 == 0 ? 1 : 0);
 
                 taskInfos.Add(taskInfo);
             }
@@ -397,7 +397,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             {
                 TaskInfo taskInfo = new TaskInfo();
                 taskInfo.TaskId = Guid.NewGuid().ToString();
-                taskInfo.TaskTypeId = i % 10 == 0 ? 1 : 0;
+                taskInfo.TaskTypeId = (short)(i % 10 == 0 ? 1 : 0);
 
                 taskInfos.Add(taskInfo);
             }

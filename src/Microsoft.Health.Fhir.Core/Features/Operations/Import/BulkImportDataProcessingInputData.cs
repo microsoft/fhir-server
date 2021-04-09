@@ -3,13 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IContextUpdater
+    public class BulkImportDataProcessingInputData
     {
-        public Task UpdateContextAsync(string context, CancellationToken cancellationToken);
+        public string ResourceLocation { get; set; }
+
+        public string ResourceType { get; set; }
+
+        public long StartSurrogateId { get; set; }
+
+        public long EndSurrogateId { get; set; }
     }
 }

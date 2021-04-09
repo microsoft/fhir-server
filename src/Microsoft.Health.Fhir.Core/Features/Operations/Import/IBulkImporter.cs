@@ -4,12 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IContextUpdater
+    public interface IBulkImporter<T>
     {
-        public Task UpdateContextAsync(string context, CancellationToken cancellationToken);
+        public Task ImportResourceAsync(Channel<T> inputChannel, CancellationToken cancellationToken);
     }
 }

@@ -14,46 +14,44 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
-namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
-    public class AzureAccessTokenClientInitializer : IExportClientInitializer<CloudBlobClient>
+    public class AzureAccessTokenClientInitializerV2 : IIntegrationDataStoreClientInitilizer<CloudBlobClient>
     {
         private readonly IAccessTokenProvider _accessTokenProvider;
-        private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly ILogger<AzureAccessTokenClientInitializer> _logger;
+        private readonly IntegrationDataStoreConfiguration _integrationDataStoreConfiguration;
+        private readonly ILogger<AzureAccessTokenClientInitializerV2> _logger;
 
-        public AzureAccessTokenClientInitializer(
+        public AzureAccessTokenClientInitializerV2(
             IAccessTokenProvider accessTokenProvider,
-            IOptions<ExportJobConfiguration> exportJobConfiguration,
-            ILogger<AzureAccessTokenClientInitializer> logger)
+            IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration,
+            ILogger<AzureAccessTokenClientInitializerV2> logger)
         {
             EnsureArg.IsNotNull(accessTokenProvider, nameof(accessTokenProvider));
-            EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
+            EnsureArg.IsNotNull(integrationDataStoreConfiguration?.Value, nameof(integrationDataStoreConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _accessTokenProvider = accessTokenProvider;
-            _exportJobConfiguration = exportJobConfiguration.Value;
+            _integrationDataStoreConfiguration = integrationDataStoreConfiguration.Value;
             _logger = logger;
         }
 
         public async Task<CloudBlobClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
         {
-            return await GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+            return await GetAuthorizedClientAsync(_integrationDataStoreConfiguration, cancellationToken);
         }
 
-        public async Task<CloudBlobClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        public async Task<CloudBlobClient> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration integrationDataStoreConfiguration, CancellationToken cancellationToken)
         {
-            // Get storage uri from config
-            if (string.IsNullOrWhiteSpace(exportJobConfiguration.StorageAccountUri))
+            if (string.IsNullOrWhiteSpace(integrationDataStoreConfiguration.StorageAccountUri))
             {
-                throw new ExportClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
+                throw new IntegrationDataStoreClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
 
-            if (!Uri.TryCreate(exportJobConfiguration.StorageAccountUri, UriKind.Absolute, out Uri storageAccountUri))
+            if (!Uri.TryCreate(integrationDataStoreConfiguration.StorageAccountUri, UriKind.Absolute, out Uri storageAccountUri))
             {
-                throw new ExportClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
+                throw new IntegrationDataStoreClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
 
             string accessToken = null;
@@ -65,7 +63,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 _logger.LogError(atp, "Unable to get access token");
 
-                throw new ExportClientInitializerException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
+                throw new IntegrationDataStoreClientInitializerException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
             }
 
             var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));

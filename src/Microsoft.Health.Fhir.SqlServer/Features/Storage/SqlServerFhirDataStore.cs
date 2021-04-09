@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
         {
             int? eTag = weakETag == null
-                ? (int?)null
+                ? null
                 : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
 
             var resourceMetadata = new ResourceMetadata(
