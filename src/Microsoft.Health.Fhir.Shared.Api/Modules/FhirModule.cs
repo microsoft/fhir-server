@@ -154,6 +154,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
+            // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
+
+            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
+
             services.AddLazy();
             services.AddScoped();
         }

@@ -9,13 +9,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
+
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IFhirAuthorizationService authorizationService)
+            IAuthorizationService<DataActions> authorizationService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         {
             EnsureArg.IsNotNull(message, nameof(message));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write) != (DataActions.Read | DataActions.Write))
+            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
             {
                 throw new UnauthorizedFhirActionException();
             }

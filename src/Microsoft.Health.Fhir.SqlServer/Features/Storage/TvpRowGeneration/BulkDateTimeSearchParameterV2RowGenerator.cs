@@ -10,16 +10,16 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class DateTimeSearchParameterV2RowGenerator : SearchParameterRowGenerator<DateTimeSearchValue, DateTimeSearchParamTableTypeV2Row>
+    internal class BulkDateTimeSearchParameterV2RowGenerator : BulkSearchParameterRowGenerator<DateTimeSearchValue, BulkDateTimeSearchParamTableTypeV2Row>
     {
         private short _lastUpdatedSearchParamId;
 
-        public DateTimeSearchParameterV2RowGenerator(SqlServerFhirModel model)
-            : base(model)
+        public BulkDateTimeSearchParameterV2RowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
+            : base(model, searchParameterTypeMap)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, DateTimeSearchValue searchValue, out DateTimeSearchParamTableTypeV2Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, DateTimeSearchValue searchValue, out BulkDateTimeSearchParamTableTypeV2Row row)
         {
             if (searchParamId == _lastUpdatedSearchParamId)
             {
@@ -28,7 +28,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 return false;
             }
 
-            row = new DateTimeSearchParamTableTypeV2Row(
+            row = new BulkDateTimeSearchParamTableTypeV2Row(
+                offset,
                 searchParamId,
                 searchValue.Start,
                 searchValue.End,

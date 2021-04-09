@@ -26,6 +26,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
@@ -38,7 +39,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
 
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceReferenceResolver referenceResolver,
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
-            IFhirAuthorizationService authorizationService,
+            IAuthorizationService<DataActions> authorizationService,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -173,10 +173,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             //      for all possible actions. Trouble is, the exact mapping from method + URI is embedded in MVC logic
             //      and attributes.
             // (2) One we have the full set of permitted actions, it would be more efficient for the individual
-            //     operations to use an IFhirAuthorizationService that implements CheckAccess based on these known permitted
+            //     operations to use an IAuthorizationService<DataActions> that implements CheckAccess based on these known permitted
             //     actions.
 
-            if (await _authorizationService.CheckAccess(DataActions.All) == DataActions.None)
+            if (await _authorizationService.CheckAccess(DataActions.All, cancellationToken) == DataActions.None)
             {
                 throw new UnauthorizedFhirActionException();
             }

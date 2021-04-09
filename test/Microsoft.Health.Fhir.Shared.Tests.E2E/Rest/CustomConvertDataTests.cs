@@ -21,6 +21,7 @@ using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.TemplateManagement;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
-            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}", "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}", "ADT_A01");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
-            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", $"{registry.Server}/{imageReference}", "ADT_A01");
+            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "hl7v2", $"{registry.Server}/{imageReference}", "ADT_A01");
 
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
@@ -137,7 +138,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await UploadBlob(acrClient, originalConfigStream, repository, originalConfigDigest);
 
             // Upload memory blob
-            using Stream byteStream = Samples.GetDefaultConversionTemplates();
+            var defaultTemplateResourceName = $"{typeof(OCIFileManager).Namespace}.Hl7v2DefaultTemplates.tar.gz";
+            using Stream byteStream = typeof(OCIFileManager).Assembly.GetManifestResourceStream(defaultTemplateResourceName);
             var blobLength = byteStream.Length;
             string blobDigest = ComputeDigest(byteStream);
             await UploadBlob(acrClient, byteStream, repository, blobDigest);
@@ -205,11 +207,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.RootTemplate, Value = new FhirString(rootTemplate) });
 
             return parametersResource;
-        }
-
-        private static string GetSampleHl7v2Message()
-        {
-            return "MSH|^~\\&|SIMHOSP|SFAC|RAPP|RFAC|20200508131015||ADT^A01|517|T|2.3|||AL||44|ASCII\nEVN|A01|20200508131015|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|\nPID|1|3735064194^^^SIMULATOR MRN^MRN|3735064194^^^SIMULATOR MRN^MRN~2021051528^^^NHSNBR^NHSNMBR||Kinmonth^Joanna^Chelsea^^Ms^^CURRENT||19870624000000|F|||89 Transaction House^Handmaiden Street^Wembley^^FV75 4GJ^GBR^HOME||020 3614 5541^HOME|||||||||C^White - Other^^^||||||||\nPD1|||FAMILY PRACTICE^^12345|\nPV1|1|I|OtherWard^MainRoom^Bed 183^Simulated Hospital^^BED^Main Building^4|28b|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|||CAR|||||||||16094728916771313876^^^^visitid||||||||||||||||||||||ARRIVED|||20200508131015||";
         }
 
         internal class ContainerRegistryInfo

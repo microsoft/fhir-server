@@ -214,6 +214,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The input data type &apos;{0}&apos; and default template collection &apos;{1}&apos; are inconsistent..
+        /// </summary>
+        public static string InputDataTypeAndDefaultTemplateCollectionInconsistent {
+            get {
+                return ResourceManager.GetString("InputDataTypeAndDefaultTemplateCollectionInconsistent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is not supported using {1}..
         /// </summary>
         public static string InvalidBundleEntry {

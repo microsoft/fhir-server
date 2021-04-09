@@ -70,12 +70,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Theory]
         [InlineData("birthdate")]
         [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInCorrectOrder(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithSameBirthdate(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdateWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithSameBirthdate(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_count=3", false, pageSize: 3, patients.Reverse().Cast<Resource>().ToArray());
         }
 
         // uncomment only when db cleanup happens on each run, otherwise the paging might cause expected resources to not arrive
@@ -435,44 +456,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
+        public async Task GivenQueryWithObservation_WhenSearchedForItemsWithNoSubjectAndLastUpdatedSort_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family", sort: false, patients[0..5]);
-        }
+            var expected_resources = new List<Resource>();
 
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
-        {
-            var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePatientsWithMultipleFamilyNames(tag);
+            // create the resources which will have an timestamp bigger than the 'now' var
+            var patients = await CreatePatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family&_count=3", sort: false, pageSize: 3, patients[0..5]);
-        }
+            var dates = new string[] { "1990-01-01", "1991-01-01", "1992-01-01", "1993-01-01" };
+            var observations = new List<Observation>();
+            for (int i = 0; i < patients.Length; i++)
+            {
+                var obs = await AddObservationToPatient(patients[i], dates[i], tag);
+                observations.Add(obs.First());
+            }
 
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
-        {
-            var tag = Guid.NewGuid().ToString();
-            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+            // Add observation with no patient-> no subject, and we keep it alone in the expected result set.
+            expected_resources.Add(AddObservationToPatient(null, dates[0], tag).Result.First());
 
-            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
-        }
-
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
-        {
-            var tag = Guid.NewGuid().ToString();
-            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
-
-            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count=3", sort: false, pageSize: 3, expectedPatients.ToArray());
+            // Get observations
+            await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true", false, expected_resources.ToArray());
         }
 
         private async Task<Patient[]> CreatePatients(string tag)
@@ -520,21 +525,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
-        private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
-        {
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "Portland", new List<string>() { "Rasputin", "Alex" }, tag),
-                p => SetPatientInfo(p, "Portland", new List<string>() { "Christie", "James", "Rock" }, tag),
-                p => SetPatientInfo(p, "Seattle", new List<string>() { "Robinson", "Ragnarok" }, tag),
-                p => SetPatientInfo(p, "Portland", new List<string>() { "Robinson", "Ragnarok" }, tag),
-                p => SetPatientInfo(p, "Seattle", new List<string>() { "Rasputin", "Ye" }, tag),
-                p => SetPatientInfo(p, "Seattle", new List<string>() { "Mike", "Duke" }, tag),
-                p => SetPatientInfo(p, "Portland", "Cathy", tag),
-                p => SetPatientInfo(p, "Seattle", "Jones", tag));
-
-            return patients;
-        }
-
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
         {
             SetPatientInfoInternal(patient, city, family, tag, "1970-01-01");
@@ -567,6 +557,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     City = city,
                 },
             };
+
+            patient.Name = new List<HumanName> { new HumanName { Family = family }, };
+            patient.BirthDate = birthDate;
+        }
 
             var familyNames = new List<HumanName>();
             foreach (string name in family)

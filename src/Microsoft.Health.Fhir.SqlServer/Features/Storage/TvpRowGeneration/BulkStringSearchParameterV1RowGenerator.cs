@@ -8,16 +8,16 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class StringSearchParameterV2RowGenerator : SearchParameterRowGenerator<StringSearchValue, StringSearchParamTableTypeV2Row>
+    internal class BulkStringSearchParameterV1RowGenerator : BulkSearchParameterRowGenerator<StringSearchValue, BulkStringSearchParamTableTypeV1Row>
     {
         private readonly int _indexedTextMaxLength = (int)VLatest.StringSearchParam.Text.Metadata.MaxLength;
 
-        public StringSearchParameterV2RowGenerator(SqlServerFhirModel model)
-            : base(model)
+        public BulkStringSearchParameterV1RowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
+            : base(model, searchParameterTypeMap)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, StringSearchValue searchValue, out StringSearchParamTableTypeV2Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, StringSearchValue searchValue, out BulkStringSearchParamTableTypeV1Row row)
         {
             string indexedPrefix;
             string overflow;
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 overflow = null;
             }
 
-            row = new StringSearchParamTableTypeV2Row(searchParamId, indexedPrefix, overflow, IsMin: searchValue.IsMin, IsMax: searchValue.IsMax);
+            row = new BulkStringSearchParamTableTypeV1Row(offset, searchParamId, indexedPrefix, overflow);
             return true;
         }
     }

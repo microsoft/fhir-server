@@ -1,0 +1,42 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "Appointment-foo",
+    "extension": [
+        {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+            "valueCode": "trial-use"
+        }
+    ],
+    "url": "http://hl7.org/fhir/SearchParameter/Appointment-foo",
+    "version": "4.0.1",
+    "name": "status",
+    "status": "draft",
+    "experimental": false,
+    "date": "2019-11-01T09:29:23+11:00",
+    "publisher": "Health Level Seven International (Patient Administration)",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }
+            ]
+        },
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/pafm/index.cfm"
+                }
+            ]
+        }
+    ],
+    "description": "The overall status of the appointment",
+    "code": "foo",
+    "base": [ "Appointment" ],
+    "type": "token",
+    "expression": "Appointment.status",
+    "xpath": "f:Appointment/f:status",
+    "xpathUsage": "normal"
+}
