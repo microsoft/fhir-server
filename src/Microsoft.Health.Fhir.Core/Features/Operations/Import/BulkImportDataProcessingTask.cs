@@ -6,7 +6,9 @@
 using System;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Newtonsoft.Json;
 
@@ -14,12 +16,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class BulkImportDataProcessingTask : ITask
     {
+        private const int RawDataChannelMaxCapacity = 3000;
+        private const int ResourceWrapperChannelMaxCapacity = 3000;
+
         private BulkImportDataProcessingInputData _dataProcessingInputData;
         private BulkImportProgress _bulkImportProgress;
-        private IIntegrationDataStoreClient _integrationDataStoreClient;
         private IFhirDataBulkOperation _fhirDataBulkOperation;
         private IContextUpdater _contextUpdater;
-        private IBulkImportDataExtractor _bulkImportDataExtractor;
+        private BulkResourceLoader _resourceLoader;
+        private BulkRawResourceProcessor _rawResourceProcessor;
+        private IBulkImporter<BulkImportResourceWrapper> _bulkImporter;
+        private ILogger<BulkImportDataProcessingTask> _logger;
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
         public BulkImportDataProcessingTask(
@@ -28,14 +35,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IIntegrationDataStoreClient integrationDataStoreClient,
             IFhirDataBulkOperation fhirDataBulkOperation,
             IContextUpdater contextUpdater,
-            IBulkImportDataExtractor bulkImportDataExtractor)
+            BulkResourceLoader resourceLoader,
+            BulkRawResourceProcessor rawResourceProcessor,
+            IBulkImporter<BulkImportResourceWrapper> bulkImporter,
+            ILoggerFactory loggerFactory)
         {
             _dataProcessingInputData = dataProcessingInputData;
             _bulkImportProgress = bulkImportProgress;
-            _integrationDataStoreClient = integrationDataStoreClient;
             _fhirDataBulkOperation = fhirDataBulkOperation;
             _contextUpdater = contextUpdater;
-            _bulkImportDataExtractor = bulkImportDataExtractor;
+            _resourceLoader = resourceLoader;
+            _rawResourceProcessor = rawResourceProcessor;
+            _bulkImporter = bulkImporter;
+
+            _logger = loggerFactory.CreateLogger<BulkImportDataProcessingTask>();
         }
 
         public string RunId { get; set; }
@@ -44,9 +57,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             CancellationToken cancellationToken = _cancellationTokenSource.Token;
 
-            long lastOffset = await CleanDataAsync(cancellationToken);
+            long lastCompletedSurrogateId = await CleanDataAsync(cancellationToken);
+            long startLineOffset = lastCompletedSurrogateId - _dataProcessingInputData.StartSurrogateId;
 
-            return null;
+            Channel<string> rawDataChannel = Channel.CreateBounded<string>(RawDataChannelMaxCapacity);
+            Channel<BulkImportResourceWrapper> resourceWrapperChannel = Channel.CreateBounded<BulkImportResourceWrapper>(ResourceWrapperChannelMaxCapacity);
+            IProgress<(string tableName, long endSurrogateId)> bulkImportProgress = new Progress<(string tableName, long endSurrogateId)>(
+                (p) =>
+                {
+                    _bulkImportProgress.ProgressRecords[p.tableName] = new ProgressRecord(p.endSurrogateId);
+                });
+
+            Task dataLoadTask = _resourceLoader.LoadToChannelAsync(rawDataChannel, new Uri(_dataProcessingInputData.ResourceLocation), startLineOffset, cancellationToken);
+            Task processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, lastCompletedSurrogateId, cancellationToken);
+            Task bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, bulkImportProgress, cancellationToken);
+
+            await dataLoadTask;
+            await processTask;
+            await bulkImportTask;
+
+            return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(_bulkImportProgress));
         }
 
         public void Cancel()
@@ -84,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), cancellationToken);
 
-            return lastOffset;
+            return lastCompletedSurrogateId;
         }
 
         public void Dispose()

@@ -7,6 +7,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ProgressRecord
     {
+        public ProgressRecord()
+        {
+        }
+
+        public ProgressRecord(long lastSurrogatedId)
+        {
+            LastSurrogatedId = lastSurrogatedId;
+        }
+
         public long LastSurrogatedId { get; set; }
 
         public long LastOffset { get; set; }

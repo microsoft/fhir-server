@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -23,15 +25,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _logger = logger;
         }
 
-        public async Task LoadToChannelAsync(Channel<string> outputChannel, Uri resourceUri, long startOffset, CancellationToken cancellationToken)
+        public async Task LoadToChannelAsync(Channel<string> outputChannel, Uri resourceUri, long startLineOffset, CancellationToken cancellationToken)
         {
-            using Stream inputDataStream = _integrationDataStoreClient.DownloadResource(resourceUri, startOffset, cancellationToken);
+            using Stream inputDataStream = _integrationDataStoreClient.DownloadResource(resourceUri, 0, cancellationToken);
             using StreamReader inputDataReader = new StreamReader(inputDataStream);
 
             string content = null;
             long loadedLines = 0;
+            long currentLine = 0;
             while (!cancellationToken.IsCancellationRequested && !string.IsNullOrEmpty(content = await inputDataReader.ReadLineAsync()))
             {
+                // TODO: improve to load from offset in file
+                if (currentLine++ < startLineOffset)
+                {
+                    continue;
+                }
+
                 await outputChannel.Writer.WriteAsync(content);
                 Interlocked.Increment(ref loadedLines);
             }

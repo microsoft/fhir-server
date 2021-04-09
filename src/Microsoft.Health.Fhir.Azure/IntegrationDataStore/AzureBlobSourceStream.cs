@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private Func<Task<ICloudBlob>> _blobClientFactory;
         private long _startOffset;
+        private long _position;
         private ILogger _logger;
 
         private ICloudBlob _blobClient;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             _blobClientFactory = blobClientFactory;
             _startOffset = startOffset ?? 0;
+            _position = _startOffset;
             _logger = logger;
         }
 
@@ -50,6 +52,14 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         = DefaultBlockBufferSize;
 
         public override bool CanRead => true;
+
+        public override long Position
+        {
+            get
+            {
+                return _position;
+            }
+        }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
@@ -84,6 +94,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                 }
             }
 
+            _position += offset;
             return totalBytesRead;
         }
 
@@ -166,10 +177,6 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
 #pragma warning disable CA1065 // Do not raise exceptions in unexpected locations
         public override long Length => throw new NotImplementedException();
-#pragma warning restore CA1065 // Do not raise exceptions in unexpected locations
-
-#pragma warning disable CA1065 // Do not raise exceptions in unexpected locations
-        public override long Position { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 #pragma warning restore CA1065 // Do not raise exceptions in unexpected locations
 
         public override void Flush()

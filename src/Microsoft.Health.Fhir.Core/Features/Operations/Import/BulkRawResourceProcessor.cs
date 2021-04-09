@@ -23,16 +23,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _bulkImportDataExtractor = bulkImportDataExtractor;
         }
 
-        public async Task ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, CancellationToken cancellationToken)
+        public async Task ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, long startSurrogateId, CancellationToken cancellationToken)
         {
             List<string> buffer = new List<string>();
             Queue<Task<IEnumerable<BulkImportResourceWrapper>>> processingTasks = new Queue<Task<IEnumerable<BulkImportResourceWrapper>>>();
 
             while (await inputChannel.Reader.WaitToReadAsync() && !cancellationToken.IsCancellationRequested)
             {
-                await foreach (string content in inputChannel.Reader.ReadAllAsync())
+                await foreach (string rawData in inputChannel.Reader.ReadAllAsync())
                 {
-                    buffer.Add(content);
+                    buffer.Add(rawData);
                     if (buffer.Count < MaxBatchSize)
                     {
                         continue;
@@ -49,12 +49,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     string[] rawResources = buffer.ToArray();
                     buffer.Clear();
-                    processingTasks.Enqueue(ProcessRawResources(rawResources));
+                    processingTasks.Enqueue(ProcessRawResources(rawResources, startSurrogateId));
+                    startSurrogateId += rawResources.Length;
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    processingTasks.Enqueue(ProcessRawResources(buffer.ToArray()));
+                    processingTasks.Enqueue(ProcessRawResources(buffer.ToArray(), startSurrogateId));
                     while (processingTasks.Count > 0)
                     {
                         IEnumerable<BulkImportResourceWrapper> headTaskResults = await processingTasks.Dequeue();
@@ -69,15 +70,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<BulkImportResourceWrapper>> ProcessRawResources(string[] rawResources)
+        private async Task<IEnumerable<BulkImportResourceWrapper>> ProcessRawResources(string[] rawResources, long startSurrogateId)
         {
             return await Task.Run(() =>
             {
                 List<BulkImportResourceWrapper> result = new List<BulkImportResourceWrapper>();
 
-                foreach (string content in rawResources)
+                foreach (string rawData in rawResources)
                 {
-                    result.Add(_bulkImportDataExtractor.GetBulkImportResourceWrapper(content));
+                    BulkImportResourceWrapper resourceWrapper = _bulkImportDataExtractor.GetBulkImportResourceWrapper(rawData);
+                    resourceWrapper.ResourceSurrogateId = startSurrogateId++;
+                    result.Add(resourceWrapper);
                 }
 
                 return result;

@@ -9,17 +9,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class BulkImportResourceWrapper
     {
-        public BulkImportResourceWrapper(long resourceSurrogateId, ResourceWrapper resource, byte[] compressedRawData)
+        public BulkImportResourceWrapper(long resourceSurrogateId, long endOffsetInResource, ResourceWrapper resource, byte[] compressedRawData)
         {
             ResourceSurrogateId = resourceSurrogateId;
             Resource = resource;
             CompressedRawData = compressedRawData;
+            EndOffsetInResource = endOffsetInResource;
         }
 
         public BulkImportResourceWrapper(ResourceWrapper resource, byte[] compressedRawData)
-            : this(0, resource, compressedRawData)
+            : this(0, 0, resource, compressedRawData)
         {
         }
+
+        public long EndOffsetInResource { get; set; }
 
         public long ResourceSurrogateId { get; set; }
 
