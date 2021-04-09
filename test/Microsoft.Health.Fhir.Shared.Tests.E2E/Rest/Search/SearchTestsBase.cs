@@ -53,12 +53,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, null, pageSize, expectedResources);
         }
 
-        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, int pageSize, params Resource[] expectedResources)
-        {
-            var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
-            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, null, pageSize, expectedResources);
-        }
-
         protected async Task<Bundle> ExecuteAndValidateBundle(
             string searchUrl,
             string selfLink,

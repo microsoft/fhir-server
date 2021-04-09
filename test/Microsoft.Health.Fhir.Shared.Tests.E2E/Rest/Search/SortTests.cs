@@ -480,6 +480,48 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true", false, expected_resources.ToArray());
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family", sort: false, patients[0..5]);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family&_count=3", sort: false, pageSize: 3, patients[0..5]);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count=3", sort: false, pageSize: 3, expectedPatients.ToArray());
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -525,6 +567,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
+        private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "Portland", new List<string>() { "Rasputin", "Alex" }, tag),
+                p => SetPatientInfo(p, "Portland", new List<string>() { "Christie", "James", "Rock" }, tag),
+                p => SetPatientInfo(p, "Seattle", new List<string>() { "Robinson", "Ragnarok" }, tag),
+                p => SetPatientInfo(p, "Portland", new List<string>() { "Robinson", "Ragnarok" }, tag),
+                p => SetPatientInfo(p, "Seattle", new List<string>() { "Rasputin", "Ye" }, tag),
+                p => SetPatientInfo(p, "Seattle", new List<string>() { "Mike", "Duke" }, tag),
+                p => SetPatientInfo(p, "Portland", "Cathy", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag));
+
+            return patients;
+        }
+
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
         {
             SetPatientInfoInternal(patient, city, family, tag, "1970-01-01");
@@ -557,10 +614,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     City = city,
                 },
             };
-
-            patient.Name = new List<HumanName> { new HumanName { Family = family }, };
-            patient.BirthDate = birthDate;
-        }
 
             var familyNames = new List<HumanName>();
             foreach (string name in family)

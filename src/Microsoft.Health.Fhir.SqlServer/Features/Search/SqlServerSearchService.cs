@@ -269,8 +269,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             newContinuationId = resourceSurrogateId;
 
                             // Keep track of sort value if this is the last row.
-                            // if we have more than 10 columns, it means sort expressions were added.
-                            if (matchCount == searchOptions.MaxItemCount - 1 && _resourceTableColumnCount + 1 > 10)
+                            // if we have more than 11 columns, it means sort expressions were added.
+                            if (matchCount == searchOptions.MaxItemCount - 1 && reader.FieldCount > _resourceTableColumnCount + 1)
                             {
                                 var tempSortValue = reader.GetValue(SortValueColumnName);
                                 if ((tempSortValue as DateTime?) != null)

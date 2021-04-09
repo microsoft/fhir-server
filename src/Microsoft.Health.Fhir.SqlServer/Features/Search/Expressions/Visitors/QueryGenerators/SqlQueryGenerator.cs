@@ -410,16 +410,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             string referenceTargetResourceTableAlias)
         {
             var chainedExpression = (SqlChainLinkExpression)searchParamTableExpression.Predicate;
-            // For any includes, the source of the resource surrogate ids to join on is saved
-            _cteMainSelect = TableExpressionName(_tableExpressionCounter);
-        }
-
-        private void HandleTableKindChain(
-            SearchParamTableExpression searchParamTableExpression,
-            string referenceSourceTableAlias,
-            string referenceTargetResourceTableAlias)
-        {
-            var chainedExpression = (SqlChainLinkExpression)searchParamTableExpression.Predicate;
 
             StringBuilder.Append("SELECT ");
             if (searchParamTableExpression.ChainLevel == 1)
