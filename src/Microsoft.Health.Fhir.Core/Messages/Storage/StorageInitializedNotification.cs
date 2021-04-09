@@ -1,0 +1,16 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using MediatR;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Storage
+{
+    /// <summary>
+    /// A notification that is raised when the Storage provider is ready to begin processing requests
+    /// </summary>
+    public class StorageInitializedNotification : INotification
+    {
+    }
+}
