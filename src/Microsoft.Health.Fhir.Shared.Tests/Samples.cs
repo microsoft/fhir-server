@@ -90,13 +90,9 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Parameter-Convert-Data");
         }
 
-        public static BulkImportRequest GetDefaultBulkImportRequest(string extension = "json")
+        public static BulkImportRequest GetDefaultBulkImportRequest()
         {
-            var bulkImportFileName = "BulkImportRequest";
-            var fileName = $"{typeof(EmbeddedResourceManager).Namespace}.{EmbeddedResourceSubNamespace}.Normative.{bulkImportFileName}.{extension}";
-            var jsonString = File.ReadAllText(fileName);
-            var request = JsonConvert.DeserializeObject<BulkImportRequest>(jsonString);
-            return request;
+            return GetJsonSample<BulkImportRequest>("BulkImportRequest");
         }
 
         /// <summary>

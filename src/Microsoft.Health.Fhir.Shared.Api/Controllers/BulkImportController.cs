@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckIfBulkImportIsEnabled()
         {
-            if (!_features.SupportsBulkImport || !_bulkImportConfig.Enabled)
+            if (!_bulkImportConfig.Enabled)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.BulkImport));
             }

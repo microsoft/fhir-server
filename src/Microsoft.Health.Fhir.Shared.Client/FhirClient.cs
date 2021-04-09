@@ -370,14 +370,14 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<Uri> BulkImportAsync(BulkImportRequest requestConfig, CancellationToken cancellationToken = default)
         {
-            string requestPath = "import";
+            string requestPath = "$import";
             using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
             {
                 Content = new StringContent(JsonSerializer.Serialize(requestConfig), Encoding.UTF8, "application/json"),
             };
+
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
-            message.Headers.Add("Content-Type", "application/fhir+json");
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 

@@ -9,7 +9,7 @@ using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlServerTask : ITask
+    public class MockTask : ITask
     {
         public string RunId { get; set; }
 

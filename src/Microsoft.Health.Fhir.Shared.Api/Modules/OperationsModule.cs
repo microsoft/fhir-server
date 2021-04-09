@@ -57,12 +57,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf();
 
-            services.Add<TaskHosting>()
-                .Scoped()
-                .AsSelf();
-
-            services.AddFactory<IScoped<TaskHosting>>();
-
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
 
             services.Add<OperationsCapabilityProvider>()

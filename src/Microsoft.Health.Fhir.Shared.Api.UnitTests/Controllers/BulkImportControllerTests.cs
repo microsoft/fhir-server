@@ -83,7 +83,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             optionsOperationConfiguration.Value.Returns(operationConfig);
 
             var features = new FeatureConfiguration();
-            features.SupportsBulkImport = true;
             IOptions<FeatureConfiguration> optionsFeatures = Substitute.For<IOptions<FeatureConfiguration>>();
             optionsFeatures.Value.Returns(features);
 

@@ -72,11 +72,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerTaskFactory>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<SqlServerFhirOperationDataStore>()
                 .Scoped()
                 .AsSelf()

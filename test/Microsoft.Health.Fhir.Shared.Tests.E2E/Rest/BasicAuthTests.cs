@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAUserWithNoImportDataPermissions_WhenBulkImport_TheServerShouldReturnForbidden()
+        public async Task GivenAUserWithNoImportPermissions_WhenBulkImport_TheServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAUserWithImportDataPermissions_WhenBulkImport_TheServerShouldReturnSuccess()
+        public async Task GivenAUserWithImportPermissions_WhenBulkImport_TheServerShouldReturnSuccess()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
 

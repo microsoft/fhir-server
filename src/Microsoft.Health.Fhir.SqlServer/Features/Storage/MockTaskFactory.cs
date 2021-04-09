@@ -7,11 +7,11 @@ using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlServerTaskFactory : ITaskFactory
+    public class MockTaskFactory : ITaskFactory
     {
         public ITask Create(TaskInfo taskInfo)
         {
-            return new SqlServerTask
+            return new MockTask
             {
                 RunId = taskInfo.RunId,
             };

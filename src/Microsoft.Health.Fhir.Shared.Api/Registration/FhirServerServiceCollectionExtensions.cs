@@ -115,7 +115,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerBuilder.Services.AddHostedService<ExportJobWorkerBackgroundService>();
             fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
-            fhirServerBuilder.Services.AddHostedService<BulkImportTaskBackgroundService>();
 
             return fhirServerBuilder;
         }
