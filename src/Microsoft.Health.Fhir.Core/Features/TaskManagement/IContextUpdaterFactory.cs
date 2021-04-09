@@ -3,15 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Threading;
-using System.Threading.Channels;
-using System.Threading.Tasks;
-
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
+namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
-    public interface IBulkImporter<T>
+    public interface IContextUpdaterFactory
     {
-        public Task<long> ImportResourceAsync(Channel<T> inputChannel, IProgress<(string tableName, long endSurrogateId)> progress, CancellationToken cancellationToken);
+        public IContextUpdater CreateContextUpdater(string taskId, string runId);
     }
 }

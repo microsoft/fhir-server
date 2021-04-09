@@ -64,10 +64,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
             _generators.Add(uriSearchParamsTableBulkCopyDataGenerator);
         }
 
-        public async Task ImportResourceAsync(Channel<BulkImportResourceWrapper> inputChannel, IProgress<(string tableName, long endSurrogateId)> progress,  CancellationToken cancellationToken)
+        public async Task<long> ImportResourceAsync(Channel<BulkImportResourceWrapper> inputChannel, IProgress<(string tableName, long endSurrogateId)> progress,  CancellationToken cancellationToken)
         {
+            long importedResourceCount = 0;
             Dictionary<string, DataTable> buffer = new Dictionary<string, DataTable>();
-            Queue<Task<(string tableName, long endSurrogateId)>> runningTasks = new Queue<Task<(string, long)>>();
+            Queue<Task<(string tableName, long endSurrogateId, long count)>> runningTasks = new Queue<Task<(string, long, long)>>();
 
             long surrogateId = 0;
             while (await inputChannel.Reader.WaitToReadAsync(cancellationToken) && !cancellationToken.IsCancellationRequested)
@@ -93,8 +94,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
                     {
                         while (runningTasks.Count() >= MaxConcurrentCount)
                         {
-                            (string tableName, long endSurrogateId) result = await runningTasks.Dequeue();
-                            progress.Report(result);
+                            (string tableName, long endSurrogateId, long count) result = await runningTasks.Dequeue();
+                            progress.Report((result.tableName, result.endSurrogateId));
+                            importedResourceCount += result.count;
                         }
 
                         DataTable inputTable = buffer[tableName];
@@ -114,12 +116,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
 
             while (runningTasks.Count() > 0 && !cancellationToken.IsCancellationRequested)
             {
-                (string tableName, long endSurrogateId) result = await runningTasks.Dequeue();
-                progress.Report(result);
+                (string tableName, long endSurrogateId, long count) result = await runningTasks.Dequeue();
+                progress.Report((result.tableName, result.endSurrogateId));
+                importedResourceCount += result.count;
             }
+
+            return importedResourceCount;
         }
 
-        private async Task<(string tableName, long endSurrogateId)> BulkCopyAsync(DataTable inputTable, long endSurrogateId, CancellationToken cancellationToken)
+        private async Task<(string tableName, long endSurrogateId, long count)> BulkCopyAsync(DataTable inputTable, long endSurrogateId, CancellationToken cancellationToken)
         {
             using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
             using SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection);
@@ -127,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
 
             await bulkCopy.WriteToServerAsync(inputTable.CreateDataReader());
 
-            return (inputTable.TableName, endSurrogateId);
+            return (inputTable.TableName, endSurrogateId, inputTable.Rows.Count);
         }
     }
 }

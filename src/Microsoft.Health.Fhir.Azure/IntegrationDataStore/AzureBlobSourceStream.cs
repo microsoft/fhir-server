@@ -59,6 +59,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 return _position;
             }
+
+            set => throw new NotImplementedException();
         }
 
         public override int Read(byte[] buffer, int offset, int count)

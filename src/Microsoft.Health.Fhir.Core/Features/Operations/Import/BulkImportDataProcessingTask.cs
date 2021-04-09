@@ -32,7 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public BulkImportDataProcessingTask(
             BulkImportDataProcessingInputData dataProcessingInputData,
             BulkImportProgress bulkImportProgress,
-            IIntegrationDataStoreClient integrationDataStoreClient,
             IFhirDataBulkOperation fhirDataBulkOperation,
             IContextUpdater contextUpdater,
             BulkResourceLoader resourceLoader,
@@ -70,13 +69,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             Task dataLoadTask = _resourceLoader.LoadToChannelAsync(rawDataChannel, new Uri(_dataProcessingInputData.ResourceLocation), startLineOffset, cancellationToken);
             Task processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, lastCompletedSurrogateId, cancellationToken);
-            Task bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, bulkImportProgress, cancellationToken);
+            Task<long> bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, bulkImportProgress, cancellationToken);
+
+            CancellationTokenSource contextUpdateCancellationToken = new CancellationTokenSource();
+            Task updateProgressTask = UpdateProgressAsync(contextUpdateCancellationToken.Token);
 
             await dataLoadTask;
             await processTask;
-            await bulkImportTask;
+            long completedResourceCount = await bulkImportTask;
 
-            return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(_bulkImportProgress));
+            contextUpdateCancellationToken.Cancel();
+            await updateProgressTask;
+
+            BulkImportDataProcessingTaskResult result = new BulkImportDataProcessingTaskResult()
+            {
+                ResourceType = _dataProcessingInputData.ResourceType,
+                CompletedResourceCount = completedResourceCount,
+            };
+
+            return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
         }
 
         public void Cancel()
@@ -115,6 +126,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), cancellationToken);
 
             return lastCompletedSurrogateId;
+        }
+
+        private async Task UpdateProgressAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(10));
+            }
+
+            await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), cancellationToken);
         }
 
         public void Dispose()
