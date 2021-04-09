@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -58,14 +59,24 @@ namespace FhirAnalyzer
                 return;
             }
 
-            // All log methods looks like (string message, params object[] args) we want to check only content of message itself, which is first parameter.
-            var firstArgument = syntax.ArgumentList.Arguments.FirstOrDefault();
-            if (firstArgument == null)
+            // Log methods can have string message in different places as argument, so let's find that argument!
+            ArgumentSyntax messageArgument = null;
+            foreach (var argument in syntax.ArgumentList.Arguments)
+            {
+                var type = context.SemanticModel.GetTypeInfo(argument.ChildNodes().First()).Type;
+                if (type != null && type.ToString() == "string")
+                {
+                    messageArgument = argument;
+                    break;
+                }
+            }
+
+            if (messageArgument == null)
             {
                 return;
             }
 
-            if (firstArgument.Expression is InterpolatedStringExpressionSyntax argumentSyntax)
+            if (messageArgument.Expression is InterpolatedStringExpressionSyntax argumentSyntax)
             {
                 bool violate = false;
 

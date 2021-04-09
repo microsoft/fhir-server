@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, $"There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".");
+                    logger.LogWarning(ex, "There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
                     throw new OpenIdConfigurationException();
                 }
             }
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, $"There was an exception while attempting to read the endpoints from \"{openIdConfigurationUrl}\".");
+                    logger.LogWarning(ex, "There was an exception while attempting to read the endpoints from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
                     throw new OpenIdConfigurationException();
                 }
 
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             }
             else
             {
-                logger.LogWarning("The OpenId Configuration request from \"{0}\" returned an {1} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
+                logger.LogWarning("The OpenId Configuration request from \"{openIdConfigurationUrl}\" returned an {statusCode} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
                 throw new OpenIdConfigurationException();
             }
 

@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     _reindexJobRecord.FailureCount++;
 
-                    _logger.LogError(ex, $"Encountered an unhandled exception. The job failure count increased to {_reindexJobRecord.FailureCount}.");
+                    _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
 
                     await UpdateJobAsync(cancellationToken);
 
@@ -421,7 +421,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     query.Error = ex.Message;
                     query.FailureCount++;
-                    _logger.LogError(ex, $"Encountered an unhandled exception. The query failure count increased to {_reindexJobRecord.FailureCount}.");
+                    _logger.LogError(ex, "Encountered an unhandled exception. The query failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
 
                     if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                     {
