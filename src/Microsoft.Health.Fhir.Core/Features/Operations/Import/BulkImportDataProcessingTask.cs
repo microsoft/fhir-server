@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 lastCompletedSurrogateId = _bulkImportProgress.ProgressRecords.Values.Min(r => r.LastSurrogatedId);
             }
 
-            await _fhirDataBulkOperation.CleanResourceAsync(lastCompletedSurrogateId, endSurrogateId, cancellationToken);
+            await _fhirDataBulkOperation.CleanBatchResourceAsync(lastCompletedSurrogateId, endSurrogateId, cancellationToken);
 
             ProgressRecord record = new ProgressRecord()
             {

@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public interface IFhirDataBulkOperation
     {
-        public Task CleanResourceAsync(long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken);
+        public Task CleanBatchResourceAsync(long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken);
     }
 }
