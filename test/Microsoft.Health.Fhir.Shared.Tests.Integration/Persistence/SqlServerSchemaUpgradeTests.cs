@@ -117,6 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => statusStore,
                 Options.Create(securityConfiguration),
                 sqlConnectionStringProvider,
+                Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
 
             var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
