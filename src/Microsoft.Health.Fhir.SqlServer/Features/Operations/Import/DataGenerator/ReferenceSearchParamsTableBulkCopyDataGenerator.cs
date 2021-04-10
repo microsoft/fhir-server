@@ -35,10 +35,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             foreach (ReferenceSearchParamTableTypeV2Row searchParam in searchParams)
             {
                 DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                newRow[VLatest.ReferenceSearchParam.BaseUri.Metadata.Name] = searchParam.BaseUri;
-                newRow[VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name] = searchParam.ReferenceResourceTypeId;
-                newRow[VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name] = searchParam.ReferenceResourceId;
-                newRow[VLatest.ReferenceSearchParam.ReferenceResourceVersion.Metadata.Name] = searchParam.ReferenceResourceVersion;
+                FillColumn(newRow, VLatest.ReferenceSearchParam.BaseUri.Metadata.Name, searchParam.BaseUri);
+                FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name, searchParam.ReferenceResourceTypeId);
+                FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name, searchParam.ReferenceResourceId);
+                FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceVersion.Metadata.Name, searchParam.ReferenceResourceVersion);
 
                 table.Rows.Add(newRow);
             }
@@ -46,10 +46,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillSearchParamsSchema(DataTable table)
         {
-            table.Columns.Add(new DataColumn(VLatest.ReferenceSearchParam.BaseUri.Metadata.Name, VLatest.ReferenceSearchParam.BaseUri.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.ReferenceSearchParam.ReferenceResourceVersion.Metadata.Name, VLatest.ReferenceSearchParam.ReferenceResourceVersion.Metadata.Type));
+            table.Columns.Add(new DataColumn(VLatest.ReferenceSearchParam.BaseUri.Metadata.Name, VLatest.ReferenceSearchParam.BaseUri.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.ReferenceSearchParam.ReferenceResourceVersion.Metadata.Name, VLatest.ReferenceSearchParam.ReferenceResourceVersion.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

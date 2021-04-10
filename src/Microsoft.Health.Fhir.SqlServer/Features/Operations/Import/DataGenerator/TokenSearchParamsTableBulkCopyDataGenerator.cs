@@ -35,8 +35,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             foreach (TokenSearchParamTableTypeV1Row searchParam in searchParams)
             {
                 DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                newRow[VLatest.TokenSearchParam.SystemId.Metadata.Name] = searchParam.SystemId;
-                newRow[VLatest.TokenSearchParam.Code.Metadata.Name] = searchParam.Code;
+                FillColumn(newRow, VLatest.TokenSearchParam.SystemId.Metadata.Name, searchParam.SystemId);
+                FillColumn(newRow, VLatest.TokenSearchParam.Code.Metadata.Name, searchParam.Code);
 
                 table.Rows.Add(newRow);
             }
@@ -44,8 +44,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillSearchParamsSchema(DataTable table)
         {
-            table.Columns.Add(new DataColumn(VLatest.TokenSearchParam.SystemId.Metadata.Name, VLatest.TokenSearchParam.SystemId.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.TokenSearchParam.Code.Metadata.Name, VLatest.TokenSearchParam.Code.Metadata.Type));
+            table.Columns.Add(new DataColumn(VLatest.TokenSearchParam.SystemId.Metadata.Name, VLatest.TokenSearchParam.SystemId.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenSearchParam.Code.Metadata.Name, VLatest.TokenSearchParam.Code.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

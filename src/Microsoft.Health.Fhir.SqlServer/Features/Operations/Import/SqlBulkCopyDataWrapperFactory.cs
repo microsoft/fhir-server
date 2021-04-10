@@ -9,12 +9,12 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
-    internal class SqlBulkCopyDataWrapperFactory
+    public class SqlBulkCopyDataWrapperFactory
     {
         private SqlServerFhirModel _model;
         private SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
 
-        internal SqlBulkCopyDataWrapperFactory(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
+        public SqlBulkCopyDataWrapperFactory(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
         {
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;

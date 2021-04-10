@@ -12,24 +12,27 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Client;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
-    public class SqlBulkImporter : IBulkImporter<BulkImportResourceWrapper>
+    internal class SqlBulkImporter : IBulkImporter<BulkImportResourceWrapper>
     {
         private const int MaxResourceCountInBatch = 10000;
-        private const int MaxConcurrentCount = 10;
+        private const int MaxConcurrentCount = 3;
 
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
         private SqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private SqlServerFhirModel _sqlServerFhirModel;
 
-        internal SqlBulkImporter(
+        public SqlBulkImporter(
+            SqlServerFhirModel sqlServerFhirModel,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
+            ResourceTableBulkCopyDataGenerator resourceTableBulkCopyDataGenerator,
             DateTimeSearchParamsTableBulkCopyDataGenerator dateTimeSearchParamsTableBulkCopyDataGenerator,
             NumberSearchParamsTableBulkCopyDataGenerator numberSearchParamsTableBulkCopyDataGenerator,
             QuantitySearchParamsTableBulkCopyDataGenerator quantitySearchParamsTableBulkCopyDataGenerator,
@@ -45,9 +48,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator)
         {
+            _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
 
+            _generators.Add(resourceTableBulkCopyDataGenerator);
             _generators.Add(dateTimeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(numberSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(quantitySearchParamsTableBulkCopyDataGenerator);
@@ -69,6 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex
             long importedResourceCount = 0;
             Dictionary<string, DataTable> buffer = new Dictionary<string, DataTable>();
             Queue<Task<(string tableName, long endSurrogateId, long count)>> runningTasks = new Queue<Task<(string, long, long)>>();
+            await _sqlServerFhirModel.EnsureInitialized();
 
             long surrogateId = 0;
             while (await inputChannel.Reader.WaitToReadAsync(cancellationToken) && !cancellationToken.IsCancellationRequested)

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkResourceLoader
+    public class BulkResourceLoader : IBulkResourceLoader
     {
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private ILogger<BulkResourceLoader> _logger;

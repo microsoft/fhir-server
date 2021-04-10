@@ -26,7 +26,6 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
 

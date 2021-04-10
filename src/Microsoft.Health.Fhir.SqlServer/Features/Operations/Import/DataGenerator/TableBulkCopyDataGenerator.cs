@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Data;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
@@ -11,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
     {
         internal abstract string TableName { get; }
 
-        internal DataTable GenerateDataTable()
+        public DataTable GenerateDataTable()
         {
             DataTable table = new DataTable(TableName);
             FillSchema(table);
@@ -22,5 +23,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
         internal abstract void FillDataTable(DataTable table, TDataType input);
 
         internal abstract void FillSchema(DataTable table);
+
+        internal static void FillColumn(DataRow row, string name, object value)
+        {
+            row[name] = value == null ? DBNull.Value : value;
+        }
     }
 }

@@ -3,18 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
-
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
+namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 {
-    public class MockTaskFactory : ITaskFactory
+    public static class TaskTypeIds
     {
-        public ITask Create(TaskInfo taskInfo)
-        {
-            return new MockTask
-            {
-                RunId = taskInfo.RunId,
-            };
-        }
+        public const short Unknown = 0;
+
+        public const short BulkImportOrchestratorTask = 1;
+        public const short BulkImportDataProcessingTask = 2;
     }
 }

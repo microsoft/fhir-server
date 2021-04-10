@@ -35,9 +35,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             foreach (NumberSearchParamTableTypeV1Row searchParam in searchParams)
             {
                 DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                newRow[VLatest.NumberSearchParam.SingleValue.Metadata.Name] = searchParam.SingleValue;
-                newRow[VLatest.NumberSearchParam.LowValue.Metadata.Name] = searchParam.LowValue;
-                newRow[VLatest.NumberSearchParam.HighValue.Metadata.Name] = searchParam.HighValue;
+                FillColumn(newRow, VLatest.NumberSearchParam.SingleValue.Metadata.Name, searchParam.SingleValue);
+                FillColumn(newRow, VLatest.NumberSearchParam.LowValue.Metadata.Name, searchParam.LowValue);
+                FillColumn(newRow, VLatest.NumberSearchParam.HighValue.Metadata.Name, searchParam.HighValue);
 
                 table.Rows.Add(newRow);
             }
@@ -45,9 +45,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillSearchParamsSchema(DataTable table)
         {
-            table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.SingleValue.Metadata.Name, VLatest.NumberSearchParam.SingleValue.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.LowValue.Metadata.Name, VLatest.NumberSearchParam.LowValue.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.HighValue.Metadata.Name, VLatest.NumberSearchParam.HighValue.Metadata.Type));
+            table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.SingleValue.Metadata.Name, VLatest.NumberSearchParam.SingleValue.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.LowValue.Metadata.Name, VLatest.NumberSearchParam.LowValue.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.HighValue.Metadata.Name, VLatest.NumberSearchParam.HighValue.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

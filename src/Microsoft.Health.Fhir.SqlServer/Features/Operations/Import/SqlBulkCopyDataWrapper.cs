@@ -8,18 +8,18 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
-    internal class SqlBulkCopyDataWrapper
+    public class SqlBulkCopyDataWrapper
     {
         internal ResourceMetadata Metadata { get; set; }
 
-        internal short ResourceTypeId { get; set; }
+        public short ResourceTypeId { get; set; }
 
-        internal long ResourceSurrogateId { get; set; }
+        public long ResourceSurrogateId { get; set; }
 
-        internal ResourceWrapper Resource { get; set; }
+        public ResourceWrapper Resource { get; set; }
 
 #pragma warning disable CA1819
-        internal byte[] CompressedRawData { get; set; }
+        public byte[] CompressedRawData { get; set; }
 #pragma warning restore CA1819
     }
 }

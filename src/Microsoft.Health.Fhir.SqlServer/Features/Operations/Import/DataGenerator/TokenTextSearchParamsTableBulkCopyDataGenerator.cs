@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             foreach (TokenTextTableTypeV1Row searchParam in searchParams)
             {
                 DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                newRow[VLatest.TokenText.Text.Metadata.Name] = searchParam.Text;
+                FillColumn(newRow, VLatest.TokenText.Text.Metadata.Name, searchParam.Text);
 
                 table.Rows.Add(newRow);
             }
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillSearchParamsSchema(DataTable table)
         {
-            table.Columns.Add(new DataColumn(VLatest.TokenText.Text.Metadata.Name, VLatest.TokenText.Text.Metadata.Type));
+            table.Columns.Add(new DataColumn(VLatest.TokenText.Text.Metadata.Name, VLatest.TokenText.Text.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

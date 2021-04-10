@@ -105,6 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 return;
             }
 
+            task.RunId = taskInfo.RunId;
             TaskResultData result = null;
             try
             {

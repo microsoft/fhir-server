@@ -8,9 +8,10 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -32,8 +33,6 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
-
-            services.Configure<TaskHostingConfiguration>(options => configuration.GetSection("TaskHosting").Bind(options));
 
             services.AddSqlServerBase<SchemaVersion>(configuration, configureAction);
             services.AddSqlServerApi();
@@ -58,16 +57,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<SqlServerFhirDataStore>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlServerTaskManager>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlServerTaskConsumer>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -120,15 +109,95 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsImplementedInterfaces();
 
-            /*
-            var result = string.Empty;
-            foreach (var service in services)
-            {
-                result += service.ServiceType.FullName + "\n";
-            }
+            services.Add<SqlServerTaskManager>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
-            File.WriteAllText("C:\\Users\\peizhou\\services.txt", result);
-            */
+            services.Add<SqlServerTaskConsumer>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlServerTaskContextUpdaterFactory>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlServerFhirDataBulkOperation>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlBulkImporter>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlBulkCopyDataWrapperFactory>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<DateTimeSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<NumberSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<QuantitySearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<ReferenceSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<StringSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<TokenSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<TokenStringCompositeSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<TokenTextSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<UriSearchParamsTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<ResourceTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
             return fhirServerBuilder;
         }
 

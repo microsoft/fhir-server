@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             foreach (UriSearchParamTableTypeV1Row searchParam in searchParams)
             {
                 DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                newRow[VLatest.UriSearchParam.Uri.Metadata.Name] = searchParam.Uri;
+                FillColumn(newRow, VLatest.UriSearchParam.Uri.Metadata.Name, searchParam.Uri);
 
                 table.Rows.Add(newRow);
             }
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillSearchParamsSchema(DataTable table)
         {
-            table.Columns.Add(new DataColumn(VLatest.UriSearchParam.Uri.Metadata.Name, VLatest.UriSearchParam.Uri.Metadata.Type));
+            table.Columns.Add(new DataColumn(VLatest.UriSearchParam.Uri.Metadata.Name, VLatest.UriSearchParam.Uri.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

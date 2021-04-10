@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerTaskConsumer : ITaskConsumer
     {
+        private const string DefaultQueueId = "default";
+
         private TaskHostingConfiguration _taskHostingConfiguration;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ILogger<SqlServerTaskConsumer> _logger;
@@ -105,13 +107,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.GetNextTask.PopulateCommand(sqlCommandWrapper, _taskHostingConfiguration.QueueId, count, taskHeartbeatTimeoutThresholdInSeconds);
+                string queueId = string.IsNullOrEmpty(_taskHostingConfiguration.QueueId) ? DefaultQueueId : _taskHostingConfiguration.QueueId;
+                VLatest.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, count, taskHeartbeatTimeoutThresholdInSeconds);
                 SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                 var taskInfoTable = VLatest.TaskInfo;
                 while (sqlDataReader.Read())
                 {
-                    (string id, string queueId, short status, short taskTypeId, string runId, bool isCanceled, short retryCount, DateTime? heartbeatDateTime, string inputData, string taskContext, string result) = sqlDataReader.ReadRow(
+                    (string id, string _, short status, short taskTypeId, string runId, bool isCanceled, short retryCount, DateTime? heartbeatDateTime, string inputData, string taskContext, string result) = sqlDataReader.ReadRow(
                         taskInfoTable.TaskId,
                         taskInfoTable.QueueId,
                         taskInfoTable.Status,

@@ -4,11 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Newtonsoft.Json;
 
@@ -23,9 +26,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private BulkImportProgress _bulkImportProgress;
         private IFhirDataBulkOperation _fhirDataBulkOperation;
         private IContextUpdater _contextUpdater;
-        private BulkResourceLoader _resourceLoader;
+        private IBulkResourceLoader _resourceLoader;
         private BulkRawResourceProcessor _rawResourceProcessor;
         private IBulkImporter<BulkImportResourceWrapper> _bulkImporter;
+        private IFhirRequestContextAccessor _contextAccessor;
         private ILogger<BulkImportDataProcessingTask> _logger;
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
@@ -34,9 +38,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             BulkImportProgress bulkImportProgress,
             IFhirDataBulkOperation fhirDataBulkOperation,
             IContextUpdater contextUpdater,
-            BulkResourceLoader resourceLoader,
+            IBulkResourceLoader resourceLoader,
             BulkRawResourceProcessor rawResourceProcessor,
             IBulkImporter<BulkImportResourceWrapper> bulkImporter,
+            IFhirRequestContextAccessor contextAccessor,
             ILoggerFactory loggerFactory)
         {
             _dataProcessingInputData = dataProcessingInputData;
@@ -46,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _resourceLoader = resourceLoader;
             _rawResourceProcessor = rawResourceProcessor;
             _bulkImporter = bulkImporter;
+            _contextAccessor = contextAccessor;
 
             _logger = loggerFactory.CreateLogger<BulkImportDataProcessingTask>();
         }
@@ -54,6 +60,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task<TaskResultData> ExecuteAsync()
         {
+            var fhirRequestContext = new FhirRequestContext(
+                    method: "Import",
+                    uriString: "http://www.dummy.com/$import",
+                    baseUriString: "http://www.dummy.com",
+                    correlationId: RunId,
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
+            {
+                IsBackgroundTask = true,
+            };
+
+            _contextAccessor.FhirRequestContext = fhirRequestContext;
+
             CancellationToken cancellationToken = _cancellationTokenSource.Token;
 
             long lastCompletedSurrogateId = await CleanDataAsync(cancellationToken);
@@ -123,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _bulkImportProgress.ProgressRecords[resourceType] = record;
             }
 
-            await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), cancellationToken);
+            await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), CancellationToken.None);
 
             return lastCompletedSurrogateId;
         }
@@ -132,11 +151,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), cancellationToken);
+                await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), CancellationToken.None);
                 await Task.Delay(TimeSpan.FromSeconds(10));
             }
 
-            await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), cancellationToken);
+            await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_bulkImportProgress), CancellationToken.None);
         }
 
         public void Dispose()

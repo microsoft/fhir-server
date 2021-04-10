@@ -11,10 +11,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
 using Microsoft.Health.Fhir.Azure;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
+                .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData();
 
             string dataStore = Configuration["DataStore"];
@@ -49,22 +50,9 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             // Set task hosting and related background service
-            if (bool.TryParse(Configuration["TasHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
+            if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
             {
-                services.Add<TaskHosting>()
-                    .Scoped()
-                    .AsSelf();
-
-                services.AddFactory<IScoped<TaskHosting>>();
-
-                if (bool.TryParse(Configuration["Operations:BulkImport:Enabled"], out bool bulkImportOn) && bulkImportOn)
-                {
-                    services.AddHostedService<BulkImportTaskBackgroundService>();
-                    services.Add<MockTaskFactory>()
-                        .Scoped()
-                        .AsSelf()
-                        .AsImplementedInterfaces();
-                }
+                AddBackgroundService(services);
             }
 
             /*
@@ -94,6 +82,21 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             AddApplicationInsightsTelemetry(services);
+        }
+
+        private void AddBackgroundService(IServiceCollection services)
+        {
+            services.Add<TaskHosting>()
+                .Scoped()
+                .AsSelf();
+            services.AddFactory<IScoped<TaskHosting>>();
+
+            services.AddHostedService<TaskHostingBackgroundService>();
+            services.Add<TaskFactory>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+            services.Configure<TaskHostingConfiguration>(options => Configuration.GetSection("TaskHosting").Bind(options));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

@@ -3,12 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
+using System;
+using System.Threading;
+using System.Threading.Channels;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkImportProgress
+    public interface IBulkResourceLoader
     {
-        public Dictionary<string, ProgressRecord> ProgressRecords { get; private set; } = new Dictionary<string, ProgressRecord>();
+        public Task LoadToChannelAsync(Channel<string> outputChannel, Uri resourceUri, long startLineOffset, CancellationToken cancellationToken);
     }
 }

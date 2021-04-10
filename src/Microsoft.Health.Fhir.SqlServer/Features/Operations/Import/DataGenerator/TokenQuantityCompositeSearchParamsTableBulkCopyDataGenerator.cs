@@ -35,13 +35,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             foreach (TokenQuantityCompositeSearchParamTableTypeV1Row searchParam in searchParams)
             {
                 DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                newRow[VLatest.TokenQuantityCompositeSearchParam.SystemId1.Metadata.Name] = searchParam.SystemId1;
-                newRow[VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.Name] = searchParam.Code1;
-                newRow[VLatest.TokenQuantityCompositeSearchParam.SystemId2.Metadata.Name] = searchParam.SystemId2;
-                newRow[VLatest.TokenQuantityCompositeSearchParam.QuantityCodeId2.Metadata.Name] = searchParam.QuantityCodeId2;
-                newRow[VLatest.TokenQuantityCompositeSearchParam.SingleValue2.Metadata.Name] = searchParam.SingleValue2;
-                newRow[VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.Name] = searchParam.LowValue2;
-                newRow[VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.Name] = searchParam.HighValue2;
+                FillColumn(newRow, VLatest.TokenQuantityCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);
+                FillColumn(newRow, VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.Name, searchParam.Code1);
+                FillColumn(newRow, VLatest.TokenQuantityCompositeSearchParam.SystemId2.Metadata.Name, searchParam.SystemId2);
+                FillColumn(newRow, VLatest.TokenQuantityCompositeSearchParam.QuantityCodeId2.Metadata.Name, searchParam.QuantityCodeId2);
+                FillColumn(newRow, VLatest.TokenQuantityCompositeSearchParam.SingleValue2.Metadata.Name, searchParam.SingleValue2);
+                FillColumn(newRow, VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.Name, searchParam.LowValue2);
+                FillColumn(newRow, VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.Name, searchParam.HighValue2);
 
                 table.Rows.Add(newRow);
             }
@@ -49,13 +49,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillSearchParamsSchema(DataTable table)
         {
-            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SystemId1.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SystemId1.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SystemId2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SystemId2.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.QuantityCodeId2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.QuantityCodeId2.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SingleValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SingleValue2.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.Type));
-            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.Type));
+            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SystemId1.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SystemId1.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.Code1.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SystemId2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SystemId2.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.QuantityCodeId2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.QuantityCodeId2.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.SingleValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.SingleValue2.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.LowValue2.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.Name, VLatest.TokenQuantityCompositeSearchParam.HighValue2.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }
