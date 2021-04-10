@@ -167,7 +167,29 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ConvertDataParameterValueNotValid", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to Import operation parameters must be specified as an import configuration .  The body provided in this request is not valid..
+        /// </summary>
+        public static string BulkImportRequestConfigurationNotValid
+        {
+            get
+            {
+                return ResourceManager.GetString("BulkImportRequestConfigurationNotValid", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Import does not support the following parameter {0} for a POST operation..
+        /// </summary>
+        public static string BulkImportRequestConfigurationValueNotValid
+        {
+            get
+            {
+                return ResourceManager.GetString("BulkImportRequestConfigurationValueNotValid", resourceCulture);
+            }
+        }
+
         /// <summary>
         ///   Looks up a localized string similar to The maximum length of a custom audit header value is {0}. The supplied custom audit header &apos;{1}&apos; has length of {2}..
         /// </summary>

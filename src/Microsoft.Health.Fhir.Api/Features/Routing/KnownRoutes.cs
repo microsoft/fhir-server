@@ -52,6 +52,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ConvertData = "$convert-data";
         public const string ConvertDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.ConvertData;
 
+        public const string BulkImport = "$import";
+        public const string BulkImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.BulkImport;
+        public const string BulkImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.BulkImport + "/" + IdRouteSegment;
+
+        public const string Reset = "$reset";
+        public const string ResetDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Reset;
+        public const string ResetJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Reset + "/" + IdRouteSegment;
+
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";

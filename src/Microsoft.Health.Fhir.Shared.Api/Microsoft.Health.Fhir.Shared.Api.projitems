@@ -10,10 +10,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\BulkImportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\OperationDefinitionController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ResetController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionConstraints\ConditionalConstraintAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResult.cs" />

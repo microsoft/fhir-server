@@ -15,6 +15,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public static TestUser ConvertDataUser { get; } = new TestUser("globalConverterUser");
 
+        public static TestUser BulkImportUser { get; } = new TestUser("globalImporterUser");
+
         public static TestUser AdminUser { get; } = new TestUser("globalAdminUser");
     }
 }

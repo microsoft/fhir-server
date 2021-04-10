@@ -10,7 +10,11 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure;
+using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport;
+using Microsoft.Health.Fhir.Core.Features.TaskManagement;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -42,6 +46,25 @@ namespace Microsoft.Health.Fhir.Web
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
             {
                 fhirServerBuilder.AddSqlServer(Configuration);
+            }
+
+            // Set task hosting and related background service
+            if (bool.TryParse(Configuration["TasHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
+            {
+                services.Add<TaskHosting>()
+                    .Scoped()
+                    .AsSelf();
+
+                services.AddFactory<IScoped<TaskHosting>>();
+
+                if (bool.TryParse(Configuration["Operations:BulkImport:Enabled"], out bool bulkImportOn) && bulkImportOn)
+                {
+                    services.AddHostedService<BulkImportTaskBackgroundService>();
+                    services.Add<MockTaskFactory>()
+                        .Scoped()
+                        .AsSelf()
+                        .AsImplementedInterfaces();
+                }
             }
 
             /*

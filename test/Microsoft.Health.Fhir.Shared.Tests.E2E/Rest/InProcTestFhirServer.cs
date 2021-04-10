@@ -66,6 +66,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 if (dataStore == DataStore.SqlServer)
                 {
+                    // enable bulk import for testing
+                    configuration["FhirServer:TaskHosting:Enabled"] = "true";
+                    configuration["FhirServer:Operations:BulkImport:Enabled"] = "true";
+
                     var connectionStringBuilder = new SqlConnectionStringBuilder(configuration["SqlServer:ConnectionString"]);
                     var databaseName = connectionStringBuilder.InitialCatalog += "_" + startupType.Name;
                     configuration["SqlServer:ConnectionString"] = connectionStringBuilder.ToString();
