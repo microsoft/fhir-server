@@ -27,13 +27,5 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// <param name="databaseName">The name of the database to delete.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Compares two database schemas.
-        /// </summary>
-        /// <param name="databaseName1">The name of the first database to compare.</param>
-        /// <param name="databaseName2">The name of the second database to compare.</param>
-        /// <returns>True if the schemas are equal, false otherwise.</returns>
-        bool CompareDatabaseSchemas(string databaseName1, string databaseName2);
     }
 }
