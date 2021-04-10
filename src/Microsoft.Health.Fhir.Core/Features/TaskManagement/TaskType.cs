@@ -8,6 +8,5 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
     public enum TaskType
     {
         BulkImport = 0,
-        Reset = 1,
     }
 }
