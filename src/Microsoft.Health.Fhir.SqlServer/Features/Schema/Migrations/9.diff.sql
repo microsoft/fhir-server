@@ -455,7 +455,7 @@ GO
 --         * The start ResourceSurrogateId
 --     @endResourceSurrogateId
 --         * The end ResourceSurrogateId
-CREATE PROCEDURE dbo.HardDeleteBatchResource
+CREATE OR ALTER PROCEDURE dbo.HardDeleteBatchResource
     @startResourceSurrogateId bigint,
     @endResourceSurrogateId bigint
 AS
