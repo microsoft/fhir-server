@@ -4,7 +4,7 @@
             "commandName": "Project",
             "environmentVariables": {
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-                "DataStore": "SqlServer",
+                "DataStore": "CosmosDb",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
             "applicationUrl": "https://localhost:44348/"

@@ -3,6 +3,10 @@
     <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Features\Schema\Migrations\9.diff.sql" />
+    <None Remove="Features\Schema\Migrations\9.sql" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\4.diff.sql" />
@@ -16,22 +20,31 @@
       <MutableClassVersion>6</MutableClassVersion>
     </EmbeddedResource>
     <EmbeddedResource Include="Features\Schema\Migrations\7.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\7.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\7.sql">
+      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
+      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+      <MutableClassVersion>7</MutableClassVersion>
+    </EmbeddedResource>
     <EmbeddedResource Include="Features\Schema\Migrations\8.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\8.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
-      <MutableClassVersion>Latest</MutableClassVersion>
       <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+      <MutableClassVersion>8</MutableClassVersion>
     </EmbeddedResource>
-
+    <EmbeddedResource Include="Features\Schema\Migrations\9.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\9.sql">
+      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
+      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+      <MutableClassVersion>Latest</MutableClassVersion>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Ensure.That" Version="10.0.0" />
+    <PackageReference Include="Ensure.That" Version="10.1.0" />
     <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.SqlServer" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.4.1" />
+    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.0.0" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.46041.41" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(AspNetPackageVersion)" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="2.1.2" />
@@ -64,12 +77,12 @@
       <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.cs">
         <Generator>ImmutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(ImmutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
+        <Args>@(ImmutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
       </Generated>
       <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.cs">
         <Generator>MutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(MutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
+        <Args>@(MutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
       </Generated>
     </ItemGroup>
   </Target>

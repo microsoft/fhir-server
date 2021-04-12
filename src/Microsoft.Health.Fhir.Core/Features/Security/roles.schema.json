@@ -14,7 +14,7 @@
                 "reindex",
                 "convertData",
                 "import",
-                "profileDefinitionsEditor"
+                "editProfileDefinitions"
             ]
         }
     },
