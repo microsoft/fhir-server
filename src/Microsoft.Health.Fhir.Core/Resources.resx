@@ -538,4 +538,10 @@
     <value>The 'handling' value '{0}' is invalid. The supported values are: {1}.</value>
     <comment>{0}: the invalid handling value. {1}: the supported handling values.</comment>
   </data>
+  <data name="MemberMatchMultipleMatchesFound" xml:space="preserve">
+    <value>Found multiple matches, narrow search criteria</value>
+  </data>
+  <data name="MemberMatchNoMatchFound" xml:space="preserve">
+    <value>No match found</value>
+  </data>
 </root>

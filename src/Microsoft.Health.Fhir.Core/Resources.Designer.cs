@@ -593,6 +593,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Found multiple matches, narrow search criteria.
+        /// </summary>
+        internal static string MemberMatchMultipleMatchesFound {
+            get {
+                return ResourceManager.GetString("MemberMatchMultipleMatchesFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No match found.
+        /// </summary>
+        internal static string MemberMatchNoMatchFound {
+            get {
+                return ResourceManager.GetString("MemberMatchNoMatchFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Modifier &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
         internal static string ModifierNotSupported {

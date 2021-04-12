@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public DateTimeSearchValue(PartialDateTime dateTime)
             : this(dateTime, dateTime)
         {
+            OriginalDate = dateTime;
+
             // The date can be expressed with start and end.
             // If an instance of time is expressed (e.g., date + time), then the start and end
             // will be at the same instance. If a partial date is specified (e.g., 2010-01), then
@@ -85,6 +87,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public bool IsMin { get; set; }
 
         public bool IsMax { get; set; }
+
+        private PartialDateTime OriginalDate { get; set; }
 
         /// <summary>
         /// Parses the string value to an instance of <see cref="DateTimeSearchValue"/>.
@@ -169,6 +173,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public override string ToString()
         {
+            if (OriginalDate != null)
+            {
+                return OriginalDate.ToString();
+            }
+
             return $"{Start.ToString("o")}-{End.ToString("o")}";
         }
     }

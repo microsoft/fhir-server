@@ -5,7 +5,7 @@
     <SharedGUID>295745e2-4dd3-4aab-908d-b3dee976bf0e</SharedGUID>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
-    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Core</Import_RootNamespace>
+    <Import_RootNamespace>Microsoft.Health.Fhir.Core</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\FhirMediatorExtensions.cs" />
@@ -17,6 +17,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\FhirServerBuilderMemberMatchRegistrationExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\IMemberMatchService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />

@@ -331,6 +331,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to &apos;MemberPatient&apos; can&apos;t be found in submitted parameters..
+        /// </summary>
+        public static string MemberMatchMemberPatientNotFound {
+            get {
+                return ResourceManager.GetString("MemberMatchMemberPatientNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;OldCoverage&apos; can&apos;t be found in submitted parameters. .
+        /// </summary>
+        public static string MemberMatchOldCoverageNotFound {
+            get {
+                return ResourceManager.GetString("MemberMatchOldCoverageNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to API.
         /// </summary>
         public static string MenuAPI {
