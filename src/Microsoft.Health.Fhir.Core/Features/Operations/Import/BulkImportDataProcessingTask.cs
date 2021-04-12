@@ -75,38 +75,56 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             CancellationToken cancellationToken = _cancellationTokenSource.Token;
 
-            long lastCompletedSurrogateId = await CleanDataAsync(cancellationToken);
-            long startLineOffset = lastCompletedSurrogateId - _dataProcessingInputData.StartSurrogateId;
-
-            Channel<string> rawDataChannel = Channel.CreateBounded<string>(RawDataChannelMaxCapacity);
-            Channel<BulkImportResourceWrapper> resourceWrapperChannel = Channel.CreateBounded<BulkImportResourceWrapper>(ResourceWrapperChannelMaxCapacity);
-            IProgress<(string tableName, long endSurrogateId)> bulkImportProgress = new Progress<(string tableName, long endSurrogateId)>(
-                (p) =>
-                {
-                    _bulkImportProgress.ProgressRecords[p.tableName] = new ProgressRecord(p.endSurrogateId);
-                });
-
-            Task dataLoadTask = _resourceLoader.LoadToChannelAsync(rawDataChannel, new Uri(_dataProcessingInputData.ResourceLocation), startLineOffset, cancellationToken);
-            Task processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, lastCompletedSurrogateId, cancellationToken);
-            Task<long> bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, bulkImportProgress, cancellationToken);
-
-            CancellationTokenSource contextUpdateCancellationToken = new CancellationTokenSource();
-            Task updateProgressTask = UpdateProgressAsync(contextUpdateCancellationToken.Token);
-
-            await dataLoadTask;
-            await processTask;
-            long completedResourceCount = await bulkImportTask;
-
-            contextUpdateCancellationToken.Cancel();
-            await updateProgressTask;
-
-            BulkImportDataProcessingTaskResult result = new BulkImportDataProcessingTaskResult()
+            try
             {
-                ResourceType = _dataProcessingInputData.ResourceType,
-                CompletedResourceCount = completedResourceCount,
-            };
+                long lastCompletedSurrogateId = await CleanDataAsync(cancellationToken);
+                long startLineOffset = lastCompletedSurrogateId - _dataProcessingInputData.StartSurrogateId;
 
-            return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
+                Channel<string> rawDataChannel = Channel.CreateBounded<string>(RawDataChannelMaxCapacity);
+                Channel<BulkImportResourceWrapper> resourceWrapperChannel = Channel.CreateBounded<BulkImportResourceWrapper>(ResourceWrapperChannelMaxCapacity);
+                IProgress<(string tableName, long endSurrogateId)> bulkImportProgress = new Progress<(string tableName, long endSurrogateId)>(
+                    (p) =>
+                    {
+                        _bulkImportProgress.ProgressRecords[p.tableName] = new ProgressRecord(p.endSurrogateId);
+                    });
+
+                Task dataLoadTask = _resourceLoader.LoadToChannelAsync(rawDataChannel, new Uri(_dataProcessingInputData.ResourceLocation), startLineOffset, cancellationToken);
+                Task<long> processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, lastCompletedSurrogateId, cancellationToken);
+                Task<long> bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, bulkImportProgress, cancellationToken);
+
+                CancellationTokenSource contextUpdateCancellationToken = new CancellationTokenSource();
+                Task updateProgressTask = UpdateProgressAsync(contextUpdateCancellationToken.Token);
+
+                await dataLoadTask;
+                long completedResourceCount = await processTask;
+                long importedSqlRecordCount = await bulkImportTask;
+
+                _logger.LogInformation($"{completedResourceCount} resources imported. {importedSqlRecordCount} sql records copied to sql store.");
+
+                contextUpdateCancellationToken.Cancel();
+                await updateProgressTask;
+
+                BulkImportDataProcessingTaskResult result = new BulkImportDataProcessingTaskResult()
+                {
+                    ResourceType = _dataProcessingInputData.ResourceType,
+                    CompletedResourceCount = completedResourceCount,
+                };
+
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
+                }
+                else
+                {
+                    return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Critical error in data processing task.");
+
+                throw;
+            }
         }
 
         public void Cancel()

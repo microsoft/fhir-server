@@ -14,5 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public long FailedResourceCount { get; set; }
 
         public string ErrorLogLocation { get; set; }
+
+        public string ErrorMessage { get; set; }
     }
 }
