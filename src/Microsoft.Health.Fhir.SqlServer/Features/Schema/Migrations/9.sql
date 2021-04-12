@@ -2820,7 +2820,7 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --
 CREATE PROCEDURE [dbo].[GetTaskDetails]
     @taskId varchar(64)
@@ -2845,7 +2845,7 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @taskContext
 --         * The context of the task
 --     @runId
@@ -2898,7 +2898,7 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @runId
 --         * Current runId for this exuction of the task
 --
@@ -2947,7 +2947,7 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @taskResult
 --         * The result for the task execution
 --     @runId
@@ -3000,7 +3000,7 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --
 CREATE PROCEDURE [dbo].[CancelTask]
     @taskId varchar(64)
@@ -3046,7 +3046,7 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @runId
 --         * Current runId for this exuction of the task
 --
@@ -3106,7 +3106,7 @@ GO
 --
 -- PARAMETERS
 --     @queueId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @count
 --         * Batch count for tasks list
 --     @taskHeartbeatTimeoutThresholdInSeconds
@@ -3142,9 +3142,7 @@ AS
     INSERT INTO @availableJobs
     SELECT TOP(@count) TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
     FROM dbo.TaskInfo
-    WHERE ((Status = 1 OR (Status = 2 AND HeartbeatDateTime <= @expirationDateTime)) AND IsCanceled = 0)
-    ORDER BY HeartbeatDateTime
-
+    WHERE (QueueId = @queueId AND ((Status = 1 OR (Status = 2 AND HeartbeatDateTime <= @expirationDateTime)) AND IsCanceled = 0))    ORDER BY HeartbeatDateTime
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
     UPDATE dbo.TaskInfo

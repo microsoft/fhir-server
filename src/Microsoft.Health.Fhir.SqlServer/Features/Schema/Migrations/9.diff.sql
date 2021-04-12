@@ -2,25 +2,30 @@
 /*************************************************************
     Task Table
 **************************************************************/
-CREATE TABLE [dbo].[TaskInfo](
-	[TaskId] [varchar](64) NOT NULL,
-	[QueueId] [varchar](64) NOT NULL,
-	[Status] [smallint] NOT NULL,
-    [TaskTypeId] [smallint] NOT NULL,
-    [RunId] [varchar](50) null,
-	[IsCanceled] [bit] NOT NULL,
-    [RetryCount] [smallint] NOT NULL,
-	[HeartbeatDateTime] [datetime2](7) NULL,
-	[InputData] [varchar](max) NOT NULL,
-	[TaskContext] [varchar](max) NULL,
-    [Result] [varchar](max) NULL
-) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-GO
+IF NOT EXISTS (SELECT 'X' FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TaskInfo')
+BEGIN
+    CREATE TABLE [dbo].[TaskInfo](
+	    [TaskId] [varchar](64) NOT NULL,
+	    [QueueId] [varchar](64) NOT NULL,
+	    [Status] [smallint] NOT NULL,
+        [TaskTypeId] [smallint] NOT NULL,
+        [RunId] [varchar](50) null,
+	    [IsCanceled] [bit] NOT NULL,
+        [RetryCount] [smallint] NOT NULL,
+	    [HeartbeatDateTime] [datetime2](7) NULL,
+	    [InputData] [varchar](max) NOT NULL,
+	    [TaskContext] [varchar](max) NULL,
+        [Result] [varchar](max) NULL
+    ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+END 
 
-CREATE UNIQUE CLUSTERED INDEX IXC_Task on [dbo].[TaskInfo]
-(
-    TaskId
-)
+IF NOT EXISTS (SELECT 'X' FROM SYS.INDEXES WHERE name = 'IXC_Task' AND OBJECT_ID = OBJECT_ID('TaskInfo'))
+BEGIN
+    CREATE UNIQUE CLUSTERED INDEX IXC_Task on [dbo].[TaskInfo]
+    (
+        TaskId
+    )
+END
 GO
 
 /*************************************************************
@@ -41,7 +46,7 @@ GO
 --     @taskTypeId
 --         * The maximum number of running jobs we can have at once
 --
-CREATE PROCEDURE [dbo].[CreateTask]
+CREATE OR ALTER PROCEDURE [dbo].[CreateTask]
     @taskId varchar(64),
     @queueId varchar(64),
 	@taskTypeId smallint,
@@ -98,9 +103,9 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --
-CREATE PROCEDURE [dbo].[GetTaskDetails]
+CREATE OR ALTER PROCEDURE [dbo].[GetTaskDetails]
     @taskId varchar(64)
 AS
     SET NOCOUNT ON
@@ -123,13 +128,13 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @taskContext
 --         * The context of the task
 --     @runId
 --         * Current runId for this exuction of the task
 --
-CREATE PROCEDURE [dbo].[UpdateTaskContext]
+CREATE OR ALTER PROCEDURE [dbo].[UpdateTaskContext]
     @taskId varchar(64),
     @taskContext varchar(max),
     @runId varchar(50)
@@ -176,11 +181,11 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @runId
 --         * Current runId for this exuction of the task
 --
-CREATE PROCEDURE [dbo].[TaskKeepAlive]
+CREATE OR ALTER PROCEDURE [dbo].[TaskKeepAlive]
     @taskId varchar(64),
     @runId varchar(50)
 AS
@@ -225,13 +230,13 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @taskResult
 --         * The result for the task execution
 --     @runId
 --         * Current runId for this exuction of the task
 --
-CREATE PROCEDURE [dbo].[CompleteTask]
+CREATE OR ALTER PROCEDURE [dbo].[CompleteTask]
     @taskId varchar(64),
     @taskResult varchar(max),
     @runId varchar(50)
@@ -278,9 +283,9 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --
-CREATE PROCEDURE [dbo].[CancelTask]
+CREATE OR ALTER PROCEDURE [dbo].[CancelTask]
     @taskId varchar(64)
 AS
     SET NOCOUNT ON
@@ -324,11 +329,11 @@ GO
 --
 -- PARAMETERS
 --     @taskId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @runId
 --         * Current runId for this exuction of the task
 --
-CREATE PROCEDURE [dbo].[ResetTask]
+CREATE OR ALTER PROCEDURE [dbo].[ResetTask]
     @taskId varchar(64),
     @runId varchar(50),
     @result varchar(max),
@@ -384,12 +389,12 @@ GO
 --
 -- PARAMETERS
 --     @queueId
---         * The ID of the task record to create
+--         * The ID of the task record
 --     @count
 --         * Batch count for tasks list
 --     @taskHeartbeatTimeoutThresholdInSeconds
 --         * Timeout threshold in seconds for heart keep alive
-CREATE PROCEDURE [dbo].[GetNextTask]
+CREATE OR ALTER PROCEDURE [dbo].[GetNextTask]
     @queueId varchar(64),
 	@count smallint,
     @taskHeartbeatTimeoutThresholdInSeconds int = 600
@@ -420,7 +425,7 @@ AS
     INSERT INTO @availableJobs
     SELECT TOP(@count) TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
     FROM dbo.TaskInfo
-    WHERE ((Status = 1 OR (Status = 2 AND HeartbeatDateTime <= @expirationDateTime)) AND IsCanceled = 0)
+    WHERE (QueueId = @queueId AND ((Status = 1 OR (Status = 2 AND HeartbeatDateTime <= @expirationDateTime)) AND IsCanceled = 0))
     ORDER BY HeartbeatDateTime
 
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
