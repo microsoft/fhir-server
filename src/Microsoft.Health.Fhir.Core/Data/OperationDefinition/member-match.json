@@ -67,12 +67,12 @@
             "type": "Coverage"
         },
         {
-            "name": "uniqueMemberId",
+            "name": "MemberPatient",
             "use": "out",
             "min": 1,
             "max": "1",
-            "documentation": "Parameter representing the unique identifier identifying the member of the old health plan",
-            "type": "Identifier"
+            "documentation": "Parameter returned by the old plan resource **SHALL** contain the MemberPatient resource received from new plan with the ADDITION of an identifier of type \"UMB\" representing the unique identifier identifying the member of the old health plan.",
+            "type": "Resource"
         }
     ]
 }

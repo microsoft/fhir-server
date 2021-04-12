@@ -11,12 +11,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     public sealed class MemberMatchResult : ResourceActionResult<Parameters>
     {
-        public MemberMatchResult(HttpStatusCode statusCode)
-           : base(null, statusCode)
-        {
-        }
-
-        public MemberMatchResult(Parameters parameters, HttpStatusCode statusCode)
+        private MemberMatchResult(Parameters parameters, HttpStatusCode statusCode)
             : base(parameters, statusCode)
         {
             EnsureArg.IsNotNull(parameters, nameof(parameters));

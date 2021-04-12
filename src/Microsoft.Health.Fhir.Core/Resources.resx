@@ -544,7 +544,6 @@
   <data name="ReindexingResourceNotFound" xml:space="preserve">
     <value>One or more resources to be reindexed were not found, indicating that they have been deleted since the reindex job kicked off.</value>
   </data>
-</root>
   <data name="MemberMatchMultipleMatchesFound" xml:space="preserve">
     <value>Found multiple matches, narrow search criteria.</value>
   </data>
