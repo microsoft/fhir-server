@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
         [Fact]
         public async Task GivenValidTasks_WhenTaskHostingStart_TasksShouldBeExecute()
         {
-            int taskCount = 100;
+            int taskCount = 10;
             string resultMessage = "success";
             List<TaskInfo> taskInfos = new List<TaskInfo>();
             for (int i = 0; i < taskCount; ++i)
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
             await taskHosting.StartAsync(tokenSource);
 
             Assert.Equal(taskCount, executedTaskCount);
@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             Assert.Equal(TaskResult.Success, taskResult1.Result);
         }
 
-        [Fact]
+        [Fact(Skip = "Fault injection test require local environment.")]
         public async Task GivenTaskThrowException_WhenTaskHostingStart_TaskHostingShouldKeepRunning()
         {
             int taskCount = 1000;
@@ -386,7 +386,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Fault injection test require local environment.")]
         public async Task GivenTempUnavailableConsumer_WhenTaskHostingStart_TaskHostingShouldKeepRunning()
         {
             Random random = new Random();
