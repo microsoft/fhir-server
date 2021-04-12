@@ -47,7 +47,7 @@
     <PackageReference Include="Microsoft.Health.Fhir.Liquid.Converter" Version="3.5.113.4" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.0.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.14" />
-    <PackageReference Include="Polly" Version="7.2.1" />
+    <PackageReference Include="Polly" Version="7.2.2" />
     <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
