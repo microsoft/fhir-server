@@ -4,7 +4,7 @@
             "commandName": "Project",
             "environmentVariables": {
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-                "DataStore": "SqlServer",
+                "DataStore": "CosmosDb",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
             "applicationUrl": "https://localhost:44348/"
@@ -25,7 +25,7 @@
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-                "SqlServer:ConnectionString": "Server=tcp:tongwu-task.database.windows.net,1433;Initial Catalog=tongwu0412;Persist Security Info=False;User ID=tongwu;Password=!1qaz@2wsx#3edc;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
                 "DataStore": "SqlServer",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
