@@ -30,6 +30,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly ILogger _logger;
 
+        public const string Patient = "MemberPatient";
+        public const string Coverage = "OldCoverage";
+
         public MemberMatchController(IMediator mediator, ILogger<MemberMatchController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -48,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var response = await _mediator.Send<MemberMatchResponse>(new MemberMatchRequest(coverage, patient), HttpContext.RequestAborted);
             var parameters = new Parameters();
-            parameters.Add("MemberPatient", response.Patient.ToPoco<Patient>());
+            parameters.Add(Patient, response.Patient.ToPoco<Patient>());
             return MemberMatchResult.Ok(parameters);
         }
 
@@ -60,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(Resources.ReindexParametersNotValid);
             }
 
-            var coverageResource = inputParams.GetSingle("OldCoverage")?.Resource;
+            var coverageResource = inputParams.GetSingle(Coverage)?.Resource;
             if (coverageResource == null)
             {
                 throw new RequestNotValidException(Resources.MemberMatchOldCoverageNotFound);
@@ -68,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             coverage = coverageResource.ToResourceElement();
 
-            var patientResource = inputParams.GetSingle("MemberPatient")?.Resource;
+            var patientResource = inputParams.GetSingle(Patient)?.Resource;
             if (patientResource == null)
             {
                 throw new RequestNotValidException(Resources.MemberMatchMemberPatientNotFound);
