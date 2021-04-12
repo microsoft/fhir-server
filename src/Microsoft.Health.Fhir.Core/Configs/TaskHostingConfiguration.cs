@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class TaskHostingConfiguration
     {
-        public bool EnableBulkImport { get; set; }
+        public bool Enabled { get; set; }
 
         public string QueueId { get; set; }
 
