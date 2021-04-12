@@ -9,6 +9,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public interface IKnowSupportedProfiles
     {
-        IEnumerable<string> GetSupportedProfiles(string resourceType, bool disablePull = false);
+        /// <summary>
+        /// Provide supported profiles for specified <paramref name="resourceType"/>.
+        /// </summary>
+        /// <param name="resourceType">Resource type to get profiles.</param>
+        /// <param name="disableCacheRefresh">Should we check server for new updates or get data out of cache.</param>
+        IEnumerable<string> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false);
     }
 }
