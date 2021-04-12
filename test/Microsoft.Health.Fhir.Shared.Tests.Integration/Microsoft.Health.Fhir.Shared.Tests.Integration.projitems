@@ -10,10 +10,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationDataStoreReindexTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationDataStoreTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationDataStoreExportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\CreateExportRequestHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationTestConstants.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SearchParameterStatusDataStoreTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSchemaUpgradeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestHelper.cs" />

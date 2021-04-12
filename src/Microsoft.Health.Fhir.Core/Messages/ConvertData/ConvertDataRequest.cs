@@ -5,25 +5,25 @@
 
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
+using Microsoft.Health.Fhir.Liquid.Converter.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
 {
     /// <summary>
-    /// Request for data conversion, currently supports Hl7v2 to FHIR conversion only.
+    /// Request for data conversion, currently supports Hl7v2 and C-CDA to FHIR conversion only.
     /// </summary>
     public class ConvertDataRequest : IRequest<ConvertDataResponse>
     {
         public ConvertDataRequest(
             string inputData,
-            ConversionInputDataType inputDataType,
+            DataType inputDataType,
             string registryServer,
             bool isDefaultTemplateReference,
             string templateCollectionReference,
             string rootTemplate)
         {
             EnsureArg.IsNotNullOrEmpty(inputData, nameof(inputData));
-            EnsureArg.IsNotNull<ConversionInputDataType>(inputDataType, nameof(inputDataType));
+            EnsureArg.IsNotNull<DataType>(inputDataType, nameof(inputDataType));
             EnsureArg.IsNotNull(registryServer, nameof(registryServer));
             EnsureArg.IsNotNull(templateCollectionReference, nameof(templateCollectionReference));
             EnsureArg.IsNotNullOrEmpty(rootTemplate, nameof(rootTemplate));
@@ -42,9 +42,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
         public string InputData { get; }
 
         /// <summary>
-        /// Data type of input data, currently accepts Hl7v. <see cref="ConversionInputDataType.Hl7v2"/>
+        /// Data type of input data, currently accepts Hl7v. <see cref="DataType.Hl7v2"/> and C-CDA <see cref="DataType.Ccda"/>
         /// </summary>
-        public ConversionInputDataType InputDataType { get; }
+        public DataType InputDataType { get; }
 
         /// <summary>
         /// Container Registry Server extracted from template reference.

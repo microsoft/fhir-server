@@ -24,20 +24,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class GroupMemberExtractor : IGroupMemberExtractor
     {
-        private readonly IScoped<IFhirDataStore> _fhirDataStore;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ResourceDeserializer _resourceDeserializer;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
 
         public GroupMemberExtractor(
-            IScoped<IFhirDataStore> fhirDataStore,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             ResourceDeserializer resourceDeserializer,
             IReferenceToElementResolver referenceToElementResolver)
         {
-            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(referenceToElementResolver, nameof(referenceToElementResolver));
 
-            _fhirDataStore = fhirDataStore;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
             _resourceDeserializer = resourceDeserializer;
             _referenceToElementResolver = referenceToElementResolver;
         }
@@ -88,7 +88,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
         {
-            var groupResource = await _fhirDataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
+            ResourceWrapper groupResource;
+            using (IScoped<IFhirDataStore> dataStore = _fhirDataStoreFactory.Invoke())
+            {
+                groupResource = await dataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
+            }
 
             if (groupResource == null)
             {

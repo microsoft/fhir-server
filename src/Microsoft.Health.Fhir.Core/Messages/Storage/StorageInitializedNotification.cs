@@ -3,10 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models
+using MediatR;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Storage
 {
-    public enum ConversionInputDataType
+    /// <summary>
+    /// A notification that is raised when the Storage provider is ready to begin processing requests
+    /// </summary>
+    public class StorageInitializedNotification : INotification
     {
-        Hl7v2,
     }
 }
