@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             FillColumn(newRow, VLatest.Resource.IsHistory.Metadata.Name, true);
             FillColumn(newRow, VLatest.Resource.ResourceSurrogateId.Metadata.Name, input.ResourceSurrogateId);
             FillColumn(newRow, VLatest.Resource.IsDeleted.Metadata.Name, false);
-            FillColumn(newRow, VLatest.Resource.RequestMethod.Metadata.Name, "$import");
+            FillColumn(newRow, VLatest.Resource.RequestMethod.Metadata.Name, "PUT");
             FillColumn(newRow, VLatest.Resource.RawResource.Metadata.Name, input.CompressedRawData);
             FillColumn(newRow, VLatest.Resource.IsRawResourceMetaSet.Metadata.Name, true);
 
