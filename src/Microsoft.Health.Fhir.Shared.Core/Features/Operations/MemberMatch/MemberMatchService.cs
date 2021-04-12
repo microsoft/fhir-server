@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
@@ -44,10 +45,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             var patientValues = _searchIndexer.Extract(patient);
 
             List<Tuple<string, string>> queryParameters = new List<Tuple<string, string>>();
-            queryParameters.Add(new Tuple<string, string>("_count", "2"));
+
+            // No need to look for more than 2 patients, since we looking for exact match.
+            queryParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.Count, "2"));
+
             foreach (var patientValue in patientValues)
             {
-                if (patientValue.SearchParameter.Code == "_id")
+                if (IgnoreInSearch(patientValue))
                 {
                     continue;
                 }
@@ -57,17 +61,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
 
             foreach (var coverageValue in coverageValues)
             {
-                if (coverageValue.SearchParameter.Code == "benficiary" || coverageValue.SearchParameter.Code == "patient")
+                if (IgnoreInSearch(coverageValue))
                 {
                     continue;
                 }
 
-                queryParameters.Add(new Tuple<string, string>($"_has:Coverage:beneficiary:{coverageValue.SearchParameter.Code}", coverageValue.Value.ToString()));
+                queryParameters.Add(new Tuple<string, string>(
+                    $"{ExpressionParser.ReverseChainParameter}{KnownResourceTypes.Coverage}:beneficiary:{coverageValue.SearchParameter.Code}", coverageValue.Value.ToString()));
             }
 
             using IScoped<ISearchService> search = _searchServiceFactory();
 
-            SearchResult results = await search.Value.SearchAsync("Patient", queryParameters, cancellationToken);
+            SearchResult results = await search.Value.SearchAsync(KnownResourceTypes.Patient, queryParameters, cancellationToken);
             if (results.Results.Count() > 1)
             {
                 throw new MemberMatchMatchingException(Core.Resources.MemberMatchMultipleMatchesFound);
@@ -94,5 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             var result = resultPatient.ToResourceElement();
             return result;
         }
+
+        private static bool IgnoreInSearch(SearchIndexEntry searchEntry) =>
+         searchEntry.SearchParameter.Code == SearchParameterNames.Id || searchEntry.SearchParameter.Type == ValueSets.SearchParamType.Reference;
     }
 }
