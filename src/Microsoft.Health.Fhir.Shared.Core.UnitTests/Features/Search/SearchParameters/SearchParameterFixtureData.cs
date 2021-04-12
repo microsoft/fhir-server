@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 definitionManager,
                 new SearchParameterSupportResolver(definitionManager, await GetFhirNodeToSearchValueTypeConverterManagerAsync()),
                 Substitute.For<IMediator>());
-            await statusManager.EnsureInitialized();
+            await statusManager.EnsureInitializedAsync(CancellationToken.None);
 
             return definitionManager;
         }

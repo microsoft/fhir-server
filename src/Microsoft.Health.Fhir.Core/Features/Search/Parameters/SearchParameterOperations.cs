@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
-        private IModelInfoProvider _modelInfoProvider;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
 
