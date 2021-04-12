@@ -74,7 +74,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             long importedResourceCount = 0;
             Dictionary<string, DataTable> buffer = new Dictionary<string, DataTable>();
             Queue<Task<(string tableName, long endSurrogateId, long count)>> runningTasks = new Queue<Task<(string, long, long)>>();
-            await _sqlServerFhirModel.EnsureInitialized();
 
             long surrogateId = 0;
             while (await inputChannel.Reader.WaitToReadAsync(cancellationToken) && !cancellationToken.IsCancellationRequested)
