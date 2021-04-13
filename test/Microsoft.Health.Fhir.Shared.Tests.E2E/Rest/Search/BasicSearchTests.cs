@@ -786,7 +786,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
 
-            Bundle bundle = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy");
+            Bundle bundle = await Client.SearchAsync("Patient?Cookie=Chip&Ramen=Spicy");
             OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
@@ -802,7 +802,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
 
-            Bundle bundle = await Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
+            Bundle bundle = await Client.SearchAsync("Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=lenient"));
             OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
@@ -811,14 +811,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchRequestWithInvalidParametersAndStrictHandling_WhenHandled_ReturnsBadRequest()
         {
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
-                Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
+                Client.SearchAsync("Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=strict")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
         [Fact]
         public async Task GivenASearchRequestWithValidParametersAndStrictHandling_WhenHandled_ReturnsSearchResults()
         {
-            var response = await Client.SearchAsync("/Patient?name=ronda", Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
+            var response = await Client.SearchAsync("Patient?name=ronda", Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
@@ -826,7 +826,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchRequestWithInvalidHandling_WhenHandled_ReturnsBadRequest()
         {
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
-                Client.SearchAsync("/Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=foo")));
+                Client.SearchAsync("Patient?Cookie=Chip&Ramen=Spicy", Tuple.Create(KnownHeaders.Prefer, "handling=foo")));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
