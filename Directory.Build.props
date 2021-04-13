@@ -22,7 +22,7 @@
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.5</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>2.1.0</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>2.1.4</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
   </PropertyGroup>
 
