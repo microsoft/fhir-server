@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -21,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             Rest = new HashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));
             Format = new HashSet<string>(StringComparer.Ordinal);
             AdditionalData = new Dictionary<string, JToken>();
+            Profile = new List<ReferenceComponent>();
         }
 
         public string ResourceType { get; } = "CapabilityStatement";
@@ -51,5 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         [JsonExtensionData]
         public IDictionary<string, JToken> AdditionalData { get; }
+
+        public ICollection<ReferenceComponent> Profile { get; }
     }
 }
