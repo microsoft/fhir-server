@@ -17,7 +17,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTaskTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\BooleanToBooleanSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CanonicalToUriSearchValueTypeConverterTests.cs" />
@@ -30,7 +29,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\DecimalToDecimalSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\DateTimeToDateTimeSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirInstanceToSearchValueTypeConverterTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\StringToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirTypedElementToSearchValueTypeConverterTests.cs" />
+	<Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\StringToTokenSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\UriToUriSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\HumanNameToStringSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IdentifierToTokenSearchValueTypeConverterTests.cs" />
@@ -44,7 +44,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\QuantityToQuantitySearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\ResourceReferenceToReferenceSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\UnsignedIntToNumberSearchValueTypeConverterTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Search\Converters\FhirTypedElementToSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\StringToStringSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\LightweightReferenceToElementResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchConverterForAllSearchTypes.cs" />
@@ -54,14 +53,15 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolverTests.cs" />
-    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Conformance\ProfileReferenceConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultOptionHashSetJsonConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\EnumLiteralJsonConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ProfileReferenceConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentDefinitionManagerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionBuilderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceDeserializerTests.cs" />
+	<Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceDeserializerTests.cs" />
+	<Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceReferenceResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests.cs" />

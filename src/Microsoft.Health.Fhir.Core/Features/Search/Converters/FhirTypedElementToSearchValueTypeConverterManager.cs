@@ -22,19 +22,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             EnsureArg.IsNotNull(converters, nameof(converters));
 
             _converterDictionary = converters
-                .SelectMany(converter => converter.FhirInstanceTypes.Select(type => new { FhirNodeType=type, converter.SearchValueType, Converter=converter }))
+                .SelectMany(converter => converter.FhirTypes.Select(type => new { FhirType=type, converter.SearchValueType, Converter=converter }))
                 .ToDictionary(
-                    converter => (converter.FhirNodeType, converter.SearchValueType),
+                    converter => (converter.FhirType, converter.SearchValueType),
                     converter => converter.Converter);
         }
 
         /// <inheritdoc />
-        public bool TryGetConverter(string fhirElementType, Type searchValueType, out ITypedElementToSearchValueTypeConverter converter)
+        public bool TryGetConverter(string fhirType, Type searchValueType, out ITypedElementToSearchValueTypeConverter converter)
         {
-            EnsureArg.IsNotNull(fhirElementType, nameof(fhirElementType));
+            EnsureArg.IsNotNull(fhirType, nameof(fhirType));
             EnsureArg.IsNotNull(searchValueType, nameof(searchValueType));
 
-            return _converterDictionary.TryGetValue((fhirElementType, searchValueType), out converter);
+            return _converterDictionary.TryGetValue((fhirType, searchValueType), out converter);
         }
     }
 }
