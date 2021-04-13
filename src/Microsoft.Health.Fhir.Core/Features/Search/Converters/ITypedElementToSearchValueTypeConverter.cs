@@ -5,19 +5,17 @@
 
 using System;
 using System.Collections.Generic;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    /// <summary>
-    /// Provides mechanisms to convert from FHIR element to a list of <see cref="ISearchValue"/>.
-    /// </summary>
-    public interface IFhirElementToSearchValueTypeConverter
+    public interface ITypedElementToSearchValueTypeConverter
     {
-        Type FhirElementType { get; }
+        IReadOnlyList<string> FhirNodeTypes { get; }
 
         Type SearchValueType { get; }
 
-        IEnumerable<ISearchValue> ConvertTo(object value);
+        IEnumerable<ISearchValue> ConvertTo(ITypedElement value);
     }
 }

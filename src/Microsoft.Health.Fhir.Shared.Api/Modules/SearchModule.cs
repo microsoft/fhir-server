@@ -93,40 +93,22 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // TypedElement based converters
             // These always need to be added as they are also used by the SearchParameterSupportResolver
-            services.TypesInSameAssemblyAs<IFhirNodeToSearchValueTypeConverter>()
-                .AssignableTo<IFhirNodeToSearchValueTypeConverter>()
+            services.TypesInSameAssemblyAs<ITypedElementToSearchValueTypeConverter>()
+                .AssignableTo<ITypedElementToSearchValueTypeConverter>()
                 .Singleton()
-                .AsService<IFhirNodeToSearchValueTypeConverter>();
+                .AsService<ITypedElementToSearchValueTypeConverter>();
 
             services.Add<FhirNodeToSearchValueTypeConverterManager>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IFhirNodeToSearchValueTypeConverterManager>();
+                .AsService<ITypedElementToSearchValueTypeConverterManager>();
 
             services.Add<CodeSystemResolver>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            if (_configuration.CoreFeatures.UseTypedElementIndexer)
-            {
-                services.AddSingleton<ISearchIndexer, TypedElementSearchIndexer>();
-            }
-            else
-            {
-                services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
-                    .AssignableTo<IFhirElementToSearchValueTypeConverter>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<IFhirElementToSearchValueTypeConverter>();
-
-                services.Add<FhirElementToSearchValueTypeConverterManager>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<IFhirElementToSearchValueTypeConverterManager>();
-
-                services.AddSingleton<ISearchIndexer, SearchIndexer>();
-            }
+            services.AddSingleton<ISearchIndexer, TypedElementSearchIndexer>();
 
             services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
             services.AddSingleton<IExpressionParser, ExpressionParser>();

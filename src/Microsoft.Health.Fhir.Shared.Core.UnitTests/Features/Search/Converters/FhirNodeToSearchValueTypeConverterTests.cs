@@ -12,12 +12,12 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public abstract class FhirNodeToSearchValueTypeConverterTests<TTypeConverter, TElement> : FhirNodeInstanceToSearchValueTypeConverterTests<TElement>
-        where TTypeConverter : IFhirNodeToSearchValueTypeConverter, new()
+        where TTypeConverter : ITypedElementToSearchValueTypeConverter, new()
         where TElement : Element, new()
     {
-        protected override Task<IFhirNodeToSearchValueTypeConverter> GetTypeConverterAsync()
+        protected override Task<ITypedElementToSearchValueTypeConverter> GetTypeConverterAsync()
         {
-            return Task.FromResult((IFhirNodeToSearchValueTypeConverter)new TTypeConverter());
+            return Task.FromResult((ITypedElementToSearchValueTypeConverter)new TTypeConverter());
         }
     }
 }

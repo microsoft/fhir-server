@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public abstract class FhirNodeToSearchValueTypeConverter<T> : IFhirNodeToSearchValueTypeConverter
+    public abstract class FhirNodeToSearchValueTypeConverter<T> : ITypedElementToSearchValueTypeConverter
     {
         protected FhirNodeToSearchValueTypeConverter(params string[] fhirNodeTypes)
         {
