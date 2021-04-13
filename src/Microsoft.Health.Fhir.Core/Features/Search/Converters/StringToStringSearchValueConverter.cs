@@ -3,19 +3,25 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public interface ITypedElementToSearchValueTypeConverter
+    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueTypeConverter<StringSearchValue>
     {
-        IReadOnlyList<string> FhirTypes { get; }
+        public StringToStringSearchValueConverter()
+            : base("string")
+        {
+        }
 
-        Type SearchValueType { get; }
-
-        IEnumerable<ISearchValue> ConvertTo(ITypedElement value);
+        protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
+        {
+            if (value.Value is string stringValue)
+            {
+                yield return new StringSearchValue(stringValue);
+            }
+        }
     }
 }

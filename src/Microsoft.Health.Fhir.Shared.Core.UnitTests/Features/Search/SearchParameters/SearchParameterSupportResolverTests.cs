@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _resolver = new SearchParameterSupportResolver(
                 await _fixture.GetSearchDefinitionManagerAsync(),
-                await SearchParameterFixtureData.GetFhirNodeToSearchValueTypeConverterManagerAsync());
+                await SearchParameterFixtureData.GetFhirElementToSearchValueTypeConverterManagerAsync());
         }
 
         public Task DisposeAsync() => Task.CompletedTask;

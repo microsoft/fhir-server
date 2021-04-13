@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsService<ITypedElementToSearchValueTypeConverter>();
 
-            services.Add<FhirNodeToSearchValueTypeConverterManager>()
+            services.Add<FhirTypedElementToSearchValueTypeConverterManager>()
                 .Singleton()
                 .AsSelf()
                 .AsService<ITypedElementToSearchValueTypeConverterManager>();
