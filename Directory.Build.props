@@ -51,9 +51,14 @@
   </ItemGroup>
 
   <Choose>
-    <When Condition="$(MSBuildProjectName)!='SmartLauncher' AND !$(MSBuildProjectName.Contains('Test'))">
+    <When Condition="$(MSBuildProjectName)!='SmartLauncher' and $(MSBuildProjectName)!='FhirAnalyzer'  AND !$(MSBuildProjectName.Contains('Test'))">
       <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" PrivateAssets="All" />
+
+        <ProjectReference Include="..\..\tools\FhirAnalyzer\FhirAnalyzer.csproj">
+          <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+          <OutputItemType>Analyzer</OutputItemType>
+        </ProjectReference>
       </ItemGroup>
     </When>
   </Choose>
