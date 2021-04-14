@@ -46,6 +46,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </summary>
         internal const double ExecuteDocumentQueryAsyncMinimumFillFactor = 0.5;
 
+        internal const double ExecuteDocumentQueryAsyncMaximumFillFactor = 10;
+
         private readonly IScoped<Container> _containerScope;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
@@ -121,7 +123,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.GetRetryPolicy();
 
-            _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
+            _logger.LogDebug("Upserting {resourceType}/{resourceId}, ETag: \"{tag}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
             if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
@@ -293,7 +295,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
+                _logger.LogDebug("Obliterating {resourceType}/{id}", key.ResourceType, key.Id);
 
                 StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _hardDelete.Execute(
@@ -302,7 +304,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         ct),
                     cancellationToken);
 
-                _logger.LogDebug($"Hard-deleted {response.Resource.Count} documents, which consumed {response.RequestCharge} RUs. The list of hard-deleted documents: {string.Join(", ", response.Resource)}.");
+                _logger.LogDebug("Hard-deleted {count} documents, which consumed {RU} RUs. The list of hard-deleted documents: {resources}.", response.Resource.Count, response.RequestCharge, string.Join(", ", response.Resource));
             }
             catch (CosmosException exception)
             {
@@ -337,7 +339,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                _logger.LogDebug($"Replacing {resourceWrapper.ResourceTypeName}/{resourceWrapper.ResourceId}, ETag: \"{weakETag.VersionId}\"");
+                _logger.LogDebug("Replacing {resourceType}/{id}, ETag: \"{tag}\"", resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, weakETag.VersionId);
 
                 FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _replaceSingleResource.Execute(
@@ -383,11 +385,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="feedOptions">The feed options.</param>
         /// <param name="continuationToken">The continuation token from a previous query.</param>
         /// <param name="mustNotExceedMaxItemCount">If set to true, no more than <see cref="FeedOptions.MaxItemCount"/> entries will be returned. Otherwise, up to 2 * MaxItemCount - 1 items could be returned</param>
-        /// <param name="searchEnumerationTimeoutInSecondsOverride">
+        /// <param name="searchEnumerationTimeoutOverride">
         ///     If specified, overrides <see cref="CosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds"/> </param> as the maximum amount of time to spend enumerating pages from the SDK to get at least <see cref="QueryRequestOptions.MaxItemCount"/> * <see cref="ExecuteDocumentQueryAsyncMinimumFillFactor"/> results.
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The results and possible continuation token</returns>
-        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, TimeSpan? searchEnumerationTimeoutInSecondsOverride = default, CancellationToken cancellationToken = default)
+        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, TimeSpan? searchEnumerationTimeoutOverride = default, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
@@ -420,7 +422,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var results = new List<T>(totalDesiredCount);
             results.AddRange(page);
 
-            TimeSpan timeout = (searchEnumerationTimeoutInSecondsOverride ?? TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds)) - (Clock.UtcNow - startTime);
+            TimeSpan timeout = (searchEnumerationTimeoutOverride ?? TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds)) - (Clock.UtcNow - startTime);
             if (timeout <= TimeSpan.Zero)
             {
                 return (results, page.ContinuationToken);
@@ -429,16 +431,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             using var timeoutTokenSource = new CancellationTokenSource(timeout);
             using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
+            bool executingWithParallelism = feedOptions.MaxConcurrency != null && continuationToken == null;
+
+            var maxCount = executingWithParallelism
+                ? totalDesiredCount * (mustNotExceedMaxItemCount ? 1 : ExecuteDocumentQueryAsyncMaximumFillFactor) // in this mode, the SDK likely has already fetched pages, so we might as well consume them
+                : totalDesiredCount * ExecuteDocumentQueryAsyncMinimumFillFactor;
+
             while (cosmosQuery.HasMoreResults &&
-                   (feedOptions.MaxConcurrency == MaxQueryConcurrency || // in this mode, the SDK likely has already fetched pages, so we might as well consume them
-                    results.Count < totalDesiredCount * ExecuteDocumentQueryAsyncMinimumFillFactor)) // we still want to get more results
+                   (results.Count < maxCount)) // we still want to get more results
             {
                 // The FHIR spec says we cannot return more items in a bundle than the _count parameter, if specified.
                 // If not specified, mustNotExceedMaxItemCount will be false, and we can allow ourselves to go over the limit.
                 // The advantage is that we don't need to construct a new query with a new page size.
 
                 int currentDesiredCount = totalDesiredCount - results.Count;
-                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount && feedOptions.MaxConcurrency != MaxQueryConcurrency)
+                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount && !executingWithParallelism)
                 {
                     // Construct a new query with a smaller page size.
                     // We do this to ensure that we will not exceed the original max page size and that
@@ -456,7 +463,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         results.AddRange(page);
                         if (mustNotExceedMaxItemCount && results.Count > feedOptions.MaxItemCount)
                         {
-                            // we might get here if feedOptions.MaxConcurrency == (int.MaxValue)
+                            // we might get here if executingWithParallelism == true
 
                             int toRemove = results.Count - feedOptions.MaxItemCount.Value;
                             results.RemoveRange(results.Count - toRemove, toRemove);
@@ -506,13 +513,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            builder.AddDefaultResourceInteractions()
-                .AddDefaultSearchParameters()
-                .AddDefaultRestSearchParams();
+            builder.PopulateDefaultResourceInteractions()
+                .SyncSearchParameters()
+                .AddGlobalSearchParameters()
+                .SyncProfiles();
 
             if (_coreFeatures.SupportsBatch)
             {
-                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
+                builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
             }
         }
 

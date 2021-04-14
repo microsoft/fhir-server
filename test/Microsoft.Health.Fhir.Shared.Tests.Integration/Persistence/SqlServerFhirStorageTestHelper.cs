@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
-            schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString);
+            schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
 
             // Create the database.
             using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
@@ -108,95 +108,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await command.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
-        }
-
-        public bool CompareDatabaseSchemas(string databaseName1, string databaseName2)
-        {
-            var testConnectionString1 = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName1 }.ToString();
-            var testConnectionString2 = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName2 }.ToString();
-
-            var source = new SchemaCompareDatabaseEndpoint(testConnectionString1);
-            var target = new SchemaCompareDatabaseEndpoint(testConnectionString2);
-            var comparison = new SchemaComparison(source, target);
-
-            SchemaComparisonResult result = comparison.Compare();
-
-            // These types were introduced in earlier schema versions but are no longer used in newer versions.
-            // They are not removed so as to no break compatibility with instances requiring an older schema version.
-            // Exclude them from the schema comparison differences.
-            (string type, string name)[] deprecatedObjectToIgnore =
-            {
-                ("Procedure", "[dbo].[UpsertResource]"),
-                ("Procedure", "[dbo].[UpsertResource_2]"),
-                ("Procedure", "[dbo].[UpsertResource_3]"),
-                ("Procedure", "[dbo].[ReindexResource]"),
-                ("Procedure", "[dbo].[BulkReindexResources]"),
-                ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),
-                ("TableType", "[dbo].[CompartmentAssignmentTableType_1]"),
-                ("TableType", "[dbo].[ReferenceSearchParamTableType_2]"),
-                ("TableType", "[dbo].[TokenSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenTextTableType_1]"),
-                ("TableType", "[dbo].[StringSearchParamTableType_1]"),
-                ("TableType", "[dbo].[UriSearchParamTableType_1]"),
-                ("TableType", "[dbo].[NumberSearchParamTableType_1]"),
-                ("TableType", "[dbo].[QuantitySearchParamTableType_1]"),
-                ("TableType", "[dbo].[DateTimeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_2]"),
-                ("TableType", "[dbo].[TokenTokenCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenDateTimeCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
-                ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
-            };
-
-            var remainingDifferences = result.Differences.Where(
-                d => !deprecatedObjectToIgnore.Any(
-                    i =>
-                        (d.SourceObject?.ObjectType.Name == i.type && d.SourceObject?.Name?.ToString() == i.name) ||
-                        (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
-                .ToList();
-
-            // Some of the schema changes we are making to tables include addition of columns. In order to support
-            // upgrading older schemas to the newer ones we have to add default constraints to the upgrade script.
-            // These constraints will not be present in databases that were directly initialized with the latest schema.
-            // We need to exclude these constraints from the schema difference comparison.
-            bool unexpectedDifference = false;
-            HashSet<string> constraintNames = new HashSet<string>()
-            {
-                "[dbo].[date_IsMin_Constraint]",
-                "[dbo].[date_IsMax_Constraint]",
-                "[dbo].[string_IsMin_Constraint]",
-                "[dbo].[string_IsMax_Constraint]",
-            };
-
-            foreach (SchemaDifference schemaDifference in remainingDifferences)
-            {
-                if (schemaDifference.TargetObject.ObjectType.Name == "Table")
-                {
-                    foreach (SchemaDifference child in schemaDifference.Children)
-                    {
-                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
-                        {
-                            // Expected
-                            continue;
-                        }
-                        else
-                        {
-                            unexpectedDifference = true;
-                        }
-                    }
-                }
-                else
-                {
-                    unexpectedDifference = true;
-                }
-            }
-
-            return !unexpectedDifference;
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
@@ -319,11 +230,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private SchemaInitializer CreateSchemaInitializer(string testConnectionString)
+        private SchemaInitializer CreateSchemaInitializer(string testConnectionString, int maxSupportedSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions };
-            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();

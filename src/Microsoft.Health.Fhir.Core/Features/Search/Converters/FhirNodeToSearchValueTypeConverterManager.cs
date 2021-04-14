@@ -13,11 +13,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// <summary>
     /// Provides mechanisms to access FHIR element type converter.
     /// </summary>
-    public class FhirNodeToSearchValueTypeConverterManager : IFhirNodeToSearchValueTypeConverterManager
+    public class FhirNodeToSearchValueTypeConverterManager : ITypedElementToSearchValueTypeConverterManager
     {
-        private readonly Dictionary<(string fhirElementType, Type searchValueType), IFhirNodeToSearchValueTypeConverter> _converterDictionary;
+        private readonly Dictionary<(string fhirElementType, Type searchValueType), ITypedElementToSearchValueTypeConverter> _converterDictionary;
 
-        public FhirNodeToSearchValueTypeConverterManager(IEnumerable<IFhirNodeToSearchValueTypeConverter> converters)
+        public FhirNodeToSearchValueTypeConverterManager(IEnumerable<ITypedElementToSearchValueTypeConverter> converters)
         {
             EnsureArg.IsNotNull(converters, nameof(converters));
 
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         }
 
         /// <inheritdoc />
-        public bool TryGetConverter(string fhirElementType, Type searchValueType, out IFhirNodeToSearchValueTypeConverter converter)
+        public bool TryGetConverter(string fhirElementType, Type searchValueType, out ITypedElementToSearchValueTypeConverter converter)
         {
             EnsureArg.IsNotNull(fhirElementType, nameof(fhirElementType));
             EnsureArg.IsNotNull(searchValueType, nameof(searchValueType));

@@ -16,6 +16,7 @@ using MediatR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -27,13 +28,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService, INotificationHandler<SearchParametersUpdated>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly IMediator _mediator;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
 
-        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
+        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             _modelInfoProvider = modelInfoProvider;
+            _mediator = mediator;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
             UrlLookup = new ConcurrentDictionary<Uri, SearchParameterInfo>();
@@ -174,11 +178,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             CalculateSearchParameterHash();
         }
 
-        public Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
+        public async Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
         {
             CalculateSearchParameterHash();
-
-            return Task.CompletedTask;
+            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter));
         }
     }
 }
