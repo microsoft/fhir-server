@@ -9,19 +9,26 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="Date"/> to a list of <see cref="DateTimeSearchValue"/>.
+    /// </summary>
+    public class DateToDateTimeSearchValueConverter : FhirTypedElementToSearchValueConverter<DateTimeSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public DateToDateTimeSearchValueConverter()
+            : base("date", "dateTime")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            string stringValue = value.Value?.ToString();
+
+            if (string.IsNullOrWhiteSpace(stringValue))
             {
-                yield return new StringSearchValue(stringValue);
+                yield break;
             }
+
+            yield return new DateTimeSearchValue(Models.PartialDateTime.Parse(stringValue));
         }
     }
 }

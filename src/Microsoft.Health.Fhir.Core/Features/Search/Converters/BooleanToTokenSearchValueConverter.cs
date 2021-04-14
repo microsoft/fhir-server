@@ -6,22 +6,30 @@
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="FhirBoolean"/> to a list of <see cref="TokenSearchValue"/>.
+    /// </summary>
+    public class BooleanToTokenSearchValueConverter : FhirTypedElementToSearchValueConverter<TokenSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public BooleanToTokenSearchValueConverter()
+            : base("boolean")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            object fhirValue = value.Value;
+
+            if (fhirValue == null)
             {
-                yield return new StringSearchValue(stringValue);
+                yield break;
             }
+
+            yield return new TokenSearchValue(SpecialValues.System, (bool)fhirValue ? "true" : "false", null);
         }
     }
 }

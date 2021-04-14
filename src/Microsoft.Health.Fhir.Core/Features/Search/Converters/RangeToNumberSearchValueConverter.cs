@@ -3,24 +3,33 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="Range"/> to a list of <see cref="NumberSearchValue"/>.
+    /// </summary>
+    public class RangeToNumberSearchValueConverter : FhirTypedElementToSearchValueConverter<NumberSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public RangeToNumberSearchValueConverter()
+            : base("Range")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            var lowValue = (decimal?)value.Scalar("low");
+            var highValue = (decimal?)value.Scalar("high");
+
+            if (lowValue != null || highValue != null)
             {
-                yield return new StringSearchValue(stringValue);
+                yield return new NumberSearchValue(lowValue, highValue);
             }
         }
     }

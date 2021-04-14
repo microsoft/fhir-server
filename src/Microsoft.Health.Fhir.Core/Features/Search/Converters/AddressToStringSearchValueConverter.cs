@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class AddressToStringSearchValueConverter : FhirTypedElementToSearchValueTypeConverter<StringSearchValue>
+    public class AddressToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
     {
         public AddressToStringSearchValueConverter()
             : base("Address")

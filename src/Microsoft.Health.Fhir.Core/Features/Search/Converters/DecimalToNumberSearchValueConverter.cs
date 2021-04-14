@@ -9,19 +9,24 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="FhirDecimal"/> to a list of <see cref="NumberSearchValue"/>.
+    /// </summary>
+    public class DecimalToNumberSearchValueConverter : FhirTypedElementToSearchValueConverter<NumberSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public DecimalToNumberSearchValueConverter()
+            : base("decimal")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            if (value.Value == null)
             {
-                yield return new StringSearchValue(stringValue);
+                yield break;
             }
+
+            yield return new NumberSearchValue((decimal)value.Value);
         }
     }
 }

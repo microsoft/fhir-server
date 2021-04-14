@@ -93,15 +93,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // TypedElement based converters
             // These always need to be added as they are also used by the SearchParameterSupportResolver
-            services.TypesInSameAssemblyAs<ITypedElementToSearchValueTypeConverter>()
-                .AssignableTo<ITypedElementToSearchValueTypeConverter>()
+            services.TypesInSameAssemblyAs<ITypedElementToSearchValueConverter>()
+                .AssignableTo<ITypedElementToSearchValueConverter>()
                 .Singleton()
-                .AsService<ITypedElementToSearchValueTypeConverter>();
+                .AsService<ITypedElementToSearchValueConverter>();
 
-            services.Add<FhirTypedElementToSearchValueTypeConverterManager>()
+            services.Add<FhirTypedElementToSearchValueConverterManager>()
                 .Singleton()
                 .AsSelf()
-                .AsService<ITypedElementToSearchValueTypeConverterManager>();
+                .AsService<ITypedElementToSearchValueConverterManager>();
 
             services.Add<CodeSystemResolver>()
                 .Singleton()

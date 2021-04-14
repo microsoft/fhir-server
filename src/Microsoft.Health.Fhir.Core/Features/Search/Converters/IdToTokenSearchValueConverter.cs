@@ -9,19 +9,26 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="Id"/> to a list of <see cref="TokenSearchValue"/>.
+    /// </summary>
+    public class IdToTokenSearchValueConverter : FhirTypedElementToSearchValueConverter<TokenSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public IdToTokenSearchValueConverter()
+            : base("id")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            string stringValue = value.Value as string;
+
+            if (string.IsNullOrWhiteSpace(stringValue))
             {
-                yield return new StringSearchValue(stringValue);
+                yield break;
             }
+
+            yield return new TokenSearchValue(null, stringValue, null);
         }
     }
 }

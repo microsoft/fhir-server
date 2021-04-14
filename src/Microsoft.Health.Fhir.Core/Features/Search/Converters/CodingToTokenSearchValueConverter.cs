@@ -5,22 +5,28 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model.Primitives;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="Coding"/> to a list of <see cref="TokenSearchValue"/>.
+    /// </summary>
+    public class CodingToTokenSearchValueConverter : FhirTypedElementToSearchValueConverter<TokenSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public CodingToTokenSearchValueConverter()
+            : base("Coding")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            TokenSearchValue searchValue = value.ToTokenSearchValue();
+
+            if (searchValue != null)
             {
-                yield return new StringSearchValue(stringValue);
+                yield return searchValue;
             }
         }
     }

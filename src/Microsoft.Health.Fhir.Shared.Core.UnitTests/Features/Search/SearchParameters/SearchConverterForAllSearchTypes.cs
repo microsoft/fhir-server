@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
                 {
-                    var found = (await SearchParameterFixtureData.GetFhirElementToSearchValueTypeConverterManagerAsync()).TryGetConverter(result.result.FhirNodeType, TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
+                    var found = (await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync()).TryGetConverter(result.result.FhirNodeType, TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
 
                     var converterText = found ? converter.GetType().Name : "None";
                     string searchTermMapping = $"Search term '{parameterCode}' ({result.result.SearchParamType}) mapped to '{result.result.FhirNodeType}', converter: {converterText}";
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(systemUnsupported.PartialSupport, unsupported.PartialSupport);
         }
 
-        private async Task<IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, ITypedElementToSearchValueTypeConverter converter)>> GetConvertsForSearchParameters(
+        private async Task<IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, ITypedElementToSearchValueConverter converter)>> GetConvertsForSearchParameters(
             string resourceType,
             SearchParameterInfo parameterInfo)
         {
@@ -147,15 +147,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 (parameterInfo.Type, parsed, parameterInfo.Url),
                 componentExpressions).ToArray();
 
-            var fhirNodeToSearchValueTypeConverterManager = await SearchParameterFixtureData.GetFhirElementToSearchValueTypeConverterManagerAsync();
+            var fhirNodeToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
 
             var converters = results
                 .Select(result => (
                     result,
-                    hasConverter: fhirNodeToSearchValueTypeConverterManager.TryGetConverter(
+                    hasConverter: fhirNodeToSearchValueConverterManager.TryGetConverter(
                         result.FhirNodeType,
                         TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                        out ITypedElementToSearchValueTypeConverter converter),
+                        out ITypedElementToSearchValueConverter converter),
                     converter))
                 .ToArray();
 

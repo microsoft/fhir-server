@@ -5,23 +5,32 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="ContactPoint"/> to a list of <see cref="TokenSearchValue"/>.
+    /// </summary>
+    public class ContactPointToTokenSearchValueConverter : FhirTypedElementToSearchValueConverter<TokenSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public ContactPointToTokenSearchValueConverter()
+            : base("ContactPoint")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            string stringValue = value.Scalar("value") as string;
+            string use = value.Scalar("use") as string;
+
+            if (string.IsNullOrWhiteSpace(stringValue))
             {
-                yield return new StringSearchValue(stringValue);
+                yield break;
             }
+
+            yield return new TokenSearchValue(use, stringValue, null);
         }
     }
 }

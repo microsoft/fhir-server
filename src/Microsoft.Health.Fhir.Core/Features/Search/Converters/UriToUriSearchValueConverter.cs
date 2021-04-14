@@ -9,19 +9,24 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="FhirUri"/> to a list of <see cref="UriSearchValue"/>.
+    /// </summary>
+    public class UriToUriSearchValueConverter : FhirTypedElementToSearchValueConverter<UriSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public UriToUriSearchValueConverter()
+            : base("uri", "url")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            if (value.Value == null)
             {
-                yield return new StringSearchValue(stringValue);
+                yield break;
             }
+
+            yield return new UriSearchValue(value.Value?.ToString(), false);
         }
     }
 }

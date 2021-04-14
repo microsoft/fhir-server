@@ -5,23 +5,29 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="Markdown"/> to a list of <see cref="StringSearchValue"/>.
+    /// </summary>
+    public class MarkdownToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
     {
-        public StringToStringSearchValueConverter()
-            : base("string")
+        public MarkdownToStringSearchValueConverter()
+            : base("markdown")
         {
         }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value is string stringValue)
+            if (value.Value == null)
             {
-                yield return new StringSearchValue(stringValue);
+                yield break;
             }
+
+            yield return new StringSearchValue(value.Value.ToString());
         }
     }
 }

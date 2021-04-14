@@ -3,15 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
+    /// <summary>
+    /// A converter used to convert from <see cref="string"/> to a list of <see cref="TokenSearchValue"/>.
+    /// </summary>
+    public class StringToTokenSearchValueConverter : FhirTypedElementToSearchValueConverter<TokenSearchValue>
     {
-        public StringToStringSearchValueConverter()
+        public StringToTokenSearchValueConverter()
             : base("string")
         {
         }
@@ -20,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
             if (value.Value is string stringValue)
             {
-                yield return new StringSearchValue(stringValue);
+                yield return new TokenSearchValue(null, stringValue, null);
             }
         }
     }
