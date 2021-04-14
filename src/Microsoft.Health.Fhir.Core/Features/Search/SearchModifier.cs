@@ -51,8 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public static bool operator !=(SearchModifier lhs, SearchModifier rhs)
             => !(lhs == rhs);
 
-        public override bool Equals(object other)
-            => Equals(other as SearchModifier);
+        public override bool Equals(object obj)
+            => Equals(obj as SearchModifier);
 
         public bool Equals([AllowNull] SearchModifier other)
         {

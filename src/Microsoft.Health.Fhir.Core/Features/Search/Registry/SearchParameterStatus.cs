@@ -5,6 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
+#pragma warning disable CA1008
     public enum SearchParameterStatus
     {
         Disabled = 1,
@@ -12,4 +13,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         Enabled = 3,
         Deleted = 4,
     }
+#pragma warning restore CA1008
 }

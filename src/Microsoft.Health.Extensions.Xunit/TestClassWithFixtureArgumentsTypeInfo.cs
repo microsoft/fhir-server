@@ -20,7 +20,7 @@ namespace Microsoft.Health.Extensions.Xunit
     {
         private readonly ITypeInfo _typeInfoImplementation;
 
-        public TestClassWithFixtureArgumentsTypeInfo(ITypeInfo typeInfoImplementation, IReadOnlyList<SingleFlagEnum> fixtureArguments)
+        public TestClassWithFixtureArgumentsTypeInfo(ITypeInfo typeInfoImplementation, IReadOnlyList<SingleFlag> fixtureArguments)
         {
             EnsureArg.IsNotNull(typeInfoImplementation, nameof(typeInfoImplementation));
             EnsureArg.IsNotNull(fixtureArguments, nameof(fixtureArguments));
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Extensions.Xunit
             Name = $"{typeInfoImplementation.Name}({string.Join(", ", fixtureArguments.Select(v => $"{v.EnumValue}"))})";
         }
 
-        public IReadOnlyList<SingleFlagEnum> FixtureArguments { get; }
+        public IReadOnlyList<SingleFlag> FixtureArguments { get; }
 
         public IAssemblyInfo Assembly => _typeInfoImplementation.Assembly;
 

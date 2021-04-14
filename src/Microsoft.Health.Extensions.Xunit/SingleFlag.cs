@@ -11,9 +11,9 @@ namespace Microsoft.Health.Extensions.Xunit
     /// <summary>
     /// A struct encapsulating an enum value where the numeric value only has a single bit set.
     /// </summary>
-    public struct SingleFlagEnum : IEquatable<SingleFlagEnum>
+    public struct SingleFlag : IEquatable<SingleFlag>
     {
-        public SingleFlagEnum(Enum enumValue)
+        public SingleFlag(Enum enumValue)
         {
             EnsureArg.IsNotNull(enumValue, nameof(enumValue));
 
@@ -27,24 +27,24 @@ namespace Microsoft.Health.Extensions.Xunit
 
         public Enum EnumValue { get; }
 
-        public static bool operator ==(SingleFlagEnum left, SingleFlagEnum right)
+        public static bool operator ==(SingleFlag left, SingleFlag right)
         {
             return left.Equals(right);
         }
 
-        public static bool operator !=(SingleFlagEnum left, SingleFlagEnum right)
+        public static bool operator !=(SingleFlag left, SingleFlag right)
         {
             return !(left == right);
         }
 
-        public bool Equals(SingleFlagEnum other)
+        public bool Equals(SingleFlag other)
         {
             return other.EnumValue.Equals(EnumValue);
         }
 
         public override bool Equals(object obj)
         {
-            return obj is SingleFlagEnum sfe && Equals(sfe);
+            return obj is SingleFlag sfe && Equals(sfe);
         }
 
         public override int GetHashCode()

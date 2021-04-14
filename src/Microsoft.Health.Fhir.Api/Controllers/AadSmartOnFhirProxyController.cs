@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var openIdConfigurationUrl = $"{securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;
-            var httpClient = httpClientFactory.CreateClient();
+            using var httpClient = httpClientFactory.CreateClient();
 
             try
             {
@@ -300,7 +300,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new AadSmartOnFhirProxyBadRequestException(string.Format(Resources.ValueCannotBeNull, ex.ParamName), ex);
             }
 
-            var client = _httpClientFactory.CreateClient();
+            using var client = _httpClientFactory.CreateClient();
 
             // Azure AD supports client_credentials, etc.
             // These are used in tests and may have value even when SMART proxy is used.
@@ -317,7 +317,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     fields.Add(new KeyValuePair<string, string>(f.Key, f.Value));
                 }
 
-                var passThroughContent = new FormUrlEncodedContent(fields);
+                using var passThroughContent = new FormUrlEncodedContent(fields);
 
                 var passThroughResponse = await client.PostAsync(new Uri(_aadTokenEndpoint), passThroughContent);
 
@@ -355,7 +355,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
 
             // TODO: Deal with client secret in basic auth header
-            var content = new FormUrlEncodedContent(
+            using var content = new FormUrlEncodedContent(
                 new[]
                 {
                     new KeyValuePair<string, string>("grant_type", grantType),

@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var operationOutcomeIssues = GetOperationOutcome().Issue;
             var parsedOperationOutcomeIssueList = TransactionExceptionHandler.GetOperationOutcomeIssues(operationOutcomeIssues);
 
-            Assert.Equal(operationOutcomeIssues.Count, parsedOperationOutcomeIssueList.Count);
+            Assert.Equal(operationOutcomeIssues.Count, parsedOperationOutcomeIssueList.Length);
 
             for (int i = 0; i < operationOutcomeIssues.Count; i++)
             {

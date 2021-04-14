@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value.Value == null)
+            if (value?.Value == null)
             {
                 yield break;
             }

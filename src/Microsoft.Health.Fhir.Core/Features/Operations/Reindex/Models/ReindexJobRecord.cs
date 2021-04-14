@@ -80,11 +80,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.FailureCount)]
         public ushort FailureCount { get; set; }
 
+#pragma warning disable CA1002
         [JsonProperty(JobRecordProperties.Resources)]
         public List<string> Resources { get; private set; } = new List<string>();
 
         [JsonProperty(JobRecordProperties.SearchParams)]
         public List<string> SearchParams { get; private set; } = new List<string>();
+#pragma warning restore CA1002
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
         public uint MaximumNumberOfResourcesPerQuery { get; private set; }

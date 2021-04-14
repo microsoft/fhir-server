@@ -400,6 +400,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 using (SqlCommand sqlCommand = connection.CreateCommand())
                 {
+#pragma warning disable CA2100
                     sqlCommand.CommandText = $@"
                         SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
                         BEGIN TRANSACTION
@@ -420,6 +421,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     sqlCommand.Parameters.AddWithValue("@stringValue", stringValue);
 
+#pragma warning restore CA2100
                     id = (int)sqlCommand.ExecuteScalar();
 
                     cache.TryAdd(stringValue, id);

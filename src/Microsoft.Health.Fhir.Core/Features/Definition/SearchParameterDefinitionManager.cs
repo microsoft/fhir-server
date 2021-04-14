@@ -166,7 +166,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (!UrlLookup.TryRemove(new Uri(searchParamWrapper.Url), out searchParameterInfo))
             {
+#pragma warning disable CA2201
                 throw new Exception(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
+#pragma warning restore CA2201
             }
 
             var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
@@ -181,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public async Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
         {
             CalculateSearchParameterHash();
-            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter));
+            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
         }
     }
 }

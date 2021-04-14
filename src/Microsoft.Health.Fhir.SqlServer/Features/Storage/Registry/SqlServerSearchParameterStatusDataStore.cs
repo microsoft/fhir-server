@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         {
                             // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
                             // They should be populated as soon as they are added to the table and should never be null.
-                            throw new NullReferenceException(Resources.SearchParameterStatusShouldNotBeNull);
+                            throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
                         }
 
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
@@ -115,7 +116,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         }
 
         // TODO: Make cancellation token an input.
-        public async Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -133,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses));
+                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
 
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
                 {

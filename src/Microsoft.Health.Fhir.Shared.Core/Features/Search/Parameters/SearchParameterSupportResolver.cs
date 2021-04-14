@@ -19,7 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public class SearchParameterSupportResolver : ISearchParameterSupportResolver
     {
-        private readonly ISearchParameterDefinitionManager _definitionManager;
         private readonly ITypedElementToSearchValueTypeConverterManager _searchValueTypeConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
         private const string _codeOfTName = "codeOfT";
@@ -31,7 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             EnsureArg.IsNotNull(definitionManager, nameof(definitionManager));
             EnsureArg.IsNotNull(searchValueTypeConverterManager, nameof(searchValueTypeConverterManager));
 
-            _definitionManager = definitionManager;
             _searchValueTypeConverterManager = searchValueTypeConverterManager;
         }
 

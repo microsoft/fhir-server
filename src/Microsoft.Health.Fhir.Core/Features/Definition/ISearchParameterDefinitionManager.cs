@@ -38,21 +38,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType);
 
         /// <summary>
-        /// Retrieves the search parameter with <paramref name="name"/> associated with <paramref name="resourceType"/>.
+        /// Retrieves the search parameter with <paramref name="url"/> associated with <paramref name="resourceType"/>.
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
-        /// <param name="name">The name of the search parameter.</param>
-        /// <param name="searchParameter">When this method returns, the search parameter with the given <paramref name="name"/> associated with the <paramref name="resourceType"/> if it exists; otherwise, the default value.</param>
+        /// <param name="code">The code of the search parameter.</param>
+        /// <param name="searchParameter">When this method returns, the search parameter with the given <paramref name="code"/> associated with the <paramref name="resourceType"/> if it exists; otherwise, the default value.</param>
         /// <returns><c>true</c> if the search parameter exists; otherwise, <c>false</c>.</returns>
-        bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter);
+        bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter);
 
         /// <summary>
-        /// Retrieves the search parameter with <paramref name="name"/> associated with <paramref name="resourceType"/>.
+        /// Retrieves the search parameter with <paramref name="code"/> associated with <paramref name="resourceType"/>.
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
-        /// <param name="name">The name of the search parameter.</param>
-        /// <returns>The search parameter with the given <paramref name="name"/> associated with the <paramref name="resourceType"/>.</returns>
-        SearchParameterInfo GetSearchParameter(string resourceType, string name);
+        /// <param name="code">The code of the search parameter.</param>
+        /// <returns>The search parameter with the given <paramref name="code"/> associated with the <paramref name="resourceType"/>.</returns>
+        SearchParameterInfo GetSearchParameter(string resourceType, string code);
 
         /// <summary>
         /// Retrieves the search parameter with <paramref name="definitionUri"/>.

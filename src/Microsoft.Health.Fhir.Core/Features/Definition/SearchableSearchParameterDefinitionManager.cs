@@ -49,11 +49,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
+        public bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter)
         {
             searchParameter = null;
 
-            if (_inner.TryGetSearchParameter(resourceType, name, out var parameter) &&
+            if (_inner.TryGetSearchParameter(resourceType, code, out var parameter) &&
                 (parameter.IsSearchable || (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported)))
             {
                 searchParameter = parameter;
@@ -64,9 +64,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return false;
         }
 
-        public SearchParameterInfo GetSearchParameter(string resourceType, string name)
+        public SearchParameterInfo GetSearchParameter(string resourceType, string code)
         {
-            SearchParameterInfo parameter = _inner.GetSearchParameter(resourceType, name);
+            SearchParameterInfo parameter = _inner.GetSearchParameter(resourceType, code);
 
             if (parameter.IsSearchable ||
                 (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported))
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 return parameter;
             }
 
-            throw new SearchParameterNotSupportedException(resourceType, name);
+            throw new SearchParameterNotSupportedException(resourceType, code);
         }
 
         public SearchParameterInfo GetSearchParameter(Uri definitionUri)

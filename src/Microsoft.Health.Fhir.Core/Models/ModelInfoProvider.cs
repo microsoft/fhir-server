@@ -52,7 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             if (_modelInfoProvider == null)
             {
+#pragma warning disable CA2201
                 throw new Exception("Please call SetProvider before using methods on this class.");
+#pragma warning restore CA2201
             }
         }
 

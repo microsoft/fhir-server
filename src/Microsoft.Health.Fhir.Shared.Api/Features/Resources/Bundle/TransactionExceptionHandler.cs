@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -15,20 +16,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     {
         public static void ThrowTransactionException(string errorMessage, HttpStatusCode statusCode, OperationOutcome operationOutcome)
         {
-            List<OperationOutcomeIssue> operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
+            OperationOutcomeIssue[] operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
 
             throw new FhirTransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }
 
-        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationOutcomeIssueList)
+        public static OperationOutcomeIssue[] GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationOutcomeIssueList)
         {
-            var issues = new List<OperationOutcomeIssue>();
-
-            operationOutcomeIssueList.ForEach(x =>
-                issues.Add(new OperationOutcomeIssue(
-                    x.Severity.ToString(),
-                    x.Code.ToString(),
-                    x.Diagnostics)));
+            var issues = new OperationOutcomeIssue[operationOutcomeIssueList.Count];
+            _ = operationOutcomeIssueList.Select((x, i) =>
+                  issues[i] = new OperationOutcomeIssue(
+                      x.Severity.ToString(),
+                      x.Code.ToString(),
+                      x.Diagnostics));
 
             return issues;
         }

@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private string GetCustomerManagedKeyErrorMessage(int subStatusCode)
+        private static string GetCustomerManagedKeyErrorMessage(int subStatusCode)
         {
             string errorMessage = Resources.CmkDefaultError;
 
