@@ -20,6 +20,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -169,6 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task Initialize(int version, bool runAllInitialization, CancellationToken cancellationToken)
         {
+            // This also covers the scenario when database is not setup so _highestInitializedVersion and version is 0.
             if (_highestInitializedVersion == version)
             {
                 return;
@@ -198,6 +200,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             _highestInitializedVersion = version;
+
+            await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
         }
 
         private async Task InitializeBase(CancellationToken cancellationToken)
