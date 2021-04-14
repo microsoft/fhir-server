@@ -199,6 +199,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsSelf();
 
+            services.Add<ResourceWriteClaimTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<CompartmentAssignmentTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
             return fhirServerBuilder;
         }
 

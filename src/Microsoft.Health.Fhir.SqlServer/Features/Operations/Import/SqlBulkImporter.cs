@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -26,13 +25,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
         private SqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private SqlServerFhirModel _sqlServerFhirModel;
+        private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
 
         public SqlBulkImporter(
-            SqlServerFhirModel sqlServerFhirModel,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
+            ISqlServerTransientFaultRetryPolicyFactory sqlServerTransientFaultRetryPolicyFactory,
             ResourceTableBulkCopyDataGenerator resourceTableBulkCopyDataGenerator,
+            CompartmentAssignmentTableBulkCopyDataGenerator compartmentAssignmentTableBulkCopyDataGenerator,
+            ResourceWriteClaimTableBulkCopyDataGenerator resourceWriteClaimTableBulkCopyDataGenerator,
             DateTimeSearchParamsTableBulkCopyDataGenerator dateTimeSearchParamsTableBulkCopyDataGenerator,
             NumberSearchParamsTableBulkCopyDataGenerator numberSearchParamsTableBulkCopyDataGenerator,
             QuantitySearchParamsTableBulkCopyDataGenerator quantitySearchParamsTableBulkCopyDataGenerator,
@@ -48,11 +49,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator)
         {
-            _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
+            _sqlServerTransientFaultRetryPolicyFactory = sqlServerTransientFaultRetryPolicyFactory;
 
             _generators.Add(resourceTableBulkCopyDataGenerator);
+            _generators.Add(compartmentAssignmentTableBulkCopyDataGenerator);
+            _generators.Add(resourceWriteClaimTableBulkCopyDataGenerator);
             _generators.Add(dateTimeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(numberSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(quantitySearchParamsTableBulkCopyDataGenerator);
@@ -135,7 +138,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             using SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection);
             bulkCopy.DestinationTableName = inputTable.TableName;
 
-            await bulkCopy.WriteToServerAsync(inputTable.CreateDataReader());
+            await _sqlServerTransientFaultRetryPolicyFactory.Create().ExecuteAndCaptureAsync(
+                async () =>
+                {
+                    await bulkCopy.WriteToServerAsync(inputTable.CreateDataReader());
+                });
 
             return (inputTable.TableName, endSurrogateId, inputTable.Rows.Count);
         }
