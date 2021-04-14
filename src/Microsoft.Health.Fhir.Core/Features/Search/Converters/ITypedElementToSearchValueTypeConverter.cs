@@ -3,15 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
-using Hl7.Fhir.Specification.Source;
+using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.Core.Features.Validation
+namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
-    public interface IProvideProfilesForValidation : IResourceResolver, IKnowSupportedProfiles
+    public interface ITypedElementToSearchValueTypeConverter
     {
-        IReadOnlySet<string> GetProfilesTypes();
+        IReadOnlyList<string> FhirNodeTypes { get; }
 
-        void Refresh();
+        Type SearchValueType { get; }
+
+        IEnumerable<ISearchValue> ConvertTo(ITypedElement value);
     }
 }

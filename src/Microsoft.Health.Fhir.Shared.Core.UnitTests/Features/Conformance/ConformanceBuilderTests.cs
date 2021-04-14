@@ -8,6 +8,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
@@ -22,13 +23,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
     {
         private readonly ICapabilityStatementBuilder _builder;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IKnowSupportedProfiles _supportedProfiles;
 
         public ConformanceBuilderTests()
         {
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            _supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
-                _searchParameterDefinitionManager);
+                _searchParameterDefinitionManager,
+                _supportedProfiles);
         }
 
         [Fact]
@@ -36,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         {
             string httpMicrosoftCom = "http://microsoft.com";
 
-            _builder.Update(x => x.Url = new Uri(httpMicrosoftCom));
+            _builder.Apply(x => x.Url = new Uri(httpMicrosoftCom));
 
             ITypedElement statement = _builder.Build();
 
@@ -46,20 +50,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingAnUnknownResource_ThenAnArgumentExceptionIsThrown()
+        public void GivenAConformanceBuilder_WhenApplyToUnknownResource_ThenAnArgumentExceptionIsThrown()
         {
-            Assert.Throws<ArgumentException>(() => _builder.AddRestInteraction("foo", TypeRestfulInteraction.Create));
+            Assert.Throws<ArgumentException>(() => _builder.ApplyToResource("foo", c => c.ConditionalCreate = true));
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingDefaultSearchParameters_ThenDocumentationIsAdded()
+        public void GivenAConformanceBuilder_WhenSyncSearchParameters_ThenDocumentationIsAdded()
         {
             string description = "Logical id of this artifact";
 
             _searchParameterDefinitionManager.GetSearchParameters("Account")
-                .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description),  });
+                .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description), });
 
-            _builder.AddDefaultSearchParameters();
+            _builder.SyncSearchParameters();
 
             ITypedElement statement = _builder.Build();
 
@@ -71,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenAuditEventDoesntHaveUpdateDelete()
         {
-            _builder.AddDefaultResourceInteractions();
+            _builder.PopulateDefaultResourceInteractions();
 
             ITypedElement statement = _builder.Build();
 
@@ -87,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenParameterTypeIsNotAdded()
         {
-            _builder.AddDefaultResourceInteractions();
+            _builder.PopulateDefaultResourceInteractions();
 
             ITypedElement statement = _builder.Build();
 
@@ -97,9 +101,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingRestSearchParam_ThenTypeSearchParamIsAdded()
+        public void GivenAConformanceBuilder_WhenAddingGlobalSearchParam_ThenTypeSearchParamIsAdded()
         {
-            _builder.AddDefaultRestSearchParams();
+            _builder.AddGlobalSearchParameters();
 
             ITypedElement statement = _builder.Build();
 
@@ -109,18 +113,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingResourceSearchParam_ThenTypeSearchParamIsNotAddedUnderResource()
+        public void GivenAConformanceBuilder_WhenAddingResourceSearchParamAndSync_ThenTypeSearchParamIsNotAddedUnderResource()
         {
             _searchParameterDefinitionManager.GetSearchParameters("Account")
                .Returns(new[] { new SearchParameterInfo("_type", "_type", SearchParamType.Token, description: "description"), });
 
-            _builder.AddDefaultSearchParameters();
+            _builder.SyncSearchParameters();
 
             ITypedElement statement = _builder.Build();
 
             object typeName = statement.Scalar($"{ResourceQuery("Account")}.searchParam.where(name = '_type').name");
 
             Assert.Null(typeName);
+        }
+
+        [Fact]
+        public void GivenAConformanceBuilder_WhenAddingSupportedProfile_ThenSupportedProfilePresent()
+        {
+            string profile = "coolProfile";
+            _supportedProfiles.GetSupportedProfiles("Account").Returns(new[] { profile });
+            _builder.PopulateDefaultResourceInteractions().SyncProfiles();
+            ITypedElement statement = _builder.Build();
+            string fhirPath = ModelInfoProvider.Version == FhirSpecification.Stu3
+                ? $"CapabilityStatement.profile.where(reference='{profile}').exists()"
+                : $"{ResourceQuery("Account")}.supportedProfile.first()='{profile}'";
+            var profileFound = (bool)statement.Scalar(fhirPath);
+            Assert.True(profileFound);
         }
 
         private static string ResourceQuery(string resource)

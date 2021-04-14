@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenRequestIdHeader_WhenSendRequest_TheServerShouldReturnSameValueInCorrelationHeader()
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, "/Patient");
+            var message = new HttpRequestMessage(HttpMethod.Get, "Patient");
             var id = Guid.NewGuid().ToString();
             message.Headers.Add(KnownHeaders.RequestId, id);
 
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenNoRequestHeader_WhenSendRequest_TheServerShouldntReturnCorrelationId()
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, "/Patient");
+            var message = new HttpRequestMessage(HttpMethod.Get, "Patient");
 
             using HttpResponseMessage response = await _client.HttpClient.SendAsync(message);
 

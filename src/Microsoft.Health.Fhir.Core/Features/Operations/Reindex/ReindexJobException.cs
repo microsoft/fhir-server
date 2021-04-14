@@ -3,15 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using Hl7.Fhir.Specification.Source;
+using System;
 
-namespace Microsoft.Health.Fhir.Core.Features.Validation
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
-    public interface IProvideProfilesForValidation : IResourceResolver, IKnowSupportedProfiles
+    public class ReindexJobException : Exception
     {
-        IReadOnlySet<string> GetProfilesTypes();
-
-        void Refresh();
+        public ReindexJobException(string message, Exception inner)
+            : base(message, inner)
+        {
+        }
     }
 }

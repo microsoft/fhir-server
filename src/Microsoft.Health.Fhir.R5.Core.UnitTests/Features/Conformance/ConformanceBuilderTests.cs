@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenProfileIsAddedAtResource()
         {
-            _builder.AddDefaultResourceInteractions();
+            _builder.PopulateDefaultResourceInteractions();
 
             ITypedElement statement = _builder.Build();
 
