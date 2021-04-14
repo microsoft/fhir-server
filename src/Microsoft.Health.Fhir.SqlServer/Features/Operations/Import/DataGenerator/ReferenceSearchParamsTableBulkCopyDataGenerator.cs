@@ -34,14 +34,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             foreach (ReferenceSearchParamTableTypeV2Row searchParam in searchParams)
             {
-                DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                FillColumn(newRow, VLatest.ReferenceSearchParam.BaseUri.Metadata.Name, searchParam.BaseUri);
-                FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name, searchParam.ReferenceResourceTypeId);
-                FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name, searchParam.ReferenceResourceId);
-                FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceVersion.Metadata.Name, searchParam.ReferenceResourceVersion);
-
-                table.Rows.Add(newRow);
+                FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, ReferenceSearchParamTableTypeV2Row searchParam)
+        {
+            DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
+            FillColumn(newRow, VLatest.ReferenceSearchParam.BaseUri.Metadata.Name, searchParam.BaseUri);
+            FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceTypeId.Metadata.Name, searchParam.ReferenceResourceTypeId);
+            FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceId.Metadata.Name, searchParam.ReferenceResourceId);
+            FillColumn(newRow, VLatest.ReferenceSearchParam.ReferenceResourceVersion.Metadata.Name, searchParam.ReferenceResourceVersion);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSearchParamsSchema(DataTable table)

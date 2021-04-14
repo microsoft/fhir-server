@@ -34,18 +34,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             foreach (TokenNumberNumberCompositeSearchParamTableTypeV1Row searchParam in searchParams)
             {
-                DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);
-                FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.Code1.Metadata.Name, searchParam.Code1);
-                FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.SingleValue2.Metadata.Name, searchParam.SingleValue2);
-                FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.LowValue2.Metadata.Name, searchParam.LowValue2);
-                FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.HighValue2.Metadata.Name, searchParam.HighValue2);
-                FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.SingleValue3.Metadata.Name, searchParam.SingleValue3);
-                FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.LowValue3.Metadata.Name, searchParam.LowValue3);
-                FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.HighValue3.Metadata.Name, searchParam.HighValue3);
-
-                table.Rows.Add(newRow);
+                FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, TokenNumberNumberCompositeSearchParamTableTypeV1Row searchParam)
+        {
+            DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.Code1.Metadata.Name, searchParam.Code1);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.SingleValue2.Metadata.Name, searchParam.SingleValue2);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.LowValue2.Metadata.Name, searchParam.LowValue2);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.HighValue2.Metadata.Name, searchParam.HighValue2);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.SingleValue3.Metadata.Name, searchParam.SingleValue3);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.LowValue3.Metadata.Name, searchParam.LowValue3);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.HighValue3.Metadata.Name, searchParam.HighValue3);
+            FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.HasRange.Metadata.Name, searchParam.HasRange);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSearchParamsSchema(DataTable table)
@@ -58,6 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.SingleValue3.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.SingleValue3.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.LowValue3.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.LowValue3.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.HighValue3.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.HighValue3.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenNumberNumberCompositeSearchParam.HasRange.Metadata.Name, VLatest.TokenNumberNumberCompositeSearchParam.HasRange.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

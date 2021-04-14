@@ -10,21 +10,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 {
     internal class ResourceTableBulkCopyDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>
     {
+        private const string ImportMethod = "PUT";
+
         internal override string TableName => VLatest.Resource.TableName;
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {
+            FillDataTable(table, input.ResourceTypeId, input.Resource.ResourceId, input.ResourceSurrogateId, input.CompressedRawData, input.Resource.SearchParameterHash);
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, string resourceId, long resourceSurrogateId, byte[] data, string searchParameterHash)
+        {
             DataRow newRow = table.NewRow();
 
-            FillColumn(newRow, VLatest.Resource.ResourceTypeId.Metadata.Name, input.ResourceTypeId);
-            FillColumn(newRow, VLatest.Resource.ResourceId.Metadata.Name, input.Resource.ResourceId);
+            FillColumn(newRow, VLatest.Resource.ResourceTypeId.Metadata.Name, resourceTypeId);
+            FillColumn(newRow, VLatest.Resource.ResourceId.Metadata.Name, resourceId);
             FillColumn(newRow, VLatest.Resource.Version.Metadata.Name, 1);
             FillColumn(newRow, VLatest.Resource.IsHistory.Metadata.Name, true);
-            FillColumn(newRow, VLatest.Resource.ResourceSurrogateId.Metadata.Name, input.ResourceSurrogateId);
+            FillColumn(newRow, VLatest.Resource.ResourceSurrogateId.Metadata.Name, resourceSurrogateId);
             FillColumn(newRow, VLatest.Resource.IsDeleted.Metadata.Name, false);
-            FillColumn(newRow, VLatest.Resource.RequestMethod.Metadata.Name, "PUT");
-            FillColumn(newRow, VLatest.Resource.RawResource.Metadata.Name, input.CompressedRawData);
+            FillColumn(newRow, VLatest.Resource.RequestMethod.Metadata.Name, ImportMethod);
+            FillColumn(newRow, VLatest.Resource.RawResource.Metadata.Name, data);
             FillColumn(newRow, VLatest.Resource.IsRawResourceMetaSet.Metadata.Name, true);
+            FillColumn(newRow, VLatest.Resource.SearchParamHash.Metadata.Name, searchParameterHash);
 
             table.Rows.Add(newRow);
         }
@@ -40,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.Resource.RequestMethod.Metadata.Name, VLatest.Resource.RequestMethod.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.Resource.RawResource.Metadata.Name, VLatest.Resource.RawResource.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.Resource.IsRawResourceMetaSet.Metadata.Name, VLatest.Resource.IsRawResourceMetaSet.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.Resource.SearchParamHash.Metadata.Name, VLatest.Resource.SearchParamHash.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

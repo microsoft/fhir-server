@@ -34,14 +34,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             foreach (TokenTokenCompositeSearchParamTableTypeV1Row searchParam in searchParams)
             {
-                DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                FillColumn(newRow, VLatest.TokenTokenCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);
-                FillColumn(newRow, VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.Name, searchParam.Code1);
-                FillColumn(newRow, VLatest.TokenTokenCompositeSearchParam.SystemId2.Metadata.Name, searchParam.SystemId2);
-                FillColumn(newRow, VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.Name, searchParam.Code2);
-
-                table.Rows.Add(newRow);
+                FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, TokenTokenCompositeSearchParamTableTypeV1Row searchParam)
+        {
+            DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
+            FillColumn(newRow, VLatest.TokenTokenCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);
+            FillColumn(newRow, VLatest.TokenTokenCompositeSearchParam.Code1.Metadata.Name, searchParam.Code1);
+            FillColumn(newRow, VLatest.TokenTokenCompositeSearchParam.SystemId2.Metadata.Name, searchParam.SystemId2);
+            FillColumn(newRow, VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.Name, searchParam.Code2);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSearchParamsSchema(DataTable table)

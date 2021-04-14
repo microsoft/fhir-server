@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Data;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -35,16 +34,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             foreach (ReferenceTokenCompositeSearchParamTableTypeV2Row searchParam in searchParams)
             {
-                DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.BaseUri1.Metadata.Name, searchParam.BaseUri1);
-                FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceTypeId1.Metadata.Name, searchParam.ReferenceResourceTypeId1);
-                FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1.Metadata.Name, searchParam.ReferenceResourceId1);
-                FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceVersion1.Metadata.Name, searchParam.ReferenceResourceVersion1);
-                FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.SystemId2.Metadata.Name, searchParam.SystemId2);
-                FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.Name, searchParam.Code2);
-
-                table.Rows.Add(newRow);
+                FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, ReferenceTokenCompositeSearchParamTableTypeV2Row searchParam)
+        {
+            DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
+            FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.BaseUri1.Metadata.Name, searchParam.BaseUri1);
+            FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceTypeId1.Metadata.Name, searchParam.ReferenceResourceTypeId1);
+            FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceId1.Metadata.Name, searchParam.ReferenceResourceId1);
+            FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.ReferenceResourceVersion1.Metadata.Name, searchParam.ReferenceResourceVersion1);
+            FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.SystemId2.Metadata.Name, searchParam.SystemId2);
+            FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.Code2.Metadata.Name, searchParam.Code2);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSearchParamsSchema(DataTable table)

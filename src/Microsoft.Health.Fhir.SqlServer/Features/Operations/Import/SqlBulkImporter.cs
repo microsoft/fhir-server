@@ -10,10 +10,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
-using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
@@ -24,13 +23,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
         private SqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
-        private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
+        private IFhirDataBulkOperation _fhirDataBulkOperation;
 
         public SqlBulkImporter(
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            IFhirDataBulkOperation fhirDataBulkOperation,
             SqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
-            ISqlServerTransientFaultRetryPolicyFactory sqlServerTransientFaultRetryPolicyFactory,
             ResourceTableBulkCopyDataGenerator resourceTableBulkCopyDataGenerator,
             CompartmentAssignmentTableBulkCopyDataGenerator compartmentAssignmentTableBulkCopyDataGenerator,
             ResourceWriteClaimTableBulkCopyDataGenerator resourceWriteClaimTableBulkCopyDataGenerator,
@@ -49,9 +46,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator)
         {
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _fhirDataBulkOperation = fhirDataBulkOperation;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
-            _sqlServerTransientFaultRetryPolicyFactory = sqlServerTransientFaultRetryPolicyFactory;
 
             _generators.Add(resourceTableBulkCopyDataGenerator);
             _generators.Add(compartmentAssignmentTableBulkCopyDataGenerator);
@@ -134,15 +130,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task<(string tableName, long endSurrogateId, long count)> BulkCopyAsync(DataTable inputTable, long endSurrogateId, CancellationToken cancellationToken)
         {
-            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection);
-            bulkCopy.DestinationTableName = inputTable.TableName;
-
-            await _sqlServerTransientFaultRetryPolicyFactory.Create().ExecuteAndCaptureAsync(
-                async () =>
-                {
-                    await bulkCopy.WriteToServerAsync(inputTable.CreateDataReader());
-                });
+            await _fhirDataBulkOperation.BulkCopyDataAsync(inputTable, cancellationToken);
 
             return (inputTable.TableName, endSurrogateId, inputTable.Rows.Count);
         }
