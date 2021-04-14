@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     {
         private readonly ConcurrentDictionary<string, bool> _evaluatedQueries = new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
-        public abstract Task<ResourceElement> GetCapabilityStatementAsync(CancellationToken cancellationToken = default(CancellationToken));
+        public abstract Task<ResourceElement> GetCapabilityStatementOnStartup(CancellationToken cancellationToken = default(CancellationToken));
 
         internal void ClearCache()
         {
@@ -30,9 +30,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             EnsureArg.IsNotNull(queries, nameof(queries));
 
-            ResourceElement capabilityStatement = await GetCapabilityStatementAsync(cancellationToken);
+            ResourceElement capabilityStatement = await GetCapabilityStatementOnStartup(cancellationToken);
 
             return queries.All(x => _evaluatedQueries.GetOrAdd(x.FhirPathPredicate, _ => capabilityStatement.Instance.Predicate(x.FhirPathPredicate)));
         }
+
+        public abstract Task<ResourceElement> GetMetadata(CancellationToken cancellationToken = default);
     }
 }

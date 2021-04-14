@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
         {
             if (_featureConfiguration.SupportsXml)
             {
-                builder.Update(x => x.Format.Add(KnownContentTypes.XmlContentType));
+                builder.Apply(x => x.Format.Add(KnownContentTypes.XmlContentType));
             }
         }
     }

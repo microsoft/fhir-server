@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,6 +20,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -44,6 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ISqlConnectionStringProvider _sqlConnectionStringProvider;
+        private readonly IMediator _mediator;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
@@ -60,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
             ISqlConnectionStringProvider sqlConnectionStringProvider,
+            IMediator mediator,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -74,6 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
             _sqlConnectionStringProvider = sqlConnectionStringProvider;
+            _mediator = mediator;
             _logger = logger;
         }
 
@@ -161,6 +166,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
             await Initialize((int)_schemaInformation.Current, true, CancellationToken.None);
+
+            await _mediator.Publish(new StorageInitializedNotification(), cancellationToken);
         }
 
         public Task StopAsync(CancellationToken cancellationToken)

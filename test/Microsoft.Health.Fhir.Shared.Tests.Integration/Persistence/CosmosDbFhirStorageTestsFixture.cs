@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         private Container _container;
         private CosmosFhirDataStore _fhirDataStore;
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator);
             await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
