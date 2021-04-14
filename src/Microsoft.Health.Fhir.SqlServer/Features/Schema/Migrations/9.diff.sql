@@ -17,7 +17,7 @@ BEGIN
         TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
         IsMin bit NOT NULL,
         IsMax bit NOT NULL
-    );
+    )
 END
 
 IF NOT EXISTS (SELECT 'X' FROM SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID(N'StringSearchParam') AND NAME = 'IsMin')
@@ -81,7 +81,7 @@ BEGIN
         IsLongerThanADay bit NOT NULL,
         IsMin bit NOT NULL,
         IsMax bit NOT NULL
-    );
+    )
 END
 
 IF NOT EXISTS (SELECT 'X' FROM SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID(N'DateTimeSearchParam') AND NAME = 'IsMin')
