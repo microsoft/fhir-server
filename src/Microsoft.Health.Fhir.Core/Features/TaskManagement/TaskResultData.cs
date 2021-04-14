@@ -7,6 +7,11 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
     public class TaskResultData
     {
+        // add this for json deserialize
+        public TaskResultData()
+        {
+        }
+
         public TaskResultData(TaskResult result, string resultData)
         {
             Result = result;
