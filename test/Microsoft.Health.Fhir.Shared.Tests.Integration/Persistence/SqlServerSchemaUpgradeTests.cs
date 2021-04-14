@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Theory]
         [InlineData((int)SchemaVersion.V7)]
+        [InlineData((int)SchemaVersion.V8)]
         [InlineData(SchemaVersionConstants.Max)]
         public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed(int schemaVersion)
         {
