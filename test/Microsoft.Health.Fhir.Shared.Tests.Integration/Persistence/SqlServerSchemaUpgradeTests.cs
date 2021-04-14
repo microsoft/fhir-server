@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -99,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
-            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>());
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSchemaVersion);
@@ -178,6 +179,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
+                ("Procedure", "[dbo].[UpsertResource_3]"),
+                ("Procedure", "[dbo].[ReindexResource]"),
+                ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),
@@ -196,6 +200,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
@@ -205,7 +211,43 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            return remainingDifferences.Count == 0;
+            // Some of the schema changes we are making to tables include addition of columns. In order to support
+            // upgrading older schemas to the newer ones we have to add default constraints to the upgrade script.
+            // These constraints will not be present in databases that were directly initialized with the latest schema.
+            // We need to exclude these constraints from the schema difference comparison.
+            bool unexpectedDifference = false;
+            HashSet<string> constraintNames = new HashSet<string>()
+            {
+                "[dbo].[date_IsMin_Constraint]",
+                "[dbo].[date_IsMax_Constraint]",
+                "[dbo].[string_IsMin_Constraint]",
+                "[dbo].[string_IsMax_Constraint]",
+            };
+
+            foreach (SchemaDifference schemaDifference in remainingDifferences)
+            {
+                if (schemaDifference.TargetObject.ObjectType.Name == "Table")
+                {
+                    foreach (SchemaDifference child in schemaDifference.Children)
+                    {
+                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
+                        {
+                            // Expected
+                            continue;
+                        }
+                        else
+                        {
+                            unexpectedDifference = true;
+                        }
+                    }
+                }
+                else
+                {
+                    unexpectedDifference = true;
+                }
+            }
+
+            return !unexpectedDifference;
         }
     }
 }
