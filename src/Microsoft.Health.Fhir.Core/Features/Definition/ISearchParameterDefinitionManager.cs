@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType);
 
         /// <summary>
-        /// Retrieves the search parameter with <paramref name="url"/> associated with <paramref name="resourceType"/>.
+        /// Retrieves the search parameter with <paramref name="code"/> associated with <paramref name="resourceType"/>.
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
         /// <param name="code">The code of the search parameter.</param>

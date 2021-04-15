@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Like <see cref="EnsureAllocatedAndPopulated{TExpression}(ref TExpression[],IReadOnlyList{TExpression},int)"/>,
+        /// Like <see cref="EnsureAllocatedAndPopulated{TExpression}(ref TExpression[], IReadOnlyList{TExpression}, int)"/>,
         /// but where the destination list if is of a derived type
         /// </summary>
         /// <typeparam name="TDestination">The destination list type</typeparam>
