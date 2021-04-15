@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -93,7 +92,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SqlServerFhirModel>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IHostedService>();
+                .AsImplementedInterfaces();
 
             services.Add<SchemaUpgradedHandler>()
                 .Transient()
