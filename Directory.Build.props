@@ -35,10 +35,8 @@
     </When>
     <Otherwise>
       <PropertyGroup>
-        <EnableNETAnalyzers>true</EnableNETAnalyzers>
         <AnalysisMode>AllEnabledByDefault</AnalysisMode>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-        <NoWarn>$(NoWarn);CA1014;CA1805;CA1508;CA1062;CA1031;CA1019;CA1008</NoWarn>
         <IsPackable>true</IsPackable>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
       </PropertyGroup>
