@@ -12,6 +12,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
@@ -372,12 +373,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
+        /// <param name="patchDocument">The JSON patch document</param>
         [HttpPatch]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Controller methods won't be called if static.")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "Need the parameters for routing to work.")]
-        public Task<IActionResult> Patch(string typeParameter, string idParameter)
+        public Task<IActionResult> Patch(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument)
         {
             throw new MethodNotAllowedException(Resources.PatchNotSupported);
         }
