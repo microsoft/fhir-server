@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
             GetBulkImportResponse bulkImportResponse;
 
             var taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
-            var taskResult = ResloveTaskInfoResult(taskInfo.Result);
+            var taskResult = TaskResultData.ResloveTaskResultFromDbString(taskInfo.Result);
 
             // We have an existing job. We will determine the response based on the status of the bulk import operation.
             if (taskInfo.IsCanceled || taskResult?.Result == TaskResult.Canceled)
@@ -77,17 +77,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
             }
 
             return bulkImportResponse;
-        }
-
-        public static TaskResultData ResloveTaskInfoResult(string result)
-        {
-            if (string.IsNullOrEmpty(result))
-            {
-                return null;
-            }
-
-            result = Regex.Unescape(result).TrimStart('\"').TrimEnd('\"');
-            return JsonSerializer.Deserialize<TaskResultData>(result);
         }
     }
 }

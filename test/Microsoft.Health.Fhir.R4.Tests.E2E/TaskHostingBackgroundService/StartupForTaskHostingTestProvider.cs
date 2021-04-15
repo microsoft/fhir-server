@@ -7,13 +7,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
-using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {
-    public class StartupForBulkImportTestProvider : StartupBaseForCustomProviders
+    public class StartupForTaskHostingTestProvider : StartupBaseForCustomProviders
     {
-        public StartupForBulkImportTestProvider(IConfiguration configuration)
+        public StartupForTaskHostingTestProvider(IConfiguration configuration)
             : base(configuration)
         {
         }

@@ -4,15 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Microsoft.CodeAnalysis.FlowAnalysis;
 using Microsoft.Health.Fhir.Client;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -23,16 +17,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.BulkImport)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-    public class BulkImportTests : IClassFixture<BulkImportTestFixture>
+    public class BulkImportTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
         private readonly TestFhirClient _client;
-        private readonly bool _isUsingInProcTestServer;
 
-        public BulkImportTests(BulkImportTestFixture fixture)
+        public BulkImportTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
-            _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
         }
 
         [SkippableFact]
@@ -56,45 +48,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var request = Samples.GetDefaultBulkImportRequest();
             Uri contentLocation = await tempClient.BulkImportAsync(request);
             await tempClient.CancelBulkImport(contentLocation);
-        }
-
-        [Fact]
-        public async Task CreateASuccessTask_WhenBulkImport_CorrectResponseShouldReturn()
-        {
-            if (!_isUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with a customized task factory.
-                return;
-            }
-
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
-
-            var request = Samples.GetDefaultBulkImportRequest();
-            request.InputSource = new Uri("http://successTask");
-            Uri contentLocation = await tempClient.BulkImportAsync(request);
-            Assert.False(string.IsNullOrWhiteSpace(contentLocation.ToString()));
-            await Task.Delay(5000);
-            await tempClient.CheckBulkImportAsync(contentLocation);
-        }
-
-        [Fact]
-        public async Task CreateAFailueTask_WhenBulkImport_ExceptionShouldBeThrown()
-        {
-            if (!_isUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with a customized task factory.
-                return;
-            }
-
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
-
-            var request = Samples.GetDefaultBulkImportRequest();
-            request.InputSource = new Uri("http://failueTask");
-            Uri contentLocation = await tempClient.BulkImportAsync(request);
-            Assert.False(string.IsNullOrWhiteSpace(contentLocation.ToString()));
-
-            await Task.Delay(5000);
-            await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CheckBulkImportAsync(contentLocation));
         }
     }
 }

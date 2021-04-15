@@ -8,7 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
@@ -19,19 +21,31 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
     public class TaskHostingBackgroundService : BackgroundService
     {
         private readonly Func<IScoped<TaskHosting>> _taskHostingFactory;
+        private readonly TaskHostingConfiguration _taskHostingConfiguration;
 
-        public TaskHostingBackgroundService(Func<IScoped<TaskHosting>> taskHostingFactory)
+        public TaskHostingBackgroundService(Func<IScoped<TaskHosting>> taskHostingFactory, IOptions<TaskHostingConfiguration> taskHostingConfiguration)
         {
             EnsureArg.IsNotNull(taskHostingFactory, nameof(taskHostingFactory));
 
             _taskHostingFactory = taskHostingFactory;
+            _taskHostingConfiguration = taskHostingConfiguration.Value;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             using (IScoped<TaskHosting> taskHosting = _taskHostingFactory())
             {
-                await taskHosting.Value.StartAsync(CancellationTokenSource.CreateLinkedTokenSource(stoppingToken));
+                var taskHostingValue = taskHosting.Value;
+                if (_taskHostingConfiguration != null)
+                {
+                    taskHostingValue.PollingFrequencyInSeconds = _taskHostingConfiguration.PollingFrequencyInSeconds ?? taskHostingValue.PollingFrequencyInSeconds;
+                    taskHostingValue.MaxRunningTaskCount = _taskHostingConfiguration.MaxRunningTaskCount ?? taskHostingValue.MaxRunningTaskCount;
+                    taskHostingValue.MaxRetryCount = _taskHostingConfiguration.MaxRetryCount ?? taskHostingValue.MaxRetryCount;
+                    taskHostingValue.TaskHeartbeatIntervalInSeconds = _taskHostingConfiguration.TaskHeartbeatIntervalInSeconds ?? taskHostingValue.TaskHeartbeatIntervalInSeconds;
+                    taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds = _taskHostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds;
+                }
+
+                await taskHostingValue.StartAsync(CancellationTokenSource.CreateLinkedTokenSource(stoppingToken));
             }
         }
     }

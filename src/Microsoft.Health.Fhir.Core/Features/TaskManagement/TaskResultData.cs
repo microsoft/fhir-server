@@ -3,6 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Text.Json;
+using System.Text.RegularExpressions;
+
 namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
     public class TaskResultData
@@ -21,5 +24,16 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
         public TaskResult Result { get; set; }
 
         public string ResultData { get; set; }
+
+        public static TaskResultData ResloveTaskResultFromDbString(string result)
+        {
+            if (string.IsNullOrEmpty(result))
+            {
+                return null;
+            }
+
+            result = Regex.Unescape(result).TrimStart('\"').TrimEnd('\"');
+            return JsonSerializer.Deserialize<TaskResultData>(result);
+        }
     }
 }

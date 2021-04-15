@@ -6,11 +6,11 @@
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {
-    public class BulkImportTestFixture : HttpIntegrationTestFixture<StartupForBulkImportTestProvider>
+    public class TaskHostingTestFixture : HttpIntegrationTestFixture<StartupForTaskHostingTestProvider>
     {
-        public BulkImportTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+        public TaskHostingTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
         }

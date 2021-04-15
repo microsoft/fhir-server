@@ -11,6 +11,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public string QueueId { get; set; }
 
-        public int TaskHeartbeatTimeoutThresholdInSeconds { get; set; }
+        public int? TaskHeartbeatTimeoutThresholdInSeconds { get; set; }
+
+        public int? PollingFrequencyInSeconds { get; set; }
+
+        public short? MaxRunningTaskCount { get; set; }
+
+        public short? MaxRetryCount { get; set; }
+
+        public int? TaskHeartbeatIntervalInSeconds { get; set; }
     }
 }
