@@ -7,9 +7,6 @@ using System;
 using System.Data;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.SqlServer.Features.Schema.Model;
-using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import
 {
