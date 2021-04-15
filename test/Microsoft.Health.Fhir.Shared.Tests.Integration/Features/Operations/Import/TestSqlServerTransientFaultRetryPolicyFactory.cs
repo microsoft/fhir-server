@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     {
         public IAsyncPolicy Create()
         {
-            return Policy.NoOpAsync();
+            return Policy.TimeoutAsync(60);
         }
     }
 }

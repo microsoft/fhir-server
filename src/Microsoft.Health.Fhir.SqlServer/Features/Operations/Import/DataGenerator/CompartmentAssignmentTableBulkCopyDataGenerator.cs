@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Data;
-using EnsureThat;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -17,8 +16,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         public CompartmentAssignmentTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<ResourceMetadata, CompartmentAssignmentTableTypeV1Row> generator)
         {
-            EnsureArg.IsNotNull(generator, nameof(generator));
-
             _generator = generator;
         }
 
@@ -28,16 +25,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
         {
             foreach (var rowData in _generator.GenerateRows(input.Metadata))
             {
-                DataRow newRow = table.NewRow();
-
-                FillColumn(newRow, VLatest.CompartmentAssignment.ResourceTypeId.Metadata.Name, input.ResourceTypeId);
-                FillColumn(newRow, VLatest.CompartmentAssignment.ResourceSurrogateId.Metadata.Name, input.ResourceSurrogateId);
-                FillColumn(newRow, VLatest.CompartmentAssignment.CompartmentTypeId.Metadata.Name, rowData.CompartmentTypeId);
-                FillColumn(newRow, VLatest.CompartmentAssignment.ReferenceResourceId.Metadata.Name, rowData.ReferenceResourceId);
-                FillColumn(newRow, VLatest.CompartmentAssignment.IsHistory.Metadata.Name, true);
-
-                table.Rows.Add(newRow);
+                FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, rowData);
             }
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, CompartmentAssignmentTableTypeV1Row rowData)
+        {
+            DataRow newRow = table.NewRow();
+
+            FillColumn(newRow, VLatest.CompartmentAssignment.ResourceTypeId.Metadata.Name, resourceTypeId);
+            FillColumn(newRow, VLatest.CompartmentAssignment.ResourceSurrogateId.Metadata.Name, resourceSurrogateId);
+            FillColumn(newRow, VLatest.CompartmentAssignment.CompartmentTypeId.Metadata.Name, rowData.CompartmentTypeId);
+            FillColumn(newRow, VLatest.CompartmentAssignment.ReferenceResourceId.Metadata.Name, rowData.ReferenceResourceId);
+            FillColumn(newRow, VLatest.CompartmentAssignment.IsHistory.Metadata.Name, true);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSchema(DataTable table)

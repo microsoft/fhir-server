@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,21 +39,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection))
+            using (SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection, SqlBulkCopyOptions.CheckConstraints | SqlBulkCopyOptions.UseInternalTransaction | SqlBulkCopyOptions.KeepNulls, null))
             {
                 bulkCopy.DestinationTableName = dataTable.TableName;
 
                 try
                 {
-                    await _sqlServerTransientFaultRetryPolicyFactory.Create().ExecuteAndCaptureAsync(
+                    await _sqlServerTransientFaultRetryPolicyFactory.Create().ExecuteAsync(
                         async () =>
                         {
                             await bulkCopy.WriteToServerAsync(dataTable.CreateDataReader());
                         });
                 }
-                catch (SqlException sqlEx)
+                catch (Exception ex)
                 {
-                    _logger.LogError(sqlEx, $"Failed to bulk copy data.");
+                    _logger.LogError(ex, $"Failed to bulk copy data.");
 
                     throw;
                 }

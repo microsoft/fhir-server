@@ -28,6 +28,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         public SqlBulkImporter(
             IFhirDataBulkOperation fhirDataBulkOperation,
             SqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
+            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators)
+        {
+            _fhirDataBulkOperation = fhirDataBulkOperation;
+            _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
+            _generators = generators;
+        }
+
+        public SqlBulkImporter(
+            IFhirDataBulkOperation fhirDataBulkOperation,
+            SqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             ResourceTableBulkCopyDataGenerator resourceTableBulkCopyDataGenerator,
             CompartmentAssignmentTableBulkCopyDataGenerator compartmentAssignmentTableBulkCopyDataGenerator,
             ResourceWriteClaimTableBulkCopyDataGenerator resourceWriteClaimTableBulkCopyDataGenerator,

@@ -121,6 +121,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             ValidataDataTable(VLatest.UriSearchParam, table);
         }
 
+        [Fact]
+        public void GivenCompartmentAssignmentRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        {
+            DataTable table = TestBulkDataProvider.GenerateCompartmentAssignmentTable(1, 1000);
+            ValidataDataTable(VLatest.CompartmentAssignment, table);
+        }
+
+        [Fact]
+        public void GivenResourceWriteClaimRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        {
+            DataTable table = TestBulkDataProvider.GenerateResourceWriteClaimTable(1, 1000);
+            ValidataDataTable(VLatest.ResourceWriteClaim, table);
+        }
+
         private void ValidataDataTable<T>(T tableDefination, DataTable dataTable)
         {
             Dictionary<string, string> realColumnRecords = new Dictionary<string, string>();

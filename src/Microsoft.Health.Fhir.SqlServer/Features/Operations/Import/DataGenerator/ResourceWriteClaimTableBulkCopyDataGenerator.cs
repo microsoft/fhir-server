@@ -5,7 +5,6 @@
 
 using System.Collections.Generic;
 using System.Data;
-using EnsureThat;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -18,8 +17,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         public ResourceWriteClaimTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<ResourceMetadata, ResourceWriteClaimTableTypeV1Row> generator)
         {
-            EnsureArg.IsNotNull(generator, nameof(generator));
-
             _generator = generator;
         }
 
@@ -33,15 +30,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             {
                 foreach (var claim in _generator.GenerateRows(input.Metadata))
                 {
-                    DataRow newRow = table.NewRow();
-
-                    FillColumn(newRow, VLatest.ResourceWriteClaim.ResourceSurrogateId.Metadata.Name, input.ResourceSurrogateId);
-                    FillColumn(newRow, VLatest.ResourceWriteClaim.ClaimTypeId.Metadata.Name, claim.ClaimTypeId);
-                    FillColumn(newRow, VLatest.ResourceWriteClaim.ClaimValue.Metadata.Name, claim.ClaimValue);
-
-                    table.Rows.Add(newRow);
+                    FillDataTable(table, input.ResourceSurrogateId, claim);
                 }
             }
+        }
+
+        internal void FillDataTable(DataTable table, long resourceSurrogateId, ResourceWriteClaimTableTypeV1Row claim)
+        {
+            DataRow newRow = table.NewRow();
+
+            FillColumn(newRow, VLatest.ResourceWriteClaim.ResourceSurrogateId.Metadata.Name, resourceSurrogateId);
+            FillColumn(newRow, VLatest.ResourceWriteClaim.ClaimTypeId.Metadata.Name, claim.ClaimTypeId);
+            FillColumn(newRow, VLatest.ResourceWriteClaim.ClaimValue.Metadata.Name, claim.ClaimValue);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSchema(DataTable table)

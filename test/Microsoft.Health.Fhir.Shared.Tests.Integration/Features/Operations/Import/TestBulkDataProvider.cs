@@ -7,6 +7,9 @@ using System;
 using System.Data;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
+using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import
 {
@@ -132,7 +135,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 1, null, 0, 0, 0, 0, 0, 0, true));
+                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 1, string.Empty, 0, 0, 0, 0, 0, 0, true));
             }
 
             return result;
@@ -146,7 +149,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, null, 0, 0, 0, 0, 0));
+                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, 0, 0, 0, 0, 0));
             }
 
             return result;
@@ -160,7 +163,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenSearchParamTableTypeV1Row(0, 0, null));
+                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenSearchParamTableTypeV1Row(0, 0, string.Empty));
             }
 
             return result;
@@ -174,7 +177,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenStringCompositeSearchParamTableTypeV1Row(0, 0, null, null, null));
+                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenStringCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, string.Empty, string.Empty));
             }
 
             return result;
@@ -188,7 +191,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenTextTableTypeV1Row(0, null));
+                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenTextTableTypeV1Row(0, string.Empty));
             }
 
             return result;
@@ -202,13 +205,55 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenTokenCompositeSearchParamTableTypeV1Row(0, 0, null, 0, null));
+                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenTokenCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, 0, string.Empty));
             }
 
             return result;
         }
 
         public static DataTable GenerateUriSearchParamsTable(int count, long startSurrogatedId)
+        {
+            UriSearchParamsTableBulkCopyDataGenerator generator = new UriSearchParamsTableBulkCopyDataGenerator(null);
+
+            DataTable result = generator.GenerateDataTable();
+
+            for (int i = 0; i < count; ++i)
+            {
+                generator.FillDataTable(result, 103, startSurrogatedId + i, new UriSearchParamTableTypeV1Row(0, string.Empty));
+            }
+
+            return result;
+        }
+
+        public static DataTable GenerateCompartmentAssignmentTable(int count, long startSurrogatedId)
+        {
+            CompartmentAssignmentTableBulkCopyDataGenerator generator = new CompartmentAssignmentTableBulkCopyDataGenerator(null);
+
+            DataTable result = generator.GenerateDataTable();
+
+            for (int i = 0; i < count; ++i)
+            {
+                generator.FillDataTable(result, 103, startSurrogatedId + i, new CompartmentAssignmentTableTypeV1Row(1, string.Empty));
+            }
+
+            return result;
+        }
+
+        public static DataTable GenerateResourceWriteClaimTable(int count, long startSurrogatedId)
+        {
+            ResourceWriteClaimTableBulkCopyDataGenerator generator = new ResourceWriteClaimTableBulkCopyDataGenerator(null);
+
+            DataTable result = generator.GenerateDataTable();
+
+            for (int i = 0; i < count; ++i)
+            {
+                generator.FillDataTable(result, startSurrogatedId + i, new ResourceWriteClaimTableTypeV1Row(1, string.Empty));
+            }
+
+            return result;
+        }
+
+        public static DataTable GenerateInValidUriSearchParamsTable(int count, long startSurrogatedId)
         {
             UriSearchParamsTableBulkCopyDataGenerator generator = new UriSearchParamsTableBulkCopyDataGenerator(null);
 
