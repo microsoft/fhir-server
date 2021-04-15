@@ -45,11 +45,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .ReplaceService<ISearchParameterStatusDataStore>();
 
-            services.Add<SqlServerFhirModel>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services.Add<SearchParameterToSearchValueTypeMap>()
                 .Singleton()
                 .AsSelf();
@@ -93,6 +88,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
+
+            services.Add<SqlServerFhirModel>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             services.Add<SchemaUpgradedHandler>()
                 .Transient()

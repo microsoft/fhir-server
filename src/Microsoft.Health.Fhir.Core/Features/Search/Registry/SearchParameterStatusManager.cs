@@ -6,19 +6,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Core;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class SearchParameterStatusManager : IRequireInitializationOnFirstRequest
+    public class SearchParameterStatusManager : INotificationHandler<StorageInitializedNotification>
     {
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _mediator = mediator;
         }
 
-        public async Task EnsureInitialized()
+        internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();
 
@@ -92,7 +93,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
-            await _mediator.Publish(new SearchParametersUpdated(updated));
+            await _mediator.Publish(new SearchParametersUpdated(updated), cancellationToken);
+        }
+
+        public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            await EnsureInitializedAsync(cancellationToken);
         }
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)

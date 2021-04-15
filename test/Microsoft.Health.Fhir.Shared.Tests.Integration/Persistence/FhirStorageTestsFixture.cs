@@ -5,6 +5,7 @@
 
 using System;
 using System.Net.Http;
+using System.Security.AccessControl;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -96,6 +97,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public SchemaUpgradeRunner SchemaUpgradeRunner => _fixture.GetRequiredService<SchemaUpgradeRunner>();
 
+        public SearchParameterStatusManager SearchParameterStatusManager => _fixture.GetRequiredService<SearchParameterStatusManager>();
+
         public void Dispose()
         {
             (_fixture as IDisposable)?.Dispose();
@@ -121,7 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             organizationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.NoVersion;
 
             ConformanceProvider = Substitute.For<ConformanceProviderBase>();
-            ConformanceProvider.GetCapabilityStatementAsync().Returns(CapabilityStatement.ToTypedElement().ToResourceElement());
+            ConformanceProvider.GetCapabilityStatementOnStartup().Returns(CapabilityStatement.ToTypedElement().ToResourceElement());
 
             // TODO: FhirRepository instantiate ResourceDeserializer class directly
             // which will try to deserialize the raw resource. We should mock it as well.

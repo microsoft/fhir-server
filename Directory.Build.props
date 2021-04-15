@@ -21,8 +21,8 @@
     <!--This will target the latest patch release of the runtime released with the current SDK.  -->
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
-    <AspNetPackageVersion>5.0.4</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>1.2.3</HealthcareSharedPackageVersion>
+    <AspNetPackageVersion>5.0.5</AspNetPackageVersion>
+    <HealthcareSharedPackageVersion>2.1.9</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>3.0.0</Hl7FhirVersion>
   </PropertyGroup>
 
@@ -51,9 +51,14 @@
   </ItemGroup>
 
   <Choose>
-    <When Condition="$(MSBuildProjectName)!='SmartLauncher' AND !$(MSBuildProjectName.Contains('Test'))">
+    <When Condition="$(MSBuildProjectName)!='SmartLauncher' and $(MSBuildProjectName)!='FhirAnalyzer'  AND !$(MSBuildProjectName.Contains('Test'))">
       <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" PrivateAssets="All" />
+
+        <ProjectReference Include="..\..\tools\FhirAnalyzer\FhirAnalyzer.csproj">
+          <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+          <OutputItemType>Analyzer</OutputItemType>
+        </ProjectReference>
       </ItemGroup>
     </When>
   </Choose>

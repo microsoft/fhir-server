@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -18,7 +19,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 {
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class FhirOperationDataStoreReindexTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly IFhirOperationDataStore _operationDataStore;
@@ -38,6 +39,24 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
         public Task DisposeAsync()
         {
             return Task.CompletedTask;
+        }
+
+        [Fact]
+        public async Task GivenAMatchingReindexJob_WhenGettingById_ThenTheMatchingReindexJobShouldBeReturned()
+        {
+            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
+
+            ReindexJobWrapper jobWrapper = await _operationDataStore.GetReindexJobByIdAsync(jobRecord.Id, CancellationToken.None);
+
+            Assert.Equal(jobRecord.Id, jobWrapper?.JobRecord?.Id);
+        }
+
+        [Fact]
+        public async Task GivenNoMatchingReindexJob_WhenGettingById_ThenJobNotFoundExceptionShouldBeThrown()
+        {
+            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync();
+
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.GetReindexJobByIdAsync("test", CancellationToken.None));
         }
 
         [Fact]
@@ -156,6 +175,113 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
                 return await AcquireReindexJobsAsync(maximumNumberOfConcurrentJobAllowed: 2);
             }
+        }
+
+        [Fact]
+        public async Task GivenARunningReindexJob_WhenUpdatingTheReindexJob_ThenTheJobShouldBeUpdated()
+        {
+            ReindexJobWrapper jobWrapper = await CreateRunningReindexJob();
+            ReindexJobRecord job = jobWrapper.JobRecord;
+
+            job.Status = OperationStatus.Completed;
+
+            await _operationDataStore.UpdateReindexJobAsync(job, jobWrapper.ETag, CancellationToken.None);
+            ReindexJobWrapper updatedJobWrapper = await _operationDataStore.GetReindexJobByIdAsync(job.Id, CancellationToken.None);
+
+            ValidateReindexJobRecord(job, updatedJobWrapper?.JobRecord);
+        }
+
+        [Fact]
+        public async Task GivenAnOldVersionOfAReindexJob_WhenUpdatingTheReindexJob_ThenJobConflictExceptionShouldBeThrown()
+        {
+            ReindexJobWrapper jobWrapper = await CreateRunningReindexJob();
+            ReindexJobRecord job = jobWrapper.JobRecord;
+
+            // Update the job for a first time. This should not fail.
+            job.Status = OperationStatus.Completed;
+            WeakETag jobVersion = jobWrapper.ETag;
+            await _operationDataStore.UpdateReindexJobAsync(job, jobVersion, CancellationToken.None);
+
+            // Attempt to update the job a second time with the old version.
+            await Assert.ThrowsAsync<JobConflictException>(() => _operationDataStore.UpdateReindexJobAsync(job, jobVersion, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenANonexistentReindexJob_WhenUpdatingTheReindexJob_ThenJobNotFoundExceptionShouldBeThrown()
+        {
+            ReindexJobWrapper jobWrapper = await CreateRunningReindexJob();
+
+            ReindexJobRecord job = jobWrapper.JobRecord;
+            WeakETag jobVersion = jobWrapper.ETag;
+
+            await _testHelper.DeleteReindexJobRecordAsync(job.Id);
+
+            await Assert.ThrowsAsync<JobNotFoundException>(() => _operationDataStore.UpdateReindexJobAsync(job, jobVersion, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenThereIsARunningReindexJob_WhenSimultaneousUpdateCallsOccur_ThenJobConflictExceptionShouldBeThrown()
+        {
+            ReindexJobWrapper runningJobWrapper = await CreateRunningReindexJob();
+
+            var completionSource = new TaskCompletionSource<bool>();
+
+            Task<ReindexJobWrapper>[] tasks = new[]
+            {
+                WaitAndUpdateReindexJobAsync(runningJobWrapper),
+                WaitAndUpdateReindexJobAsync(runningJobWrapper),
+                WaitAndUpdateReindexJobAsync(runningJobWrapper),
+            };
+
+            completionSource.SetResult(true);
+
+            await Assert.ThrowsAsync<JobConflictException>(() => Task.WhenAll(tasks));
+
+            async Task<ReindexJobWrapper> WaitAndUpdateReindexJobAsync(ReindexJobWrapper jobWrapper)
+            {
+                await completionSource.Task;
+
+                jobWrapper.JobRecord.Status = OperationStatus.Completed;
+                return await _operationDataStore.UpdateReindexJobAsync(jobWrapper.JobRecord, jobWrapper.ETag, CancellationToken.None);
+            }
+        }
+
+        [Theory]
+        [InlineData(OperationStatus.Running)]
+        [InlineData(OperationStatus.Queued)]
+        [InlineData(OperationStatus.Paused)]
+        public async Task GivenAnActiveReindexJob_WhenGettingActiveReindexJobs_ThenTheCorrectJobIdShouldBeReturned(OperationStatus operationStatus)
+        {
+            ReindexJobRecord jobRecord = await InsertNewReindexJobRecordAsync(job => job.Status = operationStatus);
+
+            (bool, string) activeReindexJobResult = await _operationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None);
+
+            Assert.True(activeReindexJobResult.Item1);
+            Assert.Equal(jobRecord.Id, activeReindexJobResult.Item2);
+        }
+
+        [Theory]
+        [InlineData(OperationStatus.Canceled)]
+        [InlineData(OperationStatus.Completed)]
+        [InlineData(OperationStatus.Failed)]
+        [InlineData(OperationStatus.Unknown)]
+        public async Task GivenNoActiveReindexJobs_WhenGettingActiveReindexJobs_ThenNoJobIdShouldBeReturned(OperationStatus operationStatus)
+        {
+            await InsertNewReindexJobRecordAsync(job => job.Status = operationStatus);
+
+            (bool, string) activeReindexJobResult = await _operationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None);
+
+            Assert.False(activeReindexJobResult.Item1);
+            Assert.Empty(activeReindexJobResult.Item2);
+        }
+
+        [Fact]
+        public async Task GivenNoReindexJobs_WhenGettingActiveReindexJobs_ThenNoJobIdShouldBeReturned()
+        {
+            (bool, string) activeReindexJobResult = await _operationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None);
+
+            Assert.False(activeReindexJobResult.Item1);
+            Assert.Empty(activeReindexJobResult.Item2);
         }
 
         private async Task<ReindexJobWrapper> CreateRunningReindexJob()

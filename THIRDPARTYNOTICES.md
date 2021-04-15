@@ -29,7 +29,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## Ensure.That 9.2.0
+## Ensure.That 10.0.0
 * Component Source:   https://github.com/danielwertheim/Ensure.That/
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -54,7 +54,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## FluentValidation 8.6.1
+## FluentValidation 9.5.3
 * Component Source:   https://github.com/JeremySkinner/fluentvalidation/
 * Component Copyright and License:
   >                                  Apache License
@@ -300,7 +300,7 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## Hl7.Fhir.R5 1.7.0-alpha
+## Hl7.Fhir.R5 1.9.0-beta-june2020
 * Component Source:   https://github.com/FirelyTeam/fhir-net-api
 * Component Copyright and License:  
   > Copyright (c) 2013-2020, HL7, Firely (info@fire.ly), Microsoft Open Technologies 
@@ -333,7 +333,7 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## IdentityServer4 2.5.3
+## IdentityServer4 4.1.2
 * Component Source:   https://github.com/IdentityServer/IdentityServer4
 * Component Copyright and License:
   >                                  Apache License
@@ -539,7 +539,7 @@ This file is based on or incorporates material from the projects listed below (T
   >    limitations under the License.
   > 
 
-## MediatR 8.0.0
+## MediatR 9.0.0
 * Component Source:   https://github.com/jbogard/MediatR
 * Component Copyright and License:
   > Apache License
@@ -805,7 +805,7 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## prometheus-net.AspNetCore 3.6.0
+## prometheus-net.AspNetCore 4.1.1
 * Component Source:   https://github.com/prometheus-net/prometheus-net
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -831,7 +831,7 @@ This file is based on or incorporates material from the projects listed below (T
   > SOFTWARE.
 
   
-## prometheus-net.DotnetRuntime 3.3.1
+## prometheus-net.DotnetRuntime 3.4.1
 * Component Source:   https://github.com/djluck/prometheus-net.DotNetRuntime
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -879,7 +879,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## StyleCop.Analyzers 1.1.118
+## StyleCop.Analyzers 1.2.0-beta.321
 * Component Source:   https://github.com/DotNetAnalyzers/StyleCopAnalyzers/
 * Component Copyright and License:  
   >Copyright (c) Tunnel Vision Laboratories, LLC. All rights reserved.

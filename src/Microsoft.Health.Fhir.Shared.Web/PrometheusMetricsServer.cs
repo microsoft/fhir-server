@@ -36,7 +36,6 @@ namespace Microsoft.Health.Fhir.Web
                 if (_prometheusMetricsConfig.DotnetRuntimeMetrics)
                 {
                     DotNetRuntimeStatsBuilder.Customize()
-                        .WithThreadPoolSchedulingStats()
                         .WithContentionStats()
                         .WithGcStats()
                         .WithJitStats()

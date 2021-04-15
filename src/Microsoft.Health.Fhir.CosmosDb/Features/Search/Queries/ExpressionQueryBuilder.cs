@@ -102,20 +102,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     // we will override the mapping for that
                     expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => SearchValueConstants.LastModified));
                     break;
-                case SearchValueConstants.TypeIdCompositeSearchParameterName:
-                    // This is an internal composite search parameter with components _type and _id, used when performing a query for includes.
-                    // We use the SearchValueConstants.RootResourceTypeName and SearchValueConstants.ResourceId fields respectively.
-                    expression.Expression.AcceptVisitor(
-                        this,
-                        context.WithFieldNameOverride(
-                            (fieldName, componentIndex) =>
-                                componentIndex switch
-                                {
-                                    0 => SearchValueConstants.RootResourceTypeName,
-                                    1 => KnownResourceWrapperProperties.ResourceId,
-                                    _ => throw new InvalidOperationException("unexpected component index"),
-                                }));
-                    break;
                 case SearchValueConstants.WildcardReferenceSearchParameterName:
                     // This is an internal search parameter that that matches any reference search parameter.
                     // It is used for wildcard revinclude queries

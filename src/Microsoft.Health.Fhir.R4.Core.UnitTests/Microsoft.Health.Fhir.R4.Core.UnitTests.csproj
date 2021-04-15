@@ -14,7 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.9.4" />
     <PackageReference Include="NSubstitute" Version="4.2.2" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3" />
@@ -27,9 +27,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Operations\Export\" />
   </ItemGroup>
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems" Label="Shared" />
