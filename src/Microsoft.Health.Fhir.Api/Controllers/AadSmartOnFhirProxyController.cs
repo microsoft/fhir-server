@@ -71,11 +71,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var openIdConfigurationUrl = $"{securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;
-            using var httpClient = httpClientFactory.CreateClient();
-
+#pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
+            var client = _httpClientFactory.CreateClient();
+#pragma warning restore CA2000
             try
             {
-                openIdConfigurationResponse = httpClient.GetAsync(new Uri(openIdConfigurationUrl)).GetAwaiter().GetResult();
+                openIdConfigurationResponse = client.GetAsync(new Uri(openIdConfigurationUrl)).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -299,8 +300,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 throw new AadSmartOnFhirProxyBadRequestException(string.Format(Resources.ValueCannotBeNull, ex.ParamName), ex);
             }
-
-            using var client = _httpClientFactory.CreateClient();
+#pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
+            var client = _httpClientFactory.CreateClient();
+#pragma warning restore CA2000
 
             // Azure AD supports client_credentials, etc.
             // These are used in tests and may have value even when SMART proxy is used.
@@ -356,14 +358,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // TODO: Deal with client secret in basic auth header
             using var content = new FormUrlEncodedContent(
-                new[]
-                {
+                 new[]
+                 {
                     new KeyValuePair<string, string>("grant_type", grantType),
                     new KeyValuePair<string, string>("code", code),
                     new KeyValuePair<string, string>("redirect_uri", callbackUrl.AbsoluteUri),
                     new KeyValuePair<string, string>("client_id", clientId),
                     new KeyValuePair<string, string>("client_secret", clientSecret),
-                });
+                 });
 
             HttpResponseMessage response = await client.PostAsync(new Uri(_aadTokenEndpoint), content);
 
