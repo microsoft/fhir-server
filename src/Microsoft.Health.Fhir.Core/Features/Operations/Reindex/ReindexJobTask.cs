@@ -393,7 +393,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await jobSemaphore.WaitAsync();
                     try
                     {
-                        _logger.LogInformation($"Reindex job updating progress, current result count: {0}", results.Results.Count());
+                        _logger.LogInformation("Reindex job updating progress, current result count: {0}", results.Results.Count());
                         _reindexJobRecord.Progress += results.Results.Count();
                         query.Status = OperationStatus.Completed;
 
@@ -409,7 +409,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, $"Reindex error occurred recording progress.");
+                        _logger.LogWarning(ex, "Reindex error occurred recording progress.");
                         throw;
                     }
                     finally
