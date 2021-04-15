@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private IFhirDataBulkOperation _fhirDataBulkOperation;
         private IContextUpdater _contextUpdater;
         private IBulkResourceLoader _resourceLoader;
-        private BulkRawResourceProcessor _rawResourceProcessor;
+        private IBulkRawResourceProcessor _rawResourceProcessor;
         private IBulkImporter<BulkImportResourceWrapper> _bulkImporter;
         private IFhirRequestContextAccessor _contextAccessor;
         private ILogger<BulkImportDataProcessingTask> _logger;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IFhirDataBulkOperation fhirDataBulkOperation,
             IContextUpdater contextUpdater,
             IBulkResourceLoader resourceLoader,
-            BulkRawResourceProcessor rawResourceProcessor,
+            IBulkRawResourceProcessor rawResourceProcessor,
             IBulkImporter<BulkImportResourceWrapper> bulkImporter,
             IFhirRequestContextAccessor contextAccessor,
             ILoggerFactory loggerFactory)

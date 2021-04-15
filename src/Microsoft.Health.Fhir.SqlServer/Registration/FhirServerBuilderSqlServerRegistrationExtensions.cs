@@ -137,7 +137,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<SqlBulkCopyDataWrapperFactory>()
                 .Transient()
-                .AsSelf();
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             services.Add<DateTimeSearchParamsTableBulkCopyDataGenerator>()
                 .Transient()

@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkRawResourceProcessor
+    public class BulkRawResourceProcessor : IBulkRawResourceProcessor
     {
         internal const int MaxBatchSize = 1000;
         internal static readonly int MaxConcurrentCount = Environment.ProcessorCount * 2;
