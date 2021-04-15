@@ -18,16 +18,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     internal class SqlBulkImporter : IBulkImporter<BulkImportResourceWrapper>
     {
-        private const int MaxResourceCountInBatch = 10000;
-        private const int MaxConcurrentCount = 3;
+        private const int DefaultMaxResourceCountInBatch = 10000;
+        private const int DefaultMaxConcurrentCount = 3;
 
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
-        private SqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
+        private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
         private IFhirDataBulkOperation _fhirDataBulkOperation;
 
         public SqlBulkImporter(
             IFhirDataBulkOperation fhirDataBulkOperation,
-            SqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
+            ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators)
         {
             _fhirDataBulkOperation = fhirDataBulkOperation;
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         public SqlBulkImporter(
             IFhirDataBulkOperation fhirDataBulkOperation,
-            SqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
+            ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             ResourceTableBulkCopyDataGenerator resourceTableBulkCopyDataGenerator,
             CompartmentAssignmentTableBulkCopyDataGenerator compartmentAssignmentTableBulkCopyDataGenerator,
             ResourceWriteClaimTableBulkCopyDataGenerator resourceWriteClaimTableBulkCopyDataGenerator,
@@ -77,6 +77,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _generators.Add(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(uriSearchParamsTableBulkCopyDataGenerator);
         }
+
+        public int MaxResourceCountInBatch { get; set; } = DefaultMaxResourceCountInBatch;
+
+        public int MaxConcurrentCount { get; set; } = DefaultMaxConcurrentCount;
 
         public async Task<long> ImportResourceAsync(Channel<BulkImportResourceWrapper> inputChannel, IProgress<(string tableName, long endSurrogateId)> progress,  CancellationToken cancellationToken)
         {
