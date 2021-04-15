@@ -45,13 +45,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             bool matchFound = false;
             for (int i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
-                SearchParamTableExpression currentExpression = expression.SearchParamTableExpressions[i];
-                Expression updatedExpression = currentExpression.Predicate.AcceptVisitor(this, context);
-                if (ReferenceEquals(currentExpression.Predicate, updatedExpression))
-                {
-                    continue;
-                }
-                else
+                Expression updatedExpression = expression.SearchParamTableExpressions[i].Predicate.AcceptVisitor(this, context);
+                if (updatedExpression == null)
                 {
                     matchFound = true;
                     break;
@@ -76,16 +71,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 if (expression.Parameter.Equals(context.Sort[0].searchParameterInfo))
                 {
-                    return new SearchParameterExpression(expression.Parameter, expression.Expression);
+                    // We are returning null here to notify that we have found a SearchParameterExpression
+                    // for the same search parameter used for sort.
+                    return null;
                 }
             }
 
             return expression;
-        }
-
-        public override Expression VisitMultiary(MultiaryExpression expression, SearchOptions context)
-        {
-            return base.VisitMultiary(expression, context);
         }
     }
 }

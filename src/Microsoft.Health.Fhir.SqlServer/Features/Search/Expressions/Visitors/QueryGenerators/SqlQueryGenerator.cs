@@ -394,8 +394,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             var sortExpression = (paramInfo == null || paramInfo.Code == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
 
             // Everything in the top expression is considered a match
-            string selectTop = sortExpression == null ? "SELECT DISTINCT" : "SELECT";
-            StringBuilder.Append($"{selectTop} TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
+            string selectStatement = sortExpression == null ? "SELECT DISTINCT" : "SELECT";
+            StringBuilder.Append($"{selectStatement} TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                 .Append("FROM ").AppendLine(tableExpressionName)
                 .AppendLine($"ORDER BY {(sortExpression == null ? string.Empty : $"{sortExpression} {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}, ")} Sid1 {((sortExpression != null || sortOrder == SortOrder.Ascending) ? "ASC" : "DESC")}");

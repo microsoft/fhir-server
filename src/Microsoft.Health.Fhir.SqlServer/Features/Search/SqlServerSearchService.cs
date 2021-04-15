@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ISortingValidator _sortingValidator;
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
-        private const int _resourceTableColumnCount = 10;
+        private const int _defaultResourceTableFinalSelectColumnCount = 11;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -268,9 +268,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             newContinuationId = resourceSurrogateId;
 
+                            // For normal queries, we select _defaultResourceTableFinalSelectColumnCount number of columns.
+                            // If we have more, that means we have an extra column tracking sort value.
                             // Keep track of sort value if this is the last row.
-                            // if we have more than 11 columns, it means sort expressions were added.
-                            if (matchCount == searchOptions.MaxItemCount - 1 && reader.FieldCount > _resourceTableColumnCount + 1)
+                            if (matchCount == searchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultResourceTableFinalSelectColumnCount)
                             {
                                 var tempSortValue = reader.GetValue(SortValueColumnName);
                                 if ((tempSortValue as DateTime?) != null)
