@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _resourceIdSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.Id);
         }
 
-        protected override async Task<SearchResult> SearchInternalAsync(
+        public override async Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
@@ -430,6 +430,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 }
 
                 return (results, nextContinuationToken, feedOptions.MaxConcurrency);
+            }
+            catch (Exception)
+            {
+                return (null, null, null);
             }
             finally
             {

@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddAnonymizedExportDetails);
             }
 
-            builder.Update(AddMemberMatchDetails);
+            builder.Apply(AddMemberMatchDetails);
         }
 
         public void AddAnonymizedExportDetails(ListedCapabilityStatement capabilityStatement)
