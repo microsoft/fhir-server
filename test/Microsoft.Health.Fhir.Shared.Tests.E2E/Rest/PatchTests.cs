@@ -4,7 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
@@ -25,11 +28,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAServerThatDoesNotSupportIt_WhenSubmittingAPatch_ThenMethodNotAllowedIsReturned()
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAPatch_ThenServerShouldPatchCorrectly()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync("Patient/1234", "patch content"));
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            string patchDocument = "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}]";
 
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, ex.StatusCode);
+            var patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.NoContent, patch.Response.StatusCode);
         }
     }
 }

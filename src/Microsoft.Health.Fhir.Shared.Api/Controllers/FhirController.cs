@@ -384,6 +384,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             PatchResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), patchDocument, HttpContext.RequestAborted);
 
             // return ToSaveOutcomeResult(response);
+            // To-do: Change from no content to the corresponding content.
             return FhirResult.NoContent();
         }
 
