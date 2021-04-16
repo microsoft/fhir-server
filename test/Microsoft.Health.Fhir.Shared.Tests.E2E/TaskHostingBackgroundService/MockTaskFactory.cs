@@ -8,6 +8,13 @@ using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {
+    public enum MockTaskType
+    {
+        Fail = 100,
+        Success,
+        Loop,
+    }
+
     public class MockTaskFactory : ITaskFactory
     {
         private IContextUpdaterFactory _contextUpdaterFactory;
@@ -22,16 +29,23 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
             IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
             contextUpdater.UpdateContextAsync(taskInfo.RetryCount.ToString(), CancellationToken.None);
 
-            if (taskInfo.TaskTypeId == 101)
+            if (taskInfo.TaskTypeId == (short)MockTaskType.Fail)
             {
                 return new MockFailueTask
                 {
                     RunId = taskInfo.RunId,
                 };
             }
-            else
+            else if (taskInfo.TaskTypeId == (short)MockTaskType.Success)
             {
                 return new MockSuccessTask
+                {
+                    RunId = taskInfo.RunId,
+                };
+            }
+            else
+            {
+                return new MockLoopTask
                 {
                     RunId = taskInfo.RunId,
                 };

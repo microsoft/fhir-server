@@ -29,6 +29,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
                 Enabled = true,
                 QueueId = "0",
                 MaxRetryCount = 3,
+                MaxRunningTaskCount = 5,
+                TaskHeartbeatTimeoutThresholdInSeconds = 600,
             };
 
             IOptions<TaskHostingConfiguration> options = Options.Create(configuration);
