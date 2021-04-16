@@ -11,8 +11,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {
     public class TaskHostingTestFixture : HttpIntegrationTestFixture<StartupForTaskHostingTestProvider>
     {
-        // private const string LocalConnectionString = "server=(local);Integrated Security=true";
-        private const string LocalConnectionString = "Server=tcp:zhouzhou.database.windows.net,1433;Initial Catalog=zhou;Persist Security Info=False;User ID=zhou;Password=Zz+4121691;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
+        private const string LocalConnectionString = "server=(local);Integrated Security=true";
 
         public TaskHostingTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
