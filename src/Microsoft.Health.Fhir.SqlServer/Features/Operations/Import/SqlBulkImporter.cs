@@ -89,7 +89,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             Queue<Task<(string tableName, long endSurrogateId, long count)>> runningTasks = new Queue<Task<(string, long, long)>>();
 
             long surrogateId = 0;
-            while (await inputChannel.Reader.WaitToReadAsync(cancellationToken) && !cancellationToken.IsCancellationRequested)
+
+            do
             {
                 await foreach (BulkImportResourceWrapper resource in inputChannel.Reader.ReadAllAsync())
                 {
@@ -124,6 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
             }
+            while (await inputChannel.Reader.WaitToReadAsync(cancellationToken) && !cancellationToken.IsCancellationRequested);
 
             string[] tableNames = buffer.Keys.ToArray();
             foreach (string tableName in tableNames)

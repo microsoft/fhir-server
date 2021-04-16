@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class BulkRawResourceProcessor : IBulkRawResourceProcessor
     {
-        internal const int MaxBatchSize = 1000;
+        internal const int DefaultMaxBatchSize = 1000;
         internal static readonly int MaxConcurrentCount = Environment.ProcessorCount * 2;
 
         private IBulkImportDataExtractor _bulkImportDataExtractor;
@@ -23,13 +23,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _bulkImportDataExtractor = bulkImportDataExtractor;
         }
 
+        public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
+
         public async Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, long startSurrogateId, CancellationToken cancellationToken)
         {
             long result = 0;
             List<string> buffer = new List<string>();
             Queue<Task<IEnumerable<BulkImportResourceWrapper>>> processingTasks = new Queue<Task<IEnumerable<BulkImportResourceWrapper>>>();
 
-            while (await inputChannel.Reader.WaitToReadAsync() && !cancellationToken.IsCancellationRequested)
+            do
             {
                 await foreach (string rawData in inputChannel.Reader.ReadAllAsync())
                 {
@@ -55,6 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     startSurrogateId += rawResources.Length;
                 }
             }
+            while (await inputChannel.Reader.WaitToReadAsync() && !cancellationToken.IsCancellationRequested);
 
             if (!cancellationToken.IsCancellationRequested)
             {

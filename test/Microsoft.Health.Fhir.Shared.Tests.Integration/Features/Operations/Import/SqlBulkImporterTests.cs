@@ -79,18 +79,19 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             Channel<BulkImportResourceWrapper> inputs = Channel.CreateUnbounded<BulkImportResourceWrapper>();
 
-            for (int i = 0; i < resourceCount; ++i)
+            Task produceTask = Task.Run(async () =>
             {
-                await inputs.Writer.WriteAsync(new BulkImportResourceWrapper(startSurrogatedId + i, 0, null, null));
-            }
+                for (int i = 0; i < resourceCount; ++i)
+                {
+                    await inputs.Writer.WriteAsync(new BulkImportResourceWrapper(startSurrogatedId + i, 0, null, null));
+                }
 
-            Dictionary<string, long> result = new Dictionary<string, long>();
-            Progress<(string tableName, long endSurrogateId)> progress =
-                new Progress<(string tableName, long endSurrogateId)>();
-            Task importTask = importer.ImportResourceAsync(inputs, progress, CancellationToken.None);
+                inputs.Writer.Complete();
+            });
 
-            await Task.Delay(TimeSpan.FromSeconds(10));
-            inputs.Writer.Complete();
+            Task importTask = importer.ImportResourceAsync(inputs, new Progress<(string tableName, long endSurrogateId)>(), CancellationToken.None);
+
+            await produceTask;
             await importTask;
 
             Assert.Equal(resourceCount, table1.Rows.Count);
