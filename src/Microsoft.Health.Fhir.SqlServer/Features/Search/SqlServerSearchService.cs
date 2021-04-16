@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ISortingValidator _sortingValidator;
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
-        private const int _resourceTableColumnCount = 10;
+        private const int _defaultResourceTableFinalSelectColumnCount = 11;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -229,9 +229,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     bool moreResults = false;
                     int matchCount = 0;
 
-                    // Currently we support only date time sort type.
-                    DateTime? sortValue = null;
-
+                    string sortValue = null;
                     var isResultPartial = false;
 
                     while (await reader.ReadAsync(cancellationToken))
@@ -270,11 +268,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             newContinuationId = resourceSurrogateId;
 
+                            // For normal queries, we select _defaultResourceTableFinalSelectColumnCount number of columns.
+                            // If we have more, that means we have an extra column tracking sort value.
                             // Keep track of sort value if this is the last row.
-                            // if we have more than 10 columns, it means sort expressions were added.
-                            if (matchCount == searchOptions.MaxItemCount - 1 && reader.FieldCount > _resourceTableColumnCount + 1)
+                            if (matchCount == searchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultResourceTableFinalSelectColumnCount)
                             {
-                                sortValue = reader.GetValue(SortValueColumnName) as DateTime?;
+                                var tempSortValue = reader.GetValue(SortValueColumnName);
+                                if ((tempSortValue as DateTime?) != null)
+                                {
+                                    sortValue = (tempSortValue as DateTime?).Value.ToString("o");
+                                }
+                                else
+                                {
+                                    sortValue = tempSortValue.ToString();
+                                }
                             }
 
                             matchCount++;
@@ -307,11 +314,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     ContinuationToken continuationToken = null;
                     if (moreResults)
                     {
-                        if (sortValue.HasValue)
+                        if (sortValue != null)
                         {
                             continuationToken = new ContinuationToken(new object[]
                             {
-                                sortValue.Value.ToString("o"),
+                                sortValue,
                                 newContinuationId ?? 0,
                             });
                         }

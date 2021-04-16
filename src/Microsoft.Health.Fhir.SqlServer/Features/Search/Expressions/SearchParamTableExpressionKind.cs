@@ -63,5 +63,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// Represents a table expression that is used to limit the number of included items.
         /// </summary>
         IncludeLimit,
+
+        /// <summary>
+        /// Represents a table expression that is used to sort the result of the base query where
+        /// the sort parameter is also present as a query parameter in the base search query.
+        /// </summary>
+        SortWithFilter,
     }
 }
