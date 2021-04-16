@@ -34,13 +34,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             foreach (NumberSearchParamTableTypeV1Row searchParam in searchParams)
             {
-                DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                FillColumn(newRow, VLatest.NumberSearchParam.SingleValue.Metadata.Name, searchParam.SingleValue);
-                FillColumn(newRow, VLatest.NumberSearchParam.LowValue.Metadata.Name, searchParam.LowValue);
-                FillColumn(newRow, VLatest.NumberSearchParam.HighValue.Metadata.Name, searchParam.HighValue);
-
-                table.Rows.Add(newRow);
+                FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, NumberSearchParamTableTypeV1Row searchParam)
+        {
+            DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
+            FillColumn(newRow, VLatest.NumberSearchParam.SingleValue.Metadata.Name, searchParam.SingleValue);
+            FillColumn(newRow, VLatest.NumberSearchParam.LowValue.Metadata.Name, searchParam.LowValue);
+            FillColumn(newRow, VLatest.NumberSearchParam.HighValue.Metadata.Name, searchParam.HighValue);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSearchParamsSchema(DataTable table)

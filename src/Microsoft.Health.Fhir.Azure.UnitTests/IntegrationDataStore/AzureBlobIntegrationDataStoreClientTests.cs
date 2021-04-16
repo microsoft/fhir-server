@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 using MemoryStream sourceStream = new MemoryStream();
                 using StreamWriter writer = new StreamWriter(sourceStream);
 
-                int lineNumber = 1024 * 1024;
+                int lineNumber = (1024 * 1024) + 3;
                 while (lineNumber-- > 0)
                 {
                     await writer.WriteLineAsync(Guid.NewGuid().ToString("N"));
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 using MemoryStream sourceStream = new MemoryStream();
                 using StreamWriter writer = new StreamWriter(sourceStream);
 
-                int lineNumber = 1024 * 1024;
+                int lineNumber = (1024 * 1024) + 3;
                 while (lineNumber-- > 0)
                 {
                     await writer.WriteLineAsync(Guid.NewGuid().ToString("N"));
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         {
             IntegrationDataStoreConfiguration configuration = new IntegrationDataStoreConfiguration()
             {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
+                StorageAccountConnection = Environment.GetEnvironmentVariable("IntegrationStore:ConnectionString") ?? "UseDevelopmentStorage=true",
             };
             AzureConnectionStringClientInitializerV2 initializer = new AzureConnectionStringClientInitializerV2(Options.Create(configuration), new NullLogger<AzureConnectionStringClientInitializerV2>());
             return initializer;

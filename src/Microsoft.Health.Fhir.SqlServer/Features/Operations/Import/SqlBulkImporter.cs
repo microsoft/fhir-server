@@ -10,29 +10,37 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     internal class SqlBulkImporter : IBulkImporter<BulkImportResourceWrapper>
     {
-        private const int MaxResourceCountInBatch = 10000;
-        private const int MaxConcurrentCount = 3;
+        private const int DefaultMaxResourceCountInBatch = 10000;
+        private const int DefaultMaxConcurrentCount = 3;
 
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
-        private SqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
-        private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private SqlServerFhirModel _sqlServerFhirModel;
+        private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
+        private IFhirDataBulkOperation _fhirDataBulkOperation;
 
         public SqlBulkImporter(
-            SqlServerFhirModel sqlServerFhirModel,
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            SqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
+            IFhirDataBulkOperation fhirDataBulkOperation,
+            ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
+            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators)
+        {
+            _fhirDataBulkOperation = fhirDataBulkOperation;
+            _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
+            _generators = generators;
+        }
+
+        public SqlBulkImporter(
+            IFhirDataBulkOperation fhirDataBulkOperation,
+            ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             ResourceTableBulkCopyDataGenerator resourceTableBulkCopyDataGenerator,
+            CompartmentAssignmentTableBulkCopyDataGenerator compartmentAssignmentTableBulkCopyDataGenerator,
+            ResourceWriteClaimTableBulkCopyDataGenerator resourceWriteClaimTableBulkCopyDataGenerator,
             DateTimeSearchParamsTableBulkCopyDataGenerator dateTimeSearchParamsTableBulkCopyDataGenerator,
             NumberSearchParamsTableBulkCopyDataGenerator numberSearchParamsTableBulkCopyDataGenerator,
             QuantitySearchParamsTableBulkCopyDataGenerator quantitySearchParamsTableBulkCopyDataGenerator,
@@ -48,11 +56,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator)
         {
-            _sqlServerFhirModel = sqlServerFhirModel;
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _fhirDataBulkOperation = fhirDataBulkOperation;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
 
             _generators.Add(resourceTableBulkCopyDataGenerator);
+            _generators.Add(compartmentAssignmentTableBulkCopyDataGenerator);
+            _generators.Add(resourceWriteClaimTableBulkCopyDataGenerator);
             _generators.Add(dateTimeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(numberSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(quantitySearchParamsTableBulkCopyDataGenerator);
@@ -69,15 +78,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _generators.Add(uriSearchParamsTableBulkCopyDataGenerator);
         }
 
+        public int MaxResourceCountInBatch { get; set; } = DefaultMaxResourceCountInBatch;
+
+        public int MaxConcurrentCount { get; set; } = DefaultMaxConcurrentCount;
+
         public async Task<long> ImportResourceAsync(Channel<BulkImportResourceWrapper> inputChannel, IProgress<(string tableName, long endSurrogateId)> progress,  CancellationToken cancellationToken)
         {
             long importedResourceCount = 0;
             Dictionary<string, DataTable> buffer = new Dictionary<string, DataTable>();
             Queue<Task<(string tableName, long endSurrogateId, long count)>> runningTasks = new Queue<Task<(string, long, long)>>();
-            await _sqlServerFhirModel.EnsureInitialized();
 
             long surrogateId = 0;
-            while (await inputChannel.Reader.WaitToReadAsync(cancellationToken) && !cancellationToken.IsCancellationRequested)
+
+            do
             {
                 await foreach (BulkImportResourceWrapper resource in inputChannel.Reader.ReadAllAsync())
                 {
@@ -112,6 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     }
                 }
             }
+            while (await inputChannel.Reader.WaitToReadAsync(cancellationToken) && !cancellationToken.IsCancellationRequested);
 
             string[] tableNames = buffer.Keys.ToArray();
             foreach (string tableName in tableNames)
@@ -132,11 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task<(string tableName, long endSurrogateId, long count)> BulkCopyAsync(DataTable inputTable, long endSurrogateId, CancellationToken cancellationToken)
         {
-            using SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true);
-            using SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection);
-            bulkCopy.DestinationTableName = inputTable.TableName;
-
-            await bulkCopy.WriteToServerAsync(inputTable.CreateDataReader());
+            await _fhirDataBulkOperation.BulkCopyDataAsync(inputTable, cancellationToken);
 
             return (inputTable.TableName, endSurrogateId, inputTable.Rows.Count);
         }

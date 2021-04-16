@@ -34,15 +34,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             foreach (QuantitySearchParamTableTypeV1Row searchParam in searchParams)
             {
-                DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-                FillColumn(newRow, VLatest.QuantitySearchParam.SystemId.Metadata.Name, searchParam.SystemId);
-                FillColumn(newRow, VLatest.QuantitySearchParam.QuantityCodeId.Metadata.Name, searchParam.QuantityCodeId);
-                FillColumn(newRow, VLatest.QuantitySearchParam.SingleValue.Metadata.Name, searchParam.SingleValue);
-                FillColumn(newRow, VLatest.QuantitySearchParam.LowValue.Metadata.Name, searchParam.LowValue);
-                FillColumn(newRow, VLatest.QuantitySearchParam.HighValue.Metadata.Name, searchParam.HighValue);
-
-                table.Rows.Add(newRow);
+                FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, QuantitySearchParamTableTypeV1Row searchParam)
+        {
+            DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
+            FillColumn(newRow, VLatest.QuantitySearchParam.SystemId.Metadata.Name, searchParam.SystemId);
+            FillColumn(newRow, VLatest.QuantitySearchParam.QuantityCodeId.Metadata.Name, searchParam.QuantityCodeId);
+            FillColumn(newRow, VLatest.QuantitySearchParam.SingleValue.Metadata.Name, searchParam.SingleValue);
+            FillColumn(newRow, VLatest.QuantitySearchParam.LowValue.Metadata.Name, searchParam.LowValue);
+            FillColumn(newRow, VLatest.QuantitySearchParam.HighValue.Metadata.Name, searchParam.HighValue);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSearchParamsSchema(DataTable table)

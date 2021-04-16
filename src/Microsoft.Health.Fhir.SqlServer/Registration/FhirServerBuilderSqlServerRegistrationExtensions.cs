@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -46,11 +47,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .ReplaceService<ISearchParameterStatusDataStore>();
-
-            services.Add<SqlServerFhirModel>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
 
             services.Add<SearchParameterToSearchValueTypeMap>()
                 .Singleton()
@@ -96,6 +92,11 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
 
+            services.Add<SqlServerFhirModel>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IHostedService>();
+
             services.Add<SchemaUpgradedHandler>()
                 .Transient()
                 .AsImplementedInterfaces();
@@ -136,7 +137,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<SqlBulkCopyDataWrapperFactory>()
                 .Transient()
-                .AsSelf();
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             services.Add<DateTimeSearchParamsTableBulkCopyDataGenerator>()
                 .Transient()
@@ -195,6 +197,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<ResourceTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<ResourceWriteClaimTableBulkCopyDataGenerator>()
+                .Transient()
+                .AsSelf();
+
+            services.Add<CompartmentAssignmentTableBulkCopyDataGenerator>()
                 .Transient()
                 .AsSelf();
 

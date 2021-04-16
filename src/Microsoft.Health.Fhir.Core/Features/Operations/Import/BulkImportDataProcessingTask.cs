@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private IFhirDataBulkOperation _fhirDataBulkOperation;
         private IContextUpdater _contextUpdater;
         private IBulkResourceLoader _resourceLoader;
-        private BulkRawResourceProcessor _rawResourceProcessor;
+        private IBulkRawResourceProcessor _rawResourceProcessor;
         private IBulkImporter<BulkImportResourceWrapper> _bulkImporter;
         private IFhirRequestContextAccessor _contextAccessor;
         private ILogger<BulkImportDataProcessingTask> _logger;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IFhirDataBulkOperation fhirDataBulkOperation,
             IContextUpdater contextUpdater,
             IBulkResourceLoader resourceLoader,
-            BulkRawResourceProcessor rawResourceProcessor,
+            IBulkRawResourceProcessor rawResourceProcessor,
             IBulkImporter<BulkImportResourceWrapper> bulkImporter,
             IFhirRequestContextAccessor contextAccessor,
             ILoggerFactory loggerFactory)
@@ -62,8 +62,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             var fhirRequestContext = new FhirRequestContext(
                     method: "Import",
-                    uriString: "http://www.dummy.com/$import",
-                    baseUriString: "http://www.dummy.com",
+                    uriString: _dataProcessingInputData.UriString,
+                    baseUriString: _dataProcessingInputData.BaseUriString,
                     correlationId: RunId,
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
@@ -134,12 +134,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public bool IsCancelling()
         {
-            return _cancellationTokenSource?.IsCancellationRequested ?? true;
+            return _cancellationTokenSource?.IsCancellationRequested ?? false;
         }
 
         private async Task<long> CleanDataAsync(CancellationToken cancellationToken)
         {
-            long lastCompletedSurrogateId = _dataProcessingInputData.StartSurrogateId;
+            // For first run, last completed resource surrogated id == -1
+            long lastCompletedSurrogateId = _dataProcessingInputData.StartSurrogateId - 1;
             long lastOffset = 0;
             long endSurrogateId = _dataProcessingInputData.EndSurrogateId;
             if (_bulkImportProgress.ProgressRecords.Count > 0)
@@ -148,7 +149,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 lastCompletedSurrogateId = _bulkImportProgress.ProgressRecords.Values.Min(r => r.LastSurrogatedId);
             }
 
-            await _fhirDataBulkOperation.CleanBatchResourceAsync(lastCompletedSurrogateId, endSurrogateId, cancellationToken);
+            try
+            {
+                await _fhirDataBulkOperation.CleanBatchResourceAsync(lastCompletedSurrogateId + 1, endSurrogateId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to clean batch resource.");
+                throw;
+            }
 
             ProgressRecord record = new ProgressRecord()
             {

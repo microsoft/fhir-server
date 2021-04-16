@@ -70,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add<BulkRawResourceProcessor>()
                 .Transient()
+                .AsImplementedInterfaces()
                 .AsSelf();
 
             services.Add<BulkImportDataExtractor>()

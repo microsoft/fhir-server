@@ -16,8 +16,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
     {
         private IFhirDataBulkOperation _fhirDataBulkOperation;
         private IContextUpdaterFactory _contextUpdaterFactory;
-        private BulkResourceLoader _resourceLoader;
-        private BulkRawResourceProcessor _rawResourceProcessor;
+        private IBulkResourceLoader _resourceLoader;
+        private IBulkRawResourceProcessor _rawResourceProcessor;
         private IBulkImporter<BulkImportResourceWrapper> _bulkImporter;
         private IFhirRequestContextAccessor _contextAccessor;
         private ILoggerFactory _loggerFactory;
@@ -25,8 +25,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         public TaskFactory(
             IFhirDataBulkOperation fhirDataBulkOperation,
             IContextUpdaterFactory contextUpdaterFactory,
-            BulkResourceLoader resourceLoader,
-            BulkRawResourceProcessor rawResourceProcessor,
+            IBulkResourceLoader resourceLoader,
+            IBulkRawResourceProcessor rawResourceProcessor,
             IBulkImporter<BulkImportResourceWrapper> bulkImporter,
             IFhirRequestContextAccessor contextAccessor,
             ILoggerFactory loggerFactory)

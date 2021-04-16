@@ -34,16 +34,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             foreach (TokenDateTimeCompositeSearchParamTableTypeV1Row searchParam in searchParams)
             {
-                DataRow newRow = CreateNewRowWithCommonProperties(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam.SearchParamId);
-
-                FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);
-                FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.Name, searchParam.Code1);
-                FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.StartDateTime2.Metadata.Name, searchParam.StartDateTime2.DateTime);
-                FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.Name, searchParam.EndDateTime2.DateTime);
-                FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.Name, searchParam.IsLongerThanADay2);
-
-                table.Rows.Add(newRow);
+                FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
+        }
+
+        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, TokenDateTimeCompositeSearchParamTableTypeV1Row searchParam)
+        {
+            DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
+
+            FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);
+            FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.Code1.Metadata.Name, searchParam.Code1);
+            FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.StartDateTime2.Metadata.Name, searchParam.StartDateTime2.DateTime);
+            FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.EndDateTime2.Metadata.Name, searchParam.EndDateTime2.DateTime);
+            FillColumn(newRow, VLatest.TokenDateTimeCompositeSearchParam.IsLongerThanADay2.Metadata.Name, searchParam.IsLongerThanADay2);
+
+            table.Rows.Add(newRow);
         }
 
         internal override void FillSearchParamsSchema(DataTable table)
