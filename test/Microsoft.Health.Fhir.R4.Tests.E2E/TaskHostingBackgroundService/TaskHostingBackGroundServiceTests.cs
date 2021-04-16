@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Xunit;
+using TaskStatus = Microsoft.Health.Fhir.Core.Features.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {
@@ -18,22 +19,19 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
     public class TaskHostingBackGroundServiceTests : IClassFixture<TaskHostingTestFixture>
     {
         private const string MockTaskId = "mockTask";
-
-        // private const string LocalConnectionString = "server=(local);Integrated Security=true";
-        private const string LocalConnectionString = "Server=tcp:zhouzhou.database.windows.net,1433;Initial Catalog=zhou;Persist Security Info=False;User ID=zhou;Password=Zz+4121691;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
         private readonly bool _isUsingInProcTestServer;
         private readonly string _connectionString;
 
         public TaskHostingBackGroundServiceTests(TaskHostingTestFixture fixture)
         {
-            _connectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
+            _connectionString = fixture.ConnectionString;
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
         }
 
         [Theory]
-        [InlineData(0, TaskResult.Success)]
-        [InlineData(1, TaskResult.Fail)]
-        public async Task GivenDifferentTypeTask_WhenInsertingTaskInToDatabase_ThenTaskResultShouldBeMatch(short isFailure, TaskResult expected)
+        [InlineData(0, TaskResult.Success, "0")]
+        [InlineData(1, TaskResult.Fail, "3")]
+        public async Task GivenDifferentTypeTask_WhenInsertingTaskInToDatabase_ThenTaskResultShouldBeMatch(short isFailure, TaskResult expected, string context)
         {
             if (!_isUsingInProcTestServer)
             {
@@ -43,17 +41,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 
             WriteTaskInfoToSql(isFailure);
 
-            var taskInfo = new TaskInfo { Status = Fhir.Core.Features.TaskManagement.TaskStatus.Created };
-            var end = DateTimeOffset.UtcNow.Add(TimeSpan.FromMinutes(2));
-            while (DateTimeOffset.UtcNow < end && taskInfo.Status != Fhir.Core.Features.TaskManagement.TaskStatus.Completed)
+            var taskInfo = new TaskInfo { Status = TaskStatus.Created };
+            var end = DateTimeOffset.UtcNow.Add(TimeSpan.FromMinutes(3));
+            while (DateTimeOffset.UtcNow < end && taskInfo.Status != TaskStatus.Completed)
             {
                 await Task.Delay(3000);
                 taskInfo = GetTaskInfoFromSql(isFailure);
             }
 
-            Assert.Equal(Fhir.Core.Features.TaskManagement.TaskStatus.Completed, taskInfo.Status);
+            Assert.Equal(TaskStatus.Completed, taskInfo.Status);
             var result = TaskResultData.ResloveTaskResultFromDbString(taskInfo.Result);
             Assert.Equal(expected, result.Result);
+
+            // check that context updater should work
+            Assert.Equal(context, taskInfo.Context);
         }
 
         private void WriteTaskInfoToSql(short isFailure)
@@ -94,7 +95,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
                 taskInfo.TaskId = reader.GetString(reader.GetOrdinal("TaskId"));
                 int ordinal = reader.GetOrdinal("Result");
                 taskInfo.Result = reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
-                taskInfo.Status = (Fhir.Core.Features.TaskManagement.TaskStatus)reader.GetInt16(reader.GetOrdinal("Status"));
+                taskInfo.Status = (TaskStatus)reader.GetInt16(reader.GetOrdinal("Status"));
+                ordinal = reader.GetOrdinal("TaskContext");
+                taskInfo.Context = reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 
                 return taskInfo;
             }

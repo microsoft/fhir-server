@@ -5,6 +5,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
@@ -15,7 +16,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 
         public Task<TaskResultData> ExecuteAsync()
         {
-            throw new Exception("Task failed");
+            throw new RetriableTaskException("Task failed");
         }
 
         public void Cancel()

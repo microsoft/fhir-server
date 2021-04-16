@@ -6,8 +6,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {
@@ -22,6 +23,18 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
         {
             base.ConfigureServices(services);
 
+            // replace taskhosting configuration
+            TaskHostingConfiguration configuration = new TaskHostingConfiguration()
+            {
+                Enabled = true,
+                QueueId = "0",
+                MaxRetryCount = 3,
+            };
+
+            IOptions<TaskHostingConfiguration> options = Options.Create(configuration);
+            services.Replace(new ServiceDescriptor(typeof(IOptions<TaskHostingConfiguration>), options));
+
+            // replace task factory with mock factory
             var descriptor =
                 new ServiceDescriptor(
                     typeof(ITaskFactory),

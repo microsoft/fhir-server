@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 {
@@ -32,7 +31,6 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 return null;
             }
 
-            result = Regex.Unescape(result).TrimStart('\"').TrimEnd('\"');
             return JsonSerializer.Deserialize<TaskResultData>(result);
         }
     }
