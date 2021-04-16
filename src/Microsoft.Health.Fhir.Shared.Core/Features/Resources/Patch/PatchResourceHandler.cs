@@ -15,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 
-namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, PatchResourceResponse>
     {

@@ -35,6 +35,7 @@
     <PackageReference Include="Ensure.That" Version="10.1.0" />
     <PackageReference Include="FluentValidation" Version="9.5.4" />
     <PackageReference Include="MediatR" Version="9.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
