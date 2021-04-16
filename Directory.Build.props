@@ -1,5 +1,6 @@
 <Project>
 
+  <!-- Nuget related properties.-->
   <PropertyGroup>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Product>Microsoft FHIR Server for Azure</Product>
@@ -20,6 +21,10 @@
     <Deterministic>true</Deterministic>
     <!--This will target the latest patch release of the runtime released with the current SDK.  -->
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+  </PropertyGroup>
+  <!-- Shared dependencies versions.-->
+  <PropertyGroup>
+    <IdentityModel>6.10.2</IdentityModel>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.5</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>2.1.9</HealthcareSharedPackageVersion>
