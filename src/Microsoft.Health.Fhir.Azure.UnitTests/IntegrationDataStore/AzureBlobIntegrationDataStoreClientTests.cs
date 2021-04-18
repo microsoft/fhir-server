@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Storage.Blob;
@@ -106,6 +108,82 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
             finally
             {
+                await container.DeleteIfExistsAsync();
+            }
+        }
+
+        [Fact]
+        public async Task GivenBlobUri_WhenCreateContainer_ContainerShouldBeCreated()
+        {
+            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
+            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+
+            string containerName = Guid.NewGuid().ToString("N");
+            string blobName = Guid.NewGuid().ToString("N");
+
+            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+
+            try
+            {
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                await blobClient.PrepareResourceAsync(blobUri, CancellationToken.None);
+                Assert.True(await client.GetContainerReference(containerName).ExistsAsync());
+                await blobClient.PrepareResourceAsync(blobUri, CancellationToken.None);
+            }
+            finally
+            {
+                var container = client.GetContainerReference(containerName);
+                await container.DeleteIfExistsAsync();
+            }
+        }
+
+        [Fact]
+        public async Task GivenTextFileOnBlob_WhenLoadFromMiddle_ContentShouldBeSame1()
+        {
+            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
+            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+
+            string containerName = Guid.NewGuid().ToString("N");
+            string blobName = Guid.NewGuid().ToString("N");
+
+            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+
+            try
+            {
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                await blobClient.PrepareResourceAsync(blobUri, CancellationToken.None);
+
+                long count = 30;
+                List<long> blockIds = new List<long>();
+                for (long i = 0; i < count; ++i)
+                {
+                    using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
+                    await blobClient.UploadPartDataAsync(blobUri, input, i, CancellationToken.None);
+                    blockIds.Add(i);
+
+                    await blobClient.CommitDataAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
+                }
+
+                ICloudBlob output = await client.GetBlobReferenceFromServerAsync(blobUri);
+                using Stream outputStream = new MemoryStream();
+                await output.DownloadToStreamAsync(outputStream);
+                outputStream.Position = 0;
+                using StreamReader reader = new StreamReader(outputStream);
+
+                long currentLine = 0;
+                string content = null;
+
+                while ((content = await reader.ReadLineAsync()) != null)
+                {
+                    Assert.Equal(currentLine.ToString(), content);
+                    currentLine++;
+                }
+
+                Assert.Equal(count, currentLine);
+            }
+            finally
+            {
+                var container = client.GetContainerReference(containerName);
                 await container.DeleteIfExistsAsync();
             }
         }
