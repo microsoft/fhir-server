@@ -3,14 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Channels;
-using System.Threading.Tasks;
-
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IBulkRawResourceProcessor
+    public class ProcessError
     {
-        public Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, Channel<ProcessError> errorChannel, long startSurrogateId, CancellationToken cancellationToken);
+        public ProcessError(long lineNumber, string errorMessage)
+        {
+            LineNumber = lineNumber;
+            ErrorMessage = errorMessage;
+        }
+
+        public long LineNumber { get; set; }
+
+        public string ErrorMessage { get; set; }
     }
 }

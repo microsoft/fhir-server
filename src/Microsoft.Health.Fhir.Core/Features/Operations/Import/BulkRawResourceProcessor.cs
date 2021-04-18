@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -17,20 +18,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         internal static readonly int MaxConcurrentCount = Environment.ProcessorCount * 2;
 
         private IBulkImportDataExtractor _bulkImportDataExtractor;
+        private ILogger<BulkRawResourceProcessor> _logger;
 
-        public BulkRawResourceProcessor(IBulkImportDataExtractor bulkImportDataExtractor)
+        public BulkRawResourceProcessor(IBulkImportDataExtractor bulkImportDataExtractor, ILogger<BulkRawResourceProcessor> logger)
         {
             _bulkImportDataExtractor = bulkImportDataExtractor;
+            _logger = logger;
         }
 
         public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
 
-        public async Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, long startSurrogateId, CancellationToken cancellationToken)
+        public async Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, Channel<ProcessError> errorChannel, long startSurrogateId, CancellationToken cancellationToken)
         {
             long result = 0;
             List<string> buffer = new List<string>();
-            Queue<Task<IEnumerable<BulkImportResourceWrapper>>> processingTasks = new Queue<Task<IEnumerable<BulkImportResourceWrapper>>>();
+            Queue<Task<(IEnumerable<BulkImportResourceWrapper> result, IEnumerable<ProcessError> errors)>> processingTasks = new Queue<Task<(IEnumerable<BulkImportResourceWrapper> result, IEnumerable<ProcessError> errors)>>();
 
+            long lineNumber = 0;
             do
             {
                 await foreach (string rawData in inputChannel.Reader.ReadAllAsync())
@@ -43,54 +47,79 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     while (processingTasks.Count >= MaxConcurrentCount)
                     {
-                        IEnumerable<BulkImportResourceWrapper> headTaskResults = await processingTasks.Dequeue();
-                        foreach (BulkImportResourceWrapper resourceWrapper in headTaskResults)
+                        (IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors) = await processingTasks.Dequeue();
+                        foreach (BulkImportResourceWrapper resourceWrapper in resultResources)
                         {
                             Interlocked.Increment(ref result);
                             await outputChannel.Writer.WriteAsync(resourceWrapper);
+                        }
+
+                        foreach (ProcessError error in errors)
+                        {
+                            await errorChannel.Writer.WriteAsync(error);
                         }
                     }
 
                     string[] rawResources = buffer.ToArray();
                     buffer.Clear();
-                    processingTasks.Enqueue(ProcessRawResources(rawResources, startSurrogateId));
-                    startSurrogateId += rawResources.Length;
+                    processingTasks.Enqueue(ProcessRawResources(rawResources, startSurrogateId + lineNumber, lineNumber));
+                    lineNumber += rawResources.Length;
                 }
             }
             while (await inputChannel.Reader.WaitToReadAsync() && !cancellationToken.IsCancellationRequested);
 
             if (!cancellationToken.IsCancellationRequested)
             {
-                processingTasks.Enqueue(ProcessRawResources(buffer.ToArray(), startSurrogateId));
+                processingTasks.Enqueue(ProcessRawResources(buffer.ToArray(), startSurrogateId + lineNumber, lineNumber));
                 while (processingTasks.Count > 0)
                 {
-                    IEnumerable<BulkImportResourceWrapper> headTaskResults = await processingTasks.Dequeue();
-                    foreach (BulkImportResourceWrapper resourceWrapper in headTaskResults)
+                    (IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors) = await processingTasks.Dequeue();
+                    foreach (BulkImportResourceWrapper resourceWrapper in resultResources)
                     {
                         Interlocked.Increment(ref result);
                         await outputChannel.Writer.WriteAsync(resourceWrapper);
+                    }
+
+                    foreach (ProcessError error in errors)
+                    {
+                        await errorChannel.Writer.WriteAsync(error);
                     }
                 }
             }
 
             outputChannel.Writer.Complete();
+            errorChannel.Writer.Complete();
             return result;
         }
 
-        private async Task<IEnumerable<BulkImportResourceWrapper>> ProcessRawResources(string[] rawResources, long startSurrogateId)
+        private async Task<(IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors)> ProcessRawResources(string[] rawResources, long startSurrogateId, long lineNumber)
         {
             return await Task.Run(() =>
             {
                 List<BulkImportResourceWrapper> result = new List<BulkImportResourceWrapper>();
+                List<ProcessError> errors = new List<ProcessError>();
 
                 foreach (string rawData in rawResources)
                 {
-                    BulkImportResourceWrapper resourceWrapper = _bulkImportDataExtractor.GetBulkImportResourceWrapper(rawData);
-                    resourceWrapper.ResourceSurrogateId = startSurrogateId++;
-                    result.Add(resourceWrapper);
+                    try
+                    {
+                        BulkImportResourceWrapper resourceWrapper = _bulkImportDataExtractor.GetBulkImportResourceWrapper(rawData);
+                        resourceWrapper.ResourceSurrogateId = startSurrogateId;
+                        result.Add(resourceWrapper);
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add(new ProcessError(lineNumber, ex.Message));
+                        _logger.LogDebug(ex, $"failed to process resource at Line {lineNumber}");
+                    }
+                    finally
+                    {
+                        startSurrogateId++;
+                        lineNumber++;
+                    }
                 }
 
-                return result;
+                return (result, errors);
             });
         }
     }

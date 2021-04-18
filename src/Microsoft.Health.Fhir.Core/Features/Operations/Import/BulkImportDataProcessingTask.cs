@@ -82,6 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 Channel<string> rawDataChannel = Channel.CreateBounded<string>(RawDataChannelMaxCapacity);
                 Channel<BulkImportResourceWrapper> resourceWrapperChannel = Channel.CreateBounded<BulkImportResourceWrapper>(ResourceWrapperChannelMaxCapacity);
+                Channel<ProcessError> processErrorChannel = Channel.CreateBounded<ProcessError>(ResourceWrapperChannelMaxCapacity);
                 IProgress<(string tableName, long endSurrogateId)> bulkImportProgress = new Progress<(string tableName, long endSurrogateId)>(
                     (p) =>
                     {
@@ -89,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     });
 
                 Task dataLoadTask = _resourceLoader.LoadToChannelAsync(rawDataChannel, new Uri(_dataProcessingInputData.ResourceLocation), startLineOffset, cancellationToken);
-                Task<long> processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, lastCompletedSurrogateId, cancellationToken);
+                Task<long> processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, processErrorChannel, lastCompletedSurrogateId, cancellationToken);
                 Task<long> bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, bulkImportProgress, cancellationToken);
 
                 CancellationTokenSource contextUpdateCancellationToken = new CancellationTokenSource();
