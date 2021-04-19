@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {
-            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{ResourceKey.ResourceType}').interaction.where(code = 'delete').exists()");
+            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{ResourceKey.ResourceType}').interaction.where(code = 'patch').exists()");
         }
     }
 }
