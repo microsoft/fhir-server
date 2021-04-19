@@ -17,6 +17,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -43,6 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
 
         private readonly SortRewriter _sortRewriter;
+        private readonly ContinuationTokenSimplifier _continuationTokenSimplifier;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
@@ -50,8 +52,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
-        private readonly ISortingValidator _sortingValidator;
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver _searchParameterDefinitionManagerResolver;
         private const int _resourceTableColumnCount = 10;
 
         public SqlServerSearchService(
@@ -61,10 +63,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             SortRewriter sortRewriter,
+            ContinuationTokenSimplifier continuationTokenSimplifier,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
-            ISortingValidator sortingValidator,
             IFhirRequestContextAccessor requestContextAccessor,
+            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -72,20 +75,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
+            EnsureArg.IsNotNull(continuationTokenSimplifier, nameof(continuationTokenSimplifier));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
+            _continuationTokenSimplifier = continuationTokenSimplifier;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
 
             _schemaInformation = schemaInformation;
-            _sortingValidator = sortingValidator;
             _requestContextAccessor = requestContextAccessor;
+            _searchParameterDefinitionManagerResolver = searchParameterDefinitionManagerResolver;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -145,16 +150,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 var continuationToken = ContinuationToken.FromString(searchOptions.ContinuationToken);
                 if (continuationToken != null)
                 {
-                    // in case it's a _lastUpdated sort optimization
                     if (string.IsNullOrEmpty(continuationToken.SortValue))
                     {
+                        // it's a _lastUpdated or (_type,_lastUpdated) sort optimization
+
                         (SearchParameterInfo _, SortOrder sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
 
-                        Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending
-                            ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId)
-                            : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId);
+                        FieldName fieldName;
+                        object keyValue;
+                        SearchParameterInfo parameter;
+                        if (continuationToken.ResourceTypeId == null || _schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
+                        {
+                            // backwards compat
+                            parameter = SqlSearchParameters.ResourceSurrogateIdParameter;
+                            fieldName = SqlFieldName.ResourceSurrogateId;
+                            keyValue = continuationToken.ResourceSurrogateId;
+                        }
+                        else
+                        {
+                            parameter = SqlSearchParameters.ResourceTypeIdResourceSurrogateKeySetParameter;
+                            fieldName = SqlFieldName.ResourceTypeIdResourceSurrogateKeySet;
+                            keyValue = new KeySetValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId, null);
+                        }
 
-                        var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
+                        Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending
+                            ? Expression.GreaterThan(fieldName, null, keyValue)
+                            : Expression.LessThan(fieldName, null, keyValue);
+
+                        var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
                         searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
                     }
                 }
@@ -163,6 +186,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     throw new BadRequestException(Resources.InvalidContinuationToken);
                 }
             }
+
+            searchOptions = UpdateSort(searchOptions, searchExpression);
 
             if (searchOptions.CountOnly)
             {
@@ -176,6 +201,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
+                                               .AcceptVisitor(_continuationTokenSimplifier)
                                                .AcceptVisitor(_sortRewriter, searchOptions)
                                                .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
@@ -225,6 +251,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
 
                     var resources = new List<SearchResultEntry>(searchOptions.MaxItemCount);
+                    short? newContinuationType = null;
                     long? newContinuationId = null;
                     bool moreResults = false;
                     int matchCount = 0;
@@ -268,6 +295,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         // See if this resource is a continuation token candidate and increase the count
                         if (isMatch)
                         {
+                            newContinuationType = resourceTypeId;
                             newContinuationId = resourceSurrogateId;
 
                             // Keep track of sort value if this is the last row.
@@ -312,6 +340,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continuationToken = new ContinuationToken(new object[]
                             {
                                 sortValue.Value.ToString("o"),
+                                newContinuationType ?? 0,
                                 newContinuationId ?? 0,
                             });
                         }
@@ -319,6 +348,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             continuationToken = new ContinuationToken(new object[]
                             {
+                                newContinuationType ?? 0,
                                 newContinuationId ?? 0,
                             });
                         }
@@ -336,6 +366,73 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     return new SearchResult(resources, continuationToken?.ToJson(), searchOptions.Sort, searchOptions.UnsupportedSearchParams);
                 }
             }
+        }
+
+        private SearchOptions UpdateSort(SearchOptions searchOptions, Expression searchExpression)
+        {
+            if (searchOptions.Sort.Count == 0)
+            {
+                searchOptions = searchOptions.Clone();
+
+                ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
+
+                if (_schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
+                {
+                    searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                    {
+                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+                    };
+                }
+                else
+                {
+                    searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                    {
+                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType), SortOrder.Ascending),
+                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+                    };
+                }
+
+                return searchOptions;
+            }
+
+            if (searchOptions.Sort.Count == 1 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.ResourceType)
+            {
+                // We will not get here unless the schema version is at least SchemaVersionConstants.PartitionedTables.
+
+                // Add _lastUpdated to the sort list so that there is a deterministic key to sort on
+
+                searchOptions = searchOptions.Clone();
+
+                ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
+
+                searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                {
+                    (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType), searchOptions.Sort[0].sortOrder),
+                    (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), searchOptions.Sort[0].sortOrder),
+                };
+
+                return searchOptions;
+            }
+
+            if (searchOptions.Sort.Count == 1 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.LastUpdated && _schemaInformation.Current >= SchemaVersionConstants.PartitionedTables)
+            {
+                bool isConstrainedToSingleType = searchExpression.AcceptVisitor(TypeConstraintVisitor.Instance, null);
+
+                if (isConstrainedToSingleType)
+                {
+                    searchOptions = searchOptions.Clone();
+
+                    ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
+
+                    searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                    {
+                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType), searchOptions.Sort[0].sortOrder),
+                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), searchOptions.Sort[0].sortOrder),
+                    };
+                }
+            }
+
+            return searchOptions;
         }
 
         private void PopulateResourceTableColumnsToRead(

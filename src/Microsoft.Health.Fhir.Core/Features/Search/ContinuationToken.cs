@@ -36,6 +36,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
+        public short? ResourceTypeId
+        {
+            get
+            {
+                return _tokens.Length > 1 && _tokens[^2] is long s ? (short)s : null;
+            }
+
+            set
+            {
+                _tokens[^2] = value;
+            }
+        }
+
         // Currently only a single sort is implemented
         public string SortValue
         {

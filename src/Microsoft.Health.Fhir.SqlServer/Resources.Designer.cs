@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Only &apos;_type&apos; and &apos;_lastUpdated&apos; can be used together as sorting parameters (and in that order)..
+        /// </summary>
+        internal static string OnlyTypeAndLastUpdatedSupportedForCompountSort {
+            get {
+                return ResourceManager.GetString("OnlyTypeAndLastUpdatedSupportedForCompountSort", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cannot carry out the SQL datastore operation because the SQL schema needs to be upgraded..
         /// </summary>
         internal static string SchemaVersionNeedsToBeUpgraded {

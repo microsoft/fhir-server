@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
@@ -100,8 +101,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             string resourceTableAlias = "r";
             bool selectingFromResourceTable;
-            var (searchParamInfo, sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
 
+            bool isSpecialCaseSort = IsSpecialCaseSort(searchOptions);
             if (searchOptions.CountOnly)
             {
                 if (expression.SearchParamTableExpressions.Count > 0)
@@ -149,7 +150,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
-                if (searchParamInfo != null && searchParamInfo.Code != KnownQueryParameterNames.LastUpdated)
+
+                if (!isSpecialCaseSort)
                 {
                     StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
                 }
@@ -161,7 +163,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
 
-                if (expression.SearchParamTableExpressions.Count == 0 &&
+                if (_schemaInfo.Current < SchemaVersionConstants.PartitionedTables &&
+                    expression.SearchParamTableExpressions.Count == 0 &&
                     !_searchType.HasFlag(SqlSearchType.History) &&
                     expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
                     !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
@@ -202,19 +205,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (!searchOptions.CountOnly)
                 {
                     StringBuilder.Append("ORDER BY ");
-                    if (searchParamInfo == null || searchParamInfo.Code == KnownQueryParameterNames.LastUpdated)
+                    if (isSpecialCaseSort)
                     {
-                        StringBuilder
-                            .Append(VLatest.Resource.ResourceTypeId, resourceTableAlias).Append(" ")
-                            .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")
-                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
-                            .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                        StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
+                            {
+                                Column column = sort.searchParameterInfo.Name switch
+                                {
+                                    SearchParameterNames.ResourceType => VLatest.Resource.ResourceTypeId,
+                                    SearchParameterNames.LastUpdated => VLatest.Resource.ResourceSurrogateId,
+                                    _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
+                                };
+                                sb.Append(column, resourceTableAlias).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                            })
+                            .AppendLine();
                     }
                     else
                     {
                         StringBuilder
                             .Append($"{TableExpressionName(_tableExpressionCounter)}.SortValue ")
-                            .Append(sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
+                            .Append(searchOptions.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
                     }
                 }
@@ -228,6 +237,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("OPTION(RECOMPILE)");
 
             return null;
+        }
+
+        private static bool IsSpecialCaseSort(SearchOptions searchOptions)
+        {
+            return searchOptions.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated);
         }
 
         private static string TableExpressionName(int id) => "cte" + id;
@@ -360,7 +374,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("SELECT ")
                 .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                 .Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                        .Append("FROM ").AppendLine(VLatest.Resource);
+                .Append("FROM ").AppendLine(VLatest.Resource);
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
@@ -399,17 +413,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindTop(SearchOptions context)
         {
-            var (paramInfo, sortOrder) = context.Sort.Count == 0 ? default : context.Sort[0];
             var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
-            var sortExpression = (paramInfo == null || paramInfo.Code == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
+            bool isSpecialCaseSort = IsSpecialCaseSort(context);
 
-            // Everything in the top expression is considered a match
-            string orderByDirection = sortExpression != null || sortOrder == SortOrder.Ascending ? "ASC" : "DESC";
+            var sortExpression = isSpecialCaseSort ? null : $"{tableExpressionName}.SortValue";
 
             StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                 .Append("FROM ").AppendLine(tableExpressionName)
-                .AppendLine($"ORDER BY {(sortExpression == null ? string.Empty : $"{sortExpression} {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}, ")} T1 {orderByDirection}, Sid1 {orderByDirection}");
+                .Append($"ORDER BY ");
+
+            if (isSpecialCaseSort)
+            {
+                StringBuilder.AppendDelimited(", ", context.Sort, (sb, sort) =>
+                {
+                    string column = sort.searchParameterInfo.Name switch
+                    {
+                        SearchParameterNames.ResourceType => "T1",
+                        SearchParameterNames.LastUpdated => "Sid1",
+                        _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
+                    };
+                    sb.Append(column).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                });
+            }
+            else
+            {
+                StringBuilder.Append(sortExpression).Append(context.Sort[1].sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+            }
+
+            StringBuilder.AppendLine();
 
             // For any includes, the source of the resource surrogate ids to join on is saved
             _cteMainSelect = TableExpressionName(_tableExpressionCounter);

@@ -16,5 +16,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public static readonly Uri ResourceSurrogateIdUri = new Uri("http://fhirserverforazure.microsoft.com/fhir/SearchParameter/Resource-surrogateid");
 
         public static readonly SearchParameterInfo ResourceSurrogateIdParameter = new SearchParameterInfo(ResourceSurrogateIdParameterName, ResourceSurrogateIdParameterName, SearchParamType.Number, ResourceSurrogateIdUri, null);
+
+        public const string ResourceTypeIdResourceSurrogateKeySetParameterName = "_resourceTypeIdResourceSurrogateKeySet";
+
+        public static readonly Uri ResourceTypeIdResourceSurrogateKeySetUri = new Uri("http://fhirserverforazure.microsoft.com/fhir/SearchParameter/Resource-resourceTypeIdResourceSurrogateKeySet");
+
+        public static readonly SearchParameterInfo ResourceTypeIdResourceSurrogateKeySetParameter = new SearchParameterInfo(ResourceTypeIdResourceSurrogateKeySetParameterName, ResourceTypeIdResourceSurrogateKeySetParameterName, SearchParamType.Number, ResourceTypeIdResourceSurrogateKeySetUri, null);
     }
 }
