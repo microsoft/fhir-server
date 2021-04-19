@@ -82,16 +82,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 Channel<string> rawDataChannel = Channel.CreateBounded<string>(RawDataChannelMaxCapacity);
                 Channel<BulkImportResourceWrapper> resourceWrapperChannel = Channel.CreateBounded<BulkImportResourceWrapper>(ResourceWrapperChannelMaxCapacity);
-                Channel<ProcessError> processErrorChannel = Channel.CreateBounded<ProcessError>(ResourceWrapperChannelMaxCapacity);
-                IProgress<(string tableName, long endSurrogateId)> bulkImportProgress = new Progress<(string tableName, long endSurrogateId)>(
-                    (p) =>
+                Channel<BatchProcessErrorRecord> processErrorChannel = Channel.CreateBounded<BatchProcessErrorRecord>(ResourceWrapperChannelMaxCapacity);
+                Action<(string tableName, long endSurrogateId)> progressUpdateAction =
+                    progress =>
                     {
-                        _bulkImportProgress.ProgressRecords[p.tableName] = new ProgressRecord(p.endSurrogateId);
-                    });
+                        _bulkImportProgress.ProgressRecords[progress.tableName] = new ProgressRecord(progress.endSurrogateId);
+                    };
 
                 Task dataLoadTask = _resourceLoader.LoadToChannelAsync(rawDataChannel, new Uri(_dataProcessingInputData.ResourceLocation), startLineOffset, cancellationToken);
                 Task<long> processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, processErrorChannel, lastCompletedSurrogateId, cancellationToken);
-                Task<long> bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, bulkImportProgress, cancellationToken);
+                Task<long> bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, progressUpdateAction, cancellationToken);
 
                 CancellationTokenSource contextUpdateCancellationToken = new CancellationTokenSource();
                 Task updateProgressTask = UpdateProgressAsync(contextUpdateCancellationToken.Token);

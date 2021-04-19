@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         public int MaxConcurrentCount { get; set; } = DefaultMaxConcurrentCount;
 
-        public async Task<long> ImportResourceAsync(Channel<BulkImportResourceWrapper> inputChannel, IProgress<(string tableName, long endSurrogateId)> progress,  CancellationToken cancellationToken)
+        public async Task<long> ImportResourceAsync(Channel<BulkImportResourceWrapper> inputChannel, Action<(string tableName, long endSurrogateId)> progressUpdateAction,  CancellationToken cancellationToken)
         {
             long importedResourceCount = 0;
             Dictionary<string, DataTable> buffer = new Dictionary<string, DataTable>();
@@ -114,14 +114,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         while (runningTasks.Count() >= MaxConcurrentCount)
                         {
                             (string tableName, long endSurrogateId, long count) result = await runningTasks.Dequeue();
-                            progress.Report((result.tableName, result.endSurrogateId));
+                            progressUpdateAction((result.tableName, result.endSurrogateId));
                             importedResourceCount += result.count;
                         }
 
                         DataTable inputTable = buffer[tableName];
                         buffer.Remove(tableName);
 
-                        runningTasks.Enqueue(BulkCopyAsync(inputTable, surrogateId, cancellationToken));
+                        runningTasks.Enqueue(BulkCopyAsync(inputTable, surrogateId + 1, cancellationToken));
                     }
                 }
             }
@@ -131,13 +131,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             foreach (string tableName in tableNames)
             {
                 DataTable inputTable = buffer[tableName];
-                runningTasks.Enqueue(BulkCopyAsync(inputTable, surrogateId, cancellationToken));
+                runningTasks.Enqueue(BulkCopyAsync(inputTable, surrogateId + 1, cancellationToken));
             }
 
             while (runningTasks.Count() > 0 && !cancellationToken.IsCancellationRequested)
             {
                 (string tableName, long endSurrogateId, long count) result = await runningTasks.Dequeue();
-                progress.Report((result.tableName, result.endSurrogateId));
+                progressUpdateAction((result.tableName, result.endSurrogateId));
                 importedResourceCount += result.count;
             }
 

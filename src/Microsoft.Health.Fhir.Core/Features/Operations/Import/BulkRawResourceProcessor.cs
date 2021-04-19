@@ -28,11 +28,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
 
-        public async Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, Channel<ProcessError> errorChannel, long startSurrogateId, CancellationToken cancellationToken)
+        public async Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, Channel<BatchProcessErrorRecord> errorChannel, long startSurrogateId, CancellationToken cancellationToken)
         {
             long result = 0;
             List<string> buffer = new List<string>();
-            Queue<Task<(IEnumerable<BulkImportResourceWrapper> result, IEnumerable<ProcessError> errors)>> processingTasks = new Queue<Task<(IEnumerable<BulkImportResourceWrapper> result, IEnumerable<ProcessError> errors)>>();
+            Queue<Task<(IEnumerable<BulkImportResourceWrapper> result, IEnumerable<ProcessError> errors, long endSurrogateId)>> processingTasks = new Queue<Task<(IEnumerable<BulkImportResourceWrapper> result, IEnumerable<ProcessError> errors, long endSurrogateId)>>();
 
             long lineNumber = 0;
             do
@@ -47,17 +47,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     while (processingTasks.Count >= MaxConcurrentCount)
                     {
-                        (IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors) = await processingTasks.Dequeue();
+                        (IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors, long endSurrogateId) = await processingTasks.Dequeue();
                         foreach (BulkImportResourceWrapper resourceWrapper in resultResources)
                         {
                             Interlocked.Increment(ref result);
                             await outputChannel.Writer.WriteAsync(resourceWrapper);
                         }
 
-                        foreach (ProcessError error in errors)
-                        {
-                            await errorChannel.Writer.WriteAsync(error);
-                        }
+                        await errorChannel.Writer.WriteAsync(new BatchProcessErrorRecord(errors, endSurrogateId));
                     }
 
                     string[] rawResources = buffer.ToArray();
@@ -73,17 +70,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 processingTasks.Enqueue(ProcessRawResources(buffer.ToArray(), startSurrogateId + lineNumber, lineNumber));
                 while (processingTasks.Count > 0)
                 {
-                    (IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors) = await processingTasks.Dequeue();
+                    (IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors, long endSurrogateId) = await processingTasks.Dequeue();
                     foreach (BulkImportResourceWrapper resourceWrapper in resultResources)
                     {
                         Interlocked.Increment(ref result);
                         await outputChannel.Writer.WriteAsync(resourceWrapper);
                     }
 
-                    foreach (ProcessError error in errors)
-                    {
-                        await errorChannel.Writer.WriteAsync(error);
-                    }
+                    await errorChannel.Writer.WriteAsync(new BatchProcessErrorRecord(errors, endSurrogateId));
                 }
             }
 
@@ -92,19 +86,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return result;
         }
 
-        private async Task<(IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors)> ProcessRawResources(string[] rawResources, long startSurrogateId, long lineNumber)
+        private async Task<(IEnumerable<BulkImportResourceWrapper> resultResources, IEnumerable<ProcessError> errors, long endSurrogateId)> ProcessRawResources(string[] rawResources, long startSurrogateId, long lineNumber)
         {
             return await Task.Run(() =>
             {
                 List<BulkImportResourceWrapper> result = new List<BulkImportResourceWrapper>();
                 List<ProcessError> errors = new List<ProcessError>();
 
+                long currentSurrogateId = startSurrogateId;
                 foreach (string rawData in rawResources)
                 {
                     try
                     {
                         BulkImportResourceWrapper resourceWrapper = _bulkImportDataExtractor.GetBulkImportResourceWrapper(rawData);
-                        resourceWrapper.ResourceSurrogateId = startSurrogateId;
+                        resourceWrapper.ResourceSurrogateId = currentSurrogateId;
                         result.Add(resourceWrapper);
                     }
                     catch (Exception ex)
@@ -114,12 +109,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
                     finally
                     {
-                        startSurrogateId++;
+                        currentSurrogateId++;
                         lineNumber++;
                     }
                 }
 
-                return (result, errors);
+                return (result, errors, currentSurrogateId);
             });
         }
     }

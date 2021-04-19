@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public interface IBulkRawResourceProcessor
     {
-        public Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, Channel<ProcessError> errorChannel, long startSurrogateId, CancellationToken cancellationToken);
+        public Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, Channel<BatchProcessErrorRecord> errorChannel, long startSurrogateId, CancellationToken cancellationToken);
     }
 }

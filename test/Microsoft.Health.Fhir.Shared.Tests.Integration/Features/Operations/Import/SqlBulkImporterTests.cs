@@ -89,11 +89,19 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 inputs.Writer.Complete();
             });
 
-            Task importTask = importer.ImportResourceAsync(inputs, new Progress<(string tableName, long endSurrogateId)>(), CancellationToken.None);
+            Dictionary<string, long> progressRecords = new Dictionary<string, long>();
+            Action<(string tableName, long endSurrogateId)> progressUpdateAction =
+                progress =>
+                {
+                    progressRecords[progress.tableName] = progress.endSurrogateId;
+                };
+            Task importTask = importer.ImportResourceAsync(inputs, progressUpdateAction, CancellationToken.None);
 
             await produceTask;
             await importTask;
 
+            Assert.Equal(progressRecords["Table1"], startSurrogatedId + resourceCount);
+            Assert.Equal(progressRecords["Table2"], startSurrogatedId + resourceCount);
             Assert.Equal(resourceCount, table1.Rows.Count);
             Assert.Equal(resourceCount * 2, table2.Rows.Count);
 

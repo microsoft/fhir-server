@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             processor.MaxBatchSize = maxBatchSize;
 
             Channel<string> inputs = Channel.CreateUnbounded<string>();
-            Channel<ProcessError> errorsChannel = Channel.CreateUnbounded<ProcessError>();
+            Channel<BatchProcessErrorRecord> errorsChannel = Channel.CreateUnbounded<BatchProcessErrorRecord>();
             Channel<BulkImportResourceWrapper> outputs = Channel.CreateUnbounded<BulkImportResourceWrapper>();
 
             List<string> inputStrings = new List<string>();
@@ -95,12 +95,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             Assert.Equal(inputResourceCount, currentIndex);
 
-            await foreach (ProcessError error in errorsChannel.Reader.ReadAllAsync())
+            long endSurrogatedId = 0;
+            await foreach (BatchProcessErrorRecord errorRecord in errorsChannel.Reader.ReadAllAsync())
             {
-                Assert.Equal(failedLineNumbers.First(), error.LineNumber);
-                failedLineNumbers.RemoveAt(0);
+                foreach (ProcessError error in errorRecord.ProcessErrors)
+                {
+                    Assert.Equal(failedLineNumbers.First(), error.LineNumber);
+                    failedLineNumbers.RemoveAt(0);
+                }
+
+                endSurrogatedId = errorRecord.LastSurragatedId;
             }
 
+            Assert.Equal(startSurrogatedId + inputResourceCount, endSurrogatedId);
             Assert.Empty(failedLineNumbers);
         }
 
