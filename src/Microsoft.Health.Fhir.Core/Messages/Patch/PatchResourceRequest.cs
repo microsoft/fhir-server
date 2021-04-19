@@ -22,13 +22,14 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             PatchDocument = patchDocument;
         }
 
-        public PatchResourceRequest(string type, string id, JsonPatchDocument patchDocument)
+        public PatchResourceRequest(string type, string id, JsonPatchDocument patchDocument, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(type, nameof(type));
             EnsureArg.IsNotNull(id, nameof(id));
 
             ResourceKey = new ResourceKey(type, id);
             PatchDocument = patchDocument;
+            WeakETag = weakETag;
         }
 
         public ResourceKey ResourceKey { get; }
@@ -36,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
         public JsonPatchDocument PatchDocument { get; }
 
         public bool HardDelete { get; }
+
+        public WeakETag WeakETag { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {
