@@ -21,12 +21,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         private const int RawDataChannelMaxCapacity = 3000;
         private const int ResourceWrapperChannelMaxCapacity = 3000;
+        private const string ErrorResourceTableName = "ErrorResourceTable";
 
         private BulkImportDataProcessingInputData _dataProcessingInputData;
         private BulkImportProgress _bulkImportProgress;
         private IFhirDataBulkOperation _fhirDataBulkOperation;
         private IContextUpdater _contextUpdater;
         private IBulkResourceLoader _resourceLoader;
+        private IImportErrorUploader _importErrorUploader;
         private IBulkRawResourceProcessor _rawResourceProcessor;
         private IBulkImporter<BulkImportResourceWrapper> _bulkImporter;
         private IFhirRequestContextAccessor _contextAccessor;
@@ -39,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IFhirDataBulkOperation fhirDataBulkOperation,
             IContextUpdater contextUpdater,
             IBulkResourceLoader resourceLoader,
+            IImportErrorUploader importErrorUploader,
             IBulkRawResourceProcessor rawResourceProcessor,
             IBulkImporter<BulkImportResourceWrapper> bulkImporter,
             IFhirRequestContextAccessor contextAccessor,
@@ -49,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _fhirDataBulkOperation = fhirDataBulkOperation;
             _contextUpdater = contextUpdater;
             _resourceLoader = resourceLoader;
+            _importErrorUploader = importErrorUploader;
             _rawResourceProcessor = rawResourceProcessor;
             _bulkImporter = bulkImporter;
             _contextAccessor = contextAccessor;
@@ -88,10 +92,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     {
                         _bulkImportProgress.ProgressRecords[progress.tableName] = new ProgressRecord(progress.endSurrogateId);
                     };
+                Action<long, long> errorProgressUpdateAction =
+                    (lastBatchId, endSurrogateId) =>
+                    {
+                        _bulkImportProgress.ProgressRecords[ErrorResourceTableName] = new ProgressRecord(endSurrogateId);
+                        _bulkImportProgress.CurrentErrorLogBatchId = lastBatchId;
+                    };
 
                 Task dataLoadTask = _resourceLoader.LoadToChannelAsync(rawDataChannel, new Uri(_dataProcessingInputData.ResourceLocation), startLineOffset, cancellationToken);
                 Task<long> processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, processErrorChannel, lastCompletedSurrogateId, cancellationToken);
                 Task<long> bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, progressUpdateAction, cancellationToken);
+                Task errorHandleTask = _importErrorUploader.HandleImportErrorAsync(GetErrorFileName(), processErrorChannel, _bulkImportProgress.CurrentErrorLogBatchId, errorProgressUpdateAction, cancellationToken);
 
                 CancellationTokenSource contextUpdateCancellationToken = new CancellationTokenSource();
                 Task updateProgressTask = UpdateProgressAsync(contextUpdateCancellationToken.Token);
@@ -99,6 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 await dataLoadTask;
                 long completedResourceCount = await processTask;
                 long importedSqlRecordCount = await bulkImportTask;
+                await errorHandleTask;
 
                 _logger.LogInformation($"{completedResourceCount} resources imported. {importedSqlRecordCount} sql records copied to sql store.");
 
@@ -136,6 +148,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public bool IsCancelling()
         {
             return _cancellationTokenSource?.IsCancellationRequested ?? false;
+        }
+
+        private string GetErrorFileName()
+        {
+            return $"{_dataProcessingInputData.ResourceType}-{_dataProcessingInputData.TaskId}.ndjson";
         }
 
         private async Task<long> CleanDataAsync(CancellationToken cancellationToken)

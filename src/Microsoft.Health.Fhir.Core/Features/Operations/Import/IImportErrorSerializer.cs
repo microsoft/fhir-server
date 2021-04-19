@@ -3,14 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkImportProgress
+    public interface IImportErrorSerializer
     {
-        public Dictionary<string, ProgressRecord> ProgressRecords { get; private set; } = new Dictionary<string, ProgressRecord>();
-
-        public long CurrentErrorLogBatchId { get; set; }
+        public string Serialize(ProcessError error);
     }
 }

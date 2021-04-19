@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public string ResourceType { get; set; }
 
+        public string TaskId { get; set; }
+
         public long StartSurrogateId { get; set; }
 
         public long EndSurrogateId { get; set; }

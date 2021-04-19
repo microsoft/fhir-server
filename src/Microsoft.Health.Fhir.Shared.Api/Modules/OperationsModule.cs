@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -74,6 +75,16 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf();
 
             services.Add<BulkImportDataExtractor>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<ImportErrorUploader>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<ImportErrorSerializer>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();

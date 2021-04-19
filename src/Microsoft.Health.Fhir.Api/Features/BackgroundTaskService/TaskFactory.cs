@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private IContextUpdaterFactory _contextUpdaterFactory;
         private IBulkResourceLoader _resourceLoader;
         private IBulkRawResourceProcessor _rawResourceProcessor;
+        private IImportErrorUploader _importErrorUploader;
         private IBulkImporter<BulkImportResourceWrapper> _bulkImporter;
         private IFhirRequestContextAccessor _contextAccessor;
         private ILoggerFactory _loggerFactory;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             IContextUpdaterFactory contextUpdaterFactory,
             IBulkResourceLoader resourceLoader,
             IBulkRawResourceProcessor rawResourceProcessor,
+            IImportErrorUploader importErrorUploader,
             IBulkImporter<BulkImportResourceWrapper> bulkImporter,
             IFhirRequestContextAccessor contextAccessor,
             ILoggerFactory loggerFactory)
@@ -35,6 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _contextUpdaterFactory = contextUpdaterFactory;
             _resourceLoader = resourceLoader;
             _rawResourceProcessor = rawResourceProcessor;
+            _importErrorUploader = importErrorUploader;
             _bulkImporter = bulkImporter;
             _contextAccessor = contextAccessor;
             _loggerFactory = loggerFactory;
@@ -47,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
                 BulkImportDataProcessingInputData inputData = JsonConvert.DeserializeObject<BulkImportDataProcessingInputData>(taskInfo.InputData);
                 BulkImportProgress bulkImportProgress = string.IsNullOrEmpty(taskInfo.Context) ? new BulkImportProgress() : JsonConvert.DeserializeObject<BulkImportProgress>(taskInfo.Context);
-                return new BulkImportDataProcessingTask(inputData, bulkImportProgress, _fhirDataBulkOperation, contextUpdater, _resourceLoader, _rawResourceProcessor, _bulkImporter, _contextAccessor, _loggerFactory);
+                return new BulkImportDataProcessingTask(inputData, bulkImportProgress, _fhirDataBulkOperation, contextUpdater, _resourceLoader, _importErrorUploader, _rawResourceProcessor, _bulkImporter, _contextAccessor, _loggerFactory);
             }
 
             return null;

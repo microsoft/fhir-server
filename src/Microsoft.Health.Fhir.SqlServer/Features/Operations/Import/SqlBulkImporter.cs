@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         DataTable inputTable = buffer[tableName];
                         buffer.Remove(tableName);
 
-                        runningTasks.Enqueue(BulkCopyAsync(inputTable, surrogateId + 1, cancellationToken));
+                        runningTasks.Enqueue(BulkCopyAsync(inputTable, surrogateId, cancellationToken));
                     }
                 }
             }
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             foreach (string tableName in tableNames)
             {
                 DataTable inputTable = buffer[tableName];
-                runningTasks.Enqueue(BulkCopyAsync(inputTable, surrogateId + 1, cancellationToken));
+                runningTasks.Enqueue(BulkCopyAsync(inputTable, surrogateId, cancellationToken));
             }
 
             while (runningTasks.Count() > 0 && !cancellationToken.IsCancellationRequested)

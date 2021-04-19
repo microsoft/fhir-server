@@ -12,6 +12,7 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Polly;
 
 namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
@@ -33,16 +34,27 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             return new AzureBlobSourceStream(async () => await GetCloudBlobClientFromServerAsync(blobUri, cancellationToken), startOffset, _logger);
         }
 
-        public async Task PrepareResourceAsync(Uri resourceUri, CancellationToken cancellationToken)
+        public async Task<Uri> PrepareResourceAsync(string containerId, string fileName, CancellationToken cancellationToken)
         {
             try
             {
-                ICloudBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
-                await blob.Container.CreateIfNotExistsAsync(cancellationToken);
+                return await Policy.Handle<StorageException>()
+                    .WaitAndRetryAsync(
+                        retryCount: 2,
+                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
+                    .ExecuteAsync(async () =>
+                        {
+                            CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
+                            CloudBlobContainer container = cloudBlobClient.GetContainerReference(containerId);
+                            await container.CreateIfNotExistsAsync(cancellationToken);
+
+                            CloudBlockBlob blob = container.GetBlockBlobReference(fileName);
+                            return blob.Uri;
+                        });
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, $"Failed to create container for {resourceUri}");
+                _logger.LogError(storageEx, $"Failed to create container for {containerId}:{fileName}");
 
                 throw;
             }
@@ -52,10 +64,17 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             try
             {
-                var blockId = Convert.ToBase64String(BitConverter.GetBytes(partId));
-                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                await Policy.Handle<StorageException>()
+                    .WaitAndRetryAsync(
+                        retryCount: 2,
+                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
+                    .ExecuteAsync(async () =>
+                    {
+                        var blockId = Convert.ToBase64String(BitConverter.GetBytes(partId));
+                        CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
 
-                await blob.PutBlockAsync(blockId, stream);
+                        await blob.PutBlockAsync(blockId, stream);
+                    });
             }
             catch (StorageException storageEx)
             {
@@ -69,10 +88,17 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         {
             try
             {
-                var blockIds = partIds.Select(id => Convert.ToBase64String(BitConverter.GetBytes(id)));
-                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                await Policy.Handle<StorageException>()
+                    .WaitAndRetryAsync(
+                        retryCount: 2,
+                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
+                    .ExecuteAsync(async () =>
+                    {
+                        var blockIds = partIds.Select(id => Convert.ToBase64String(BitConverter.GetBytes(id)));
+                        CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
 
-                await blob.PutBlockListAsync(blockIds, cancellationToken);
+                        await blob.PutBlockListAsync(blockIds, cancellationToken);
+                    });
             }
             catch (StorageException storageEx)
             {

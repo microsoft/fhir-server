@@ -126,9 +126,11 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             try
             {
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                await blobClient.PrepareResourceAsync(blobUri, CancellationToken.None);
+                Uri fileUri = await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
                 Assert.True(await client.GetContainerReference(containerName).ExistsAsync());
-                await blobClient.PrepareResourceAsync(blobUri, CancellationToken.None);
+                Assert.Equal(blobUri, fileUri);
+
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
             }
             finally
             {
@@ -151,7 +153,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             try
             {
                 AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
-                await blobClient.PrepareResourceAsync(blobUri, CancellationToken.None);
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
                 List<long> blockIds = new List<long>();

@@ -100,8 +100,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await produceTask;
             await importTask;
 
-            Assert.Equal(progressRecords["Table1"], startSurrogatedId + resourceCount);
-            Assert.Equal(progressRecords["Table2"], startSurrogatedId + resourceCount);
+            Assert.Equal(progressRecords["Table1"] + 1, startSurrogatedId + resourceCount);
+            Assert.Equal(progressRecords["Table2"] + 1, startSurrogatedId + resourceCount);
             Assert.Equal(resourceCount, table1.Rows.Count);
             Assert.Equal(resourceCount * 2, table2.Rows.Count);
 
