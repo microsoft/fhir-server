@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var patch = await _client.PatchAsync(response.Resource, patchDocument);
 
-            Assert.Equal(HttpStatusCode.NoContent, patch.Response.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
         }
     }
 }
