@@ -106,9 +106,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             BulkImportDataProcessingTaskResult resultData = JsonConvert.DeserializeObject<BulkImportDataProcessingTaskResult>(taskResult.ResultData);
 
             Assert.Equal(TaskResult.Success, taskResult.Result);
-            Assert.Equal(count, result.Count - 10);
+            Assert.Equal(count - 10, result.Count);
             Assert.Equal(inputDataPayload.ResourceType, resultData.ResourceType);
             Assert.Equal(0, resultData.FailedResourceCount);
+        }
+
+        [Fact]
+        public async Task GivenValidInputFiles_WhenErrorHappen_ErrorsShouldBeUploaded()
+        {
+            int count = 101;
+            List<string> inputData = new List<string>();
+            List<BulkImportResourceWrapper> result = new List<BulkImportResourceWrapper>();
+
+            for (int i = 0; i < count; ++i)
+            {
+                inputData.Add(i.ToString());
+                if (i % 5 == 0)
+                {
+                    inputData.Add(string.Empty);
+                }
+            }
+
+            BulkImportDataProcessingInputData inputDataPayload = new BulkImportDataProcessingInputData();
+            inputDataPayload.StartSurrogateId = 10;
+            inputDataPayload.EndSurrogateId = 200;
+            inputDataPayload.ResourceType = "Test";
+            inputDataPayload.ResourceLocation = "http://dummy";
+            inputDataPayload.UriString = "http://dummy";
+            inputDataPayload.BaseUriString = "http://dummy";
+            inputDataPayload.TaskId = Guid.NewGuid().ToString("N");
+
+            BulkImportProgress progress = new BulkImportProgress();
+
+            IFhirDataBulkOperation batchOperation = GetMockFhirDataBulkOperation(null);
+            IContextUpdater contextUpdater = GetMockContextUpdater(null);
+            IBulkResourceLoader bulkResourceLoader = GetMockBulkResourceLoader(inputData);
+            IImportErrorUploader uploader = GetMockImportErrorUploader(null);
+            IBulkRawResourceProcessor processor = GetMockResourceProcessor();
+            IBulkImporter<BulkImportResourceWrapper> importer = GetMockBulkImporter(7, resource => result.Add(resource));
+            IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+
+            BulkImportDataProcessingTask testTask = new BulkImportDataProcessingTask(inputDataPayload, progress, batchOperation, contextUpdater, bulkResourceLoader, uploader, processor, importer, accessor, loggerFactory);
+            TaskResultData taskResult = await testTask.ExecuteAsync();
+            BulkImportDataProcessingTaskResult resultData = JsonConvert.DeserializeObject<BulkImportDataProcessingTaskResult>(taskResult.ResultData);
+
+            Assert.Equal(TaskResult.Success, taskResult.Result);
+            Assert.Equal(count, result.Count);
+            Assert.Equal(inputDataPayload.ResourceType, resultData.ResourceType);
+            Assert.Equal(21, resultData.FailedResourceCount);
         }
 
         private IFhirDataBulkOperation GetMockFhirDataBulkOperation(Action<long, long> cleanBatchResourceAction)
