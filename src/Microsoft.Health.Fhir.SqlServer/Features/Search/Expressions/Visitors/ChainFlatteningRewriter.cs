@@ -52,36 +52,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private void ProcessChainedExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel)
         {
-            SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
-
-            Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
-
-            var sqlChainLinkExpression = new SqlChainLinkExpression(
-                chainedExpression.ResourceTypes,
-                chainedExpression.ReferenceSearchParameter,
-                chainedExpression.TargetResourceTypes,
-                chainedExpression.Reversed,
-                expressionOnTarget: expressionOnTarget);
-
-            tableExpressions.Add(
+            if (chainedExpression.Expression is MultiaryExpression multiaryExpression)
+            {
+                var chainLinkExpression = new SqlChainLinkExpression(
+               chainedExpression.ResourceTypes,
+               chainedExpression.ReferenceSearchParameter,
+               chainedExpression.TargetResourceTypes,
+               chainedExpression.Reversed);
+                tableExpressions.Add(
+                                  new SearchParamTableExpression(
+                                      ChainLinkQueryGenerator.Instance,
+                                      chainLinkExpression,
+                                      SearchParamTableExpressionKind.Chain,
+                                      chainLevel));
+                for (int i = 0; i < multiaryExpression.Expressions.Count; i++)
+                {
+                    var handler = multiaryExpression.Expressions[i].AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+                    tableExpressions.Add(
                 new SearchParamTableExpression(
-                    ChainLinkQueryGenerator.Instance,
-                    sqlChainLinkExpression,
-                    SearchParamTableExpressionKind.Chain,
+                    handler,
+                    multiaryExpression.Expressions[i],
+                    SearchParamTableExpressionKind.Normal,
                     chainLevel));
-
-            if (chainedExpression.Expression is ChainedExpression nestedChainedExpression)
-            {
-                ProcessChainedExpression(nestedChainedExpression, tableExpressions, chainLevel + 1);
+                }
             }
-            else if (queryGenerator != null)
+            else
             {
+                SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+
+                Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
+
+                var sqlChainLinkExpression = new SqlChainLinkExpression(
+                    chainedExpression.ResourceTypes,
+                    chainedExpression.ReferenceSearchParameter,
+                    chainedExpression.TargetResourceTypes,
+                    chainedExpression.Reversed,
+                    expressionOnTarget: expressionOnTarget);
+
                 tableExpressions.Add(
                     new SearchParamTableExpression(
-                        queryGenerator,
-                        chainedExpression.Expression,
-                        SearchParamTableExpressionKind.Normal,
+                        ChainLinkQueryGenerator.Instance,
+                        sqlChainLinkExpression,
+                        SearchParamTableExpressionKind.Chain,
                         chainLevel));
+
+                if (chainedExpression.Expression is ChainedExpression nestedChainedExpression)
+                {
+                    ProcessChainedExpression(nestedChainedExpression, tableExpressions, chainLevel + 1);
+                }
+                else if (queryGenerator != null)
+                {
+                    tableExpressions.Add(
+                        new SearchParamTableExpression(
+                            queryGenerator,
+                            chainedExpression.Expression,
+                            SearchParamTableExpressionKind.Normal,
+                            chainLevel));
+                }
             }
         }
     }

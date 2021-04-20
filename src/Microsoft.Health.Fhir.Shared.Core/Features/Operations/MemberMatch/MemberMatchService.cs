@@ -60,11 +60,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
             searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
 
-            List<Tuple<string, string>> queryParameters = new List<Tuple<string, string>>();
-
-            // No need to look for more than 2 patients, since we looking for exact match.
-            queryParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.Count, "2"));
-
             foreach (var patientValue in patientValues)
             {
                 if (IgnoreInSearch(patientValue))
@@ -72,8 +67,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                     continue;
                 }
 
-                queryParameters.Add(new Tuple<string, string>(patientValue.SearchParameter.Code, patientValue.Value.ToString()));
-                expressions.Add(_expressionParser.Parse(new[] { "Patient" }, patientValue.SearchParameter.Code, patientValue.Value.ToString()));
+                var modifier = string.Empty;
+                if (patientValue.SearchParameter.Type == ValueSets.SearchParamType.String)
+                {
+                    modifier = ":exact";
+                }
+
+                expressions.Add(_expressionParser.Parse(new[] { "Patient" }, patientValue.SearchParameter.Code + modifier, patientValue.Value.ToString()));
             }
 
             foreach (var coverageValue in coverageValues)
@@ -83,9 +83,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                     continue;
                 }
 
-                reverseChainExpressions.Add(_expressionParser.Parse(new[] { "Coverage" }, coverageValue.SearchParameter.Code, coverageValue.Value.ToString()));
-                queryParameters.Add(new Tuple<string, string>(
-                    $"{ExpressionParser.ReverseChainParameter}{KnownResourceTypes.Coverage}:beneficiary:{coverageValue.SearchParameter.Code}", coverageValue.Value.ToString()));
+                var modifier = string.Empty;
+                if (coverageValue.SearchParameter.Type == ValueSets.SearchParamType.String)
+                {
+                    modifier = ":exact";
+                }
+
+                reverseChainExpressions.Add(_expressionParser.Parse(new[] { "Coverage" }, coverageValue.SearchParameter.Code + modifier, coverageValue.Value.ToString()));
             }
 
             Expression reverseChainedExpression;

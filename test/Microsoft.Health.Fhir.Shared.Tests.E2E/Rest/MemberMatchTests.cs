@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData(null, null, "1970-02", FinancialResourceStatusCodes.Active, null, "03")]
         [InlineData(null, null, "1970", FinancialResourceStatusCodes.Active, "P8", "01")]
         [InlineData(null, "Williamas", null, FinancialResourceStatusCodes.Active, "P2", "02")]
-        [InlineData(null, "Robinson", null, FinancialResourceStatusCodes.Active, null, "02")]
+        [InlineData(null, "Robinson", null, FinancialResourceStatusCodes.Active, null, "01")]
         public async Task GivenUniqueInformation_WhenMemberMatchSent_ThenPatientFound(string city, string name, string date, FinancialResourceStatusCodes status, string subPlan, string expectedId)
         {
             var searchPatient = new Patient();
