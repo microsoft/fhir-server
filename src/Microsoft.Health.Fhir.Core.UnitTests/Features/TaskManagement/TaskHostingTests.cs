@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Newtonsoft.Json;
 using NSubstitute;
+using NSubstitute.Core;
 using Xunit;
 using TaskStatus = Microsoft.Health.Fhir.Core.Features.TaskManagement.TaskStatus;
 
@@ -54,8 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
                         await Task.Delay(TimeSpan.FromMilliseconds(20));
                         return new TaskResultData(TaskResult.Success, resultMessage);
                     },
-                    null,
-                    t.RunId);
+                    null);
             });
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
@@ -96,8 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
                             throw new Exception(errorMessage);
                         },
-                        null,
-                        t.RunId);
+                        null);
             });
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
@@ -136,8 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
                             return Task.FromResult(new TaskResultData(TaskResult.Success, string.Empty));
                         },
-                        null,
-                        t.RunId);
+                        null);
             });
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
@@ -178,8 +176,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
                             return new TaskResultData(TaskResult.Success, string.Empty);
                         },
-                        null,
-                        t.RunId);
+                        null);
             });
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
@@ -225,8 +222,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
                     {
                         await Task.Delay(TimeSpan.FromMilliseconds(20));
                         isCancelled = true;
-                    },
-                    Guid.NewGuid().ToString());
+                    })
+                    {
+                        RunId = Guid.NewGuid().ToString(),
+                    };
             });
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
@@ -238,6 +237,71 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
             await taskHosting.StartAsync(tokenSource);
 
             Assert.True(isCancelled);
+        }
+
+        [Fact]
+        public async Task GivenBatchTaskMoreThanMaxConcurrentLimit_WhenExecuteTasks_RunningTaskCountShouldLessThanLimit()
+        {
+            string resultMessage = "success";
+            List<TaskInfo> taskInfos = new List<TaskInfo>();
+
+            int count = 10;
+            short maxConcurrentCount = 2;
+            for (int i = 0; i < count; ++i)
+            {
+                TaskInfo taskInfo = new TaskInfo();
+                taskInfo.TaskId = Guid.NewGuid().ToString();
+                taskInfo.TaskTypeId = 0;
+
+                taskInfos.Add(taskInfo);
+            }
+
+            ILogger<TaskHosting> logger = Substitute.For<ILogger<TaskHosting>>();
+            TestTaskConsumer consumer = new TestTaskConsumer(taskInfos.ToArray());
+            int runningTaskCount = 0;
+            int maxRunningTaskCount = 0;
+            bool runningTaskCountLargeThanLimit = false;
+            TestTaskFactory factory = new TestTaskFactory(t =>
+            {
+                return new TestTask(
+                    async () =>
+                    {
+                        Interlocked.Increment(ref runningTaskCount);
+
+                        maxRunningTaskCount = Math.Max(runningTaskCount, maxRunningTaskCount);
+
+                        try
+                        {
+                            await Task.Delay(TimeSpan.FromMilliseconds(10));
+                            return new TaskResultData(TaskResult.Success, resultMessage);
+                        }
+                        finally
+                        {
+                            Interlocked.Decrement(ref runningTaskCount);
+                        }
+                    },
+                    null);
+            });
+
+            TaskHosting taskHosting = new TaskHosting(consumer, factory, logger);
+            taskHosting.PollingFrequencyInSeconds = 0;
+            taskHosting.MaxRunningTaskCount = maxConcurrentCount;
+
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
+            await taskHosting.StartAsync(tokenSource);
+
+            Assert.False(runningTaskCountLargeThanLimit);
+            Assert.Equal(2, maxRunningTaskCount);
+
+            foreach (ICall call in logger.ReceivedCalls())
+            {
+                if (call.GetMethodInfo().Name.Equals("Log"))
+                {
+                    Assert.NotEqual(LogLevel.Error, call.GetArguments()[0]);
+                }
+            }
         }
 
         [Fact]
@@ -268,8 +332,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
                             throw new RetriableTaskException(errorMessage);
                         },
-                        null,
-                        t.RunId);
+                        null);
                 }
                 else
                 {
@@ -285,8 +348,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
                             return Task.FromResult<TaskResultData>(new TaskResultData(TaskResult.Success, string.Empty));
                         },
-                        null,
-                        t.RunId);
+                        null);
                 }
             });
 
@@ -342,8 +404,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
                             await Task.Delay(TimeSpan.FromMilliseconds(10));
                             return new TaskResultData(TaskResult.Success, string.Empty);
                         },
-                        null,
-                        t.RunId);
+                        null);
                 }
                 else
                 {
@@ -354,8 +415,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
 
                             throw new Exception();
                         },
-                        null,
-                        t.RunId);
+                        null);
                 }
             });
 
@@ -424,8 +484,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
                             await Task.Delay(TimeSpan.FromMilliseconds(1));
                             return new TaskResultData(TaskResult.Success, string.Empty);
                         },
-                        null,
-                        t.RunId);
+                        null);
                 }
                 else
                 {
@@ -434,8 +493,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
                         {
                             throw new Exception();
                         },
-                        null,
-                        t.RunId);
+                        null);
                 }
             });
 

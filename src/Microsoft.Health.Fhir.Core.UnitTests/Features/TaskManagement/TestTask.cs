@@ -15,11 +15,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
         private Action _cancelAction;
         private bool _isCancelling = false;
 
-        public TestTask(Func<Task<TaskResultData>> executeFunc, Action cancelAction, string runId)
+        public TestTask(Func<Task<TaskResultData>> executeFunc, Action cancelAction)
         {
             _executeFunc = executeFunc;
             _cancelAction = cancelAction;
-            RunId = runId;
         }
 
         public string RunId { get; set; }
