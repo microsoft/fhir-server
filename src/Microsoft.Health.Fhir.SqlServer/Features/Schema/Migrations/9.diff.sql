@@ -1,10 +1,14 @@
--- This migration introduces table partitioning by ResourceTypeId on the Resource and all search parameter tables.
--- The migration is "online" meaning the server is fully available during the upgrade, but it can be very time-consuming
--- For reference, a database with 50 million synthea resources took around 10 hours to complete on Azure SQL.
+/*************************************************************
+    This migration introduces table partitioning by ResourceTypeId on the Resource and all search parameter tables.
+    The migration is "online" meaning the server is fully available during the upgrade, but it can be very time-consuming.
+    For reference, a database with 50 million synthea resources took around 10 hours to complete on Azure SQL.
+**************************************************************/
 
 SET NOCOUNT ON
 
--- create a table to keep track of migration progress
+/*************************************************************
+    Migration progress
+**************************************************************/
 
 IF NOT EXISTS (
     SELECT * 
@@ -13,12 +17,11 @@ IF NOT EXISTS (
 BEGIN
     CREATE TABLE dbo.SchemaMigrationProgress
     (
-        Start datetime default CURRENT_TIMESTAMP,
+        Timestamp datetime2(3) default CURRENT_TIMESTAMP,
         Message nvarchar(max)
     )
 
 END
-
 GO
 
 CREATE OR ALTER PROCEDURE dbo.LogSchemaMigrationProgress
@@ -28,6 +31,10 @@ AS
 GO
 
 EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 9'
+
+/*************************************************************
+    Partitioning function and scheme
+**************************************************************/
 
 IF NOT EXISTS (SELECT *
                FROM  sys.partition_functions
@@ -129,6 +136,10 @@ WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+/*************************************************************
+    Reference Search Param
+**************************************************************/
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_ReferenceSearchParam'
 
 CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
@@ -161,6 +172,10 @@ WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+/*************************************************************
+    Token Search Param
+**************************************************************/
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenSearchParam'
 
 CREATE CLUSTERED INDEX IXC_TokenSearchParam
@@ -191,6 +206,10 @@ WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+/*************************************************************
+    Token Text
+**************************************************************/
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenText'
 
 CREATE CLUSTERED INDEX IXC_TokenText
@@ -216,6 +235,10 @@ ON dbo.TokenText
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+/*************************************************************
+    String Search Param
+**************************************************************/
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_StringSearchParam'
 
@@ -261,6 +284,10 @@ WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+/*************************************************************
+    URI Search Param
+**************************************************************/
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_UriSearchParam'
 
 CREATE CLUSTERED INDEX IXC_UriSearchParam
@@ -286,6 +313,10 @@ ON dbo.UriSearchParam
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+/*************************************************************
+    Number Search Param
+**************************************************************/
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_NumberSearchParam'
 
@@ -342,6 +373,10 @@ ON dbo.NumberSearchParam
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
 WITH (ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+/*************************************************************
+    Quantity Search Param
+**************************************************************/
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_QuantitySearchParam'
 
@@ -413,6 +448,10 @@ INCLUDE
 WHERE IsHistory = 0 AND LowValue IS NOT NULL
 WITH (ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+/*************************************************************
+    Date Search Param
+**************************************************************/
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_DateTimeSearchParam'
 
@@ -494,6 +533,10 @@ WHERE IsHistory = 0 AND IsLongerThanADay = 1
 WITH (ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+/*************************************************************
+    Reference$Token Composite Search Param
+**************************************************************/
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_ReferenceTokenCompositeSearchParam'
 
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
@@ -527,6 +570,10 @@ WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+/*************************************************************
+    Token$Token Composite Search Param
+**************************************************************/
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenTokenCompositeSearchParam'
 
 CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
@@ -557,6 +604,10 @@ INCLUDE
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+/*************************************************************
+    Token$DateTime Composite Search Param
+**************************************************************/
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenDateTimeCompositeSearchParam'
 
@@ -654,6 +705,10 @@ WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+/*************************************************************
+    Token$Quantity Composite Search Param
+**************************************************************/
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenQuantityCompositeSearchParam'
 
 CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
@@ -731,6 +786,10 @@ WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+/*************************************************************
+    Token$String Composite Search Param
+**************************************************************/
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenStringCompositeSearchParam'
 
 CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
@@ -780,6 +839,10 @@ INCLUDE
 WHERE IsHistory = 0 AND TextOverflow2 IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+/*************************************************************
+    Token$Number$Number Composite Search Param
+**************************************************************/
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenNumberNumberCompositeSearchParam'
 
@@ -837,6 +900,71 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
 
+--
+-- STORED PROCEDURE
+--     UpsertResource_3
+--
+-- DESCRIPTION
+--     Creates or updates (including marking deleted) a FHIR resource
+--
+-- PARAMETERS
+--     @baseResourceSurrogateId
+--         * A bigint to which a value between [0, 80000) is added, forming a unique ResourceSurrogateId.
+--         * This value should be the current UTC datetime, truncated to millisecond precision, with its 100ns ticks component bitshifted left by 3.
+--     @resourceTypeId
+--         * The ID of the resource type (See ResourceType table)
+--     @resourceId
+--         * The resource ID (must be the same as the in the resource itself)
+--     @etag
+--         * If specified, the version of the resource to update
+--     @allowCreate
+--         * If false, an error is thrown if the resource does not already exist
+--     @isDeleted
+--         * Whether this resource marks the resource as deleted
+--     @keepHistory
+--         * Whether the existing version of the resource should be preserved
+--     @requestMethod
+--         * The HTTP method/verb used for the request
+--     @searchParamHash
+--          * A hash of the resource's latest indexed search parameters
+--     @rawResource
+--         * A compressed UTF16-encoded JSON document
+--     @resourceWriteClaims
+--         * Claims on the principal that performed the write
+--     @compartmentAssignments
+--         * Compartments that the resource is part of
+--     @referenceSearchParams
+--         * Extracted reference search params
+--     @tokenSearchParams
+--         * Extracted token search params
+--     @tokenTextSearchParams
+--         * The text representation of extracted token search params
+--     @stringSearchParams
+--         * Extracted string search params
+--     @numberSearchParams
+--         * Extracted number search params
+--     @quantitySearchParams
+--         * Extracted quantity search params
+--     @uriSearchParams
+--         * Extracted URI search params
+--     @dateTimeSearchParms
+--         * Extracted datetime search params
+--     @referenceTokenCompositeSearchParams
+--         * Extracted reference$token search params
+--     @tokenTokenCompositeSearchParams
+--         * Extracted token$token tokensearch params
+--     @tokenDateTimeCompositeSearchParams
+--         * Extracted token$datetime search params
+--     @tokenQuantityCompositeSearchParams
+--         * Extracted token$quantity search params
+--     @tokenStringCompositeSearchParams
+--         * Extracted token$string search params
+--     @tokenNumberNumberCompositeSearchParams
+--         * Extracted token$number$number search params
+--
+-- RETURN VALUE
+--         The version of the resource as a result set. Will be empty if no insertion was done.
+--
 ALTER PROCEDURE dbo.UpsertResource_3
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
