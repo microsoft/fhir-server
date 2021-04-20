@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
                 if (runningTasks.Count >= MaxRunningTaskCount)
                 {
-                    _ = Task.WhenAny(runningTasks.ToArray());
+                    _ = await Task.WhenAny(runningTasks.ToArray());
                     runningTasks.RemoveAll(t => t.IsCompleted);
                 }
 
@@ -98,6 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
         private async Task ExecuteTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
         {
             using ITask task = _taskFactory.Create(taskInfo);
+            task.RunId = task.RunId ?? taskInfo.RunId;
 
             if (task == null)
             {
@@ -109,35 +110,48 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
             TaskResultData result = null;
             try
             {
-                Task<TaskResultData> runningTask = task.ExecuteAsync();
-
-                lock (_syncRoot)
+                try
                 {
-                    _activeTaskRecordsForKeepAlive[taskInfo.TaskId] = task;
-                }
+                    Task<TaskResultData> runningTask = task.ExecuteAsync();
 
-                result = await runningTask;
-            }
-            catch (RetriableTaskException ex)
-            {
-                _logger.LogError(ex, $"Task {taskInfo.TaskId} failed with retriable exception.");
+                    lock (_syncRoot)
+                    {
+                        _activeTaskRecordsForKeepAlive[taskInfo.TaskId] = task;
+                    }
+
+                    result = await runningTask;
+                }
+                catch (RetriableTaskException ex)
+                {
+                    _logger.LogError(ex, $"Task {taskInfo.TaskId} failed with retriable exception.");
+
+                    try
+                    {
+                        await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message), taskInfo.RunId, MaxRetryCount, cancellationToken);
+                    }
+                    catch (Exception resetEx)
+                    {
+                        _logger.LogError(resetEx, $"Task {taskInfo.TaskId} failed to reset.");
+                    }
+
+                    // Not complete the task for retriable exception.
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Task {taskInfo.TaskId} failed. ");
+                    result = new TaskResultData(TaskResult.Fail, ex.Message);
+                }
 
                 try
                 {
-                    await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message), taskInfo.RunId, MaxRetryCount, cancellationToken);
+                    await _consumer.CompleteAsync(taskInfo.TaskId, result, task.RunId, cancellationToken);
+                    _logger.LogInformation($"Task {taskInfo.TaskId} completed.");
                 }
-                catch (Exception resetEx)
+                catch (Exception completeEx)
                 {
-                    _logger.LogError(resetEx, $"Task {taskInfo.TaskId} failed to reset.");
+                    _logger.LogError(completeEx, $"Task {taskInfo.TaskId} failed to complete.");
                 }
-
-                // Not complete the task for retriable exception.
-                return;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Task {taskInfo.TaskId} failed. ");
-                result = new TaskResultData(TaskResult.Fail, ex.Message);
             }
             finally
             {
@@ -145,16 +159,6 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 {
                     _activeTaskRecordsForKeepAlive.Remove(taskInfo.TaskId);
                 }
-            }
-
-            try
-            {
-                await _consumer.CompleteAsync(taskInfo.TaskId, result, task.RunId, cancellationToken);
-                _logger.LogInformation($"Task {taskInfo.TaskId} completed.");
-            }
-            catch (Exception completeEx)
-            {
-                _logger.LogError(completeEx, $"Task {taskInfo.TaskId} failed to complete.");
             }
         }
 

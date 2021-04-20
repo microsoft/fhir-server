@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Newtonsoft.Json;
@@ -57,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
         public Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(short count, int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
         {
             _faultInjectionAction?.Invoke("GetNextMessagesAsync");
+            Ensure.Comparable.IsGt<short>(count, 0, nameof(count));
 
             IReadOnlyCollection<TaskInfo> tasksInQueue = _taskInfos.Values
                                                                 .Where(t => t.Status != TaskStatus.Completed)
