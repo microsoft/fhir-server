@@ -65,12 +65,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            var allowedTypes = new BitArray(_model.ResourceTypeIdRange.highestId + 1, true);
-            for (int i = 0; i < _model.ResourceTypeIdRange.lowestId; i++)
-            {
-                allowedTypes[i] = false;
-            }
-
             int keySetIndex = -1;
             bool hasTypeRestriction = false;
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
@@ -87,17 +81,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            if (hasTypeRestriction && keySetIndex < 0)
+            if (keySetIndex < 0)
             {
-                return expression;
-            }
+                if (hasTypeRestriction)
+                {
+                    return expression;
+                }
 
-            if (!hasTypeRestriction && keySetIndex < 0)
-            {
                 if (_schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
                 {
                     return expression;
                 }
+
+                // We need to explicitly allow all resource types, so that the query
+                // can benefit from partition elimination.
 
                 var updatedResourceTableExpressions = new List<SearchParameterExpressionBase>(expression.ResourceTableExpressions.Count + 1);
                 updatedResourceTableExpressions.AddRange(expression.ResourceTableExpressions);
@@ -108,9 +105,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             var existingKeySetParameter = (SearchParameterExpression)expression.ResourceTableExpressions[keySetIndex];
 
-            if (existingKeySetParameter == null)
+            var allowedTypes = new BitArray(_model.ResourceTypeIdRange.highestId + 1, true);
+            for (int i = 0; i < _model.ResourceTypeIdRange.lowestId; i++)
             {
-                return expression;
+                allowedTypes[i] = false;
             }
 
             int bitCriteria = 0;
@@ -186,10 +184,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     new BinaryExpression(existingBinaryKeySetExpression.BinaryOperator, existingBinaryKeySetExpression.FieldName, null, existingKeySetValue with { NextResourceTypeIds = allowedTypes }));
             }
 
-            SearchParameterExpressionBase[] newResourceTableExpressions = null;
-            EnsureAllocatedAndPopulated(ref newResourceTableExpressions, expression.ResourceTableExpressions, expression.ResourceTableExpressions.Count);
-            newResourceTableExpressions[keySetIndex] = newSearchParameterExpression;
+            var newResourceTableExpressions = new List<SearchParameterExpressionBase>();
+            for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
+            {
+                if (i != keySetIndex &&
+                    (expression.ResourceTableExpressions[i] is not SearchParameterExpression searchParameterExpression || searchParameterExpression.Parameter.Name != SearchParameterNames.ResourceType))
+                {
+                    newResourceTableExpressions.Add(expression.ResourceTableExpressions[i]);
+                }
+            }
 
+            newResourceTableExpressions.Add(newSearchParameterExpression);
             return new SqlRootExpression(expression.SearchParamTableExpressions, newResourceTableExpressions);
         }
     }
