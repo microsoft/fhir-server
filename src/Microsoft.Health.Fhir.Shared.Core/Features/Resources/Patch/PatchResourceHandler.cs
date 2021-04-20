@@ -10,6 +10,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.AspNetCore.JsonPatch.Exceptions;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -76,28 +77,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
             var resource = _resourceDeserializer.Deserialize(currentDoc);
             var resourceInstance = resource.Instance.ToPoco<Resource>();
+
             var resourceId = resourceInstance.Id;
-            var resourceTypeName = resourceInstance.TypeName;
             var resourceVersion = resourceInstance.VersionId;
 
-            message.PatchDocument.ApplyTo(resourceInstance);
-
-            // To-do: validate that forbidden properties are not being changed
-            if (resourceId != resourceInstance.Id ||
-                resourceTypeName != resourceInstance.TypeName ||
-                resourceVersion != resourceInstance.VersionId)
+            try
             {
-                throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
+                message.PatchDocument.ApplyTo(resourceInstance);
+
+                // To-do: validate that forbidden properties are not being changed
+                if (resourceId != resourceInstance.Id ||
+                    resourceVersion != resourceInstance.VersionId)
+                {
+                    throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
+                }
+
+                ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
+                bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
+                var result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
+
+                // To-do: package and return the response
+                resourceInstance.VersionId = result.Wrapper.Version;
+
+                return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
             }
-
-            ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
-            bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
-            var result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
-
-            // To-do: package and return the response
-            resourceInstance.VersionId = result.Wrapper.Version;
-
-            return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
+            catch (JsonPatchException e)
+            {
+                throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, e.Message));
+            }
         }
 
         /* To-do update with patch logic
