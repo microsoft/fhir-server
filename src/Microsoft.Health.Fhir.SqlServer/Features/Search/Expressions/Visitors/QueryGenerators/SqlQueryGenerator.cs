@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -110,7 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // The last CTE has all the surrogate IDs that match the results.
                     // We just need to count those and don't need to join with the Resource table
                     selectingFromResourceTable = false;
-                    StringBuilder.AppendLine("SELECT COUNT(DISTINCT T1, Sid1)");
+                    StringBuilder.AppendLine("SELECT COUNT(DISTINCT Sid1)");
                 }
                 else
                 {
@@ -205,6 +204,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (!searchOptions.CountOnly)
                 {
                     StringBuilder.Append("ORDER BY ");
+
+                    if (_rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include))
+                    {
+                        // ensure the matches appear before includes
+                        StringBuilder.Append("IsMatch DESC, ");
+                    }
+
                     if (isSpecialCaseSort)
                     {
                         StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
@@ -415,36 +421,59 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
             bool isSpecialCaseSort = IsSpecialCaseSort(context);
+            var sortExpression = isSpecialCaseSort ? null : "SortValue";
 
-            var sortExpression = isSpecialCaseSort ? null : $"{tableExpressionName}.SortValue";
+            bool hasIncludeExpression = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
+
+            IndentedStringBuilder.IndentedScope indentedScope = default;
+            if (hasIncludeExpression)
+            {
+                StringBuilder.Append("SELECT ROW_NUMBER() OVER(");
+                AppendOrderBy();
+                StringBuilder.AppendLine(") AS Row, *")
+                    .AppendLine("FROM")
+                    .AppendLine("(");
+
+                indentedScope = StringBuilder.Indent();
+            }
 
             StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
-                .Append("FROM ").AppendLine(tableExpressionName)
-                .Append($"ORDER BY ");
+                .Append("FROM ").AppendLine(tableExpressionName);
 
-            if (isSpecialCaseSort)
-            {
-                StringBuilder.AppendDelimited(", ", context.Sort, (sb, sort) =>
-                {
-                    string column = sort.searchParameterInfo.Name switch
-                    {
-                        SearchParameterNames.ResourceType => "T1",
-                        SearchParameterNames.LastUpdated => "Sid1",
-                        _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
-                    };
-                    sb.Append(column).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-                });
-            }
-            else
-            {
-                StringBuilder.Append(sortExpression).Append(context.Sort[1].sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
-            }
-
+            AppendOrderBy();
             StringBuilder.AppendLine();
+
+            if (hasIncludeExpression)
+            {
+                indentedScope.Dispose();
+                StringBuilder.AppendLine(") t");
+            }
 
             // For any includes, the source of the resource surrogate ids to join on is saved
             _cteMainSelect = TableExpressionName(_tableExpressionCounter);
+
+            void AppendOrderBy()
+            {
+                StringBuilder.Append($"ORDER BY ");
+                if (isSpecialCaseSort)
+                {
+                    StringBuilder.AppendDelimited(", ", context.Sort, (sb, sort) =>
+                    {
+                        string column = sort.searchParameterInfo.Name switch
+                        {
+                            SearchParameterNames.ResourceType => "T1",
+                            SearchParameterNames.LastUpdated => "Sid1",
+                            _ => throw new InvalidOperationException($"Unexpected sort parameter {sort.searchParameterInfo.Name}"),
+                        };
+                        sb.Append(column).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                    });
+                }
+                else
+                {
+                    StringBuilder.Append(sortExpression).Append(" ").Append(context.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                }
+            }
         }
 
         private void HandleTableKindChain(
@@ -608,22 +637,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 table = !includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
 
                 // For RevIncludeIterate we expect to have a TargetType specified if the target reference can be of multiple types
-                var resourceIds = includeExpression.ResourceTypes.Select(x => Model.GetResourceTypeId(x)).ToArray();
+                var resourceTypeIds = includeExpression.ResourceTypes.Select(x => Model.GetResourceTypeId(x)).ToArray();
                 if (includeExpression.Reversed && includeExpression.Iterate)
                 {
                     if (includeExpression.TargetResourceType != null)
                     {
-                        resourceIds = new[] { Model.GetResourceTypeId(includeExpression.TargetResourceType) };
+                        resourceTypeIds = new[] { Model.GetResourceTypeId(includeExpression.TargetResourceType) };
                     }
                     else if (includeExpression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 0)
                     {
-                        resourceIds = new[] { Model.GetResourceTypeId(includeExpression.ReferenceSearchParameter.TargetResourceTypes.ToList().First()) };
+                        resourceTypeIds = new[] { Model.GetResourceTypeId(includeExpression.ReferenceSearchParameter.TargetResourceTypes.ToList().First()) };
                     }
                 }
 
                 delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
                     .Append(" IN (")
-                    .Append(string.Join(", ", resourceIds))
+                    .Append(string.Join(", ", resourceTypeIds))
                     .Append(")");
 
                 // Get FROM ctes
@@ -674,20 +703,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType)));
                 }
 
-                // Limit the join to the main select CTE.
-                // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
+                delimited.BeginDelimitedElement().Append("EXISTS( SELECT * FROM ").Append(fromCte)
+                    .Append(" WHERE ").Append(VLatest.Resource.ResourceTypeId, table).Append(" = T1 AND ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, table).Append(" = Sid1");
+
                 if (!includeExpression.Iterate)
                 {
-                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
-                        .Append(" IN (SELECT TOP(")
-                        .Append(Parameters.AddParameter(context.MaxItemCount))
-                        .Append(") T1, Sid1 FROM ").Append(fromCte).Append(")");
+                    // Limit the join to the main select CTE.
+                    // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
+
+                    StringBuilder.Append(" AND Row < ").Append(Parameters.AddParameter(context.MaxItemCount + 1));
                 }
-                else
-                {
-                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
-                        .Append(" IN (SELECT T1, Sid1 FROM ").Append(fromCte).Append(")");
-                }
+
+                StringBuilder.Append(")");
             }
 
             if (includeExpression.Reversed)
@@ -781,11 +809,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void HandleTableKindIncludeUnionAll(SearchOptions context)
         {
             StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial ");
-            var (supportedSortParam, _) = context.Sort.Count == 0 ? default : context.Sort[0];
 
-            // In union, any valid sort param is ok, except _lastUpdated, which gets a special treatment.
-            bool supportedSortParamExists = supportedSortParam != null && supportedSortParam.Code != KnownQueryParameterNames.LastUpdated;
-            if (supportedSortParamExists)
+            bool isSpecialCaseSort = IsSpecialCaseSort(context);
+            if (!isSpecialCaseSort)
             {
                 StringBuilder.AppendLine(", SortValue");
             }
@@ -800,7 +826,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 StringBuilder.AppendLine("UNION ALL");
                 StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial");
-                if (supportedSortParamExists)
+                if (!isSpecialCaseSort)
                 {
                     StringBuilder.AppendLine(", NULL as SortValue ");
                 }
@@ -909,10 +935,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 delimited.BeginDelimitedElement();
 
-                string columnsToSelect = (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain ? searchParamTableExpression.ChainLevel - 1 : searchParamTableExpression.ChainLevel) == 0 ? "T1, Sid1" : "T2, Sid2";
+                bool intersectWithFirst = (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain ? searchParamTableExpression.ChainLevel - 1 : searchParamTableExpression.ChainLevel) == 0;
 
-                StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" IN (SELECT ").Append(columnsToSelect)
-                    .Append(" FROM ").Append(TableExpressionName(predecessorIndex)).Append(")");
+                StringBuilder.Append("EXISTS(SELECT * FROM ").Append(TableExpressionName(predecessorIndex))
+                    .Append(" WHERE ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
+                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
+                    .Append(')');
             }
         }
 

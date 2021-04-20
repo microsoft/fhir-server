@@ -187,6 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
+            var originalSearchOptions = searchOptions;
             searchOptions = UpdateSort(searchOptions, searchExpression);
 
             if (searchOptions.CountOnly)
@@ -363,7 +364,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 Core.Resources.TruncatedIncludeMessage));
                     }
 
-                    return new SearchResult(resources, continuationToken?.ToJson(), searchOptions.Sort, searchOptions.UnsupportedSearchParams);
+                    return new SearchResult(resources, continuationToken?.ToJson(), originalSearchOptions.Sort, searchOptions.UnsupportedSearchParams);
                 }
             }
         }

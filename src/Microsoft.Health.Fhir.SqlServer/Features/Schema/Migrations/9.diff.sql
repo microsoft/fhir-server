@@ -900,6 +900,10 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
 
+/*************************************************************
+    Stored procedures for creating and deleting
+**************************************************************/
+
 --
 -- STORED PROCEDURE
 --     UpsertResource_3

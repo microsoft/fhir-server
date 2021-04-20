@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -170,8 +171,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     {
                         if (resultSortOrder?.Count > 0)
                         {
+                            var sb = new StringBuilder();
+                            bool first = true;
+                            foreach ((SearchParameterInfo searchParameterInfo, SortOrder sortOrder) in resultSortOrder)
+                            {
+                                if (first)
+                                {
+                                    first = false;
+                                }
+                                else
+                                {
+                                    sb.Append(',');
+                                }
+
+                                if (sortOrder == SortOrder.Descending)
+                                {
+                                    sb.Append('-');
+                                }
+
+                                sb.Append(searchParameterInfo.Name);
+                            }
+
                             // rewrite the sort order based on the sort order that was actually applied
-                            routeValues.Add(searchParam.Key, new StringValues(resultSortOrder.Select(s => $"{(s.sortOrder == SortOrder.Ascending ? string.Empty : "-")}{s.searchParameterInfo.Code}").ToArray()));
+                            routeValues.Add(searchParam.Key, sb.ToString());
                         }
                     }
                     else if (string.Equals(searchParam.Key, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))

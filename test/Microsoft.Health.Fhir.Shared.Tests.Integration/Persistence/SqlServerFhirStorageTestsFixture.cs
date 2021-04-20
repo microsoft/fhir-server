@@ -130,6 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertSearchParamsTvpGenerator,
                 () => _filebasedSearchParameterStatusDataStore,
                 schemaInformation,
+                new SqlServerSortingValidator(schemaInformation),
                 sqlServerFhirModel);
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
@@ -178,9 +179,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sqlRootExpressionRewriter,
                 chainFlatteningRewriter,
                 sortRewriter,
+                new ContinuationTokenSimplifier(sqlServerFhirModel, schemaInformation, () => searchableSearchParameterDefinitionManager),
                 SqlConnectionWrapperFactory,
                 schemaInformation,
-                new SqlServerSortingValidator(),
+                fhirRequestContextAccessor,
+                () => searchableSearchParameterDefinitionManager,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
