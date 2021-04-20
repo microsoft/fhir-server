@@ -7,6 +7,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -21,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
     public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, PatchResourceResponse>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly ResourceDeserializer _resourceDeserializer;
 
         public PatchResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -28,12 +31,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            ResourceDeserializer resourceDeserializer)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _modelInfoProvider = modelInfoProvider;
+            _resourceDeserializer = resourceDeserializer;
         }
 
         public async Task<PatchResourceResponse> Handle(PatchResourceRequest message, CancellationToken cancellationToken)
@@ -63,9 +68,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             if (message.PatchDocument != null)
             {
                 // To-do: Patch document operation
-                // Call the data store Patch operation
+                // To-do: Refactor patch logic into data store.
                 Console.WriteLine("Patch operation placeholder");
-                /*  UpsertOutcome result = await PatchAsync(message, resourceWrapper, allowCreate, keepHistory, cancellationToken);*/
+                var currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
+                var resource = _resourceDeserializer.Deserialize(currentDoc);
+                var resourceInstance = resource.Instance.ToPoco<Resource>();
+                message.PatchDocument.ApplyTo(resourceInstance);
+
+                Console.WriteLine("Patched document");
+
+                // To-do: validate that forbidden properties are not being changed
+
+                ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
+                var result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, true, cancellationToken);
+
+               // To-do: package and return the response
             }
 
             if (string.IsNullOrWhiteSpace(version))
