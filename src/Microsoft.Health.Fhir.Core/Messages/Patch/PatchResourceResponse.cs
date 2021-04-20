@@ -10,16 +10,13 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
     public class PatchResourceResponse
     {
-        public PatchResourceResponse(ResourceKey resourceKey, WeakETag weakETag = null)
+        public PatchResourceResponse(SaveOutcome outcome)
         {
-            EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
+            EnsureArg.IsNotNull(outcome, nameof(outcome));
 
-            ResourceKey = resourceKey;
-            WeakETag = weakETag;
+            Outcome = outcome;
         }
 
-        public ResourceKey ResourceKey { get; }
-
-        public WeakETag WeakETag { get; }
+        public SaveOutcome Outcome { get; }
     }
 }

@@ -57,40 +57,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new MethodNotAllowedException(Core.Resources.DeleteVersionNotAllowed);
             }
 
-            /*
-                bool allowCreate = await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
-                bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
-                ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: allowCreate);
-            */
+            // ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: allowCreate);
 
-            string version = null;
+            // To-do: Patch document operation
+            // To-do: Refactor patch logic into data store.
+            Console.WriteLine("Patch operation placeholder");
+            var currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
 
-            if (message.PatchDocument != null)
+            if (currentDoc == null)
             {
-                // To-do: Patch document operation
-                // To-do: Refactor patch logic into data store.
-                Console.WriteLine("Patch operation placeholder");
-                var currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
-                var resource = _resourceDeserializer.Deserialize(currentDoc);
-                var resourceInstance = resource.Instance.ToPoco<Resource>();
-                message.PatchDocument.ApplyTo(resourceInstance);
-
-                Console.WriteLine("Patched document");
-
-                // To-do: validate that forbidden properties are not being changed
-
-                ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
-                var result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, true, cancellationToken);
-
-               // To-do: package and return the response
+                throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, key.ResourceType, key.Id));
             }
 
-            if (string.IsNullOrWhiteSpace(version))
+            if (currentDoc.IsHistory)
             {
-                return new PatchResourceResponse(new ResourceKey(key.ResourceType, key.Id));
+                throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
             }
 
-            return new PatchResourceResponse(new ResourceKey(key.ResourceType, key.Id, version), WeakETag.FromVersionId(version));
+            var resource = _resourceDeserializer.Deserialize(currentDoc);
+            var resourceInstance = resource.Instance.ToPoco<Resource>();
+            var resourceId = resourceInstance.Id;
+            var resourceTypeName = resourceInstance.TypeName;
+            var resourceVersion = resourceInstance.VersionId;
+
+            message.PatchDocument.ApplyTo(resourceInstance);
+
+            // To-do: validate that forbidden properties are not being changed
+            if (resourceId != resourceInstance.Id ||
+                resourceTypeName != resourceInstance.TypeName ||
+                resourceVersion != resourceInstance.VersionId)
+            {
+                throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
+            }
+
+            ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
+            bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
+            var result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
+
+            // To-do: package and return the response
+            resourceInstance.VersionId = result.Wrapper.Version;
+
+            return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
         }
 
         /* To-do update with patch logic
