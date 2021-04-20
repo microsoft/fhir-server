@@ -431,10 +431,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 return (results, nextContinuationToken, feedOptions.MaxConcurrency);
             }
-            catch (Exception)
-            {
-                return (null, null, null);
-            }
             finally
             {
                 if (queryPartitionStatistics != null && fhirRequestContext != null)
