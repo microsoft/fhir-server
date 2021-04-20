@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     method: "Import",
                     uriString: _dataProcessingInputData.UriString,
                     baseUriString: _dataProcessingInputData.BaseUriString,
-                    correlationId: RunId,
+                    correlationId: _dataProcessingInputData.TaskId,
                     requestHeaders: new Dictionary<string, StringValues>(),
                     responseHeaders: new Dictionary<string, StringValues>())
             {
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 Task dataLoadTask = _resourceLoader.LoadToChannelAsync(rawDataChannel, new Uri(_dataProcessingInputData.ResourceLocation), startLineOffset, cancellationToken);
                 Task<long> processTask = _rawResourceProcessor.ProcessingDataAsync(rawDataChannel, resourceWrapperChannel, processErrorChannel, lastCompletedSurrogateId, cancellationToken);
                 Task<long> bulkImportTask = _bulkImporter.ImportResourceAsync(resourceWrapperChannel, progressUpdateAction, cancellationToken);
-                Task errorHandleTask = _importErrorUploader.HandleImportErrorAsync(GetErrorFileName(), processErrorChannel, _bulkImportProgress.CurrentErrorLogBatchId, errorProgressUpdateAction, cancellationToken);
+                Task<(long, Uri)> errorHandleTask = _importErrorUploader.HandleImportErrorAsync(GetErrorFileName(), processErrorChannel, _bulkImportProgress.CurrentErrorLogBatchId, errorProgressUpdateAction, cancellationToken);
 
                 CancellationTokenSource contextUpdateCancellationToken = new CancellationTokenSource();
                 Task updateProgressTask = UpdateProgressAsync(contextUpdateCancellationToken.Token);
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 await dataLoadTask;
                 long completedResourceCount = await processTask;
                 long importedSqlRecordCount = await bulkImportTask;
-                await errorHandleTask;
+                (long errorCount, Uri errorFileUri) = await errorHandleTask;
 
                 _logger.LogInformation($"{completedResourceCount} resources imported. {importedSqlRecordCount} sql records copied to sql store.");
 
@@ -121,6 +121,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     ResourceType = _dataProcessingInputData.ResourceType,
                     CompletedResourceCount = completedResourceCount,
+                    FailedResourceCount = errorCount,
+                    ErrorLogLocation = errorFileUri.ToString(),
                 };
 
                 if (!cancellationToken.IsCancellationRequested)

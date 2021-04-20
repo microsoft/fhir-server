@@ -33,10 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
 
-        public async Task HandleImportErrorAsync(string fileName, Channel<BatchProcessErrorRecord> errorsChannel, long startErrorLogBatchId, Action<long, long> progressUpdater, CancellationToken cancellationToken)
+        public async Task<(long count, Uri fileUri)> HandleImportErrorAsync(string fileName, Channel<BatchProcessErrorRecord> errorsChannel, long startErrorLogBatchId, Action<long, long> progressUpdater, CancellationToken cancellationToken)
         {
             _logger.LogInformation($"Start to upload error logs for {fileName}");
 
+            long result = 0;
             long currentErrorLogBatchId = startErrorLogBatchId;
             Uri fileUri = await _integrationDataStoreClient.PrepareResourceAsync(LoggingContainer, fileName, cancellationToken);
             List<BatchProcessErrorRecord> buffer = new List<BatchProcessErrorRecord>();
@@ -57,14 +58,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
 
                     currentErrorLogBatchId = await ProcessErrorLogRecordsAsync(currentErrorLogBatchId, fileUri, buffer.ToArray(), progressUpdater, cancellationToken);
+                    result += buffer.Count;
                     buffer.Clear();
                 }
             }
             while (await errorsChannel.Reader.WaitToReadAsync() && !cancellationToken.IsCancellationRequested);
 
             await ProcessErrorLogRecordsAsync(currentErrorLogBatchId, fileUri, buffer.ToArray(), progressUpdater, cancellationToken);
+            result += buffer.Count;
 
             _logger.LogInformation($"Upload error logs for {fileName} completed.");
+
+            return (result, fileUri);
         }
 
         private async Task<long> ProcessErrorLogRecordsAsync(long currentErrorLogBatchId, Uri fileUri, BatchProcessErrorRecord[] records, Action<long, long> progressUpdater, CancellationToken cancellationToken)

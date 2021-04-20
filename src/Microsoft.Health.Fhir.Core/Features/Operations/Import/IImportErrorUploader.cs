@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public interface IImportErrorUploader
     {
-        public Task HandleImportErrorAsync(string fileName, Channel<BatchProcessErrorRecord> errorsChannel, long startErrorLogBatchId, Action<long, long> progressUpdater, CancellationToken cancellationToken);
+        public Task<(long count, Uri fileUri)> HandleImportErrorAsync(string fileName, Channel<BatchProcessErrorRecord> errorsChannel, long startErrorLogBatchId, Action<long, long> progressUpdater, CancellationToken cancellationToken);
     }
 }
