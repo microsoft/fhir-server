@@ -385,7 +385,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // return ToSaveOutcomeResult(response);
             // To-do: Change from no content to the corresponding content.
-            return FhirResult.NoContent();
+            // return FhirResult.NoContent();
+
+            return ToSaveOutcomeResult(response.Outcome);
         }
 
         /// <summary>
