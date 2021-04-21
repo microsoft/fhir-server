@@ -51,14 +51,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new UnauthorizedFhirActionException();
             }
 
-            var key = message.ResourceKey;
+            ResourceKey key = message.ResourceKey;
 
             if (!string.IsNullOrEmpty(key.VersionId))
             {
                 throw new MethodNotAllowedException(Core.Resources.DeleteVersionNotAllowed);
             }
 
-            var currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
+            ResourceWrapper currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
 
             if (currentDoc == null)
             {
@@ -70,11 +70,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
             }
 
-            var resource = _resourceDeserializer.Deserialize(currentDoc);
-            var resourceInstance = resource.Instance.ToPoco<Resource>();
-
-            var resourceId = resourceInstance.Id;
-            var resourceVersion = resourceInstance.VersionId;
+            ResourceElement resource = _resourceDeserializer.Deserialize(currentDoc);
+            Resource resourceInstance = resource.Instance.ToPoco<Resource>();
+            string resourceId = resourceInstance.Id;
+            string resourceVersion = resourceInstance.VersionId;
 
             try
             {
@@ -88,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
                 ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
                 bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
-                var result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
+                UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
                 resourceInstance.VersionId = result.Wrapper.Version;
 
                 return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
