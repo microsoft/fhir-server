@@ -57,14 +57,65 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
 
         public async Task<ResourceElement> FindMatch(ResourceElement coverage, ResourceElement patient, CancellationToken cancellationToken)
         {
-            var coverageValues = _searchIndexer.Extract(coverage);
-            var patientValues = _searchIndexer.Extract(patient);
-            var expressions = new List<Expression>();
-            var reverseChainExpressions = new List<Expression>();
             var searchOptions = new SearchOptions();
             searchOptions.MaxItemCount = 2;
             searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
             searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
+            searchOptions.Expression = CreateSearchExpression(coverage, patient);
+
+            SearchResult results = null;
+            try
+            {
+                using IScoped<ISearchService> search = _searchServiceFactory();
+                results = await search.Value.SearchAsync(searchOptions, cancellationToken);
+            }
+
+            // Generic catch for any exception happened during search.
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Generic problem in MemberMatch service.");
+                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
+            }
+
+            return CreatePatientWithIdentity(patient, results);
+        }
+
+        private ResourceElement CreatePatientWithIdentity(ResourceElement patient, SearchResult results)
+        {
+            var searchMatchOnly = results.Results.Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
+            if (searchMatchOnly.Count > 1)
+            {
+                throw new MemberMatchMatchingException(Core.Resources.MemberMatchMultipleMatchesFound);
+            }
+
+            if (searchMatchOnly.Count == 0)
+            {
+                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
+            }
+
+            var match = searchMatchOnly[0];
+            var element = _resourceDeserializer.Deserialize(match.Resource);
+            var foundPatient = element.ToPoco<Patient>();
+            var id = foundPatient.Identifier.Where(x => x.Type.Coding.Exists(x => x.Code == "MB")).FirstOrDefault();
+            if (id == null)
+            {
+                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
+            }
+
+            var resultPatient = patient.ToPoco<Patient>();
+            var resultId = new Identifier(id.System, id.Value);
+            resultId.Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/v2-0203", "UMB", "Member Match");
+            resultPatient.Identifier.Add(resultId);
+            var result = resultPatient.ToResourceElement();
+            return result;
+        }
+
+        private Expression CreateSearchExpression(ResourceElement coverage, ResourceElement patient)
+        {
+            var coverageValues = _searchIndexer.Extract(coverage);
+            var patientValues = _searchIndexer.Extract(patient);
+            var expressions = new List<Expression>();
+            var reverseChainExpressions = new List<Expression>();
 
             foreach (var patientValue in patientValues)
             {
@@ -114,47 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                 expressions.Add(expression);
             }
 
-            searchOptions.Expression = Expression.And(expressions);
-            SearchResult results = null;
-            try
-            {
-                using IScoped<ISearchService> search = _searchServiceFactory();
-                results = await search.Value.SearchAsync(searchOptions, cancellationToken);
-            }
-
-            // Generic catch for any exception happened during search.
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Generic problem in MemberMatch service.");
-                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
-            }
-
-            var searchMatchOnly = results.Results.Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
-            if (searchMatchOnly.Count > 1)
-            {
-                throw new MemberMatchMatchingException(Core.Resources.MemberMatchMultipleMatchesFound);
-            }
-
-            if (searchMatchOnly.Count == 0)
-            {
-                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
-            }
-
-            var match = searchMatchOnly[0];
-            var element = _resourceDeserializer.Deserialize(match.Resource);
-            var foundPatient = element.ToPoco<Patient>();
-            var id = foundPatient.Identifier.Where(x => x.Type.Coding.Exists(x => x.Code == "MB")).FirstOrDefault();
-            if (id == null)
-            {
-                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
-            }
-
-            var resultPatient = patient.ToPoco<Patient>();
-            var resultId = new Identifier(id.System, id.Value);
-            resultId.Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/v2-0203", "UMB", "Member Match");
-            resultPatient.Identifier.Add(resultId);
-            var result = resultPatient.ToResourceElement();
-            return result;
+            return Expression.And(expressions);
         }
 
         private static bool IgnoreInSearch(SearchIndexEntry searchEntry) =>

@@ -52,31 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private void ProcessChainedExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel)
         {
-            if (chainedExpression.Expression is MultiaryExpression multiaryExpression)
-            {
-                var chainLinkExpression = new SqlChainLinkExpression(
-               chainedExpression.ResourceTypes,
-               chainedExpression.ReferenceSearchParameter,
-               chainedExpression.TargetResourceTypes,
-               chainedExpression.Reversed);
-                tableExpressions.Add(
-                                  new SearchParamTableExpression(
-                                      ChainLinkQueryGenerator.Instance,
-                                      chainLinkExpression,
-                                      SearchParamTableExpressionKind.Chain,
-                                      chainLevel));
-                for (int i = 0; i < multiaryExpression.Expressions.Count; i++)
-                {
-                    var handler = multiaryExpression.Expressions[i].AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
-                    tableExpressions.Add(
-                new SearchParamTableExpression(
-                    handler,
-                    multiaryExpression.Expressions[i],
-                    SearchParamTableExpressionKind.Normal,
-                    chainLevel));
-                }
-            }
-            else
+            if (!(chainedExpression.Expression is MultiaryExpression multiaryExpression && multiaryExpression.MultiaryOperation == MultiaryOperator.And))
             {
                 SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
 
@@ -109,6 +85,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                             SearchParamTableExpressionKind.Normal,
                             chainLevel));
                 }
+            }
+            else
+            {
+                HandleAndExpression(chainedExpression, tableExpressions, chainLevel, multiaryExpression);
+            }
+        }
+
+        /// <summary>
+        /// And expression inside chained expression wouldn't be handled properly because we can have different types of paramaters to filter on.
+        /// But acceptVisitor method returns only one table generator (first we encounter).
+        /// This method takes table generator for each subexpression and create table expression for it.
+        /// </summary>
+        private void HandleAndExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel, MultiaryExpression multiaryExpression)
+        {
+            var chainLinkExpression = new SqlChainLinkExpression(
+                chainedExpression.ResourceTypes,
+                chainedExpression.ReferenceSearchParameter,
+                chainedExpression.TargetResourceTypes,
+                chainedExpression.Reversed);
+
+            tableExpressions.Add(new SearchParamTableExpression(
+                                  ChainLinkQueryGenerator.Instance,
+                                  chainLinkExpression,
+                                  SearchParamTableExpressionKind.Chain,
+                                  chainLevel));
+
+            foreach (var expression in multiaryExpression.Expressions)
+            {
+                var handler = expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+                tableExpressions.Add(
+                    new SearchParamTableExpression(
+                        handler,
+                        expression,
+                        SearchParamTableExpressionKind.Normal,
+                        chainLevel));
             }
         }
     }

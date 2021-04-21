@@ -277,7 +277,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                             Expression.And(
                                 Expression.Equals(FieldName.ReferenceResourceId, null, x.Id),
                                 Expression.Equals(FieldName.ReferenceResourceType, null, filteredType))))
-
                     .ToArray<Expression>();
             }
             else
@@ -285,8 +284,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // When reverse chained, we take the ids and types from the child object and use it to filter the parent objects.
                 // e.g. Patient?_has:Group:member:_id=group1. In this case we would have run the query there Group.id = group1
                 // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
-                chainedExpressionReferences = chainedResults.results.SelectMany(x =>
-                x.ReferencesToInclude.Select(y => y)).Distinct().Select(include => Expression.And(
+                chainedExpressionReferences = chainedResults.results.SelectMany(x =>x.ReferencesToInclude.Select(y => y)).Distinct()
+                           .Select(include => Expression.And(
                                   Expression.SearchParameter(
                                       _resourceIdSearchParameter,
                                       Expression.Equals(FieldName.TokenCode, null, include.ResourceId)),
