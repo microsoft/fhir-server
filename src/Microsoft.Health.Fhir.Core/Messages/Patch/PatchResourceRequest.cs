@@ -36,8 +36,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 
         public JsonPatchDocument PatchDocument { get; }
 
-        public bool HardDelete { get; }
-
         public WeakETag WeakETag { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
