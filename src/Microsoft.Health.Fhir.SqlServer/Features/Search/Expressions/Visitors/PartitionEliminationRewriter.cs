@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema;
-using Microsoft.SqlServer.Management.Dmf;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
@@ -120,72 +119,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             var primaryKeyParameter = (SearchParameterExpression)expression.ResourceTableExpressions[primaryKeyValueIndex];
 
-            // initialize a BitArray where each bit represents an allowed ResourceTypeId
-
-            var allowedTypes = new BitArray(_model.ResourceTypeIdRange.highestId + 1, true);
-            for (int i = 0; i < _model.ResourceTypeIdRange.lowestId; i++)
-            {
-                allowedTypes[i] = false;
-            }
-
-            // go through the ResourceTableExpressions and look for _type parameter expressions
-            bool isManyTypes = true;
-            foreach (SearchParameterExpressionBase resourceExpression in expression.ResourceTableExpressions)
-            {
-                if (resourceExpression is SearchParameterExpression searchParameterExpression && resourceExpression.Parameter.Name == SearchParameterNames.ResourceType)
-                {
-                    switch (searchParameterExpression.Expression)
-                    {
-                        case StringExpression stringExpression:
-                            isManyTypes = false;
-                            short resourceTypeId = _model.GetResourceTypeId(stringExpression.Value);
-                            bool isTypeCurrentlyAllowed = allowedTypes[resourceTypeId];
-                            allowedTypes.SetAll(false);
-                            if (isTypeCurrentlyAllowed)
-                            {
-                                allowedTypes[resourceTypeId] = true;
-                            }
-
-                            break;
-                        case MultiaryExpression { MultiaryOperation: MultiaryOperator.Or } multiaryExpression:
-                            var theseTypes = new BitArray(allowedTypes.Length, false);
-                            foreach (Expression childExpression in multiaryExpression.Expressions)
-                            {
-                                switch (childExpression)
-                                {
-                                    case StringExpression stringExpression:
-                                        theseTypes[_model.GetResourceTypeId(stringExpression.Value)] = true;
-                                        break;
-                                    default:
-                                        throw new InvalidOperandException($"Unexpected expression {childExpression}");
-                                }
-                            }
-
-                            allowedTypes.And(theseTypes);
-
-                            int allowedTypesCount = 0;
-                            for (int i = 0; i < allowedTypes.Count; i++)
-                            {
-                                if (allowedTypes[i])
-                                {
-                                    allowedTypesCount++;
-                                }
-                            }
-
-                            isManyTypes = allowedTypesCount > 1;
-
-                            break;
-                        default:
-                            throw new InvalidOperandException($"Unexpected expression {searchParameterExpression.Expression}");
-                    }
-                }
-            }
+            (short? singleAllowedResourceTypeId, BitArray allowedTypes) = TypeConstraintVisitor.Instance.Visit(expression, _model);
 
             var existingPrimaryKeyBinaryExpression = (BinaryExpression)primaryKeyParameter.Expression;
             var existingPrimaryKeyValue = (PrimaryKeyValue)existingPrimaryKeyBinaryExpression.Value;
 
             SearchParameterExpression newSearchParameterExpression;
-            if (!isManyTypes)
+            if (singleAllowedResourceTypeId.HasValue)
             {
                 // we'll keep the existing _type parameter and just need to add a ResourceSurrogateId expression
                 newSearchParameterExpression = Expression.SearchParameter(
@@ -229,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
                 if (i == primaryKeyValueIndex || // eliminate the existing primaryKey expression
-                    (isManyTypes && // if there are many possible types, the PrimaryKeyRange expression will already have the contrained types
+                    (singleAllowedResourceTypeId == null && // if there are many possible types, the PrimaryKeyRange expression will already be constrained to those types
                      expression.ResourceTableExpressions[i] is SearchParameterExpression searchParameterExpression &&
                      searchParameterExpression.Parameter.Name == SearchParameterNames.ResourceType))
                 {

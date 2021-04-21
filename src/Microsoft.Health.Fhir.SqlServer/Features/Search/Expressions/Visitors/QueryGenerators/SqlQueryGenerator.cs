@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             string resourceTableAlias = "r";
             bool selectingFromResourceTable;
 
-            bool isSpecialCaseSort = IsSpecialCaseSort(searchOptions);
+            bool isSpecialCaseSort = IsPrimaryKeySort(searchOptions);
             if (searchOptions.CountOnly)
             {
                 if (expression.SearchParamTableExpressions.Count > 0)
@@ -243,11 +243,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append("OPTION(RECOMPILE)");
 
             return null;
-        }
-
-        private static bool IsSpecialCaseSort(SearchOptions searchOptions)
-        {
-            return searchOptions.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated);
         }
 
         private static string TableExpressionName(int id) => "cte" + id;
@@ -420,7 +415,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void HandleTableKindTop(SearchOptions context)
         {
             var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
-            bool isSpecialCaseSort = IsSpecialCaseSort(context);
+            bool isSpecialCaseSort = IsPrimaryKeySort(context);
             var sortExpression = isSpecialCaseSort ? null : "SortValue";
 
             bool hasIncludeExpression = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
@@ -428,6 +423,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             IndentedStringBuilder.IndentedScope indentedScope = default;
             if (hasIncludeExpression)
             {
+                // a subsequent _include will need to join with the top context.MaxItemCount of this resultset, so we include a Row column
                 StringBuilder.Append("SELECT ROW_NUMBER() OVER(");
                 AppendOrderBy();
                 StringBuilder.AppendLine(") AS Row, *")
@@ -810,7 +806,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial ");
 
-            bool isSpecialCaseSort = IsSpecialCaseSort(context);
+            bool isSpecialCaseSort = IsPrimaryKeySort(context);
             if (!isSpecialCaseSort)
             {
                 StringBuilder.AppendLine(", SortValue");
@@ -1021,6 +1017,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return _includeLimitCtesByResourceType.TryGetValue(resourceType, out ctes);
+        }
+
+        private static bool IsPrimaryKeySort(SearchOptions searchOptions)
+        {
+            return searchOptions.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated);
         }
 
         /// <summary>

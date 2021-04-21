@@ -417,10 +417,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (searchOptions.Sort.Count == 1 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.LastUpdated && _schemaInformation.Current >= SchemaVersionConstants.PartitionedTables)
             {
-                bool isConstrainedToSingleType = searchExpression.AcceptVisitor(TypeConstraintVisitor.Instance, null);
+                (short? singleAllowedTypeId, _) = TypeConstraintVisitor.Instance.Visit(searchExpression, _model);
 
-                if (isConstrainedToSingleType)
+                if (singleAllowedTypeId != null)
                 {
+                    // this means that this search is over a single type.
                     searchOptions = searchOptions.Clone();
 
                     ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
