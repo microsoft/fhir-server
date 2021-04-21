@@ -5,10 +5,10 @@ sequenceDiagram
     loop BuildSearchEntries
         SearchIndexer->>ProcessNonCompositeSearchParameter: SearchParameter
         loop ExtractSearchValues
-            ProcessNonCompositeSearchParameter->>FhirElementToSearchValueTypeConverterManager: TryGetConverter
-            FhirElementToSearchValueTypeConverterManager->>ProcessNonCompositeSearchParameter: IFhirElementToSearchValueTypeConverter
-            ProcessNonCompositeSearchParameter->>IFhirElementToSearchValueTypeConverter: Convert
-            IFhirElementToSearchValueTypeConverter->>ProcessNonCompositeSearchParameter: ISearchValue
+            ProcessNonCompositeSearchParameter->>FhirTypedElementToSearchValueConverterManager: TryGetConverter
+            FhirTypedElementToSearchValueConverterManager->>ProcessNonCompositeSearchParameter: ITypedElementToSearchValueConverter
+            ProcessNonCompositeSearchParameter->>IFhirElementToSearchValueConverter: Convert
+            SearchIndexer->>ProcessNonCompositeSearchParameter: ISearchValue
         end
         ProcessNonCompositeSearchParameter->>SearchIndexer: List<ISearchValue>
         SearchIndexer->>ProcessCompositeSearchParameter: SearchParameter
@@ -17,11 +17,11 @@ sequenceDiagram
                 ProcessCompositeSearchParameter->>SearchParameterDefinitionManagerResolver: GetSearchParameter for component
                 SearchParameterDefinitionManagerResolver->>ProcessCompositeSearchParameter: SearchParameterInfo
                 ProcessCompositeSearchParameter->>ExtractSearchValues: 
-                ExtractSearchValues->>FhirElementToSearchValueTypeConverterManager: TryGetConverter
-                FhirElementToSearchValueTypeConverterManager->>ExtractSearchValues: IFhirElementToSearchValueTypeConverter
-                ExtractSearchValues->>IFhirElementToSearchValueTypeConverter: Convert
-                IFhirElementToSearchValueTypeConverter->>ExtractSearchValues: IEnumerable<ISearchValue>
-                ExtractSearchValues->>ProcessCompositeSearchParameter: IEnumerable<SearchValue>
+                ExtractSearchValues->>FhirTypedElementToSearchValueConverterManager: TryGetConverter
+                SearchIndexer->>ExtractSearchValues: ITypedElementToSearchValueConverter
+                ExtractSearchValues->>ITypedElementToSearchValueConverter: Convert
+                ITypedElementToSearchValueConverter->>ExtractSearchValues: IEnumerable<ISearchValue>
+                SearchIndexer->>ProcessCompositeSearchParameter: IEnumerable<SearchValue>
             end
         ProcessCompositeSearchParameter->>SearchIndexer: IEnumerable<SearchValue>
     end

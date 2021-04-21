@@ -19,18 +19,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public class SearchParameterSupportResolver : ISearchParameterSupportResolver
     {
-        private readonly ITypedElementToSearchValueTypeConverterManager _searchValueTypeConverterManager;
+        private readonly ITypedElementToSearchValueConverterManager _searchValueTypeConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
         private const string _codeOfTName = "codeOfT";
 
         public SearchParameterSupportResolver(
             ISearchParameterDefinitionManager definitionManager,
-            ITypedElementToSearchValueTypeConverterManager searchValueTypeConverterManager)
+            ITypedElementToSearchValueConverterManager searchValueConverterManager)
         {
             EnsureArg.IsNotNull(definitionManager, nameof(definitionManager));
-            EnsureArg.IsNotNull(searchValueTypeConverterManager, nameof(searchValueTypeConverterManager));
+            EnsureArg.IsNotNull(searchValueConverterManager, nameof(searchValueConverterManager));
 
-            _searchValueTypeConverterManager = searchValueTypeConverterManager;
+            _searchValueConverterManager = searchValueConverterManager;
         }
 
         public (bool Supported, bool IsPartiallySupported) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
@@ -67,10 +67,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var converters = results
                     .Select(result => (
                         result,
-                        hasConverter: _searchValueTypeConverterManager.TryGetConverter(
+                        hasConverter: _searchValueConverterManager.TryGetConverter(
                             GetBaseType(result.ClassMapping),
                             TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                            out ITypedElementToSearchValueTypeConverter converter),
+                            out ITypedElementToSearchValueConverter converter),
                         converter))
                     .ToArray();
 
