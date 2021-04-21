@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
             _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator);
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenSupportedParams_WhenGettingSupported_ThenSupportedParamsReturned()
         {
-            await _manager.StartAsync(CancellationToken.None);
+            await _manager.EnsureInitializedAsync(CancellationToken.None);
             var supportedDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var paramList = supportedDefinitionManager.GetSearchParametersRequiringReindexing();
 
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenSearchableParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
-            await _manager.StartAsync(CancellationToken.None);
+            await _manager.EnsureInitializedAsync(CancellationToken.None);
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var paramList = searchableDefinitionManager.AllSearchParameters;
 
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenContextToIncludePatialIndexedParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
-            await _manager.StartAsync(CancellationToken.None);
+            await _manager.EnsureInitializedAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var paramList = searchableDefinitionManager.AllSearchParameters.OrderBy(p => p.Code);
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenNoHeaderForPatiallyIndexedParams_WhenSearchingSupportedParameterByName_ThenExceptionThrown()
         {
-            await _manager.StartAsync(CancellationToken.None);
+            await _manager.EnsureInitializedAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
 
@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenHeaderToIncludePatialIndexedParams_WhenSearchingSupportedParameterByName_ThenSupportedParamsReturned()
         {
-            await _manager.StartAsync(CancellationToken.None);
+            await _manager.EnsureInitializedAsync(CancellationToken.None);
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
 
@@ -441,7 +441,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(s => s.Name.StartsWith("preexisting")))
                 .Returns((true, false));
 
-            await searchParameterResourceDataStore.StartAsync(CancellationToken.None);
+            await searchParameterResourceDataStore.EnsureInitializedAsync(CancellationToken.None);
 
             var patientParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             Assert.False(patientParams.Where(p => p.Name == "preexisting").First().IsSearchable);

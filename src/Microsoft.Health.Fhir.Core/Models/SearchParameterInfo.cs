@@ -13,7 +13,6 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models

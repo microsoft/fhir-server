@@ -39,7 +39,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
             services.AddSingleton<IModelAttributeValidator, ModelAttributeValidator>();
 
-            services.AddSingleton<IProvideProfilesForValidation, ServerProvideProfileValidation>();
+            services.AddSingleton<ServerProvideProfileValidation>();
+            services.AddSingleton<IKnowSupportedProfiles>(x => x.GetRequiredService<ServerProvideProfileValidation>());
+            services.AddSingleton<IProvideProfilesForValidation>(x => x.GetRequiredService<ServerProvideProfileValidation>());
+
             services.AddSingleton<IProfileValidator, ProfileValidator>();
         }
     }

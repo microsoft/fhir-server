@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     _reindexJobRecord.FailureCount++;
 
-                    _logger.LogError(ex, $"Encountered an unhandled exception. The job failure count increased to {_reindexJobRecord.FailureCount}.");
+                    _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
 
                     await UpdateJobAsync(cancellationToken);
 
@@ -393,6 +393,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await jobSemaphore.WaitAsync();
                     try
                     {
+                        _logger.LogInformation("Reindex job updating progress, current result count: {0}", results.Results.Count());
                         _reindexJobRecord.Progress += results.Results.Count();
                         query.Status = OperationStatus.Completed;
 
@@ -405,6 +406,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
 
                         await UpdateJobAsync(cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Reindex error occurred recording progress.");
+                        throw;
                     }
                     finally
                     {
@@ -421,7 +427,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     query.Error = ex.Message;
                     query.FailureCount++;
-                    _logger.LogError(ex, $"Encountered an unhandled exception. The query failure count increased to {_reindexJobRecord.FailureCount}.");
+                    _logger.LogError(ex, "Encountered an unhandled exception. The query failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
 
                     if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                     {
@@ -493,10 +499,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error running reindex query.");
-                    queryStatus.Error = ex.Message;
+                    var message = $"Error running reindex query for resource type {queryStatus.ResourceType}.";
+                    var reindexJobException = new ReindexJobException(message, ex);
+                    _logger.LogError(ex, message);
+                    queryStatus.Error = reindexJobException.Message + " : " + ex.Message;
 
-                    throw;
+                    throw reindexJobException;
                 }
             }
         }

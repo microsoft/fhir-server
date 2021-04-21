@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class TypedElementSearchIndexer : ISearchIndexer
     {
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IFhirNodeToSearchValueTypeConverterManager _fhirElementTypeConverterManager;
+        private readonly ITypedElementToSearchValueConverterManager _fhirElementTypeConverterManager;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger<ISearchIndexer> _logger;
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="logger">The logger.</param>
         public TypedElementSearchIndexer(
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
-            IFhirNodeToSearchValueTypeConverterManager fhirElementTypeConverterManager,
+            ITypedElementToSearchValueConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             IModelInfoProvider modelInfoProvider,
             ILogger<ISearchIndexer> logger)
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             foreach (var extractedValue in extractedValues)
             {
-                if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.InstanceType, GetSearchValueTypeForSearchParamType(searchParameterType), out IFhirNodeToSearchValueTypeConverter converter))
+                if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.InstanceType, GetSearchValueTypeForSearchParamType(searchParameterType), out ITypedElementToSearchValueConverter converter))
                 {
                     _logger.LogWarning(
                         "The FHIR element '{ElementType}' is not supported.",

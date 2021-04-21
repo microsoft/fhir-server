@@ -11,14 +11,16 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -37,13 +39,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel : IHostedService
+    public sealed class SqlServerFhirModel : IRequireInitializationOnFirstRequest
     {
         private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ISqlConnectionStringProvider _sqlConnectionStringProvider;
+        private readonly IMediator _mediator;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
@@ -60,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
             ISqlConnectionStringProvider sqlConnectionStringProvider,
+            IMediator mediator,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
@@ -74,6 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
             _sqlConnectionStringProvider = sqlConnectionStringProvider;
+            _mediator = mediator;
             _logger = logger;
         }
 
@@ -155,7 +160,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        public async Task EnsureInitialized()
         {
             ThrowIfCurrentSchemaVersionIsNull();
 
@@ -163,13 +168,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await Initialize((int)_schemaInformation.Current, true, CancellationToken.None);
         }
 
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-        }
-
         public async Task Initialize(int version, bool runAllInitialization, CancellationToken cancellationToken)
         {
+            // This also covers the scenario when database is not setup so _highestInitializedVersion and version is 0.
             if (_highestInitializedVersion == version)
             {
                 return;
@@ -199,6 +200,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             _highestInitializedVersion = version;
+
+            await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
         }
 
         private async Task InitializeBase(CancellationToken cancellationToken)

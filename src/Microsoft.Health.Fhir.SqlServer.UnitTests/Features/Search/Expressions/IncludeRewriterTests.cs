@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -14,6 +15,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 using Microsoft.Health.Fhir.Tests.Common;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
@@ -1635,8 +1637,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     .Create(FhirSpecification.R4)
                     .AddKnownTypes("Device", "DiagnosticReport", "MedicationRequest", "MedicationDispense", "Location", "Practitioner", "Organization", "Bundle")
                     .Build();
-
-                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
+                var mediator = Substitute.For<IMediator>();
+                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator);
             }
 
             public ISearchParameterDefinitionManager SearchParameterDefinitionManager { get; }

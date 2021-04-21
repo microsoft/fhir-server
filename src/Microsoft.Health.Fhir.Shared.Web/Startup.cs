@@ -45,8 +45,6 @@ namespace Microsoft.Health.Fhir.Web
                 fhirServerBuilder.AddSqlServer(Configuration);
             }
 
-            fhirServerBuilder.AddSearchParametersModules();
-
             /*
             The execution of IHostedServices depends on the order they are added to the dependency injection container, so we
             need to ensure that the schema is initialized before the background workers are started.
