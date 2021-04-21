@@ -78,7 +78,7 @@ AS
     VALUES
         (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @heartbeatDateTime, @inputData)
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 

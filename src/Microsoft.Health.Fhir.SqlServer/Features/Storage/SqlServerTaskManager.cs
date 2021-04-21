@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     var taskInfoTable = VLatest.TaskInfo;
-                    (string taskId, string queueId, short status, short taskTypeId, string runId, bool isCanceled, short retryCount, DateTime? heartbeatDateTime, string inputData, string taskContext, string result) = sqlDataReader.ReadRow(
+                    (string taskId, string queueId, short status, short taskTypeId, string runId, bool isCanceled, short retryCount, DateTime? heartbeatDateTime, string inputData) = sqlDataReader.ReadRow(
                         taskInfoTable.TaskId,
                         taskInfoTable.QueueId,
                         taskInfoTable.Status,
@@ -58,9 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         taskInfoTable.IsCanceled,
                         taskInfoTable.RetryCount,
                         taskInfoTable.HeartbeatDateTime,
-                        taskInfoTable.InputData,
-                        taskInfoTable.TaskContext,
-                        taskInfoTable.Result);
+                        taskInfoTable.InputData);
 
                     return new TaskInfo()
                     {
@@ -73,8 +71,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         RetryCount = retryCount,
                         HeartbeatDateTime = heartbeatDateTime,
                         InputData = inputData,
-                        Context = taskContext,
-                        Result = result,
                     };
                 }
                 catch (SqlException sqlEx)
