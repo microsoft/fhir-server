@@ -31,12 +31,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 p => SetPatient(p, "Seattle", "Jones", "03", "1970-02-01"));
 
             Coverage[] coverage = await TestFhirClient.CreateResourcesAsync<Coverage>(
-                c => SetCoverage(c, patients[0], FinancialResourceStatusCodes.Active, "P0"),
-                c => SetCoverage(c, patients[1], FinancialResourceStatusCodes.Cancelled, "P8"),
-                c => SetCoverage(c, patients[2], FinancialResourceStatusCodes.Active, "P9"),
-                c => SetCoverage(c, patients[0], FinancialResourceStatusCodes.Active, "P8"),
-                c => SetCoverage(c, patients[2], FinancialResourceStatusCodes.Active, "P1"),
-                c => SetCoverage(c, patients[1], FinancialResourceStatusCodes.Active, "P2"));
+                c => SetCoverage(c, patients[0], "EHCPOL", "P0"),
+                c => SetCoverage(c, patients[1], "DENTPRG", "P8"),
+                c => SetCoverage(c, patients[2], "EHCPOL", "P9"),
+                c => SetCoverage(c, patients[0], "EHCPOL", "P8"),
+                c => SetCoverage(c, patients[2], "EHCPOL", "P1"),
+                c => SetCoverage(c, patients[1], "EHCPOL", "P2"));
         }
 
         public void SetPatient(Patient patient, string city = null, string family = null, string identifier = null, string birthDate = null)
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             patient.BirthDate = birthDate;
         }
 
-        public void SetCoverage(Coverage coverage, Patient patient, FinancialResourceStatusCodes status, string subPlan = null)
+        public void SetCoverage(Coverage coverage, Patient patient, string type, string subPlan = null)
         {
             coverage.Meta = new Meta()
             {
@@ -81,7 +81,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             coverage.Beneficiary = new ResourceReference($"Patient/{patient.Id}");
             coverage.Payor = new List<ResourceReference> { new ResourceReference($"Patient/{patient.Id}") };
-            coverage.Status = status;
+            coverage.Type = new CodeableConcept("http://terminology.hl7.org/CodeSystem/v3-ActCode", type);
+            coverage.Status = FinancialResourceStatusCodes.Active;
             if (!string.IsNullOrEmpty(subPlan))
             {
 #if !Stu3
