@@ -95,11 +95,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 {
                     progressRecords[progress.tableName] = progress.endSurrogateId;
                 };
-            Task importTask = importer.ImportResourceAsync(inputs, progressUpdateAction, CancellationToken.None);
+            Task<long> importTask = importer.ImportResourceAsync(inputs, progressUpdateAction, CancellationToken.None);
 
             await produceTask;
-            await importTask;
+            long importedResourceCount = await importTask;
 
+            Assert.Equal(resourceCount, importedResourceCount);
             Assert.Equal(progressRecords["Table1"] + 1, startSurrogatedId + resourceCount);
             Assert.Equal(progressRecords["Table2"] + 1, startSurrogatedId + resourceCount);
             Assert.Equal(resourceCount, table1.Rows.Count);

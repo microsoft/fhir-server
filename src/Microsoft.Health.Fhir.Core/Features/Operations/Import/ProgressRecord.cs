@@ -16,8 +16,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             LastSurrogatedId = lastSurrogatedId;
         }
 
+        public ProgressRecord(long lastSurrogatedId, long successResourceCount, long failResourceCount)
+        {
+            LastSurrogatedId = lastSurrogatedId;
+            SuccessResourceCount = successResourceCount;
+            FailResourceCount = failResourceCount;
+        }
+
         public long LastSurrogatedId { get; set; }
 
-        public long LastOffset { get; set; }
+        public long SuccessResourceCount { get; set; }
+
+        public long FailResourceCount { get; set; }
     }
 }

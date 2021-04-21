@@ -161,11 +161,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             // For first run, last completed resource surrogated id == -1
             long lastCompletedSurrogateId = _dataProcessingInputData.StartSurrogateId - 1;
-            long lastOffset = 0;
             long endSurrogateId = _dataProcessingInputData.EndSurrogateId;
             if (_bulkImportProgress.ProgressRecords.Count > 0)
             {
-                lastOffset = _bulkImportProgress.ProgressRecords.Values.Min(r => r.LastOffset);
                 lastCompletedSurrogateId = _bulkImportProgress.ProgressRecords.Values.Min(r => r.LastSurrogatedId);
             }
 
@@ -181,7 +179,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             ProgressRecord record = new ProgressRecord()
             {
-                LastOffset = lastOffset,
                 LastSurrogatedId = lastCompletedSurrogateId,
             };
             foreach (var resourceType in _bulkImportProgress.ProgressRecords.Keys)

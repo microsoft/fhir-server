@@ -95,6 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await foreach (BulkImportResourceWrapper resource in inputChannel.Reader.ReadAllAsync())
                 {
                     surrogateId = resource.ResourceSurrogateId;
+                    importedResourceCount++;
 
                     SqlBulkCopyDataWrapper dataWrapper = _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(resource);
 
@@ -115,7 +116,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         {
                             (string tableName, long endSurrogateId, long count) result = await runningTasks.Dequeue();
                             progressUpdateAction((result.tableName, result.endSurrogateId));
-                            importedResourceCount += result.count;
                         }
 
                         DataTable inputTable = buffer[tableName];
@@ -138,7 +138,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 (string tableName, long endSurrogateId, long count) result = await runningTasks.Dequeue();
                 progressUpdateAction((result.tableName, result.endSurrogateId));
-                importedResourceCount += result.count;
             }
 
             return importedResourceCount;
