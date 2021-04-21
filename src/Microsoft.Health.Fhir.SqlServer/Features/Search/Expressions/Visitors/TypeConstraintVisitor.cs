@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// Looks for _type parameters to determine the set of ResourceTypeIds allowed in an expression.
     /// Assumes that <see cref="ResourceColumnPredicatePushdownRewriter"/> has not run yet on the expression.
     /// </summary>
-    internal class TypeConstraintVisitor : DefaultSqlExpressionVisitor<(BitArray allowedTypes, SqlServerFhirModel model), short?>
+    internal class TypeConstraintVisitor : DefaultSqlExpressionVisitor<(BitArray allowedTypes, ISqlServerFhirModel model), short?>
     {
         internal const short NoTypes = -1;
 
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         /// <param name="model">The model instance.</param>
         /// <returns>A tuple with the single allowed resource type id if there is exactly one (otherwise null) and
         /// a <see cref="BitArray"/> with bits set for each resource type that is allowed.</returns>
-        public (short? singleAllowedResourceTypeId, BitArray allAllowedTypes) Visit(Expression expression, SqlServerFhirModel model)
+        public (short? singleAllowedResourceTypeId, BitArray allAllowedTypes) Visit(Expression expression, ISqlServerFhirModel model)
         {
             var allowedTypes = new BitArray(model.ResourceTypeIdRange.highestId + 1, true);
             for (int i = 0; i < model.ResourceTypeIdRange.lowestId; i++)
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return (singleResourceTypeId, allowedTypes);
         }
 
-        public override short? VisitSearchParameter(SearchParameterExpression expression, (BitArray allowedTypes, SqlServerFhirModel model) context)
+        public override short? VisitSearchParameter(SearchParameterExpression expression, (BitArray allowedTypes, ISqlServerFhirModel model) context)
         {
             if (expression is { Parameter: { Name: SearchParameterNames.ResourceType } })
             {
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return null;
         }
 
-        public override short? VisitSqlRoot(SqlRootExpression expression, (BitArray allowedTypes, SqlServerFhirModel model) context)
+        public override short? VisitSqlRoot(SqlRootExpression expression, (BitArray allowedTypes, ISqlServerFhirModel model) context)
         {
             EnsureArg.IsNotNull(context.allowedTypes, nameof(context.allowedTypes));
             EnsureArg.IsNotNull(context.model, nameof(context.model));
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return HandleAndedExpressions(expression.ResourceTableExpressions, context);
         }
 
-        public override short? VisitMultiary(MultiaryExpression expression, (BitArray allowedTypes, SqlServerFhirModel model) context)
+        public override short? VisitMultiary(MultiaryExpression expression, (BitArray allowedTypes, ISqlServerFhirModel model) context)
         {
             EnsureArg.IsNotNull(context.allowedTypes, nameof(context.allowedTypes));
             EnsureArg.IsNotNull(context.model, nameof(context.model));
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return allowedTypesCount switch { 0 => NoTypes, 1 => lastAllowedType, _ => null};
         }
 
-        private short? HandleAndedExpressions(IReadOnlyList<Expression> expressions, (BitArray allowedTypes, SqlServerFhirModel model) context)
+        private short? HandleAndedExpressions(IReadOnlyList<Expression> expressions, (BitArray allowedTypes, ISqlServerFhirModel model) context)
         {
             short? overallResult = null;
             foreach (Expression childExpression in expressions)
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return overallResult;
         }
 
-        public override short? VisitString(StringExpression expression, (BitArray allowedTypes, SqlServerFhirModel model) context)
+        public override short? VisitString(StringExpression expression, (BitArray allowedTypes, ISqlServerFhirModel model) context)
         {
             EnsureArg.IsNotNull(context.model, nameof(context.model));
 

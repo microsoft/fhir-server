@@ -26,13 +26,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class PartitionEliminationRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
-        private readonly SqlServerFhirModel _model;
+        private readonly ISqlServerFhirModel _model;
         private readonly SchemaInformation _schemaInformation;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private SearchParameterExpression _allTypesExpression;
 
         public PartitionEliminationRewriter(
-            SqlServerFhirModel model,
+            ISqlServerFhirModel model,
             SchemaInformation schemaInformation,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver)
         {

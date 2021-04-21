@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         public SqlQueryGenerator(
             IndentedStringBuilder sb,
             SqlQueryParameterManager parameters,
-            SqlServerFhirModel model,
+            ISqlServerFhirModel model,
             SqlSearchType searchType,
             SchemaInformation schemaInfo,
             string searchParameterHash)
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public SqlQueryParameterManager Parameters { get; }
 
-        public SqlServerFhirModel Model { get; }
+        public ISqlServerFhirModel Model { get; }
 
         public override object VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {

@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal class SqlServerSearchService : SearchService
     {
-        private readonly SqlServerFhirModel _model;
+        private readonly ISqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
 
         private readonly SortRewriter _sortRewriter;
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             IFhirDataStore fhirDataStore,
-            SqlServerFhirModel model,
+            ISqlServerFhirModel model,
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             SortRewriter sortRewriter,
