@@ -396,6 +396,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 using (SqlCommand sqlCommand = connection.CreateCommand())
                 {
+                    // This command are not using any user arguments, and can't be rewritten to parametrized command string
+                    // because you can't parameterize column or table.
 #pragma warning disable CA2100
                     sqlCommand.CommandText = $@"
                         SET TRANSACTION ISOLATION LEVEL SERIALIZABLE

@@ -173,8 +173,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
-                    _reindexJobRecord.Resources.AddRange(resourceList);
-                    _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Url.ToString()));
+                    foreach (var resource in resourceList)
+                    {
+                        _reindexJobRecord.Resources.Add(resource);
+                    }
+
+                    foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.ToString()))
+                    {
+                        _reindexJobRecord.SearchParams.Add(searchParams);
+                    }
 
                     await CalculateTotalAndResourceCounts(cancellationToken);
 
@@ -558,7 +565,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task UpdateParametersAndCompleteJob(CancellationToken cancellationToken)
         {
-            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams, cancellationToken);
+            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams.ToList(), cancellationToken);
 
             if (success)
             {

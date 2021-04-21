@@ -200,9 +200,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </summary>
         public void Dispose()
         {
-#pragma warning disable CA2012 // Use ValueTasks correctly
-            DisposeAsync().GetAwaiter().GetResult();
-#pragma warning restore CA2012 // Use ValueTasks correctly
+            DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         /// <summary>

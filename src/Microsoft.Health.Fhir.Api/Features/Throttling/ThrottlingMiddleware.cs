@@ -313,9 +313,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             _samplingLoopTask.Dispose();
         }
 
-#pragma warning disable CA2012 // Use ValueTasks correctly
-        public void Dispose() => DisposeAsync().GetAwaiter().GetResult();
-#pragma warning restore CA2012 // Use ValueTasks correctly
+        public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
         private class MethodPathTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<(string method, string path)>
         {
