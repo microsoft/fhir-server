@@ -63,7 +63,7 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:5.0.4-alpine3.12 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:5.0.5-alpine3.12 AS runtime
 
 ARG FHIR_VERSION
 
