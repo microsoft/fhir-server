@@ -18,14 +18,21 @@ using Microsoft.SqlServer.Management.Dmf;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    internal class ContinuationTokenSimplifier : SqlExpressionRewriterWithInitialContext<object>
+    /// <summary>
+    /// The Resource and search parameter tables are partitioned by ResourceTypeId. This rewriter does two things:
+    /// 1. Ensures that in the case of a system-wide search (/), we enumerate all types that the resources can be,
+    ///    rather that leaving the search. (The SQL optimizer does not always employ partition elimination otherwise)
+    /// 2. It expands out a primary key continuation token (<see cref="PrimaryKeyValue"/>) into a <see cref="PrimaryKeyRange"/>,
+    ///    which includes the primary key but enumerates the subsequent resource types (depending on the sort order).
+    /// </summary>
+    internal class PartitionEliminationRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
         private readonly SqlServerFhirModel _model;
         private readonly SchemaInformation _schemaInformation;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private SearchParameterExpression _allTypesExpression;
 
-        public ContinuationTokenSimplifier(
+        public PartitionEliminationRewriter(
             SqlServerFhirModel model,
             SchemaInformation schemaInformation,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver)
@@ -65,6 +72,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
+            // Look for primary key continuation token (PrimaryKeyParameter) or _type parameters
+
             int primaryKeyValueIndex = -1;
             bool hasTypeRestriction = false;
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
@@ -83,8 +92,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (primaryKeyValueIndex < 0)
             {
+                // no continuation token
+
                 if (hasTypeRestriction)
                 {
+                    // This is already constrained to be one or more resource types.
                     return expression;
                 }
 
@@ -93,8 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return expression;
                 }
 
-                // We need to explicitly allow all resource types, so that the query
-                // can benefit from partition elimination.
+                // Explicitly allow all resource types. SQL tends to create far better query plans than when there is no filter on ResourceTypeId.
 
                 var updatedResourceTableExpressions = new List<SearchParameterExpressionBase>(expression.ResourceTableExpressions.Count + 1);
                 updatedResourceTableExpressions.AddRange(expression.ResourceTableExpressions);
@@ -103,7 +114,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return new SqlRootExpression(expression.SearchParamTableExpressions, updatedResourceTableExpressions);
             }
 
+            // There is a primary key continuation token.
+            // Now look at the _type restrictions to construct a PrimaryKeyRange
+            // that has only the allowed types.
+
             var primaryKeyParameter = (SearchParameterExpression)expression.ResourceTableExpressions[primaryKeyValueIndex];
+
+            // initialize a BitArray where each bit represents an allowed ResourceTypeId
 
             var allowedTypes = new BitArray(_model.ResourceTypeIdRange.highestId + 1, true);
             for (int i = 0; i < _model.ResourceTypeIdRange.lowestId; i++)
@@ -111,7 +128,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 allowedTypes[i] = false;
             }
 
-            int bitCriteria = 0;
+            // go through the ResourceTableExpressions and look for _type parameter expressions
+            bool isManyTypes = false;
             foreach (SearchParameterExpressionBase resourceExpression in expression.ResourceTableExpressions)
             {
                 if (resourceExpression is SearchParameterExpression searchParameterExpression && resourceExpression.Parameter.Name == SearchParameterNames.ResourceType)
@@ -119,10 +137,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     switch (searchParameterExpression.Expression)
                     {
                         case StringExpression stringExpression:
-                            bitCriteria++;
-                            var thisType = new BitArray(allowedTypes.Length, false);
-                            thisType[_model.GetResourceTypeId(stringExpression.Value)] = true;
-                            allowedTypes.And(thisType);
+                            isManyTypes = false;
+                            short resourceTypeId = _model.GetResourceTypeId(stringExpression.Value);
+                            bool isTypeCurrentlyAllowed = allowedTypes[resourceTypeId];
+                            allowedTypes.SetAll(false);
+                            if (isTypeCurrentlyAllowed)
+                            {
+                                allowedTypes[resourceTypeId] = true;
+                            }
+
                             break;
                         case MultiaryExpression { MultiaryOperation: MultiaryOperator.Or } multiaryExpression:
                             var theseTypes = new BitArray(allowedTypes.Length, false);
@@ -131,7 +154,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                                 switch (childExpression)
                                 {
                                     case StringExpression stringExpression:
-                                        bitCriteria++;
                                         theseTypes[_model.GetResourceTypeId(stringExpression.Value)] = true;
                                         break;
                                     default:
@@ -140,6 +162,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                             }
 
                             allowedTypes.And(theseTypes);
+
+                            int allowedTypesCount = 0;
+                            for (int i = 0; i < allowedTypes.Count; i++)
+                            {
+                                if (allowedTypes[i])
+                                {
+                                    allowedTypesCount++;
+                                }
+                            }
+
+                            isManyTypes = allowedTypesCount > 1;
+
                             break;
                         default:
                             throw new InvalidOperandException($"Unexpected expression {searchParameterExpression.Expression}");
@@ -151,17 +185,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var existingPrimaryKeyValue = (PrimaryKeyValue)existingPrimaryKeyBinaryExpression.Value;
 
             SearchParameterExpression newSearchParameterExpression;
-            bool requiresPrimaryKeyRange;
-            if (bitCriteria == 1 && allowedTypes[existingPrimaryKeyValue.ResourceTypeId])
+            if (!isManyTypes)
             {
-                requiresPrimaryKeyRange = false;
+                // we'll keep the existing _type parameter and just need to add a ResourceSurrogateId expression
                 newSearchParameterExpression = Expression.SearchParameter(
                     SqlSearchParameters.ResourceSurrogateIdParameter,
                     new BinaryExpression(existingPrimaryKeyBinaryExpression.BinaryOperator, SqlFieldName.ResourceSurrogateId, null, existingPrimaryKeyValue.ResourceSurrogateId));
             }
             else
             {
-                requiresPrimaryKeyRange = true;
+                // Intersect allowed types with the direction of primary key parameter
+                // e.g. if >, then eliminate all types that are <=
                 switch (existingPrimaryKeyBinaryExpression.BinaryOperator)
                 {
                     case BinaryOperator.GreaterThan:
@@ -194,8 +228,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var newResourceTableExpressions = new List<SearchParameterExpressionBase>();
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
-                if (i == primaryKeyValueIndex ||
-                    (requiresPrimaryKeyRange &&
+                if (i == primaryKeyValueIndex || // eliminate the existing primaryKey expression
+                    (isManyTypes && // if there are many possible types, the PrimaryKeyRange expression will already have the contrained types
                      expression.ResourceTableExpressions[i] is SearchParameterExpression searchParameterExpression &&
                      searchParameterExpression.Parameter.Name == SearchParameterNames.ResourceType))
                 {

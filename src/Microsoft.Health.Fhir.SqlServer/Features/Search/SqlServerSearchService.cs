@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
 
         private readonly SortRewriter _sortRewriter;
-        private readonly ContinuationTokenSimplifier _continuationTokenSimplifier;
+        private readonly PartitionEliminationRewriter _partitionEliminationRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             SortRewriter sortRewriter,
-            ContinuationTokenSimplifier continuationTokenSimplifier,
+            PartitionEliminationRewriter partitionEliminationRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             IFhirRequestContextAccessor requestContextAccessor,
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(continuationTokenSimplifier, nameof(continuationTokenSimplifier));
+            EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
-            _continuationTokenSimplifier = continuationTokenSimplifier;
+            _partitionEliminationRewriter = partitionEliminationRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         else
                         {
                             parameter = SqlSearchParameters.PrimaryKeyParameter;
-                            fieldName = SqlFieldName.ResourceTypeIdResourceSurrogateKeySet;
+                            fieldName = SqlFieldName.PrimaryKey;
                             keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
                         }
 
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
-                                               .AcceptVisitor(_continuationTokenSimplifier)
+                                               .AcceptVisitor(_partitionEliminationRewriter)
                                                .AcceptVisitor(_sortRewriter, searchOptions)
                                                .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)

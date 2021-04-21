@@ -82,7 +82,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<ContinuationTokenSimplifier>()
+            services.Add<PartitionEliminationRewriter>()
                 .Singleton()
                 .AsSelf();
 

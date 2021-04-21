@@ -171,6 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(searchParamTableExpressionQueryGeneratorFactory);
             var chainFlatteningRewriter = new ChainFlatteningRewriter(searchParamTableExpressionQueryGeneratorFactory);
             var sortRewriter = new SortRewriter(searchParamTableExpressionQueryGeneratorFactory);
+            var partitionEliminationRewriter = new PartitionEliminationRewriter(sqlServerFhirModel, schemaInformation, () => searchableSearchParameterDefinitionManager);
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -179,7 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sqlRootExpressionRewriter,
                 chainFlatteningRewriter,
                 sortRewriter,
-                new ContinuationTokenSimplifier(sqlServerFhirModel, schemaInformation, () => searchableSearchParameterDefinitionManager),
+                partitionEliminationRewriter,
                 SqlConnectionWrapperFactory,
                 schemaInformation,
                 fhirRequestContextAccessor,
