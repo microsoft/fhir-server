@@ -8,29 +8,28 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class ResourceTypeIdResourceSurrogateKeySetParameterQueryGenerator : ResourceTableSearchParameterQueryGenerator
+    internal class PrimaryKeyRangeParameterQueryGenerator : ResourceTableSearchParameterQueryGenerator
     {
-        public static new readonly ResourceTypeIdResourceSurrogateKeySetParameterQueryGenerator Instance = new();
+        public static new readonly PrimaryKeyRangeParameterQueryGenerator Instance = new();
 
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            var keySetValue = (KeySetValue)expression.Value;
+            var primaryKeyRange = (PrimaryKeyRange)expression.Value;
 
             context.StringBuilder.AppendLine("(");
             using (context.StringBuilder.Indent())
             {
-                VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, null, keySetValue.CurrentPositionResourceTypeId);
+                VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, null, primaryKeyRange.CurrentValue.ResourceTypeId);
                 context.StringBuilder.Append(" AND ");
-                VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, null, keySetValue.CurrentPositionResourceSurrogateId);
+                VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, null, primaryKeyRange.CurrentValue.ResourceSurrogateId);
                 context.StringBuilder.AppendLine();
                 context.StringBuilder.Append("OR ");
-                AppendColumnName(context, VLatest.Resource.ResourceTypeId, (int?)null)
-                    .Append(" IN (");
+                AppendColumnName(context, VLatest.Resource.ResourceTypeId, (int?)null).Append(" IN (");
 
                 bool first = true;
-                for (short i = 0; i < keySetValue.NextResourceTypeIds.Count; i++)
+                for (short i = 0; i < primaryKeyRange.NextResourceTypeIds.Count; i++)
                 {
-                    if (keySetValue.NextResourceTypeIds[i])
+                    if (primaryKeyRange.NextResourceTypeIds[i])
                     {
                         if (first)
                         {

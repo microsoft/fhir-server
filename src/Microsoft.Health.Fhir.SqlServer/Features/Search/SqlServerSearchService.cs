@@ -168,9 +168,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                         else
                         {
-                            parameter = SqlSearchParameters.ResourceTypeIdResourceSurrogateKeySetParameter;
+                            parameter = SqlSearchParameters.PrimaryKeyParameter;
                             fieldName = SqlFieldName.ResourceTypeIdResourceSurrogateKeySet;
-                            keyValue = new KeySetValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId, null);
+                            keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
                         }
 
                         Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending

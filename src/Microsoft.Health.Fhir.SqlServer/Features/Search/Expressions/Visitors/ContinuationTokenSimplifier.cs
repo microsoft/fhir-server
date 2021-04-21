@@ -65,15 +65,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            int keySetIndex = -1;
+            int primaryKeyValueIndex = -1;
             bool hasTypeRestriction = false;
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
                 SearchParameterInfo parameter = expression.ResourceTableExpressions[i].Parameter;
 
-                if (ReferenceEquals(parameter, SqlSearchParameters.ResourceTypeIdResourceSurrogateKeySetParameter))
+                if (ReferenceEquals(parameter, SqlSearchParameters.PrimaryKeyParameter))
                 {
-                    keySetIndex = i;
+                    primaryKeyValueIndex = i;
                 }
                 else if (ReferenceEquals(parameter, _resourceTypeSearchParameter))
                 {
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            if (keySetIndex < 0)
+            if (primaryKeyValueIndex < 0)
             {
                 if (hasTypeRestriction)
                 {
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return new SqlRootExpression(expression.SearchParamTableExpressions, updatedResourceTableExpressions);
             }
 
-            var existingKeySetParameter = (SearchParameterExpression)expression.ResourceTableExpressions[keySetIndex];
+            var primaryKeyParameter = (SearchParameterExpression)expression.ResourceTableExpressions[primaryKeyValueIndex];
 
             var allowedTypes = new BitArray(_model.ResourceTypeIdRange.highestId + 1, true);
             for (int i = 0; i < _model.ResourceTypeIdRange.lowestId; i++)
@@ -147,51 +147,62 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            var existingBinaryKeySetExpression = (BinaryExpression)existingKeySetParameter.Expression;
-            var existingKeySetValue = (KeySetValue)existingBinaryKeySetExpression.Value;
+            var existingPrimaryKeyBinaryExpression = (BinaryExpression)primaryKeyParameter.Expression;
+            var existingPrimaryKeyValue = (PrimaryKeyValue)existingPrimaryKeyBinaryExpression.Value;
 
             SearchParameterExpression newSearchParameterExpression;
-            if (bitCriteria == 1 && allowedTypes[existingKeySetValue.CurrentPositionResourceTypeId])
+            bool requiresPrimaryKeyRange;
+            if (bitCriteria == 1 && allowedTypes[existingPrimaryKeyValue.ResourceTypeId])
             {
+                requiresPrimaryKeyRange = false;
                 newSearchParameterExpression = Expression.SearchParameter(
                     SqlSearchParameters.ResourceSurrogateIdParameter,
-                    new BinaryExpression(existingBinaryKeySetExpression.BinaryOperator, SqlFieldName.ResourceSurrogateId, null, existingKeySetValue.CurrentPositionResourceSurrogateId));
+                    new BinaryExpression(existingPrimaryKeyBinaryExpression.BinaryOperator, SqlFieldName.ResourceSurrogateId, null, existingPrimaryKeyValue.ResourceSurrogateId));
             }
             else
             {
-                switch (existingBinaryKeySetExpression.BinaryOperator)
+                requiresPrimaryKeyRange = true;
+                switch (existingPrimaryKeyBinaryExpression.BinaryOperator)
                 {
                     case BinaryOperator.GreaterThan:
-                        for (int i = existingKeySetValue.CurrentPositionResourceTypeId; i >= 0; i--)
+                        for (int i = existingPrimaryKeyValue.ResourceTypeId; i >= 0; i--)
                         {
                             allowedTypes[i] = false;
                         }
 
                         break;
                     case BinaryOperator.LessThan:
-                        for (int i = existingKeySetValue.CurrentPositionResourceTypeId; i < allowedTypes.Length; i++)
+                        for (int i = existingPrimaryKeyValue.ResourceTypeId; i < allowedTypes.Length; i++)
                         {
                             allowedTypes[i] = false;
                         }
 
                         break;
                     default:
-                        throw new InvalidOperationException($"Unexpected operator {existingBinaryKeySetExpression.BinaryOperator}");
+                        throw new InvalidOperationException($"Unexpected operator {existingPrimaryKeyBinaryExpression.BinaryOperator}");
                 }
 
                 newSearchParameterExpression = Expression.SearchParameter(
-                    existingKeySetParameter.Parameter,
-                    new BinaryExpression(existingBinaryKeySetExpression.BinaryOperator, existingBinaryKeySetExpression.FieldName, null, existingKeySetValue with { NextResourceTypeIds = allowedTypes }));
+                    primaryKeyParameter.Parameter,
+                    new BinaryExpression(
+                        existingPrimaryKeyBinaryExpression.BinaryOperator,
+                        existingPrimaryKeyBinaryExpression.FieldName,
+                        null,
+                        new PrimaryKeyRange(existingPrimaryKeyValue, allowedTypes)));
             }
 
             var newResourceTableExpressions = new List<SearchParameterExpressionBase>();
             for (var i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
-                if (i != keySetIndex &&
-                    (expression.ResourceTableExpressions[i] is not SearchParameterExpression searchParameterExpression || searchParameterExpression.Parameter.Name != SearchParameterNames.ResourceType))
+                if (i == primaryKeyValueIndex ||
+                    (requiresPrimaryKeyRange &&
+                     expression.ResourceTableExpressions[i] is SearchParameterExpression searchParameterExpression &&
+                     searchParameterExpression.Parameter.Name == SearchParameterNames.ResourceType))
                 {
-                    newResourceTableExpressions.Add(expression.ResourceTableExpressions[i]);
+                    continue;
                 }
+
+                newResourceTableExpressions.Add(expression.ResourceTableExpressions[i]);
             }
 
             newResourceTableExpressions.Add(newSearchParameterExpression);

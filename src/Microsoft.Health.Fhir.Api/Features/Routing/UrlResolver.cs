@@ -169,31 +169,40 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
                     if (string.Equals(searchParam.Key, KnownQueryParameterNames.Sort, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (resultSortOrder?.Count > 0)
+                        switch (resultSortOrder?.Count)
                         {
-                            var sb = new StringBuilder();
-                            bool first = true;
-                            foreach ((SearchParameterInfo searchParameterInfo, SortOrder sortOrder) in resultSortOrder)
-                            {
-                                if (first)
-                                {
-                                    first = false;
-                                }
-                                else
-                                {
-                                    sb.Append(',');
-                                }
-
-                                if (sortOrder == SortOrder.Descending)
-                                {
-                                    sb.Append('-');
-                                }
-
-                                sb.Append(searchParameterInfo.Name);
-                            }
+                            case null:
+                            case 0:
+                                break;
 
                             // rewrite the sort order based on the sort order that was actually applied
-                            routeValues.Add(searchParam.Key, sb.ToString());
+                            case 1 when resultSortOrder[0].sortOrder == SortOrder.Ascending:
+                                routeValues.Add(searchParam.Key, resultSortOrder[0].searchParameterInfo.Name);
+                                break;
+                            default:
+                                var sb = new StringBuilder();
+                                bool first = true;
+                                foreach ((SearchParameterInfo searchParameterInfo, SortOrder sortOrder) in resultSortOrder)
+                                {
+                                    if (first)
+                                    {
+                                        first = false;
+                                    }
+                                    else
+                                    {
+                                        sb.Append(',');
+                                    }
+
+                                    if (sortOrder == SortOrder.Descending)
+                                    {
+                                        sb.Append('-');
+                                    }
+
+                                    sb.Append(searchParameterInfo.Name);
+                                }
+
+                                routeValues.Add(searchParam.Key, sb.ToString());
+                                break;
                         }
                     }
                     else if (string.Equals(searchParam.Key, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))

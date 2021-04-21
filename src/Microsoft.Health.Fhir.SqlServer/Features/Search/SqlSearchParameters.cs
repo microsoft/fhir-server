@@ -17,10 +17,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public static readonly SearchParameterInfo ResourceSurrogateIdParameter = new SearchParameterInfo(ResourceSurrogateIdParameterName, ResourceSurrogateIdParameterName, SearchParamType.Number, ResourceSurrogateIdUri, null);
 
-        public const string ResourceTypeIdResourceSurrogateKeySetParameterName = "_resourceTypeIdResourceSurrogateKeySet";
+        public const string PrimaryKeyParameterName = "_primaryKey";
 
-        public static readonly Uri ResourceTypeIdResourceSurrogateKeySetUri = new Uri("http://fhirserverforazure.microsoft.com/fhir/SearchParameter/Resource-resourceTypeIdResourceSurrogateKeySet");
+        public static readonly Uri PrimaryKeyUri = new Uri("http://fhirserverforazure.microsoft.com/fhir/SearchParameter/Resource-primaryKey");
 
-        public static readonly SearchParameterInfo ResourceTypeIdResourceSurrogateKeySetParameter = new SearchParameterInfo(ResourceTypeIdResourceSurrogateKeySetParameterName, ResourceTypeIdResourceSurrogateKeySetParameterName, SearchParamType.Number, ResourceTypeIdResourceSurrogateKeySetUri, null);
+        public static readonly SearchParameterInfo PrimaryKeyParameter = new SearchParameterInfo(PrimaryKeyParameterName, PrimaryKeyParameterName, SearchParamType.Number, PrimaryKeyUri, null);
     }
 }
