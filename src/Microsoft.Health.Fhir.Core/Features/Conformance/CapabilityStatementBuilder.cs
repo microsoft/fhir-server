@@ -231,14 +231,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 // AuditEvents should not allow Update or Delete
                 if (!string.Equals(resource, KnownResourceTypes.AuditEvent, StringComparison.Ordinal))
                 {
-<<<<<<< HEAD
-                    AddRestInteraction(resource, TypeRestfulInteraction.Update);
-                    AddRestInteraction(resource, TypeRestfulInteraction.Patch);
-                    AddRestInteraction(resource, TypeRestfulInteraction.Delete);
-=======
                     AddResourceInteraction(resource, TypeRestfulInteraction.Update);
+                    AddResourceInteraction(resource, TypeRestfulInteraction.Patch);
                     AddResourceInteraction(resource, TypeRestfulInteraction.Delete);
->>>>>>> 55548d65fd898e06dbf3574d45691cee10451371
                 }
 
                 ApplyToResource(resource, component =>
