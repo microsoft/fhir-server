@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
 
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Forbidden,
+                    OperationOutcomeConstants.IssueType.Invalid,
                     message));
         }
     }

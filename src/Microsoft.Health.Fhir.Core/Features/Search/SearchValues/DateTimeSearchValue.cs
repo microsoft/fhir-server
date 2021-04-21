@@ -21,13 +21,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     public class DateTimeSearchValue : ISearchValue, ISupportSortSearchValue, IRangedComparable
     {
         /// <summary>
+        /// Original datetime value, if it not a range.
+        /// </summary>
+        private readonly PartialDateTime _originalDate;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="DateTimeSearchValue"/> class.
         /// </summary>
         /// <param name="dateTime">The date time.</param>
         public DateTimeSearchValue(PartialDateTime dateTime)
             : this(dateTime, dateTime)
         {
-            OriginalDate = dateTime;
+            _originalDate = dateTime;
 
             // The date can be expressed with start and end.
             // If an instance of time is expressed (e.g., date + time), then the start and end
@@ -87,8 +92,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public bool IsMin { get; set; }
 
         public bool IsMax { get; set; }
-
-        private PartialDateTime OriginalDate { get; set; }
 
         /// <summary>
         /// Parses the string value to an instance of <see cref="DateTimeSearchValue"/>.
@@ -173,9 +176,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public override string ToString()
         {
-            if (OriginalDate != null)
+            if (_originalDate != null)
             {
-                return OriginalDate.ToString();
+                return _originalDate.ToString();
             }
 
             return $"{Start.ToString("o")}-{End.ToString("o")}";

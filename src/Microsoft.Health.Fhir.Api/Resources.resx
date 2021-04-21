@@ -354,4 +354,7 @@
   <data name="MemberMatchOldCoverageNotFound" xml:space="preserve">
     <value>'OldCoverage' can't be found in submitted parameters. </value>
   </data>
+  <data name="MemberMatchInvalidParameter" xml:space="preserve">
+    <value>$member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
+  </data>
 </root>

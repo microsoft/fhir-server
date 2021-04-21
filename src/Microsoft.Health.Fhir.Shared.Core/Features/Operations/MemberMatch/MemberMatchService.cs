@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -29,24 +30,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
         private readonly ISearchIndexer _searchIndexer;
         private readonly IExpressionParser _expressionParser;
         private readonly SearchParameterInfo _coverageBeneficiaryParameter;
+        private readonly ILogger<MemberMatchService> _logger;
 
         public MemberMatchService(
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceDeserializer resourceDeserializer,
             ISearchIndexer searchIndexer,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
-            IExpressionParser expressionParser)
+            IExpressionParser expressionParser,
+            ILogger<MemberMatchService> logger)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _searchServiceFactory = searchServiceFactory;
             _resourceDeserializer = resourceDeserializer;
             _searchIndexer = searchIndexer;
             _expressionParser = expressionParser;
             _coverageBeneficiaryParameter = searchParameterDefinitionManagerResolver().GetSearchParameter("Coverage", "beneficiary");
+            _logger = logger;
         }
 
         public async Task<ResourceElement> FindMatch(ResourceElement coverage, ResourceElement patient, CancellationToken cancellationToken)
@@ -92,22 +98,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                 reverseChainExpressions.Add(_expressionParser.Parse(new[] { "Coverage" }, coverageValue.SearchParameter.Code + modifier, coverageValue.Value.ToString()));
             }
 
-            Expression reverseChainedExpression;
-            if (reverseChainExpressions.Count == 1)
+            if (reverseChainExpressions.Count != 0)
             {
-                reverseChainedExpression = reverseChainExpressions[0];
-            }
-            else
-            {
-                reverseChainedExpression = Expression.And(reverseChainExpressions);
+                Expression reverseChainedExpression;
+                if (reverseChainExpressions.Count == 1)
+                {
+                    reverseChainedExpression = reverseChainExpressions[0];
+                }
+                else
+                {
+                    reverseChainedExpression = Expression.And(reverseChainExpressions);
+                }
+
+                var expression = Expression.Chained(new string[] { "Coverage" }, _coverageBeneficiaryParameter, new string[] { "Patient" }, true, reverseChainedExpression);
+                expressions.Add(expression);
             }
 
-            var expression = Expression.Chained(new string[] { "Coverage" }, _coverageBeneficiaryParameter, new string[] { "Patient" }, true, reverseChainedExpression);
-            expressions.Add(expression);
             searchOptions.Expression = Expression.And(expressions);
-            using IScoped<ISearchService> search = _searchServiceFactory();
+            SearchResult results = null;
+            try
+            {
+                using IScoped<ISearchService> search = _searchServiceFactory();
+                results = await search.Value.SearchAsync(searchOptions, cancellationToken);
+            }
 
-            SearchResult results = await search.Value.SearchAsync(searchOptions, cancellationToken);
+            // Generic catch for any exception happened during search.
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Generic problem in MemberMatch service.");
+                throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);
+            }
+
             var searchMatchOnly = results.Results.Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
             if (searchMatchOnly.Count > 1)
             {

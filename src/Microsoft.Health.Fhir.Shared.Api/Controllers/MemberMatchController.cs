@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (inputParams == null)
             {
                 _logger.LogInformation("Failed to deserialize member-match request body as Parameters resource.");
-                throw new RequestNotValidException(Resources.ReindexParametersNotValid);
+                throw new RequestNotValidException(Resources.MemberMatchInvalidParameter);
             }
 
             var coverageResource = inputParams.GetSingle(Coverage)?.Resource;
