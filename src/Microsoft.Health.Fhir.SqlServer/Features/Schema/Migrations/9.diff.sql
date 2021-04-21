@@ -32,11 +32,16 @@ GO
 
 EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 9'
 
-GO
-
 /*************************************************************
     Update stored procedures first. They are backwards-compatible with
     the previous schema version and are required once the indexes become partitioned.
+**************************************************************/
+
+GO
+
+
+/*************************************************************
+    Stored procedures for creating and deleting
 **************************************************************/
 
 --
