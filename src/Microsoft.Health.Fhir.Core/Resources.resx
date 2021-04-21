@@ -547,6 +547,9 @@
   <data name="PatchImmutablePropertiesIsNotValid" xml:space="preserve">
     <value>Patching immutable properties is not allowed.</value>
   </data>
+  <data name="PatchResourceError" xml:space="preserve">
+    <value>Error patching resource: '{0}'.</value>
+  </data>
   <data name="PatchVersionNotAllowed" xml:space="preserve">
     <value>Patching a specific record version is not supported.</value>
   </data>

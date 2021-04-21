@@ -58,11 +58,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new MethodNotAllowedException(Core.Resources.DeleteVersionNotAllowed);
             }
 
-            // ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: allowCreate);
-
-            // To-do: Patch document operation
-            // To-do: Refactor patch logic into data store.
-            Console.WriteLine("Patch operation placeholder");
             var currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
 
             if (currentDoc == null)
@@ -85,7 +80,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             {
                 message.PatchDocument.ApplyTo(resourceInstance);
 
-                // To-do: validate that forbidden properties are not being changed
                 if (resourceId != resourceInstance.Id ||
                     resourceVersion != resourceInstance.VersionId)
                 {
@@ -95,8 +89,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
                 bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
                 var result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
-
-                // To-do: package and return the response
                 resourceInstance.VersionId = result.Wrapper.Version;
 
                 return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
@@ -106,30 +98,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, e.Message));
             }
         }
-
-        /* To-do update with patch logic
-        private async Task<UpsertOutcome> PatchAsync(PatchResourceRequest message, ResourceWrapper resourceWrapper, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
-        {
-            UpsertOutcome result = null;
-
-            try
-            {
-                  UpsertOutcome result = await FhirDataStore.PatchAsync(
-                    deletedWrapper,
-                    weakETag: null,
-                    allowCreate: true,
-                    keepHistory: keepHistory,
-                    cancellationToken: cancellationToken);
-                // result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, allowCreate, keepHistory, cancellationToken);
-            }
-            catch (PreconditionFailedException) when (_modelInfoProvider.Version == FhirSpecification.Stu3)
-            {
-                // The backwards compatibility behavior of Stu3 is to return a Conflict instead of Precondition fail
-                throw new ResourceConflictException(message.WeakETag);
-            }
-
-            return result;
-        }
-        */
     }
 }
