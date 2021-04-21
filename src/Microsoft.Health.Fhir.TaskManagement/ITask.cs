@@ -3,18 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
+using System;
+using System.Threading.Tasks;
+
+namespace Microsoft.Health.Fhir.TaskManagement
 {
-    public class TaskResultData
+    public interface ITask : IDisposable
     {
-        public TaskResultData(TaskResult result, string resultData)
-        {
-            Result = result;
-            ResultData = resultData;
-        }
+        public string RunId { get; set; }
 
-        public TaskResult Result { get; set; }
+        public Task<TaskResultData> ExecuteAsync();
 
-        public string ResultData { get; set; }
+        public void Cancel();
+
+        public bool IsCancelling();
     }
 }

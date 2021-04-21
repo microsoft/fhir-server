@@ -3,19 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Models;
+using System;
 
-namespace Microsoft.Health.Fhir.Core.Exceptions
+namespace Microsoft.Health.Fhir.TaskManagement
 {
-    public class TaskConflictException : FhirException
+    public class TaskNotExistException : Exception
     {
-        public TaskConflictException(string message)
+        public TaskNotExistException(string message)
             : base(message)
         {
-            Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Invalid,
-                    message));
+        }
+
+        public TaskNotExistException(string message, Exception innerException)
+            : base(message, innerException)
+        {
         }
     }
 }

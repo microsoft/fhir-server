@@ -5,9 +5,8 @@
 
 using System;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
+namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 {
     public class TestTask : ITask
     {

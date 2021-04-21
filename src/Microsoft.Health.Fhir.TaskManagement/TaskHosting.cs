@@ -4,23 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Exceptions;
 
-namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
+namespace Microsoft.Health.Fhir.TaskManagement
 {
     public class TaskHosting
     {
-        private object _syncRoot = new object();
-
         private ITaskConsumer _consumer;
         private ITaskFactory _taskFactory;
         private ILogger<TaskHosting> _logger;
-        private Dictionary<string, ITask> _activeTaskRecordsForKeepAlive = new Dictionary<string, ITask>();
+        private ConcurrentDictionary<string, ITask> _activeTaskRecordsForKeepAlive = new ConcurrentDictionary<string, ITask>();
 
         public TaskHosting(ITaskConsumer consumer, ITaskFactory taskFactory, ILogger<TaskHosting> logger)
         {
@@ -71,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Failed to pull new tasks.");
+                    _logger.LogError(ex, "Failed to pull new tasks.");
                 }
 
                 if (nextTasks != null && nextTasks.Count > 0)
@@ -102,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
 
             if (task == null)
             {
-                _logger.LogWarning($"Not supported task type: {taskInfo.TaskTypeId}");
+                _logger.LogWarning("Not supported task type: {0}", taskInfo.TaskTypeId);
                 return;
             }
 
@@ -112,17 +109,13 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 try
                 {
                     Task<TaskResultData> runningTask = task.ExecuteAsync();
-
-                    lock (_syncRoot)
-                    {
-                        _activeTaskRecordsForKeepAlive[taskInfo.TaskId] = task;
-                    }
+                    _activeTaskRecordsForKeepAlive[taskInfo.TaskId] = task;
 
                     result = await runningTask;
                 }
                 catch (RetriableTaskException ex)
                 {
-                    _logger.LogError(ex, $"Task {taskInfo.TaskId} failed with retriable exception.");
+                    _logger.LogError(ex, "Task {0} failed with retriable exception.", taskInfo.TaskId);
 
                     try
                     {
@@ -130,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                     }
                     catch (Exception resetEx)
                     {
-                        _logger.LogError(resetEx, $"Task {taskInfo.TaskId} failed to reset.");
+                        _logger.LogError(resetEx, "Task {0} failed to reset.", taskInfo.TaskId);
                     }
 
                     // Not complete the task for retriable exception.
@@ -138,42 +131,34 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Task {taskInfo.TaskId} failed. ");
+                    _logger.LogError(ex, "Task {0} failed.", taskInfo.TaskId);
                     result = new TaskResultData(TaskResult.Fail, ex.Message);
                 }
 
                 try
                 {
                     await _consumer.CompleteAsync(taskInfo.TaskId, result, task.RunId, cancellationToken);
-                    _logger.LogInformation($"Task {taskInfo.TaskId} completed.");
+                    _logger.LogInformation("Task {0} completed.", taskInfo.TaskId);
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, $"Task {taskInfo.TaskId} failed to complete.");
+                    _logger.LogError(completeEx, "Task {0} failed to complete.", taskInfo.TaskId);
                 }
             }
             finally
             {
-                lock (_syncRoot)
-                {
-                    _activeTaskRecordsForKeepAlive.Remove(taskInfo.TaskId);
-                }
+                _activeTaskRecordsForKeepAlive.Remove(taskInfo.TaskId, out _);
             }
         }
 
         private async Task KeepAliveTasksAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"Start to keep alive task message.");
+            _logger.LogInformation("Start to keep alive task message.");
 
             while (!cancellationToken.IsCancellationRequested)
             {
                 Task intervalDelayTask = Task.Delay(TaskHeartbeatIntervalInSeconds);
-
-                KeyValuePair<string, ITask>[] activeTaskRecords = null;
-                lock (_syncRoot)
-                {
-                    activeTaskRecords = _activeTaskRecordsForKeepAlive.ToArray();
-                }
+                KeyValuePair<string, ITask>[] activeTaskRecords = _activeTaskRecordsForKeepAlive.ToArray();
 
                 foreach ((string taskId, ITask task) in activeTaskRecords)
                 {
@@ -192,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                         }
                         catch (TaskNotExistException notExistEx)
                         {
-                            _logger.LogError(notExistEx, $"Task {taskId} not exist or runid not match.");
+                            _logger.LogError(notExistEx, "Task {0} not exist or runid not match.", taskId);
                             shouldCancel = true;
                         }
 
@@ -203,14 +188,14 @@ namespace Microsoft.Health.Fhir.Core.Features.TaskManagement
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"Failed to keep alive on task {taskId}");
+                        _logger.LogError(ex, "Failed to keep alive on task {0}", taskId);
                     }
                 }
 
                 await intervalDelayTask;
             }
 
-            _logger.LogInformation($"Stop to keep alive task message.");
+            _logger.LogInformation("Stop to keep alive task message.");
         }
     }
 }

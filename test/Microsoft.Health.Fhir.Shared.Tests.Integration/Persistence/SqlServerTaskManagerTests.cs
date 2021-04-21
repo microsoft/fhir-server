@@ -7,12 +7,11 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.TaskManagement;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Xunit;
-using TaskStatus = Microsoft.Health.Fhir.Core.Features.TaskManagement.TaskStatus;
+using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
 {

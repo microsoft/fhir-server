@@ -9,15 +9,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Newtonsoft.Json;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
-using TaskStatus = Microsoft.Health.Fhir.Core.Features.TaskManagement.TaskStatus;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
+namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 {
     public class TaskHostingTests
     {

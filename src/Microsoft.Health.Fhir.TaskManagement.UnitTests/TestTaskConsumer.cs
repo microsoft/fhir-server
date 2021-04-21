@@ -9,12 +9,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Newtonsoft.Json;
-using TaskStatus = Microsoft.Health.Fhir.Core.Features.TaskManagement.TaskStatus;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
+namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 {
     public class TestTaskConsumer : ITaskConsumer
     {

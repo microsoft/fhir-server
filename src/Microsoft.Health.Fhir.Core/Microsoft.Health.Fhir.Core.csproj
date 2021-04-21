@@ -52,6 +52,7 @@
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.TaskManagement\Microsoft.Health.Fhir.TaskManagement.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
   </ItemGroup>
   <ItemGroup>

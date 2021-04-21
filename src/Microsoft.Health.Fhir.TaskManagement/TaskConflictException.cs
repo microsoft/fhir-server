@@ -4,22 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.TaskManagement
+namespace Microsoft.Health.Fhir.TaskManagement
 {
-    public class TestTaskFactory : ITaskFactory
+    public class TaskConflictException : Exception
     {
-        private Func<TaskInfo, ITask> _factoryFunc;
-
-        public TestTaskFactory(Func<TaskInfo, ITask> factoryFunc)
+        public TaskConflictException(string message)
+            : base(message)
         {
-            _factoryFunc = factoryFunc;
         }
 
-        public ITask Create(TaskInfo taskInfo)
+        public TaskConflictException(string message, Exception innerException)
+            : base(message, innerException)
         {
-            return _factoryFunc(taskInfo);
         }
     }
 }
