@@ -50,6 +50,7 @@ function Set-FhirServerApiUsers {
     $environmentUsers = @()
 
     foreach ($user in $UserConfiguration) {
+        Write-Host $user
         $userId = $user.id
         if ($UserNamePrefix) {
             $userId = Get-UserId -EnvironmentName $UserNamePrefix -UserId $user.Id

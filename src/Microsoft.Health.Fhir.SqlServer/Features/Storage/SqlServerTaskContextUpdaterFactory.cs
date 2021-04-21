@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
+using Microsoft.Health.Fhir.TaskManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage

@@ -13,11 +13,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.TaskManagement;
 using NSubstitute;
 using Xunit;
+using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
@@ -49,8 +51,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Theory]
-        [InlineData(Core.Features.TaskManagement.TaskStatus.Completed)]
-        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(Core.Features.TaskManagement.TaskStatus taskStatus)
+        [InlineData(TaskStatus.Completed)]
+        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
             TaskInfo taskInfo = await SetupAndExecuteCancelExportAsync(taskStatus, HttpStatusCode.Conflict);
 
@@ -60,20 +62,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCanceled_ThenConflictStatusCodeShouldBeReturned()
         {
-            await SetupAndExecuteCancelExportAsync(Core.Features.TaskManagement.TaskStatus.Queued, HttpStatusCode.Conflict, true);
+            await SetupAndExecuteCancelExportAsync(TaskStatus.Queued, HttpStatusCode.Conflict, true);
         }
 
         [Theory]
-        [InlineData(Core.Features.TaskManagement.TaskStatus.Queued)]
-        [InlineData(Core.Features.TaskManagement.TaskStatus.Running)]
-        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(Core.Features.TaskManagement.TaskStatus taskStatus)
+        [InlineData(TaskStatus.Queued)]
+        [InlineData(TaskStatus.Running)]
+        public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
             TaskInfo taskInfo = await SetupAndExecuteCancelExportAsync(taskStatus, HttpStatusCode.Accepted);
 
             await _taskManager.Received(1).CancelTaskAsync(taskInfo.TaskId, _cancellationToken);
         }
 
-        private async Task<TaskInfo> SetupAndExecuteCancelExportAsync(Core.Features.TaskManagement.TaskStatus taskStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
+        private async Task<TaskInfo> SetupAndExecuteCancelExportAsync(TaskStatus taskStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
         {
             TaskInfo taskInfo = SetupBulkImportTask(taskStatus, isCanceled);
 
@@ -85,14 +87,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             return taskInfo;
         }
 
-        private TaskInfo SetupBulkImportTask(Core.Features.TaskManagement.TaskStatus taskStatus, bool isCanceled)
+        private TaskInfo SetupBulkImportTask(TaskStatus taskStatus, bool isCanceled)
         {
             var taskInfo = new TaskInfo
             {
                 TaskId = TaskId,
                 QueueId = "0",
                 Status = taskStatus,
-                TaskTypeId = (short)TaskType.BulkImport,
+                TaskTypeId = BulkImportDataProcessingTask.BulkImportDataProcessingTaskTypeId,
                 InputData = string.Empty,
                 IsCanceled = isCanceled,
             };

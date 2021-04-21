@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     catch (Exception ex)
                     {
                         errors.Add(new ProcessError(lineNumber, ex.Message));
-                        _logger.LogDebug(ex, $"failed to process resource at Line {lineNumber}");
+                        _logger.LogDebug(ex, "failed to process resource at Line {0}", lineNumber);
                     }
                     finally
                     {

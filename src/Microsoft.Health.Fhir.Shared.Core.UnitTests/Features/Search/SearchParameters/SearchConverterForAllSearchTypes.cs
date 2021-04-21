@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.FhirPath.Expressions;
+using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
@@ -15,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
+using NSubstitute;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -24,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         private readonly SearchParameterFixtureData _fixture;
         private readonly ITestOutputHelper _outputHelper;
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         public SearchConverterForAllSearchTypes(SearchParameterFixtureData fixture, ITestOutputHelper outputHelper)
         {
@@ -57,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
                 {
-                    var found = (await SearchParameterFixtureData.GetFhirNodeToSearchValueTypeConverterManagerAsync()).TryGetConverter(result.result.FhirNodeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
+                    var found = (await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync()).TryGetConverter(result.result.FhirNodeType, TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
 
                     var converterText = found ? converter.GetType().Name : "None";
                     string searchTermMapping = $"Search term '{parameterCode}' ({result.result.SearchParamType}) mapped to '{result.result.FhirNodeType}', converter: {converterText}";
@@ -73,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var unsupported = new UnsupportedSearchParameters();
 
-            SearchParameterDefinitionManager manager = await SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(ModelInfoProvider.Instance);
+            SearchParameterDefinitionManager manager = await SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(ModelInfoProvider.Instance, _mediator);
 
             var resourceAndSearchParameters = ModelInfoProvider.Instance
                 .GetResourceTypeNames()
@@ -125,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(systemUnsupported.PartialSupport, unsupported.PartialSupport);
         }
 
-        private async Task<IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, IFhirNodeToSearchValueTypeConverter converter)>> GetConvertsForSearchParameters(
+        private async Task<IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, ITypedElementToSearchValueConverter converter)>> GetConvertsForSearchParameters(
             string resourceType,
             SearchParameterInfo parameterInfo)
         {
@@ -144,15 +147,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 (parameterInfo.Type, parsed, parameterInfo.Url),
                 componentExpressions).ToArray();
 
-            var fhirNodeToSearchValueTypeConverterManager = await SearchParameterFixtureData.GetFhirNodeToSearchValueTypeConverterManagerAsync();
+            var fhirNodeToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
 
             var converters = results
                 .Select(result => (
                     result,
-                    hasConverter: fhirNodeToSearchValueTypeConverterManager.TryGetConverter(
+                    hasConverter: fhirNodeToSearchValueConverterManager.TryGetConverter(
                         result.FhirNodeType,
-                        SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                        out IFhirNodeToSearchValueTypeConverter converter),
+                        TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
+                        out ITypedElementToSearchValueConverter converter),
                     converter))
                 .ToArray();
 
@@ -161,7 +164,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static IEnumerable<object[]> GetAllSearchParameters()
         {
-            Task<SearchParameterDefinitionManager> searchParameterDefinitionManagerTask = SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(ModelInfoProvider.Instance);
+            var mediator = Substitute.For<IMediator>();
+            Task<SearchParameterDefinitionManager> searchParameterDefinitionManagerTask = SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(ModelInfoProvider.Instance, mediator);
 
             // XUnit does not currently support async signatures for MemberDataAttributes. Until it does we need to block on
             // this task, which could cause a deadlock, but we know that the task should have completed synchronously,

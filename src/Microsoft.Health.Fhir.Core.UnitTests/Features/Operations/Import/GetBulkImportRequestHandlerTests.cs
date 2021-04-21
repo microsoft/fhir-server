@@ -13,11 +13,13 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.TaskManagement;
 using NSubstitute;
 using Xunit;
+using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
@@ -41,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            GetBulkImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(Core.Features.TaskManagement.TaskStatus.Completed);
+            GetBulkImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.NotNull(result.TaskResult);
@@ -50,16 +52,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskThatWasCanceled_ThenOperationFailedExceptionIsThrownWithBadRequestHttpResponseCode()
         {
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(Core.Features.TaskManagement.TaskStatus.Queued, true));
+            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Queued, true));
 
             Assert.NotNull(ofe);
             Assert.Equal(_failureStatusCode, ofe.ResponseStatusCode);
         }
 
         [Theory]
-        [InlineData(Core.Features.TaskManagement.TaskStatus.Running)]
-        [InlineData(Core.Features.TaskManagement.TaskStatus.Queued)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(Core.Features.TaskManagement.TaskStatus taskStatus)
+        [InlineData(TaskStatus.Running)]
+        [InlineData(TaskStatus.Queued)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
         {
             GetBulkImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(taskStatus);
 
@@ -67,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Null(result.TaskResult);
         }
 
-        private async Task<GetBulkImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(Core.Features.TaskManagement.TaskStatus taskStatus, bool isCanceled = false)
+        private async Task<GetBulkImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false)
         {
             // Result may be changed to real style result later
             var taskInfo = new TaskInfo
@@ -75,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 TaskId = TaskId,
                 QueueId = "0",
                 Status = taskStatus,
-                TaskTypeId = (short)TaskType.BulkImport,
+                TaskTypeId = BulkImportDataProcessingTask.BulkImportDataProcessingTaskTypeId,
                 InputData = string.Empty,
                 IsCanceled = isCanceled,
                 Result = taskStatus.ToString(),

@@ -11,8 +11,9 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.TaskManagement;
+using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
 {
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
             var taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
 
             // We have an existing job. We will determine the response based on the status of the bulk import operation.
-            if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
+            if (taskInfo.Status == TaskStatus.Completed)
             {
                 bulkImportResponse = new GetBulkImportResponse(HttpStatusCode.OK, taskInfo.Result);
             }

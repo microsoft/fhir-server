@@ -20,19 +20,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public class SearchParameterSupportResolver : ISearchParameterSupportResolver
     {
         private readonly ISearchParameterDefinitionManager _definitionManager;
-        private readonly IFhirNodeToSearchValueTypeConverterManager _searchValueTypeConverterManager;
+        private readonly ITypedElementToSearchValueConverterManager _searchValueConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
         private const string _codeOfTName = "codeOfT";
 
         public SearchParameterSupportResolver(
             ISearchParameterDefinitionManager definitionManager,
-            IFhirNodeToSearchValueTypeConverterManager searchValueTypeConverterManager)
+            ITypedElementToSearchValueConverterManager searchValueConverterManager)
         {
             EnsureArg.IsNotNull(definitionManager, nameof(definitionManager));
-            EnsureArg.IsNotNull(searchValueTypeConverterManager, nameof(searchValueTypeConverterManager));
+            EnsureArg.IsNotNull(searchValueConverterManager, nameof(searchValueConverterManager));
 
             _definitionManager = definitionManager;
-            _searchValueTypeConverterManager = searchValueTypeConverterManager;
+            _searchValueConverterManager = searchValueConverterManager;
         }
 
         public (bool Supported, bool IsPartiallySupported) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
@@ -69,10 +69,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var converters = results
                     .Select(result => (
                         result,
-                        hasConverter: _searchValueTypeConverterManager.TryGetConverter(
+                        hasConverter: _searchValueConverterManager.TryGetConverter(
                             GetBaseType(result.ClassMapping),
-                            SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                            out IFhirNodeToSearchValueTypeConverter converter),
+                            TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
+                            out ITypedElementToSearchValueConverter converter),
                         converter))
                     .ToArray();
 

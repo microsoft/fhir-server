@@ -12,13 +12,15 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
+using Microsoft.Health.Fhir.TaskManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class BulkImportDataProcessingTask : ITask
     {
+        public const short BulkImportDataProcessingTaskTypeId = 1;
+
         private const int RawDataChannelMaxCapacity = 3000;
         private const int ResourceWrapperChannelMaxCapacity = 3000;
         private const string ErrorResourceTableName = "ErrorResourceTable";

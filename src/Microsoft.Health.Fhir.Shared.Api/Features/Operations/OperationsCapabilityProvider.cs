@@ -49,12 +49,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
 
             if (_operationConfiguration.Reindex.Enabled)
             {
-                builder.Update(AddReindexDetails);
+                builder.Apply(AddReindexDetails);
             }
 
             if (_featureConfiguration.SupportsAnonymizedExport)
             {
-                builder.Update(AddAnonymizedExportDetails);
+                builder.Apply(AddAnonymizedExportDetails);
             }
         }
 

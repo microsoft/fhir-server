@@ -10,14 +10,13 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.TaskManagement;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
-using TaskStatus = Microsoft.Health.Fhir.Core.Features.TaskManagement.TaskStatus;
+using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
 {
@@ -41,10 +40,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             for (int i = 0; i < 5; ++i)
             {
@@ -78,10 +77,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
             short typeId = 1;
@@ -118,10 +117,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
             short typeId = 1;
@@ -153,10 +152,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
             short typeId = 1;
@@ -189,10 +188,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
             short typeId = 1;
@@ -230,10 +229,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
             short typeId = 1;
@@ -267,10 +266,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
             short typeId = 1;
@@ -308,10 +307,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
             short typeId = 1;
@@ -344,10 +343,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
-            IOptions<TaskHostingConfiguration> optionsExportConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
-            optionsExportConfig.Value.Returns(config);
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
-            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(optionsExportConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
             short typeId = 1;

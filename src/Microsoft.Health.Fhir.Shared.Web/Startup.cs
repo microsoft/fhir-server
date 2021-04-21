@@ -14,7 +14,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
+using Microsoft.Health.Fhir.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Web
 {

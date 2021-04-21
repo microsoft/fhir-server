@@ -13,8 +13,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.TaskManagement;
+using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
 {
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
                 var taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
 
                 // if the task is already canceled or completed, return conflict status
-                if (taskInfo.IsCanceled || taskInfo.Status == TaskManagement.TaskStatus.Completed)
+                if (taskInfo.IsCanceled || taskInfo.Status == TaskStatus.Completed)
                 {
                     return new CancelBulkImportResponse(HttpStatusCode.Conflict);
                 }
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Unable to cancel bulk import task {request.TaskId}");
+                _logger.LogError(ex, "Unable to cancel bulk import task {0}", request.TaskId);
                 throw;
             }
         }

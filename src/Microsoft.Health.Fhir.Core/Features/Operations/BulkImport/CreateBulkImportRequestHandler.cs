@@ -14,9 +14,10 @@ using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
 {
@@ -65,18 +66,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
                 {
                     TaskId = taskId,
                     QueueId = "0",
-                    TaskTypeId = (short)TaskType.BulkImport,
+                    TaskTypeId = BulkImportDataProcessingTask.BulkImportDataProcessingTaskTypeId,
                     InputData = inputData,
                 };
 
                 try
                 {
-                    _logger.LogInformation($"Attempting to create bulk import task {bulkImportTask.TaskId}");
+                    _logger.LogInformation("Attempting to create bulk import task {0}", bulkImportTask.TaskId);
                     bulkImportTask = await _taskManager.CreateTaskAsync(bulkImportTask, cancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Unable to create bulk import job {bulkImportTask.TaskId} for request {request.RequestUri.ToString()}");
+                    _logger.LogError(ex, "Unable to create bulk import job {0} for request {1}", bulkImportTask.TaskId, request.RequestUri);
                     throw;
                 }
             }

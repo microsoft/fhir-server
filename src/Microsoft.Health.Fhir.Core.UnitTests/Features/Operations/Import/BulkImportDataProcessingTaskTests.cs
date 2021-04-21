@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
+using Microsoft.Health.Fhir.TaskManagement;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;

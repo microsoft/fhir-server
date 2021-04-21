@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
+using Microsoft.Health.Fhir.TaskManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
@@ -45,12 +45,22 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 
         public ITask Create(TaskInfo taskInfo)
         {
-            if (taskInfo.TaskTypeId == TaskTypeIds.BulkImportDataProcessingTask)
+            if (taskInfo.TaskTypeId == BulkImportDataProcessingTask.BulkImportDataProcessingTaskTypeId)
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
                 BulkImportDataProcessingInputData inputData = JsonConvert.DeserializeObject<BulkImportDataProcessingInputData>(taskInfo.InputData);
                 BulkImportProgress bulkImportProgress = string.IsNullOrEmpty(taskInfo.Context) ? new BulkImportProgress() : JsonConvert.DeserializeObject<BulkImportProgress>(taskInfo.Context);
-                return new BulkImportDataProcessingTask(inputData, bulkImportProgress, _fhirDataBulkOperation, contextUpdater, _resourceLoader, _importErrorUploader, _rawResourceProcessor, _bulkImporter, _contextAccessor, _loggerFactory);
+                return new BulkImportDataProcessingTask(
+                    inputData,
+                    bulkImportProgress,
+                    _fhirDataBulkOperation,
+                    contextUpdater,
+                    _resourceLoader,
+                    _importErrorUploader,
+                    _rawResourceProcessor,
+                    _bulkImporter,
+                    _contextAccessor,
+                    _loggerFactory);
             }
 
             return null;

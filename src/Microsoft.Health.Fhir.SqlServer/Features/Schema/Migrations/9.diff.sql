@@ -63,12 +63,6 @@ AS
 	DECLARE @isCanceled bit = 0
 
     -- Check if the task already be created
-    DECLARE @existedTaskCount bigint
-
-    SELECT @existedTaskCount = Count(*)
-    FROM [dbo].[TaskInfo]
-    WHERE TaskId = @taskId
-
     IF EXISTS
     (
         SELECT *
@@ -84,7 +78,7 @@ AS
     VALUES
         (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @heartbeatDateTime, @inputData)
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 

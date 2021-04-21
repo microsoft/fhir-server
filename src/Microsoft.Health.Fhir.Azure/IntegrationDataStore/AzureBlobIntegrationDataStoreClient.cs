@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, $"Failed to create container for {containerId}:{fileName}");
+                _logger.LogError(storageEx, "Failed to create container for {0}:{1}", containerId, fileName);
 
                 throw;
             }
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, $"Failed to update part data for {resourceUri} of {partId}");
+                _logger.LogError(storageEx, "Failed to update part data for {0} of {1}", resourceUri, partId);
 
                 throw;
             }
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, $"Failed to update part data for {resourceUri}");
+                _logger.LogError(storageEx, "Failed to update part data for {0}", resourceUri);
 
                 throw;
             }

@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             patientResource.ConditionalUpdate = true;
             patientResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
 
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(_conformanceStatement.ToTypedElement().ToResourceElement());
+            _conformanceProvider.GetCapabilityStatementOnStartup().Returns(_conformanceStatement.ToTypedElement().ToResourceElement());
             var lazyConformanceProvider = new Lazy<IConformanceProvider>(() => _conformanceProvider);
 
             var collection = new ServiceCollection();

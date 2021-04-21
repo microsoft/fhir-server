@@ -60,6 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
@@ -88,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
             _schemaInitializer = new SchemaInitializer(config, _schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, NullLogger<SchemaInitializer>.Instance);
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 

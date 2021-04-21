@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.TaskManagement;
+using Microsoft.Health.Fhir.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 {
