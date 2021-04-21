@@ -187,8 +187,10 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
         private async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            using HttpClient httpClient = _httpClientFactory.CreateClient();
-            return await httpClient.SendAsync(request, cancellationToken);
+#pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
+            var client = _httpClientFactory.CreateClient();
+#pragma warning restore CA2000
+            return await client.SendAsync(request, cancellationToken);
         }
     }
 }

@@ -68,6 +68,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
 
             using var tokenCredential = new TokenCredential(accessToken);
+
             var storageCredentials = new StorageCredentials(tokenCredential);
             return new CloudBlobClient(storageAccountUri, storageCredentials);
         }

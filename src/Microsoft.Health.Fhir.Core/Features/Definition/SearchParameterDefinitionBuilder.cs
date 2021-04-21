@@ -293,8 +293,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 results.UnionWith(baseResults);
             }
 
-            Debug.Assert(results != null, "The results should not be null.");
-
             results.UnionWith(searchParametersLookup[resourceType]);
 
             var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>(

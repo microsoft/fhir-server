@@ -10,7 +10,6 @@ using EnsureThat;
 using Hl7.Fhir.Introspection;
 using Hl7.FhirPath;
 using Hl7.FhirPath.Expressions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -19,15 +18,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public class SearchParameterSupportResolver : ISearchParameterSupportResolver
     {
-        private readonly ITypedElementToSearchValueConverterManager _searchValueTypeConverterManager;
+        private readonly ITypedElementToSearchValueConverterManager _searchValueConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
         private const string _codeOfTName = "codeOfT";
 
-        public SearchParameterSupportResolver(
-            ISearchParameterDefinitionManager definitionManager,
-            ITypedElementToSearchValueConverterManager searchValueConverterManager)
+        public SearchParameterSupportResolver(ITypedElementToSearchValueConverterManager searchValueConverterManager)
         {
-            EnsureArg.IsNotNull(definitionManager, nameof(definitionManager));
             EnsureArg.IsNotNull(searchValueConverterManager, nameof(searchValueConverterManager));
 
             _searchValueConverterManager = searchValueConverterManager;

@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var statusManager = new SearchParameterStatusManager(
                 statusRegistry,
                 definitionManager,
-                new SearchParameterSupportResolver(definitionManager, await GetFhirTypedElementToSearchValueConverterManagerAsync()),
+                new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
                 Substitute.For<IMediator>());
             await statusManager.EnsureInitializedAsync(CancellationToken.None);
 
