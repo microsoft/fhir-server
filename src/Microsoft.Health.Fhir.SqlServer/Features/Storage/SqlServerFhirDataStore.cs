@@ -329,20 +329,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(builder, nameof(builder));
 
-            builder.AddDefaultResourceInteractions()
-                .AddDefaultSearchParameters()
-                .AddDefaultRestSearchParams();
+            builder.PopulateDefaultResourceInteractions()
+                .SyncSearchParameters()
+                .AddGlobalSearchParameters()
+                .SyncProfiles();
 
             if (_coreFeatures.SupportsBatch)
             {
                 // Batch supported added in listedCapability
-                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
+                builder.AddGlobalInteraction(SystemRestfulInteraction.Batch);
             }
 
             if (_coreFeatures.SupportsTransaction)
             {
                 // Transaction supported added in listedCapability
-                builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
+                builder.AddGlobalInteraction(SystemRestfulInteraction.Transaction);
             }
         }
 

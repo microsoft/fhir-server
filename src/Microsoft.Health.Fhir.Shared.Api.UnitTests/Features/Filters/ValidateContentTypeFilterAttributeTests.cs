@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             };
 
             _conformanceProvider = Substitute.For<IConformanceProvider>();
-            _conformanceProvider.GetCapabilityStatementAsync().Returns(_statement.ToTypedElement().ToResourceElement());
+            _conformanceProvider.GetCapabilityStatementOnStartup().Returns(_statement.ToTypedElement().ToResourceElement());
         }
 
         [Theory]

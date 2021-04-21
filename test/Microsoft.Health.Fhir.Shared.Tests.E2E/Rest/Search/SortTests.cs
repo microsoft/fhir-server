@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder(string sortParameterName)
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}", false, patients.Cast<Resource>().ToArray());
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("birthdate")]
         [InlineData("_lastUpdated")]
         public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder(string sortParameterName)
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInAscendingOrder()
         {
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
         public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdateWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
         {
