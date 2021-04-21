@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 allowedTypes[i] = false;
             }
 
-            short? singleResourceTypeId = expression.AcceptVisitor(this, (allowedTypes, model));
+            short? singleResourceTypeId = expression?.AcceptVisitor(this, (allowedTypes, model));
             return (singleResourceTypeId, allowedTypes);
         }
 

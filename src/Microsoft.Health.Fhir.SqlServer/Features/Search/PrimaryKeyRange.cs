@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections;
+using System.Linq;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -28,5 +29,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public PrimaryKeyValue CurrentValue { get; }
 
         public BitArray NextResourceTypeIds { get; }
+
+        public override string ToString()
+        {
+            return $"(PrimaryKeyRange {CurrentValue} (Next {string.Join(" ", NextResourceTypeIds.Cast<bool>().Select((b, i) => (i, b)).Where(t => t.b).Select(t => t.i))}))";
+        }
     }
 }
