@@ -369,6 +369,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
         }
 
+        /// <summary>
+        /// If no sorting fields are specified, sets the sorting fields to the primary key. (This is either ResourceSurrogateId or ResourceTypeId, ResourceSurrogateId).
+        /// If sorting only by ResourceTypeId, adds in ResourceSurrogateId as the second sort column.
+        /// If sorting by ResourceSurrogateId and using partitioned tables and searching over a single type, sets the sort to ResourceTypeId, ResourceSurrogateId
+        /// </summary>
+        /// <param name="searchOptions">The input SearchOptions</param>
+        /// <param name="searchExpression">The searchExpression</param>
+        /// <returns>If the sort needs to be updated, a new <see cref="SearchOptions"/> instance, otherwise, the same instance as <paramref name="searchOptions"/></returns>
         private SearchOptions UpdateSort(SearchOptions searchOptions, Expression searchExpression)
         {
             if (searchOptions.Sort.Count == 0)
