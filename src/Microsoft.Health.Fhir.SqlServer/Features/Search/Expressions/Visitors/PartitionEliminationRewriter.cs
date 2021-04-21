@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             // go through the ResourceTableExpressions and look for _type parameter expressions
-            bool isManyTypes = false;
+            bool isManyTypes = true;
             foreach (SearchParameterExpressionBase resourceExpression in expression.ResourceTableExpressions)
             {
                 if (resourceExpression is SearchParameterExpression searchParameterExpression && resourceExpression.Parameter.Name == SearchParameterNames.ResourceType)
