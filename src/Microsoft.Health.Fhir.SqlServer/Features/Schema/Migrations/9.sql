@@ -36,8 +36,6 @@ AS
     INSERT INTO dbo.SchemaMigrationProgress (Message) VALUES (@message)
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 9'
-
 /*************************************************************
     Partitioning function and scheme
 **************************************************************/
