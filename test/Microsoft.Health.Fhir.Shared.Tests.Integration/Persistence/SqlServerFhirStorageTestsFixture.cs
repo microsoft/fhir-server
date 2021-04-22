@@ -109,6 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
             serviceCollection.AddSingleton(sqlServerFhirModel);
+            serviceCollection.AddSingleton<ISqlServerFhirModel>(sqlServerFhirModel);
             serviceCollection.AddSingleton(searchParameterToSearchValueTypeMap);
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
