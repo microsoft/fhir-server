@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         }
 
         [Fact]
-        public async Task GivenTextFileOnBlob_WhenLoadFromMiddle_ContentShouldBeSame1()
+        public async Task GivenDataStream_WhenUploadToBlob_AllDataShouldBeUploaded()
         {
             IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
             CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
@@ -156,15 +156,68 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
-                List<long> blockIds = new List<long>();
+                List<string> blockIds = new List<string>();
                 for (long i = 0; i < count; ++i)
                 {
                     using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
-                    await blobClient.UploadPartDataAsync(blobUri, input, i, CancellationToken.None);
-                    blockIds.Add(i);
-
-                    await blobClient.CommitDataAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
+                    string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+                    await blobClient.UploadBlockAsync(blobUri, input, blockId, CancellationToken.None);
+                    blockIds.Add(blockId);
                 }
+
+                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
+
+                ICloudBlob output = await client.GetBlobReferenceFromServerAsync(blobUri);
+                using Stream outputStream = new MemoryStream();
+                await output.DownloadToStreamAsync(outputStream);
+                outputStream.Position = 0;
+                using StreamReader reader = new StreamReader(outputStream);
+
+                long currentLine = 0;
+                string content = null;
+
+                while ((content = await reader.ReadLineAsync()) != null)
+                {
+                    Assert.Equal(currentLine.ToString(), content);
+                    currentLine++;
+                }
+
+                Assert.Equal(count, currentLine);
+            }
+            finally
+            {
+                var container = client.GetContainerReference(containerName);
+                await container.DeleteIfExistsAsync();
+            }
+        }
+
+        [Fact]
+        public async Task GivenDataStream_WhenAppendToBlob_DataShouldBeAppended()
+        {
+            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
+            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+
+            string containerName = Guid.NewGuid().ToString("N");
+            string blobName = Guid.NewGuid().ToString("N");
+
+            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+
+            try
+            {
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
+
+                long count = 30;
+                List<string> blockIds = new List<string>();
+                for (long i = 0; i < count; ++i)
+                {
+                    using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
+                    string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+                    await blobClient.UploadBlockAsync(blobUri, input, blockId, CancellationToken.None);
+                    blockIds.Add(blockId);
+                }
+
+                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
 
                 ICloudBlob output = await client.GetBlobReferenceFromServerAsync(blobUri);
                 using Stream outputStream = new MemoryStream();

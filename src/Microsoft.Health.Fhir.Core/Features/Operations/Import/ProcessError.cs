@@ -7,14 +7,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ProcessError
     {
-        public ProcessError(long lineNumber, string errorMessage)
+        public ProcessError(long lineNumber, long resourceSurrogatedId, string errorMessage)
         {
             LineNumber = lineNumber;
             ErrorMessage = errorMessage;
+            ResourceSurrogatedId = resourceSurrogatedId;
         }
 
         public long LineNumber { get; set; }
 
         public string ErrorMessage { get; set; }
+
+        public long ResourceSurrogatedId { get; set; }
     }
 }

@@ -16,8 +16,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public Task<Uri> PrepareResourceAsync(string containerId, string fileName, CancellationToken cancellationToken);
 
-        public Task UploadPartDataAsync(Uri resourceUri, Stream stream, long partId, CancellationToken cancellationToken);
+        public Task UploadBlockAsync(Uri resourceUri, Stream stream, string blockId, CancellationToken cancellationToken);
 
-        public Task CommitDataAsync(Uri resourceUri, long[] partIds, CancellationToken cancellationToken);
+        public Task AppendCommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken);
+
+        public Task CommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken);
     }
 }

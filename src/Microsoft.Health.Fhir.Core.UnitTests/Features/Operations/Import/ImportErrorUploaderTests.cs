@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         private static async Task VerifyImportErrorUploader(int startBatchId)
         {
-            Dictionary<long, string[]> result = new Dictionary<long, string[]>();
+            Dictionary<string, string[]> result = new Dictionary<string, string[]>();
             long[] commitedPartIds = new long[0];
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
@@ -48,11 +48,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                     return new Uri($"http://{container}/{file}");
                 });
 
-            integrationDataStoreClient.UploadPartDataAsync(Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            integrationDataStoreClient.UploadBlockAsync(Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
                 .ReturnsForAnyArgs(callInfo =>
                 {
                     Stream dataStream = (Stream)callInfo[1];
-                    long partId = (long)callInfo[2];
+                    string partId = (string)callInfo[2];
                     using StreamReader reader = new StreamReader(dataStream);
 
                     List<string> errors = new List<string>();
@@ -67,28 +67,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                     return Task.CompletedTask;
                 });
 
-            integrationDataStoreClient.CommitDataAsync(Arg.Any<Uri>(), Arg.Any<long[]>(), Arg.Any<CancellationToken>())
-                .ReturnsForAnyArgs(callInfo =>
-                {
-                    long[] partIds = (long[])callInfo[1];
-                    commitedPartIds = partIds;
-
-                    return Task.CompletedTask;
-                });
-
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
             serializer.Serialize(Arg.Any<ProcessError>()).ReturnsForAnyArgs(callInfo =>
             {
                 ProcessError error = (ProcessError)callInfo[0];
                 return $"{error.LineNumber}:{error.ErrorMessage}";
             });
-            ImportErrorUploader uploader = new ImportErrorUploader(integrationDataStoreClient, serializer, NullLogger<ImportErrorUploader>.Instance);
+            ImportErrorsManager uploader = new ImportErrorsManager(integrationDataStoreClient, serializer, NullLogger<ImportErrorsManager>.Instance);
             uploader.MaxBatchSize = 2;
 
             Channel<BatchProcessErrorRecord> errorsChannel = Channel.CreateUnbounded<BatchProcessErrorRecord>();
-            await errorsChannel.Writer.WriteAsync(new BatchProcessErrorRecord(new List<ProcessError>() { new ProcessError(0, ErrorMessage), new ProcessError(1, ErrorMessage) }, 3));
+            await errorsChannel.Writer.WriteAsync(new BatchProcessErrorRecord(new List<ProcessError>() { new ProcessError(0, 0, ErrorMessage), new ProcessError(1, 0, ErrorMessage) }, 3));
             await errorsChannel.Writer.WriteAsync(new BatchProcessErrorRecord(new List<ProcessError>(), 10));
-            await errorsChannel.Writer.WriteAsync(new BatchProcessErrorRecord(new List<ProcessError>() { new ProcessError(2, ErrorMessage), new ProcessError(3, ErrorMessage), new ProcessError(4, ErrorMessage) }, 20));
+            await errorsChannel.Writer.WriteAsync(new BatchProcessErrorRecord(new List<ProcessError>() { new ProcessError(2, 0, ErrorMessage), new ProcessError(3, 0, ErrorMessage), new ProcessError(4, 0, ErrorMessage) }, 20));
             errorsChannel.Writer.Complete();
             await uploader.HandleImportErrorAsync("test", errorsChannel, startBatchId, (batchId, surrogatedId) => { }, CancellationToken.None);
             Assert.Equal(startBatchId + 2, commitedPartIds.Length);
@@ -97,8 +88,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 Assert.Equal(i, commitedPartIds[i]);
             }
 
-            Assert.Equal(2, result[startBatchId].Length);
-            Assert.Equal(3, result[startBatchId + 1].Length);
             Assert.Equal(2, result.Count);
         }
     }

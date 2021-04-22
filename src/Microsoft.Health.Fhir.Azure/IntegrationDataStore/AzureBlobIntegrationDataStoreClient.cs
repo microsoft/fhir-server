@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
         }
 
-        public async Task UploadPartDataAsync(Uri resourceUri, Stream stream, long partId, CancellationToken cancellationToken)
+        public async Task UploadBlockAsync(Uri resourceUri, Stream stream, string blockId, CancellationToken cancellationToken)
         {
             try
             {
@@ -70,21 +71,19 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
                     .ExecuteAsync(async () =>
                     {
-                        var blockId = Convert.ToBase64String(BitConverter.GetBytes(partId));
                         CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
-
-                        await blob.PutBlockAsync(blockId, stream);
+                        await UploadBlockInternalAsync(blob, stream, blockId, cancellationToken);
                     });
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, "Failed to update part data for {0} of {1}", resourceUri, partId);
+                _logger.LogError(storageEx, "Failed to commit for {0}", resourceUri);
 
                 throw;
             }
         }
 
-        public async Task CommitDataAsync(Uri resourceUri, long[] partIds, CancellationToken cancellationToken)
+        public async Task CommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken)
         {
             try
             {
@@ -94,18 +93,63 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
                     .ExecuteAsync(async () =>
                     {
-                        var blockIds = partIds.Select(id => Convert.ToBase64String(BitConverter.GetBytes(id)));
                         CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
-
-                        await blob.PutBlockListAsync(blockIds, cancellationToken);
+                        await CommitInternalAsync(blob, blockIds, cancellationToken);
                     });
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, "Failed to update part data for {0}", resourceUri);
+                _logger.LogError(storageEx, "Failed to commit for {0}", resourceUri);
 
                 throw;
             }
+        }
+
+        public async Task AppendCommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await Policy.Handle<StorageException>()
+                    .WaitAndRetryAsync(
+                        retryCount: 2,
+                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
+                    .ExecuteAsync(async () =>
+                    {
+                        CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                        await AppendCommitInternalAsync(blob, blockIds, cancellationToken);
+                    });
+            }
+            catch (StorageException storageEx)
+            {
+                _logger.LogError(storageEx, "Failed to append commit for {0}", resourceUri);
+
+                throw;
+            }
+        }
+
+        private async Task AppendCommitInternalAsync(CloudBlockBlob blob, string[] blockIds, CancellationToken cancellationToken)
+        {
+            IEnumerable<ListBlockItem> blockList = await blob.DownloadBlockListAsync(
+                                                            BlockListingFilter.Committed,
+                                                            accessCondition: null,
+                                                            options: null,
+                                                            operationContext: null,
+                                                            cancellationToken);
+
+            List<string> newBlockLists = blockList.Select(b => b.Name).ToList();
+            newBlockLists.AddRange(blockIds);
+
+            await CommitInternalAsync(blob, newBlockLists.ToArray(), cancellationToken);
+        }
+
+        private static async Task UploadBlockInternalAsync(CloudBlockBlob blob, Stream stream, string blockId, CancellationToken cancellationToken)
+        {
+            await blob.PutBlockAsync(blockId, stream, contentMD5: null, cancellationToken);
+        }
+
+        private static async Task CommitInternalAsync(CloudBlockBlob blob, string[] blockIds, CancellationToken cancellationToken)
+        {
+            await blob.PutBlockListAsync(blockIds, cancellationToken);
         }
 
         private async Task<CloudBlockBlob> GetCloudBlobClientAsync(Uri blobUri, CancellationToken cancellationToken)

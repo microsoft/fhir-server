@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<ImportErrorUploader>()
+            services.Add<ImportErrorsManager>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
