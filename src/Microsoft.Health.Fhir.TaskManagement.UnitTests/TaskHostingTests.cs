@@ -160,6 +160,7 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
             taskInfo0.TaskId = Guid.NewGuid().ToString();
             taskInfo0.TaskTypeId = 0;
             taskInfo0.Status = TaskStatus.Running;
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
 
             int executeCount0 = 0;
             TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0 });
@@ -168,6 +169,7 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
                 return new TestTask(
                         async () =>
                         {
+                            autoResetEvent.Set();
                             await Task.Delay(TimeSpan.FromSeconds(10));
                             Interlocked.Increment(ref executeCount0);
 
@@ -183,9 +185,11 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(2));
-            await taskHosting.StartAsync(tokenSource);
+            Task hostingTask = taskHosting.StartAsync(tokenSource);
+            autoResetEvent.WaitOne();
+            tokenSource.Cancel();
 
+            await hostingTask;
             Assert.Equal(1, executeCount0);
 
             // If task failcount > MaxRetryCount + 1, the Task should failed with error message.
