@@ -467,7 +467,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
                 else
                 {
-                    StringBuilder.Append(sortExpression).Append(" ").Append(context.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                    StringBuilder.Append(sortExpression).Append(" ").Append(context.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", Sid1 ASC");
                 }
             }
         }
