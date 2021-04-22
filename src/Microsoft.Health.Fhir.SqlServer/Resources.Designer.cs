@@ -131,5 +131,14 @@ namespace Microsoft.Health.Fhir.SqlServer {
                 return ResourceManager.GetString("TransactionProcessingException", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Both _type and _lastUpdated must have the same sort direction (_sort=_type,_lastUpdated or _sort=-_type,-_lastUpdated).
+        /// </summary>
+        internal static string TypeAndLastUpdatedMustHaveSameSortDirection {
+            get {
+                return ResourceManager.GetString("TypeAndLastUpdatedMustHaveSameSortDirection", resourceCulture);
+            }
+        }
     }
 }

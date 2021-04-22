@@ -68,6 +68,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 case { Count: 2 } when _schemaInformation.Current >= SchemaVersionConstants.PartitionedTables &&
                                        sorting[0].searchParameter.Url.Equals(SearchParameterNames.ResourceTypeUri) &&
                                        sorting[1].searchParameter.Url.Equals(SearchParameterNames.LastUpdatedUri):
+
+                    if (sorting[0].sortOrder != sorting[1].sortOrder)
+                    {
+                        errorMessages = new[] { Resources.TypeAndLastUpdatedMustHaveSameSortDirection };
+                        return false;
+                    }
+
                     errorMessages = Array.Empty<string>();
                     return true;
                 default:
