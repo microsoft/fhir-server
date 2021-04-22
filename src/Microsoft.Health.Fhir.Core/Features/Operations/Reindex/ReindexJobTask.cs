@@ -357,7 +357,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogInformation($"Reindex throttle delay: {throttleDelayTime}");
                 await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + throttleDelayTime, _cancellationToken);
 
-                // Remove all finished tasks from the collections of tasks
+                // Remove all finished tasks from the collections of tasks_
                 // and cancellationTokens
                 if (queryTasks.Count >= _reindexJobRecord.MaximumConcurrency)
                 {
@@ -371,15 +371,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                // if our received CancellationToken is cancelled we should
+                // Get the latest version of the reindex job in case another thread has updated it
+                await jobSemaphore.WaitAsync();
+                try
+                {
+                    using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+                    {
+                        var wrapper = await store.Value.GetReindexJobByIdAsync(_reindexJobRecord.Id, cancellationToken);
+                        _weakETag = wrapper.ETag;
+                        _reindexJobRecord = wrapper.JobRecord;
+                    }
+                }
+                finally
+                {
+                    jobSemaphore.Release();
+                }
+
+                // if our received CancellationToken is cancelled, or the job has been marked canceled we should
                 // pass that cancellation request onto all the cancellationTokens
                 // for the currently executing threads
-                if (_cancellationToken.IsCancellationRequested)
+                if (_cancellationToken.IsCancellationRequested || _reindexJobRecord.Status == OperationStatus.Canceled)
                 {
                     foreach (var tokenSource in queryCancellationTokens.Values)
                     {
                         tokenSource.Cancel(false);
                     }
+
+                    _logger.LogInformation("Reindex Job canceled.");
+                    throw new OperationCanceledException("ReindexJob canceled.");
                 }
             }
 
