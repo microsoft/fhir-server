@@ -24,6 +24,9 @@ COPY ./src/Microsoft.Health.Fhir.Core/Microsoft.Health.Fhir.Core.csproj \
 
 COPY ./src/Microsoft.Health.Fhir.Azure/Microsoft.Health.Fhir.Azure.csproj \
      ./src/Microsoft.Health.Fhir.Azure/Microsoft.Health.Fhir.Azure.csproj
+	 
+COPY ./src/Microsoft.Health.Fhir.TaskManagement/Microsoft.Health.Fhir.TaskManagement.csproj \
+     ./src/Microsoft.Health.Fhir.TaskManagement/Microsoft.Health.Fhir.TaskManagement.csproj
 
 COPY ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj \
      ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj
