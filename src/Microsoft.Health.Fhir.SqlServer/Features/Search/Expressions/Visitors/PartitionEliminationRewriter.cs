@@ -71,6 +71,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
+            if (_schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
+            {
+                return expression;
+            }
+
             // Look for primary key continuation token (PrimaryKeyParameter) or _type parameters
 
             int primaryKeyValueIndex = -1;
@@ -96,11 +101,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 if (hasTypeRestriction)
                 {
                     // This is already constrained to be one or more resource types.
-                    return expression;
-                }
-
-                if (_schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
-                {
                     return expression;
                 }
 

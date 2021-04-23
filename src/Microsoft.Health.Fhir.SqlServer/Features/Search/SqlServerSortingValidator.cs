@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     errorMessages = Array.Empty<string>();
                     return true;
                 default:
-                    errorMessages = new[] { Resources.OnlyTypeAndLastUpdatedSupportedForCompountSort };
+                    errorMessages = new[] { Resources.OnlyTypeAndLastUpdatedSupportedForCompoundSort };
                     return false;
             }
         }

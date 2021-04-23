@@ -139,7 +139,7 @@
     <value>The SearchParameter with type {0} is not supported by SQL server.</value>
     <comment>{0} is the data type of the search parameter</comment>
   </data>
-  <data name="OnlyTypeAndLastUpdatedSupportedForCompountSort" xml:space="preserve">
+  <data name="OnlyTypeAndLastUpdatedSupportedForCompoundSort" xml:space="preserve">
     <value>Only '_type' and '_lastUpdated' can be used together as sorting parameters (and in that order).</value>
   </data>
   <data name="TypeAndLastUpdatedMustHaveSameSortDirection" xml:space="preserve">

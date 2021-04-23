@@ -81,9 +81,9 @@ namespace Microsoft.Health.Fhir.SqlServer {
         /// <summary>
         ///   Looks up a localized string similar to Only &apos;_type&apos; and &apos;_lastUpdated&apos; can be used together as sorting parameters (and in that order)..
         /// </summary>
-        internal static string OnlyTypeAndLastUpdatedSupportedForCompountSort {
+        internal static string OnlyTypeAndLastUpdatedSupportedForCompoundSort {
             get {
-                return ResourceManager.GetString("OnlyTypeAndLastUpdatedSupportedForCompountSort", resourceCulture);
+                return ResourceManager.GetString("OnlyTypeAndLastUpdatedSupportedForCompoundSort", resourceCulture);
             }
         }
         
