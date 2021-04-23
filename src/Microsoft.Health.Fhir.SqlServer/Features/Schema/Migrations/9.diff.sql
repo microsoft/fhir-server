@@ -1028,6 +1028,8 @@ END
     Resource table
 **************************************************************/
 
+ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_Resource'
 
 CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource
@@ -1081,6 +1083,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
     Compartments
 **************************************************************/
 
+ALTER TABLE dbo.CompartmentAssignment SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_CompartmentAssignment'
 
 CREATE CLUSTERED INDEX IXC_CompartmentAssignment
@@ -1111,6 +1115,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 /*************************************************************
     Reference Search Param
 **************************************************************/
+
+ALTER TABLE dbo.ReferenceSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_ReferenceSearchParam'
 
@@ -1148,6 +1154,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
     Token Search Param
 **************************************************************/
 
+ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenSearchParam'
 
 CREATE CLUSTERED INDEX IXC_TokenSearchParam
@@ -1182,6 +1190,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
     Token Text
 **************************************************************/
 
+ALTER TABLE dbo.TokenText SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenText'
 
 CREATE CLUSTERED INDEX IXC_TokenText
@@ -1211,6 +1221,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 /*************************************************************
     String Search Param
 **************************************************************/
+
+ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_StringSearchParam'
 
@@ -1260,6 +1272,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
     URI Search Param
 **************************************************************/
 
+ALTER TABLE dbo.UriSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_UriSearchParam'
 
 CREATE CLUSTERED INDEX IXC_UriSearchParam
@@ -1289,6 +1303,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 /*************************************************************
     Number Search Param
 **************************************************************/
+
+ALTER TABLE dbo.NumberSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_NumberSearchParam'
 
@@ -1349,6 +1365,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 /*************************************************************
     Quantity Search Param
 **************************************************************/
+
+ALTER TABLE dbo.QuantitySearchParam SET ( LOCK_ESCALATION = AUTO )
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_QuantitySearchParam'
 
@@ -1424,6 +1442,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 /*************************************************************
     Date Search Param
 **************************************************************/
+
+ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_DateTimeSearchParam'
 
@@ -1509,6 +1529,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
     Reference$Token Composite Search Param
 **************************************************************/
 
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_ReferenceTokenCompositeSearchParam'
 
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
@@ -1546,6 +1568,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
     Token$Token Composite Search Param
 **************************************************************/
 
+ALTER TABLE dbo.TokenTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenTokenCompositeSearchParam'
 
 CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
@@ -1580,6 +1604,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 /*************************************************************
     Token$DateTime Composite Search Param
 **************************************************************/
+
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenDateTimeCompositeSearchParam'
 
@@ -1681,6 +1707,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
     Token$Quantity Composite Search Param
 **************************************************************/
 
+ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenQuantityCompositeSearchParam'
 
 CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
@@ -1762,6 +1790,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
     Token$String Composite Search Param
 **************************************************************/
 
+ALTER TABLE dbo.TokenStringCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenStringCompositeSearchParam'
 
 CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
@@ -1815,6 +1845,8 @@ ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 /*************************************************************
     Token$Number$Number Composite Search Param
 **************************************************************/
+
+ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 EXEC dbo.LogSchemaMigrationProgress 'Updating IXC_TokenNumberNumberCompositeSearchParam'
 

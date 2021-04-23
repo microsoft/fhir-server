@@ -109,6 +109,8 @@ CREATE TABLE dbo.Resource
     SearchParamHash varchar(64) NULL
 )
 
+ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )
+
 CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource
 (
     ResourceTypeId,
@@ -212,6 +214,8 @@ CREATE TABLE dbo.CompartmentAssignment
     IsHistory bit NOT NULL,
 )
 
+ALTER TABLE dbo.CompartmentAssignment SET ( LOCK_ESCALATION = AUTO )
+
 CREATE CLUSTERED INDEX IXC_CompartmentAssignment
 ON dbo.CompartmentAssignment
 (
@@ -262,6 +266,8 @@ CREATE TABLE dbo.ReferenceSearchParam
     ReferenceResourceVersion int NULL,
     IsHistory bit NOT NULL,
 )
+
+ALTER TABLE dbo.ReferenceSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
 ON dbo.ReferenceSearchParam
@@ -315,6 +321,8 @@ CREATE TABLE dbo.TokenSearchParam
     IsHistory bit NOT NULL,
 )
 
+ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 CREATE CLUSTERED INDEX IXC_TokenSearchParam
 ON dbo.TokenSearchParam
 (
@@ -363,6 +371,8 @@ CREATE TABLE dbo.TokenText
     IsHistory bit NOT NULL
 )
 
+ALTER TABLE dbo.TokenText SET ( LOCK_ESCALATION = AUTO )
+
 CREATE CLUSTERED INDEX IXC_TokenText
 ON dbo.TokenText
 (
@@ -408,6 +418,8 @@ CREATE TABLE dbo.StringSearchParam
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsHistory bit NOT NULL
 )
+
+ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_StringSearchParam
 ON dbo.StringSearchParam
@@ -469,6 +481,8 @@ CREATE TABLE dbo.UriSearchParam
     IsHistory bit NOT NULL
 )
 
+ALTER TABLE dbo.UriSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 CREATE CLUSTERED INDEX IXC_UriSearchParam
 ON dbo.UriSearchParam
 (
@@ -523,6 +537,8 @@ CREATE TABLE dbo.NumberSearchParam
     HighValue decimal(18,6) SPARSE NULL,
     IsHistory bit NOT NULL
 )
+
+ALTER TABLE dbo.NumberSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_NumberSearchParam
 ON dbo.NumberSearchParam
@@ -599,6 +615,8 @@ CREATE TABLE dbo.QuantitySearchParam
     HighValue decimal(18,6) SPARSE NULL,
     IsHistory bit NOT NULL
 )
+
+ALTER TABLE dbo.QuantitySearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_QuantitySearchParam
 ON dbo.QuantitySearchParam
@@ -684,6 +702,8 @@ CREATE TABLE dbo.DateTimeSearchParam
     IsLongerThanADay bit NOT NULL,
     IsHistory bit NOT NULL
 )
+
+ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
 ON dbo.DateTimeSearchParam
@@ -782,6 +802,8 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
     IsHistory bit NOT NULL,
 )
 
+ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
 ON dbo.ReferenceTokenCompositeSearchParam
 (
@@ -839,6 +861,8 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam
     IsHistory bit NOT NULL
 )
 
+ALTER TABLE dbo.TokenTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
 ON dbo.TokenTokenCompositeSearchParam
 (
@@ -895,6 +919,8 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
 )
+
+ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
 ON dbo.TokenDateTimeCompositeSearchParam
@@ -1016,6 +1042,8 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
     IsHistory bit NOT NULL,
 )
 
+ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
 ON dbo.TokenQuantityCompositeSearchParam
 (
@@ -1113,6 +1141,8 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
     IsHistory bit NOT NULL,
 )
 
+ALTER TABLE dbo.TokenStringCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
 CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
 ON dbo.TokenStringCompositeSearchParam
 (
@@ -1200,6 +1230,8 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
     HasRange bit NOT NULL,
     IsHistory bit NOT NULL,
 )
+
+ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
 CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
 ON dbo.TokenNumberNumberCompositeSearchParam
