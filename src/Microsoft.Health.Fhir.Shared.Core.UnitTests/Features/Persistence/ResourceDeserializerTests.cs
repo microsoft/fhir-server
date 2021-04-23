@@ -57,8 +57,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         public void GivenARawResourceFromFhirNet1_WhenDeserializingFromJson_ThenTheObjectIsReturned()
         {
             var oldValidResource = @"{
-  ""resourceType"": ""Patient"",
-  ""birthDate"": ""1991-02-03T11:22:33Z""
+  ""resourceType"": ""Evidence"",
+  ""approvalDate"": ""1991-02-03T11:22:33Z"",
+  ""date"": ""1991-02-03T11:22:33Z"",
+  ""lastReviewDate"": ""1991-02-04T11:22:33Z""
 }";
 
             var observation = Samples.GetDefaultPatient();

@@ -5,7 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -37,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public class FhirModule : IStartupModule
     {
+        private static readonly Regex MessageChecker = new Regex("Type checking the data: Literal '(.*)' cannot be parsed as a (.*). \\(at (.*)\\)", RegexOptions.Compiled);
         private readonly FeatureConfiguration _featureConfiguration;
 
         public FhirModule(FhirServerConfiguration fhirServerConfiguration)
@@ -79,9 +82,47 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     {
                         FhirResourceFormat.Json, (str, version, lastModified) =>
                         {
-                            var resource = jsonParser.Parse<Resource>(str);
+                             Resource resource = null;
 
-                            return SetMetadata(resource, version, lastModified);
+                            Parse:
+                             try
+                            {
+                                resource = jsonParser.Parse<Resource>(str);
+                            }
+                            catch (StructuralTypeException ex)
+                            {
+                                var match = MessageChecker.Match(ex.Message);
+                                if (match.Success && match.Groups.Count == 4 && match.Groups[2].Value == "date")
+                                {
+                                    var valueToReplace = match.Groups[1].Value;
+                                    var location = match.Groups[3].Value;
+                                    var replace = valueToReplace.Substring(0, 10);
+                                    var root = FhirJsonNode.Parse(str, "Resource");
+                                    var currentNode = root;
+                                    while (currentNode != null)
+                                    {
+                                        foreach (var child in currentNode.Children())
+                                        {
+                                            if (location.StartsWith(child.Location, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                currentNode = child;
+                                                break;
+                                            }
+                                        }
+
+                                        if (currentNode.Location == location)
+                                        {
+                                            break;
+                                        }
+                                    }
+
+                                    (currentNode as FhirJsonNode).JsonValue.Value = replace;
+                                    str = root.ToJson();
+                                    goto Parse;
+                                }
+                             }
+
+                             return SetMetadata(resource, version, lastModified);
                         }
                     },
                     {
