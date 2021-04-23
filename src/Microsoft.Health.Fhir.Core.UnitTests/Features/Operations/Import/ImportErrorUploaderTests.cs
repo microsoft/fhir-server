@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -19,24 +18,38 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
     public class ImportErrorUploaderTests
     {
-        private const string ErrorMessage = "ErrorMessage";
-
         [Fact]
-        public async Task GivenListOfProcessErrors_WhenUpload_AllErrorsShouldBeUploaded()
+        public async Task GivenListOfProcessErrorsLargeThanBatchCount_WhenWriteToStore_AllErrorsShouldBeUploaded()
         {
-            await VerifyImportErrorUploader(0);
+            await VerifyImportErrorUploader(101, 4321);
         }
 
         [Fact]
-        public async Task GivenListOfProcessErrors_WhenUploadFromMiddle_AllErrorsShouldBeUploaded()
+        public async Task GivenListOfProcessErrorsEqualsBatchCount_WhenWriteToStore_AllErrorsShouldBeUploaded()
         {
-            await VerifyImportErrorUploader(1);
+            await VerifyImportErrorUploader(101, 101);
         }
 
-        private static async Task VerifyImportErrorUploader(int startBatchId)
+        [Fact]
+        public async Task GivenListOfProcessErrorsLessThanBatchCount_WhenWriteToStore_AllErrorsShouldBeUploaded()
         {
-            Dictionary<string, string[]> result = new Dictionary<string, string[]>();
-            long[] commitedPartIds = new long[0];
+            await VerifyImportErrorUploader(101, 7);
+        }
+
+        [Fact]
+        public async Task GivenNoProcessError_WhenWriteToStore_NoErrorShouldBeUploaded()
+        {
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
+
+            ImportErrorsManager uploader = new ImportErrorsManager(integrationDataStoreClient, serializer, NullLogger<ImportErrorsManager>.Instance);
+            Assert.Equal(0, await uploader.WriteErrorsAsync(new Uri("http://dummy"), null, CancellationToken.None));
+        }
+
+        private static async Task VerifyImportErrorUploader(int batchCount, int errorCount)
+        {
+            List<string> result = new List<string>();
+            List<string> commitedPartIds = new List<string>();
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             integrationDataStoreClient.PrepareResourceAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -53,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 {
                     Stream dataStream = (Stream)callInfo[1];
                     string partId = (string)callInfo[2];
-                    using StreamReader reader = new StreamReader(dataStream);
+                    StreamReader reader = new StreamReader(dataStream);
 
                     List<string> errors = new List<string>();
                     string content = null;
@@ -62,7 +75,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                         errors.Add(content);
                     }
 
-                    result[partId] = errors.ToArray();
+                    result.AddRange(errors.ToArray());
+
+                    return Task.CompletedTask;
+                });
+
+            integrationDataStoreClient.AppendCommitAsync(Arg.Any<Uri>(), Arg.Any<string[]>(), Arg.Any<CancellationToken>())
+                .ReturnsForAnyArgs(callInfo =>
+                {
+                    string[] blockIds = (string[])callInfo[1];
+                    commitedPartIds.AddRange(blockIds);
 
                     return Task.CompletedTask;
                 });
@@ -74,21 +96,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 return $"{error.LineNumber}:{error.ErrorMessage}";
             });
             ImportErrorsManager uploader = new ImportErrorsManager(integrationDataStoreClient, serializer, NullLogger<ImportErrorsManager>.Instance);
-            uploader.MaxBatchSize = 2;
+            uploader.MaxBatchSize = batchCount;
 
-            Channel<BatchProcessErrorRecord> errorsChannel = Channel.CreateUnbounded<BatchProcessErrorRecord>();
-            await errorsChannel.Writer.WriteAsync(new BatchProcessErrorRecord(new List<ProcessError>() { new ProcessError(0, 0, ErrorMessage), new ProcessError(1, 0, ErrorMessage) }, 3));
-            await errorsChannel.Writer.WriteAsync(new BatchProcessErrorRecord(new List<ProcessError>(), 10));
-            await errorsChannel.Writer.WriteAsync(new BatchProcessErrorRecord(new List<ProcessError>() { new ProcessError(2, 0, ErrorMessage), new ProcessError(3, 0, ErrorMessage), new ProcessError(4, 0, ErrorMessage) }, 20));
-            errorsChannel.Writer.Complete();
-            await uploader.HandleImportErrorAsync("test", errorsChannel, startBatchId, (batchId, surrogatedId) => { }, CancellationToken.None);
-            Assert.Equal(startBatchId + 2, commitedPartIds.Length);
-            for (int i = 0; i < startBatchId + 2; ++i)
+            for (int i = 0; i < errorCount; ++i)
             {
-                Assert.Equal(i, commitedPartIds[i]);
+                uploader.Add(new ProcessError(i, i, i.ToString()));
             }
 
-            Assert.Equal(2, result.Count);
+            await uploader.WriteErrorsAsync(new Uri("http://dummy"), errorCount - 2, CancellationToken.None);
+            await uploader.WriteErrorsAsync(new Uri("http://dummy"), null, CancellationToken.None);
+            Assert.Equal(((errorCount - 1) / batchCount) + 2, commitedPartIds.Count);
+            Assert.Equal(errorCount, result.Count);
         }
     }
 }

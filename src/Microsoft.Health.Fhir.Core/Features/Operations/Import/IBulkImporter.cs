@@ -3,15 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IBulkImporter<T>
+    public interface IBulkImporter<TInput>
     {
-        public Task<long> ImportResourceAsync(Channel<T> inputChannel, Action<(string tableName, long endSurrogateId)> progressUpdateAction, CancellationToken cancellationToken);
+        public long GetLastCompletedSurrogatedId();
+
+        public Task<long> ImportResourceAsync(Channel<TInput> inputChannel, CancellationToken cancellationToken);
     }
 }

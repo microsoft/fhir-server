@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IImportErrorUploader
+    public interface IImportErrorManager
     {
         public Task<(long count, Uri fileUri)> HandleImportErrorAsync(string fileName, Channel<BatchProcessErrorRecord> errorsChannel, long startErrorLogBatchId, Action<long, long> progressUpdater, CancellationToken cancellationToken);
     }

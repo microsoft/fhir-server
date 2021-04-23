@@ -82,6 +82,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         public int MaxConcurrentCount { get; set; } = DefaultMaxConcurrentCount;
 
+        public long GetLastCompletedId()
+        {
+            throw new NotImplementedException();
+        }
+
+        public long GetLastCompletedSurrogatedId()
+        {
+            throw new NotImplementedException();
+        }
+
         public async Task<long> ImportResourceAsync(Channel<BulkImportResourceWrapper> inputChannel, Action<(string tableName, long endSurrogateId)> progressUpdateAction,  CancellationToken cancellationToken)
         {
             long importedResourceCount = 0;
@@ -141,6 +151,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
 
             return importedResourceCount;
+        }
+
+        public Task<long> ImportResourceAsync(Channel<BulkImportResourceWrapper> inputChannel, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
 
         private async Task<(string tableName, long endSurrogateId, long count)> BulkCopyAsync(DataTable inputTable, long endSurrogateId, CancellationToken cancellationToken)

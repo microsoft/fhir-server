@@ -14,8 +14,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportErrorsManager : IImportErrorUploader
+    public class ImportErrorsManager : IImportErrorManager
     {
+        private const string LogContainerName = "logs";
         private const int DefaultMaxBatchSize = 1000;
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
@@ -44,8 +45,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             throw new NotImplementedException();
         }
 
-        public async Task WriteErrorsAsync(Uri errorFileUri, long? endSurrogatedId, CancellationToken cancellationToken)
+        public async Task<Uri> InitializeAsync(string fileName, CancellationToken cancellationToken)
         {
+            return await _integrationDataStoreClient.PrepareResourceAsync(LogContainerName, fileName, cancellationToken);
+        }
+
+        public async Task<int> WriteErrorsAsync(Uri errorFileUri, long? endSurrogatedId, CancellationToken cancellationToken)
+        {
+            int result = 0;
             List<ProcessError> errorBuffer = new List<ProcessError>();
 
             List<string> blockIds = new List<string>();
@@ -62,30 +69,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
 
                 blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-                await ProcessErrorsAsync(errorFileUri, errorBuffer.ToArray(), blockId, cancellationToken);
+                result += await ProcessErrorsAsync(errorFileUri, errorBuffer.ToArray(), blockId, cancellationToken);
                 errorBuffer.Clear();
                 blockIds.Add(blockId);
             }
 
-            blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
-            await ProcessErrorsAsync(errorFileUri, errorBuffer.ToArray(), blockId, cancellationToken);
-            blockIds.Add(blockId);
+            if (errorBuffer.Count != 0)
+            {
+                blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+                result += await ProcessErrorsAsync(errorFileUri, errorBuffer.ToArray(), blockId, cancellationToken);
+                blockIds.Add(blockId);
+            }
 
-            await _integrationDataStoreClient.AppendCommitAsync(errorFileUri, blockIds.ToArray(), cancellationToken);
+            if (blockIds.Count > 0)
+            {
+                await _integrationDataStoreClient.AppendCommitAsync(errorFileUri, blockIds.ToArray(), cancellationToken);
+            }
+
+            return result;
         }
 
-        private async Task ProcessErrorsAsync(Uri fileUri, ProcessError[] errors, string blockId, CancellationToken cancellationToken)
+        private async Task<int> ProcessErrorsAsync(Uri fileUri, ProcessError[] errors, string blockId, CancellationToken cancellationToken)
         {
+            int result = 0;
             using MemoryStream stream = new MemoryStream();
             using StreamWriter writer = new StreamWriter(stream);
 
             foreach (ProcessError error in errors)
             {
                 await writer.WriteLineAsync(_importErrorSerializer.Serialize(error));
+                result++;
             }
 
+            await writer.FlushAsync();
             stream.Position = 0;
             await _integrationDataStoreClient.UploadBlockAsync(fileUri, stream, blockId, cancellationToken);
+
+            return result;
         }
     }
 }

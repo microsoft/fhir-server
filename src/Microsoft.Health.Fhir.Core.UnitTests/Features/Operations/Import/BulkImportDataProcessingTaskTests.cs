@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IFhirDataBulkOperation batchOperation = GetMockFhirDataBulkOperation(null);
             IContextUpdater contextUpdater = GetMockContextUpdater(null);
             IBulkResourceLoader bulkResourceLoader = GetMockBulkResourceLoader(inputData);
-            IImportErrorUploader uploader = GetMockImportErrorUploader(null);
+            IImportErrorManager uploader = GetMockImportErrorUploader(null);
             IBulkRawResourceProcessor processor = GetMockResourceProcessor();
             IBulkImporter<BulkImportResourceWrapper> importer = GetMockBulkImporter(7, resource => result.Add(resource));
             IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IFhirDataBulkOperation batchOperation = GetMockFhirDataBulkOperation(null);
             IContextUpdater contextUpdater = GetMockContextUpdater(null);
             IBulkResourceLoader bulkResourceLoader = GetMockBulkResourceLoader(inputData);
-            IImportErrorUploader uploader = GetMockImportErrorUploader(null);
+            IImportErrorManager uploader = GetMockImportErrorUploader(null);
             IBulkRawResourceProcessor processor = GetMockResourceProcessor();
             IBulkImporter<BulkImportResourceWrapper> importer = GetMockBulkImporter(7, resource => result.Add(resource));
             IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IFhirDataBulkOperation batchOperation = GetMockFhirDataBulkOperation(null);
             IContextUpdater contextUpdater = GetMockContextUpdater(null);
             IBulkResourceLoader bulkResourceLoader = GetMockBulkResourceLoader(inputData);
-            IImportErrorUploader uploader = GetMockImportErrorUploader(null);
+            IImportErrorManager uploader = GetMockImportErrorUploader(null);
             IBulkRawResourceProcessor processor = GetMockResourceProcessor();
             IBulkImporter<BulkImportResourceWrapper> importer = GetMockBulkImporter(7, resource => result.Add(resource));
             IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
@@ -213,9 +213,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             return bulkResourceLoader;
         }
 
-        private IImportErrorUploader GetMockImportErrorUploader(Action<BatchProcessErrorRecord> errorHandleAction)
+        private IImportErrorManager GetMockImportErrorUploader(Action<BatchProcessErrorRecord> errorHandleAction)
         {
-            IImportErrorUploader importErrorUploader = Substitute.For<IImportErrorUploader>();
+            IImportErrorManager importErrorUploader = Substitute.For<IImportErrorManager>();
             importErrorUploader.HandleImportErrorAsync(Arg.Any<string>(), Arg.Any<Channel<BatchProcessErrorRecord>>(), Arg.Any<long>(), Arg.Any<Action<long, long>>(), Arg.Any<CancellationToken>())
                 .ReturnsForAnyArgs(async callInfo =>
                 {
