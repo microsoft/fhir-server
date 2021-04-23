@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             if (expression.Parameter.Type == SearchParamType.String ||
                 (expression.Parameter.Type == SearchParamType.Composite &&
-                 expression.Parameter.ResolvedComponents.Any(c => c.Type == SearchParamType.String)))
+                 expression.Parameter.Component.Any(c => c.ResolvedSearchParameter.Type == SearchParamType.String)))
             {
                 return base.VisitSearchParameter(expression, expression.Parameter);
             }

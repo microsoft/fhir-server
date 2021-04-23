@@ -1134,9 +1134,9 @@ ON dbo.TokenStringCompositeSearchParam
 INCLUDE
 (
     SystemId1,
-    TextOverflow2 -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
+    TextOverflow2 -- will not be needed when all servers are targeting at least this version.
 )
-WHERE IsHistory = 0 AND TextOverflow2 IS NULL
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
