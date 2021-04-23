@@ -920,7 +920,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)
         {
-            return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, tableAlias);
+            return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
         }
 
         private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)

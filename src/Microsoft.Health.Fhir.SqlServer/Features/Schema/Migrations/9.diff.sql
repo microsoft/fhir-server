@@ -1236,9 +1236,9 @@ ON dbo.StringSearchParam
 )
 INCLUDE
 (
-    TextOverflow -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
+    TextOverflow -- will not be needed when all servers are targeting at least this version.
 )
-WHERE IsHistory = 0 AND TextOverflow IS NULL
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE, ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
