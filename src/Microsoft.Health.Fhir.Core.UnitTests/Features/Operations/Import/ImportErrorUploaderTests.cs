@@ -90,9 +90,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
-            serializer.Serialize(Arg.Any<ProcessError>()).ReturnsForAnyArgs(callInfo =>
+            serializer.Serialize(Arg.Any<ImportResourceParseError>()).ReturnsForAnyArgs(callInfo =>
             {
-                ProcessError error = (ProcessError)callInfo[0];
+                ImportResourceParseError error = (ImportResourceParseError)callInfo[0];
                 return $"{error.LineNumber}:{error.ErrorMessage}";
             });
             ImportErrorsManager uploader = new ImportErrorsManager(integrationDataStoreClient, serializer, NullLogger<ImportErrorsManager>.Instance);
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             for (int i = 0; i < errorCount; ++i)
             {
-                uploader.Add(new ProcessError(i, i, i.ToString()));
+                uploader.Add(new ImportResourceParseError(i, i, i.ToString()));
             }
 
             await uploader.WriteErrorsAsync(new Uri("http://dummy"), errorCount - 2, CancellationToken.None);

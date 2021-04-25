@@ -7,29 +7,38 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkImportResourceWrapper
+    public class ImportResource
     {
-        public BulkImportResourceWrapper(long resourceSurrogateId, long endOffsetInResource, ResourceWrapper resource, byte[] compressedRawData)
+        public ImportResource(long id, long index, ResourceWrapper resource, byte[] compressedRawData)
         {
-            ResourceSurrogateId = resourceSurrogateId;
+            Id = id;
             Resource = resource;
             CompressedRawData = compressedRawData;
-            EndOffsetInResource = endOffsetInResource;
+            Index = index;
         }
 
-        public BulkImportResourceWrapper(ResourceWrapper resource, byte[] compressedRawData)
+        public ImportResource(ResourceWrapper resource, byte[] compressedRawData)
             : this(0, 0, resource, compressedRawData)
         {
         }
 
-        public long EndOffsetInResource { get; set; }
+        public ImportResource(long id, long index, string importError)
+        {
+            Id = id;
+            Index = index;
+            ImportError = importError;
+        }
 
-        public long ResourceSurrogateId { get; set; }
+        public long Index { get; set; }
+
+        public long Id { get; set; }
 
         public ResourceWrapper Resource { get; set; }
 
 #pragma warning disable CA1819
         public byte[] CompressedRawData { get; set; }
 #pragma warning restore CA1819
+
+        public string ImportError { get; set; }
     }
 }

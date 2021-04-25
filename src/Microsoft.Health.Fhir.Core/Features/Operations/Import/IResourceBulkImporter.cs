@@ -5,12 +5,11 @@
 
 using System.Threading;
 using System.Threading.Channels;
-using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IBulkRawResourceProcessor
+    public interface IResourceBulkImporter
     {
-        public Task<long> ProcessingDataAsync(Channel<string> inputChannel, Channel<BulkImportResourceWrapper> outputChannel, Channel<BatchProcessErrorRecord> errorChannel, long startSurrogateId, CancellationToken cancellationToken);
+        public Channel<ImportProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken);
     }
 }

@@ -5,8 +5,16 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IBulkImportDataExtractor
+    public class ImportTaskResult
     {
-        public BulkImportResourceWrapper GetBulkImportResourceWrapper(string rawContent);
+        public string ResourceType { get; set; }
+
+        public long SucceedCount { get; set; }
+
+        public long FailedCount { get; set; }
+
+        public string ErrorLogLocation { get; set; }
+
+        public string ImportError { get; set; }
     }
 }

@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     public interface ISqlBulkCopyDataWrapperFactory
     {
-        public SqlBulkCopyDataWrapper CreateSqlBulkCopyDataWrapper(BulkImportResourceWrapper resource);
+        public SqlBulkCopyDataWrapper CreateSqlBulkCopyDataWrapper(ImportResource resource);
     }
 }

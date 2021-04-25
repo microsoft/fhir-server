@@ -43,12 +43,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             long startSurrogatedId = 1005;
 
-            IBulkImportDataExtractor bulkImportDataExtractor = Substitute.For<IBulkImportDataExtractor>();
-            bulkImportDataExtractor.GetBulkImportResourceWrapper(Arg.Any<string>())
-                .Returns<BulkImportResourceWrapper>(callInfo =>
+            IImportResourceParser bulkImportDataExtractor = Substitute.For<IImportResourceParser>();
+            bulkImportDataExtractor.Parse(Arg.Any<string>())
+                .Returns<ImportResource>(callInfo =>
                 {
                     string content = (string)callInfo[0];
-                    BulkImportResourceWrapper resourceWrapper = ParseResourceResult(content, maxBatchSize);
+                    ImportResource resourceWrapper = ParseResourceResult(content, maxBatchSize);
 
                     if (resourceWrapper == null)
                     {
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             Channel<string> inputs = Channel.CreateUnbounded<string>();
             Channel<BatchProcessErrorRecord> errorsChannel = Channel.CreateUnbounded<BatchProcessErrorRecord>();
-            Channel<BulkImportResourceWrapper> outputs = Channel.CreateUnbounded<BulkImportResourceWrapper>();
+            Channel<ImportResource> outputs = Channel.CreateUnbounded<ImportResource>();
 
             List<string> inputStrings = new List<string>();
             Task produceTask = Task.Run(async () =>
@@ -82,9 +82,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             int currentIndex = 0;
             List<long> failedLineNumbers = new List<long>();
-            await foreach (BulkImportResourceWrapper resourceWrapper in outputs.Reader.ReadAllAsync())
+            await foreach (ImportResource resourceWrapper in outputs.Reader.ReadAllAsync())
             {
-                BulkImportResourceWrapper expectedResource = null;
+                ImportResource expectedResource = null;
                 while ((expectedResource = ParseResourceResult(inputStrings[currentIndex++], maxBatchSize)) == null)
                 {
                     failedLineNumbers.Add(currentIndex - 1);
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             long endSurrogatedId = 0;
             await foreach (BatchProcessErrorRecord errorRecord in errorsChannel.Reader.ReadAllAsync())
             {
-                foreach (ProcessError error in errorRecord.ProcessErrors)
+                foreach (ImportResourceParseError error in errorRecord.ProcessErrors)
                 {
                     Assert.Equal(failedLineNumbers.First(), error.LineNumber);
                     failedLineNumbers.RemoveAt(0);
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Empty(failedLineNumbers);
         }
 
-        private static BulkImportResourceWrapper ParseResourceResult(string content, int maxBatchSize)
+        private static ImportResource ParseResourceResult(string content, int maxBatchSize)
         {
             long id = long.Parse(content);
             if (id % maxBatchSize == 1)
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 return null;
             }
 
-            return new BulkImportResourceWrapper(null, Encoding.UTF8.GetBytes(content));
+            return new ImportResource(null, Encoding.UTF8.GetBytes(content));
         }
     }
 }

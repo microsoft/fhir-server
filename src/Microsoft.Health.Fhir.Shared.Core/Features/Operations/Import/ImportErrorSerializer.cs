@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -21,12 +22,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import
             _fhirJsonSerializer = fhirJsonSerializer;
         }
 
-        public string Serialize(ProcessError error)
+        public string Serialize(long index, Exception ex)
         {
             var issue = new OperationOutcome.IssueComponent();
             issue.Severity = OperationOutcome.IssueSeverity.Error;
-            issue.Diagnostics = $"Failed to process resource at line: {error.LineNumber}";
-            issue.Details.Text = error.ErrorMessage;
+            issue.Diagnostics = string.Format("Failed to process resource at line: {0}", index);
+            issue.Details.Text = ex.Message;
             OperationOutcome operationOutcome = new OperationOutcome();
             operationOutcome.Issue.Add(issue);
 

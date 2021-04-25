@@ -5,16 +5,8 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkImportDataProcessingTaskResult
+    public interface IImportResourceParser
     {
-        public string ResourceType { get; set; }
-
-        public long CompletedResourceCount { get; set; }
-
-        public long FailedResourceCount { get; set; }
-
-        public string ErrorLogLocation { get; set; }
-
-        public string ErrorMessage { get; set; }
+        public ImportResource Parse(string rawContent);
     }
 }

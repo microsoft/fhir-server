@@ -15,7 +15,7 @@ using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkImportDataExtractor : IBulkImportDataExtractor
+    public class BulkImportDataExtractor : IImportResourceParser
     {
         internal static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
 
@@ -31,14 +31,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public BulkImportResourceWrapper GetBulkImportResourceWrapper(string rawContent)
+        public ImportResource Parse(string rawContent)
         {
             Resource resource = _parser.Parse<Resource>(rawContent);
             ITypedElement element = resource.ToTypedElement();
             ResourceElement resourceElement = new ResourceElement(element);
             ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
-            return new BulkImportResourceWrapper(resourceWapper, WriteCompressedRawResource(resourceWapper.RawResource.Data));
+            return new ImportResource(resourceWapper, WriteCompressedRawResource(resourceWapper.RawResource.Data));
         }
 
         private byte[] WriteCompressedRawResource(string rawResource)

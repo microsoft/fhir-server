@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _searchParameterTypeMap = searchParameterTypeMap;
         }
 
-        public SqlBulkCopyDataWrapper CreateSqlBulkCopyDataWrapper(BulkImportResourceWrapper resource)
+        public SqlBulkCopyDataWrapper CreateSqlBulkCopyDataWrapper(ImportResource resource)
         {
             var resourceMetadata = new ResourceMetadata(
                 resource.Resource.CompartmentIndices,
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 Metadata = resourceMetadata,
                 ResourceTypeId = resourceTypeId,
                 Resource = resource.Resource,
-                ResourceSurrogateId = resource.ResourceSurrogateId,
+                ResourceSurrogateId = resource.Id,
                 CompressedRawData = resource.CompressedRawData,
             };
         }

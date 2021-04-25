@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 using Xunit;
 
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             string errorMessage = "Test Error";
             ImportErrorSerializer serializer = new ImportErrorSerializer(_jsonSerializer);
 
-            string outcome = serializer.Serialize(new ProcessError(10, 0, "Test Error"));
+            string outcome = serializer.Serialize(10, new Exception("Test Error"));
 
             FhirJsonParser parser = new FhirJsonParser();
             OperationOutcome operationOutcome = parser.Parse<OperationOutcome>(outcome);

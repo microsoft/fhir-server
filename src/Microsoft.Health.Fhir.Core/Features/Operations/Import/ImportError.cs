@@ -4,14 +4,22 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Threading;
-using System.Threading.Channels;
-using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IImportErrorManager
+    public class ImportError
     {
-        public Task<(long count, Uri fileUri)> HandleImportErrorAsync(string fileName, Channel<BatchProcessErrorRecord> errorsChannel, long startErrorLogBatchId, Action<long, long> progressUpdater, CancellationToken cancellationToken);
+        public ImportError(long id, long index, Exception exception)
+        {
+            Id = id;
+            Index = index;
+            Exception = exception;
+        }
+
+        public long Id { get; set; }
+
+        public long Index { get; set; }
+
+        public Exception Exception { get; set; }
     }
 }

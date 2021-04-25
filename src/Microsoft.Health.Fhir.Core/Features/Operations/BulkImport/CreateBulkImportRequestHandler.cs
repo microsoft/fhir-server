@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
                 {
                     TaskId = taskId,
                     QueueId = "0",
-                    TaskTypeId = BulkImportDataProcessingTask.BulkImportDataProcessingTaskTypeId,
+                    TaskTypeId = ImportTask.ResourceImportTaskId,
                     InputData = inputData,
                 };
 

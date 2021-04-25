@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkImportDataProcessingInputData
+    public class ImportTaskInputData
     {
         public string ResourceLocation { get; set; }
 
@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public string TaskId { get; set; }
 
-        public long StartSurrogateId { get; set; }
+        public long StartId { get; set; }
 
-        public long EndSurrogateId { get; set; }
+        public long EndId { get; set; }
     }
 }

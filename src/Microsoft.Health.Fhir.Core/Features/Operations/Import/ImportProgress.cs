@@ -5,19 +5,12 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ProcessError
+    public class ImportProgress
     {
-        public ProcessError(long lineNumber, long resourceSurrogatedId, string errorMessage)
-        {
-            LineNumber = lineNumber;
-            ErrorMessage = errorMessage;
-            ResourceSurrogatedId = resourceSurrogatedId;
-        }
+        public long SucceedImportCount { get; set; }
 
-        public long LineNumber { get; set; }
+        public long FailedImportCount { get; set; }
 
-        public string ErrorMessage { get; set; }
-
-        public long ResourceSurrogatedId { get; set; }
+        public long EndIndex { get; set; }
     }
 }

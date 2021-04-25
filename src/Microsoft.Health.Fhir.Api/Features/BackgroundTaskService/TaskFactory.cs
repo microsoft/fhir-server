@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private IBulkResourceLoader _resourceLoader;
         private IBulkRawResourceProcessor _rawResourceProcessor;
         private IImportErrorManager _importErrorUploader;
-        private IBulkImporter<BulkImportResourceWrapper> _bulkImporter;
+        private IBulkImporter<ImportResource> _bulkImporter;
         private IFhirRequestContextAccessor _contextAccessor;
         private ILoggerFactory _loggerFactory;
 
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             IBulkResourceLoader resourceLoader,
             IBulkRawResourceProcessor rawResourceProcessor,
             IImportErrorManager importErrorUploader,
-            IBulkImporter<BulkImportResourceWrapper> bulkImporter,
+            IBulkImporter<ImportResource> bulkImporter,
             IFhirRequestContextAccessor contextAccessor,
             ILoggerFactory loggerFactory)
         {
@@ -45,10 +45,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 
         public ITask Create(TaskInfo taskInfo)
         {
-            if (taskInfo.TaskTypeId == BulkImportDataProcessingTask.BulkImportDataProcessingTaskTypeId)
+            if (taskInfo.TaskTypeId == ImportTask.ResourceImportTaskId)
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
-                BulkImportDataProcessingInputData inputData = JsonConvert.DeserializeObject<BulkImportDataProcessingInputData>(taskInfo.InputData);
+                ImportTaskInputData inputData = JsonConvert.DeserializeObject<ImportTaskInputData>(taskInfo.InputData);
                 BulkImportProgress bulkImportProgress = string.IsNullOrEmpty(taskInfo.Context) ? new BulkImportProgress() : JsonConvert.DeserializeObject<BulkImportProgress>(taskInfo.Context);
                 return new BulkImportDataProcessingTask(
                     inputData,

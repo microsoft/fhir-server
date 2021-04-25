@@ -3,20 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
+using System;
+using System.Threading;
+using System.Threading.Channels;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BatchProcessErrorRecord
+    public interface IImportResourceLoader
     {
-        public BatchProcessErrorRecord(IEnumerable<ProcessError> processErrors, long lastSurragatedId)
-        {
-            ProcessErrors = processErrors;
-            LastSurragatedId = lastSurragatedId;
-        }
-
-        public IEnumerable<ProcessError> ProcessErrors { get; private set; }
-
-        public long LastSurragatedId { get; set; }
+        public Channel<ImportResource> LoadResources(string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken);
     }
 }

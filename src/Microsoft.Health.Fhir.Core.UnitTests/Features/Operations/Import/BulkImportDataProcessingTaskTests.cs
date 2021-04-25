@@ -31,16 +31,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         {
             int count = 101;
             List<string> inputData = new List<string>();
-            List<BulkImportResourceWrapper> result = new List<BulkImportResourceWrapper>();
+            List<ImportResource> result = new List<ImportResource>();
 
             for (int i = 0; i < count; ++i)
             {
                 inputData.Add(i.ToString());
             }
 
-            BulkImportDataProcessingInputData inputDataPayload = new BulkImportDataProcessingInputData();
-            inputDataPayload.StartSurrogateId = 10;
-            inputDataPayload.EndSurrogateId = 200;
+            ImportTaskInputData inputDataPayload = new ImportTaskInputData();
+            inputDataPayload.StartId = 10;
+            inputDataPayload.EndId = 200;
             inputDataPayload.ResourceType = "Test";
             inputDataPayload.ResourceLocation = "http://dummy";
             inputDataPayload.UriString = "http://dummy";
@@ -53,13 +53,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IBulkResourceLoader bulkResourceLoader = GetMockBulkResourceLoader(inputData);
             IImportErrorManager uploader = GetMockImportErrorUploader(null);
             IBulkRawResourceProcessor processor = GetMockResourceProcessor();
-            IBulkImporter<BulkImportResourceWrapper> importer = GetMockBulkImporter(7, resource => result.Add(resource));
+            IBulkImporter<ImportResource> importer = GetMockBulkImporter(7, resource => result.Add(resource));
             IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            BulkImportDataProcessingTask testTask = new BulkImportDataProcessingTask(inputDataPayload, progress, batchOperation, contextUpdater, bulkResourceLoader, uploader, processor, importer, accessor, loggerFactory);
+            ImportTask testTask = new BulkImportDataProcessingTask(inputDataPayload, progress, batchOperation, contextUpdater, bulkResourceLoader, uploader, processor, importer, accessor, loggerFactory);
             TaskResultData taskResult = await testTask.ExecuteAsync();
-            BulkImportDataProcessingTaskResult resultData = JsonConvert.DeserializeObject<BulkImportDataProcessingTaskResult>(taskResult.ResultData);
+            ImportTaskResult resultData = JsonConvert.DeserializeObject<ImportTaskResult>(taskResult.ResultData);
 
             Assert.Equal(TaskResult.Success, taskResult.Result);
             Assert.Equal(count, result.Count);
@@ -73,16 +73,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         {
             int count = 101;
             List<string> inputData = new List<string>();
-            List<BulkImportResourceWrapper> result = new List<BulkImportResourceWrapper>();
+            List<ImportResource> result = new List<ImportResource>();
 
             for (int i = 0; i < count; ++i)
             {
                 inputData.Add(i.ToString());
             }
 
-            BulkImportDataProcessingInputData inputDataPayload = new BulkImportDataProcessingInputData();
-            inputDataPayload.StartSurrogateId = 10;
-            inputDataPayload.EndSurrogateId = 200;
+            ImportTaskInputData inputDataPayload = new ImportTaskInputData();
+            inputDataPayload.StartId = 10;
+            inputDataPayload.EndId = 200;
             inputDataPayload.ResourceType = "Test";
             inputDataPayload.ResourceLocation = "http://dummy";
             inputDataPayload.UriString = "http://dummy";
@@ -97,13 +97,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IBulkResourceLoader bulkResourceLoader = GetMockBulkResourceLoader(inputData);
             IImportErrorManager uploader = GetMockImportErrorUploader(null);
             IBulkRawResourceProcessor processor = GetMockResourceProcessor();
-            IBulkImporter<BulkImportResourceWrapper> importer = GetMockBulkImporter(7, resource => result.Add(resource));
+            IBulkImporter<ImportResource> importer = GetMockBulkImporter(7, resource => result.Add(resource));
             IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            BulkImportDataProcessingTask testTask = new BulkImportDataProcessingTask(inputDataPayload, progress, batchOperation, contextUpdater, bulkResourceLoader, uploader, processor, importer, accessor, loggerFactory);
+            ImportTask testTask = new BulkImportDataProcessingTask(inputDataPayload, progress, batchOperation, contextUpdater, bulkResourceLoader, uploader, processor, importer, accessor, loggerFactory);
             TaskResultData taskResult = await testTask.ExecuteAsync();
-            BulkImportDataProcessingTaskResult resultData = JsonConvert.DeserializeObject<BulkImportDataProcessingTaskResult>(taskResult.ResultData);
+            ImportTaskResult resultData = JsonConvert.DeserializeObject<ImportTaskResult>(taskResult.ResultData);
 
             Assert.Equal(TaskResult.Success, taskResult.Result);
             Assert.Equal(count - 10, result.Count);
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         {
             int count = 101;
             List<string> inputData = new List<string>();
-            List<BulkImportResourceWrapper> result = new List<BulkImportResourceWrapper>();
+            List<ImportResource> result = new List<ImportResource>();
 
             for (int i = 0; i < count; ++i)
             {
@@ -127,9 +127,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 }
             }
 
-            BulkImportDataProcessingInputData inputDataPayload = new BulkImportDataProcessingInputData();
-            inputDataPayload.StartSurrogateId = 10;
-            inputDataPayload.EndSurrogateId = 200;
+            ImportTaskInputData inputDataPayload = new ImportTaskInputData();
+            inputDataPayload.StartId = 10;
+            inputDataPayload.EndId = 200;
             inputDataPayload.ResourceType = "Test";
             inputDataPayload.ResourceLocation = "http://dummy";
             inputDataPayload.UriString = "http://dummy";
@@ -143,13 +143,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IBulkResourceLoader bulkResourceLoader = GetMockBulkResourceLoader(inputData);
             IImportErrorManager uploader = GetMockImportErrorUploader(null);
             IBulkRawResourceProcessor processor = GetMockResourceProcessor();
-            IBulkImporter<BulkImportResourceWrapper> importer = GetMockBulkImporter(7, resource => result.Add(resource));
+            IBulkImporter<ImportResource> importer = GetMockBulkImporter(7, resource => result.Add(resource));
             IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            BulkImportDataProcessingTask testTask = new BulkImportDataProcessingTask(inputDataPayload, progress, batchOperation, contextUpdater, bulkResourceLoader, uploader, processor, importer, accessor, loggerFactory);
+            ImportTask testTask = new BulkImportDataProcessingTask(inputDataPayload, progress, batchOperation, contextUpdater, bulkResourceLoader, uploader, processor, importer, accessor, loggerFactory);
             TaskResultData taskResult = await testTask.ExecuteAsync();
-            BulkImportDataProcessingTaskResult resultData = JsonConvert.DeserializeObject<BulkImportDataProcessingTaskResult>(taskResult.ResultData);
+            ImportTaskResult resultData = JsonConvert.DeserializeObject<ImportTaskResult>(taskResult.ResultData);
 
             Assert.Equal(TaskResult.Success, taskResult.Result);
             Assert.Equal(count, result.Count);
@@ -239,8 +239,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
         private IBulkRawResourceProcessor GetMockResourceProcessor()
         {
-            IBulkImportDataExtractor bulkImportDataExtractor = Substitute.For<IBulkImportDataExtractor>();
-            bulkImportDataExtractor.GetBulkImportResourceWrapper(Arg.Any<string>())
+            IImportResourceParser bulkImportDataExtractor = Substitute.For<IImportResourceParser>();
+            bulkImportDataExtractor.Parse(Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     string content = (string)callInfo[0];
@@ -250,31 +250,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         throw new InvalidOperationException("ErrorMessage");
                     }
 
-                    return new BulkImportResourceWrapper(null, Encoding.UTF8.GetBytes(content));
+                    return new ImportResource(null, Encoding.UTF8.GetBytes(content));
                 });
 
             BulkRawResourceProcessor processor = new BulkRawResourceProcessor(bulkImportDataExtractor, NullLogger<BulkRawResourceProcessor>.Instance);
             return processor;
         }
 
-        private IBulkImporter<BulkImportResourceWrapper> GetMockBulkImporter(int batchSize, Action<BulkImportResourceWrapper> importAction)
+        private IBulkImporter<ImportResource> GetMockBulkImporter(int batchSize, Action<ImportResource> importAction)
         {
-            IBulkImporter<BulkImportResourceWrapper> bulkImporter = Substitute.For<IBulkImporter<BulkImportResourceWrapper>>();
-            bulkImporter.ImportResourceAsync(Arg.Any<Channel<BulkImportResourceWrapper>>(), Arg.Any<Action<(string tableName, long endSurrogateId)>>(), Arg.Any<CancellationToken>())
+            IBulkImporter<ImportResource> bulkImporter = Substitute.For<IBulkImporter<ImportResource>>();
+            bulkImporter.ImportResourceAsync(Arg.Any<Channel<ImportResource>>(), Arg.Any<Action<(string tableName, long endSurrogateId)>>(), Arg.Any<CancellationToken>())
                 .Returns(async callInfo =>
                 {
-                    Channel<BulkImportResourceWrapper> inputChannel = (Channel<BulkImportResourceWrapper>)callInfo[0];
+                    Channel<ImportResource> inputChannel = (Channel<ImportResource>)callInfo[0];
                     Action<(string tableName, long endSurrogateId)> progress = (Action<(string tableName, long endSurrogateId)>)callInfo[1];
                     long result = 0;
                     long surrogatedId = 0;
 
                     do
                     {
-                        await foreach (BulkImportResourceWrapper resource in inputChannel.Reader.ReadAllAsync())
+                        await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync())
                         {
                             importAction?.Invoke(resource);
                             result++;
-                            surrogatedId = resource.ResourceSurrogateId;
+                            surrogatedId = resource.Id;
 
                             if (result % batchSize == 0)
                             {

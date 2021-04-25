@@ -59,13 +59,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 });
 
             ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
-            dataWrapperFactory.CreateSqlBulkCopyDataWrapper(Arg.Any<BulkImportResourceWrapper>())
+            dataWrapperFactory.CreateSqlBulkCopyDataWrapper(Arg.Any<ImportResource>())
                 .Returns((callInfo) =>
                 {
-                    BulkImportResourceWrapper resource = (BulkImportResourceWrapper)callInfo[0];
+                    ImportResource resource = (ImportResource)callInfo[0];
                     return new SqlBulkCopyDataWrapper()
                     {
-                        ResourceSurrogateId = resource.ResourceSurrogateId,
+                        ResourceSurrogateId = resource.Id,
                     };
                 });
 
@@ -74,16 +74,17 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 new TestDataGenerator("Table1", 1),
                 new TestDataGenerator("Table2", 2),
             };
-            SqlBulkImporter importer = new SqlBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators);
+
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators);
             importer.MaxResourceCountInBatch = maxResourceCountInBatch;
 
-            Channel<BulkImportResourceWrapper> inputs = Channel.CreateUnbounded<BulkImportResourceWrapper>();
+            Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
 
             Task produceTask = Task.Run(async () =>
             {
                 for (int i = 0; i < resourceCount; ++i)
                 {
-                    await inputs.Writer.WriteAsync(new BulkImportResourceWrapper(startSurrogatedId + i, 0, null, null));
+                    await inputs.Writer.WriteAsync(new ImportResource(startSurrogatedId + i, 0, null, null));
                 }
 
                 inputs.Writer.Complete();

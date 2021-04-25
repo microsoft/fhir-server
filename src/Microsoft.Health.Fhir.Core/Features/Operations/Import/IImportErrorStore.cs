@@ -3,12 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class RawDataWrapper
+    public interface IImportErrorStore
     {
-        public string Content { get; set; }
+        public string ErrorFileLocation { get; }
 
-        public long Offset { get; set; }
+        public Task UploadErrorsAsync(string[] importErrors, CancellationToken cancellationToken);
     }
 }

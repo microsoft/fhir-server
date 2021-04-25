@@ -3,14 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkImportProgress
+    public interface IImportErrorStoreFactory
     {
-        public Dictionary<string, ProgressRecord> ProgressRecords { get; private set; } = new Dictionary<string, ProgressRecord>();
-
-        public long CurrentErrorLogBatchId { get; set; }
+        public Task<IImportErrorStore> InitializeAsync(string fileName, CancellationToken cancellationToken);
     }
 }
