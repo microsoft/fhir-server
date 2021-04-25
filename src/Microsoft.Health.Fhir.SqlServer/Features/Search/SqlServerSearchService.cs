@@ -345,6 +345,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 newContinuationId ?? 0,
                             });
                         }
+                        else if (searchType == SqlSearchType.History)
+                        {
+                            // history is always only sorted by ResourceSurrogateId
+                            continuationToken = new ContinuationToken(new object[]
+                            {
+                                newContinuationId ?? 0,
+                            });
+                        }
                         else
                         {
                             continuationToken = new ContinuationToken(new object[]
