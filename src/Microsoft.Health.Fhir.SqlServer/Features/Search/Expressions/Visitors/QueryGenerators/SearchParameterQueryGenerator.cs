@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return false;
         }
 
-        protected SearchParameterQueryGeneratorContext VisitSimpleBinary(BinaryOperator binaryOperator, SearchParameterQueryGeneratorContext context, Column column, int? componentIndex, object value)
+        protected SearchParameterQueryGeneratorContext VisitSimpleBinary(BinaryOperator binaryOperator, SearchParameterQueryGeneratorContext context, Column column, int? componentIndex, object value, bool includeInParameterHash = true)
         {
             AppendColumnName(context, column, componentIndex);
 
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new ArgumentOutOfRangeException(binaryOperator.ToString());
             }
 
-            context.StringBuilder.Append(context.Parameters.AddParameter(column, value).ParameterName);
+            context.StringBuilder.Append(context.Parameters.AddParameter(column, value, includeInParameterHash).ParameterName);
 
             return context;
         }

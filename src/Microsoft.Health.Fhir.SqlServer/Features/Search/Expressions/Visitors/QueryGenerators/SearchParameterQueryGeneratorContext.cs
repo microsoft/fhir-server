@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal readonly struct SearchParameterQueryGeneratorContext
     {
-        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, SqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, string tableAlias = null)
+        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, HashingSqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, string tableAlias = null)
         {
             EnsureArg.IsNotNull(stringBuilder, nameof(stringBuilder));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public IndentedStringBuilder StringBuilder { get; }
 
-        public SqlQueryParameterManager Parameters { get; }
+        public HashingSqlQueryParameterManager Parameters { get; }
 
         public ISqlServerFhirModel Model { get; }
 
