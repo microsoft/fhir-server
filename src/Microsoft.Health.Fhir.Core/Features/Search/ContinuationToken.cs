@@ -40,7 +40,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             get
             {
-                return _tokens.Length > 1 && _tokens[^2] is long s ? (short)s : null;
+                if (_tokens.Length < 2)
+                {
+                    return null;
+                }
+
+                return _tokens[^2] switch
+                {
+                    short s => s,
+                    long l => (short)l, // deserialization from JSON creates longs
+                    _ => null,
+                };
             }
 
             set
