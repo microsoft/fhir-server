@@ -228,11 +228,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
-                var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters));
-
                 var queryGenerator = new SqlQueryGenerator(
                     stringBuilder,
-                    parameters,
+                    new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters)),
                     _model,
                     searchType,
                     _schemaInformation,
