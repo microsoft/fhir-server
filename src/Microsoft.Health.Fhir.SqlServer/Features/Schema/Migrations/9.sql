@@ -148,6 +148,12 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId O
 WHERE IsHistory = 0 AND IsDeleted = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+CREATE NONCLUSTERED INDEX IX_Resource_ResourceSurrogateId ON dbo.Resource
+(
+    ResourceSurrogateId
+)
+ON [Primary]
+
 /*************************************************************
     Capture claims on write
 **************************************************************/

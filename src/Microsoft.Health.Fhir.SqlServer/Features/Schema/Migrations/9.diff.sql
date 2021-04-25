@@ -1078,6 +1078,21 @@ WHERE IsHistory = 0 AND IsDeleted = 0
 WITH (ONLINE=ON, DROP_EXISTING=ON) 
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+IF NOT EXISTS (
+    SELECT * 
+    FROM sys.indexes 
+    WHERE [name] = 'IX_Resource_ResourceSurrogateId')
+BEGIN
+
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_Resource_ResourceSurrogateId'
+
+    CREATE NONCLUSTERED INDEX IX_Resource_ResourceSurrogateId ON dbo.Resource
+    (
+        ResourceSurrogateId
+    )
+    ON [Primary]
+
+END
 
 /*************************************************************
     Compartments

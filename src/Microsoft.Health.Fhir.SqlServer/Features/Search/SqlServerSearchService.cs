@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             var originalSearchOptions = searchOptions;
-            searchOptions = UpdateSort(searchOptions, searchExpression);
+            searchOptions = UpdateSort(searchOptions, searchExpression, searchType);
 
             if (searchOptions.CountOnly)
             {
@@ -376,9 +376,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// </summary>
         /// <param name="searchOptions">The input SearchOptions</param>
         /// <param name="searchExpression">The searchExpression</param>
+        /// <param name="sqlSearchType">The type of search being performed</param>
         /// <returns>If the sort needs to be updated, a new <see cref="SearchOptions"/> instance, otherwise, the same instance as <paramref name="searchOptions"/></returns>
-        private SearchOptions UpdateSort(SearchOptions searchOptions, Expression searchExpression)
+        private SearchOptions UpdateSort(SearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
         {
+            if (sqlSearchType == SqlSearchType.History)
+            {
+                // history is always sorted by _lastUpdated.
+                searchOptions = searchOptions.Clone();
+
+                ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
+
+                searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                {
+                    (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+                };
+
+                return searchOptions;
+            }
+
             if (searchOptions.Sort.Count == 0)
             {
                 searchOptions = searchOptions.Clone();
