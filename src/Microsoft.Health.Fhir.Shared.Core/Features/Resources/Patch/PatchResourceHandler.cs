@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.JsonPatch.Exceptions;
 using Microsoft.Health.Core.Features.Security.Authorization;
@@ -18,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
@@ -25,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ResourceDeserializer _resourceDeserializer;
+        private readonly FhirJsonParser _fhirJsonParser;
 
         public PatchResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -33,13 +36,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
             IModelInfoProvider modelInfoProvider,
+            FhirJsonParser fhirJsonParser,
             ResourceDeserializer resourceDeserializer)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
 
             _modelInfoProvider = modelInfoProvider;
             _resourceDeserializer = resourceDeserializer;
+            _fhirJsonParser = fhirJsonParser;
         }
 
         public async Task<PatchResourceResponse> Handle(PatchResourceRequest message, CancellationToken cancellationToken)
@@ -75,17 +81,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             string resourceId = resourceInstance.Id;
             string resourceVersion = resourceInstance.VersionId;
 
+            ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
+
             try
             {
-                message.PatchDocument.ApplyTo(resourceInstance);
+                var dynamicJson = JsonConvert.DeserializeObject(resourceWrapper.RawResource.Data);
+                message.PatchDocument.ApplyTo(dynamicJson);
 
-                if (resourceId != resourceInstance.Id ||
-                    resourceVersion != resourceInstance.VersionId)
-                {
-                    throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
-                }
+                string resourceJson = JsonConvert.SerializeObject(dynamicJson);
+                Resource resourcePatch = _fhirJsonParser.Parse<Resource>(resourceJson);
 
-                ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
+                // To-do: Validate there are no changes to forbidden properties.
+
+                resourceWrapper = CreateResourceWrapper(resourcePatch, deleted: false, keepMeta: true);
                 bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
                 UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
                 resourceInstance.VersionId = result.Wrapper.Version;
