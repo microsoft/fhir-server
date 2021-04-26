@@ -76,16 +76,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
             }
 
-            ResourceElement resource = _resourceDeserializer.Deserialize(currentDoc);
-            Resource resourceInstance = resource.Instance.ToPoco<Resource>();
-            string resourceId = resourceInstance.Id;
-            string resourceVersion = resourceInstance.VersionId;
-
-            ResourceWrapper resourceWrapper = CreateResourceWrapper(resourceInstance, deleted: false, keepMeta: true);
-
             try
             {
-                var dynamicJson = JsonConvert.DeserializeObject(resourceWrapper.RawResource.Data);
+                var dynamicJson = JsonConvert.DeserializeObject(currentDoc.RawResource.Data);
                 message.PatchDocument.ApplyTo(dynamicJson);
 
                 string resourceJson = JsonConvert.SerializeObject(dynamicJson);
@@ -93,10 +86,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
                 // To-do: Validate there are no changes to forbidden properties.
 
-                resourceWrapper = CreateResourceWrapper(resourcePatch, deleted: false, keepMeta: true);
+                ResourceWrapper resourceWrapper = CreateResourceWrapper(resourcePatch, deleted: false, keepMeta: true);
                 bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
                 UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
-                resourceInstance.VersionId = result.Wrapper.Version;
+                resourcePatch.VersionId = result.Wrapper.Version;
 
                 return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
             }
