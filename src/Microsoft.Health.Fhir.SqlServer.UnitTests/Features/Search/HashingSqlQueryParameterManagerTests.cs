@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             using var command = new SqlCommand();
             var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
-            AssertChangesHash(parameters, () => parameters.AddParameter(value));
+            AssertChangesHash(parameters, () => parameters.AddParameter(value, true));
         }
 
         [Fact]
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             {
                 AssertChangesHash(parameters, () =>
                 {
-                    parameters.AddParameter(Guid.NewGuid());
+                    parameters.AddParameter(Guid.NewGuid(), true);
                 });
 
                 Assert.True(parameters.HasParametersToHash);
@@ -103,9 +103,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             using var command = new SqlCommand();
             var parameters = new HashingSqlQueryParameterManager(new SqlQueryParameterManager(command.Parameters));
 
-            parameters.AddParameter(1);
+            parameters.AddParameter(1, true);
 
-            AssertChangesHash(parameters, () => parameters.AddParameter(new string('a', 500)));
+            AssertChangesHash(parameters, () => parameters.AddParameter(new string('a', 500), true));
         }
 
         private static string GetHash(HashingSqlQueryParameterManager parameterManager)

@@ -34,12 +34,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public bool HasParametersToHash => _setToHash.Count > 0;
 
-        public SqlParameter AddParameter<T>(Column<T> column, T value, bool includeInHash = true)
+        /// <summary>
+        /// Add a parameter to the SQL command.
+        /// </summary>
+        /// <param name="column">The table column the parameter is bound to.</param>
+        /// <param name="value">The parameter value.</param>
+        /// <param name="includeInHash">
+        /// Whether this parameter should be included in the hash of the overall parameters.
+        /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
+        /// </param>
+        /// <returns>The SQL parameter.</returns>
+        public SqlParameter AddParameter<T>(Column<T> column, T value, bool includeInHash)
         {
             return AddParameter((Column)column, value, includeInHash);
         }
 
-        public SqlParameter AddParameter(Column column, object value, bool includeInHash = true)
+        /// <summary>
+        /// Add a parameter to the SQL command.
+        /// </summary>
+        /// <param name="column">The table column the parameter is bound to.</param>
+        /// <param name="value">The parameter value</param>
+        /// <param name="includeInHash">
+        /// Whether this parameter should be included in the hash of the overall parameters.
+        /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
+        /// </param>
+        /// <returns>The SQL parameter.</returns>
+        public SqlParameter AddParameter(Column column, object value, bool includeInHash)
         {
             SqlParameter parameter = _inner.AddParameter(column, value);
             if (includeInHash)
@@ -50,7 +70,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return parameter;
         }
 
-        public SqlParameter AddParameter(object value, bool includeInHash = true)
+        /// <summary>
+        /// Add a parameter to the SQL command.
+        /// </summary>
+        /// <param name="value">The parameter value</param>
+        /// <param name="includeInHash">
+        /// Whether this parameter should be included in the hash of the overall parameters.
+        /// If true, this parameter will prevent other identical queries with a different value for this parameter from re-using the query plan.
+        /// </param>
+        /// <returns>The SQL parameter.</returns>
+        public SqlParameter AddParameter(object value, bool includeInHash)
         {
             SqlParameter parameter = _inner.AddParameter(value);
             if (includeInHash)
@@ -73,11 +102,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             foreach (SqlParameter sqlParameter in _setToHash)
             {
-                if (!_setToHash.Contains(sqlParameter))
-                {
-                    continue;
-                }
-
                 switch (sqlParameter.SqlDbType)
                 {
                     case SqlDbType.BigInt:

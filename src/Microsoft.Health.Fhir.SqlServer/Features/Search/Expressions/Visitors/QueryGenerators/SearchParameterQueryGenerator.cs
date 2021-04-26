@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
+                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName)
                 .Append("AND ");
 
             return expression.Expression.AcceptVisitor(this, context);
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName);
+                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName);
 
             return context;
         }
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
                 .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName);
+                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId, true).ParameterName);
 
             return context;
         }
@@ -183,16 +183,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 case StringOperator.Contains:
                     needsEscaping = TryEscapeValueForLike(ref value);
-                    SqlParameter containsParameter = context.Parameters.AddParameter(column, $"%{value}%");
+                    SqlParameter containsParameter = context.Parameters.AddParameter(column, $"%{value}%", true);
                     context.StringBuilder.Append(" LIKE ").Append(containsParameter.ParameterName);
                     break;
                 case StringOperator.EndsWith:
                     needsEscaping = TryEscapeValueForLike(ref value);
-                    SqlParameter endWithParameter = context.Parameters.AddParameter(column, $"%{value}");
+                    SqlParameter endWithParameter = context.Parameters.AddParameter(column, $"%{value}", true);
                     context.StringBuilder.Append(" LIKE ").Append(endWithParameter.ParameterName);
                     break;
                 case StringOperator.Equals:
-                    SqlParameter equalsParameter = context.Parameters.AddParameter(column, value);
+                    SqlParameter equalsParameter = context.Parameters.AddParameter(column, value, true);
                     context.StringBuilder.Append(" = ").Append(equalsParameter.ParameterName);
                     break;
                 case StringOperator.NotContains:
@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     goto case StringOperator.StartsWith;
                 case StringOperator.StartsWith:
                     needsEscaping = TryEscapeValueForLike(ref value);
-                    SqlParameter startsWithParameter = context.Parameters.AddParameter(column, $"{value}%");
+                    SqlParameter startsWithParameter = context.Parameters.AddParameter(column, $"{value}%", true);
                     context.StringBuilder.Append(" LIKE ").Append(startsWithParameter.ParameterName);
                     break;
                 default:
