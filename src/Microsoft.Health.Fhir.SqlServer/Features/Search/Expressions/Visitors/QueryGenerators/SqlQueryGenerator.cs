@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
-                if (searchParamInfo != null && searchParamInfo.Code != KnownQueryParameterNames.LastUpdated)
+                if (IsSortValueNeeded(context))
                 {
                     StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
                 }
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (!searchOptions.CountOnly)
                 {
                     StringBuilder.Append("ORDER BY ");
-                    if (searchParamInfo == null || searchParamInfo.Code == KnownQueryParameterNames.LastUpdated)
+                    if (!IsSortValueNeeded(context))
                     {
                         StringBuilder
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
@@ -391,7 +391,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
             var (paramInfo, sortOrder) = context.Sort.Count == 0 ? default : context.Sort[0];
             var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
-            var sortExpression = (paramInfo == null || paramInfo.Code == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
+
+            string sortExpression;
+            if (IsSortValueNeeded(context))
+            {
+                sortExpression = $"{tableExpressionName}.SortValue";
+            }
+            else
+            {
+                sortExpression = null;
+            }
 
             // Everything in the top expression is considered a match
             string selectStatement = sortExpression == null ? "SELECT DISTINCT" : "SELECT";
@@ -1028,6 +1037,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return _includeLimitCtesByResourceType.TryGetValue(resourceType, out ctes);
+        }
+
+        private bool IsSortValueNeeded(SearchOptions context)
+        {
+            if (context.Sort.Count == 0)
+            {
+                return false;
+            }
+
+            var sortParamInfo = context.Sort[0].searchParameterInfo;
+            if (sortParamInfo == null || sortParamInfo.Code == KnownQueryParameterNames.LastUpdated)
+            {
+                return false;
+            }
+
+            foreach (var searchParamTableExpression in _rootExpression.SearchParamTableExpressions)
+            {
+                if (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Sort ||
+                    searchParamTableExpression.Kind == SearchParamTableExpressionKind.SortWithFilter)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

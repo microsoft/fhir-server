@@ -522,6 +522,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count=3", sort: false, pageSize: 3, expectedPatients.ToArray());
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
+
+            var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).ToArray();
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family", sort: false, expectedPatients);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
+
+            var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).ToArray();
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family&_count=3", sort: false, pageSize: 3, expectedPatients);
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -563,6 +585,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "Portland", "James", tag),
                 p => SetPatientInfo(p, "Seattle", "Alex", tag),
                 p => SetPatientInfo(p, "Portland", "Rock", tag));
+
+            return patients;
+        }
+
+        private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "Portland", "Williams", tag),
+                p => SetPatientInfo(p, "Portland", family: null, tag),
+                p => SetPatientInfo(p, "Seattle", family: null, tag),
+                p => SetPatientInfo(p, "Portland", family: null, tag),
+                p => SetPatientInfo(p, "Seattle", "Mary", tag),
+                p => SetPatientInfo(p, "Portland", "Cathy", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
             return patients;
         }

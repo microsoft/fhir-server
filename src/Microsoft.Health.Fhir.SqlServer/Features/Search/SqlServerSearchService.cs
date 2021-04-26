@@ -102,6 +102,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     // Count the match results on the page.
                     searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
+
+                    if (searchResult.TotalCount == 0 && searchOptions.Sort != null)
+                    {
+                        // it could mean that we searched for "null" values and ended up returning nothing.
+                        searchOptions.SortForNullValuesDone = true;
+                    }
                 }
                 else
                 {
@@ -125,6 +131,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             else
             {
                 searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
+                int resultCount = searchResult.Results.Count();
+                if (resultCount < searchOptions.MaxItemCount && searchResult.SortOrder != null)
+                {
+                    // we seem to have run a sort which has returned less results than what max we can return
+
+                    // Logic here to determine whether we need to execute another query or not.
+                    // This will depend on the sort order and the current query.
+                    searchOptions.SortForNullValuesDone = true;
+                    searchOptions.MaxItemCount = searchOptions.MaxItemCount - searchResult.Results.Count();
+
+                    var origResults = searchResult.Results;
+                    searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
+
+                    var finalResultsInOrder = new List<SearchResultEntry>();
+                    finalResultsInOrder.AddRange(origResults);
+                    finalResultsInOrder.AddRange(searchResult.Results);
+
+                    searchResult = new SearchResult(
+                        finalResultsInOrder,
+                        searchResult.ContinuationToken,
+                        searchResult.SortOrder,
+                        searchResult.UnsupportedSearchParameters);
+                }
             }
 
             return searchResult;

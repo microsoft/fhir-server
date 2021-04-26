@@ -53,12 +53,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
+            var newTableExpressions = new List<SearchParamTableExpression>();
+            newTableExpressions.AddRange(expression.SearchParamTableExpressions);
+            if (!matchFound && !context.SortForNullValuesDone)
+            {
+                // check whether continuation token has info regarding whether we are looking
+                // at "null" values or not.
+                var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
+                if (continuationToken?.SortValue == null)
+                {
+                    // Check sort order to determine what has to happen
+
+                    // Now add the missing expression
+                    var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
+                    var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
+                    var notExistsExpression = new SearchParamTableExpression(
+                        queryGenForMissing,
+                        missingExpression,
+                        SearchParamTableExpressionKind.NotExists);
+
+                    newTableExpressions.Add(notExistsExpression);
+
+                    return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+                }
+            }
+
             SearchParamTableExpressionKind sortKind = matchFound ? SearchParamTableExpressionKind.SortWithFilter : SearchParamTableExpressionKind.Sort;
 
             var queryGenerator = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
 
-            var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
-            newTableExpressions.AddRange(expression.SearchParamTableExpressions);
+            // var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
+            // newTableExpressions.AddRange(expression.SearchParamTableExpressions);
 
             newTableExpressions.Add(new SearchParamTableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), sortKind));
 
