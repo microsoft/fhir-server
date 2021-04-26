@@ -15,30 +15,27 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
     public class TaskFactory : ITaskFactory
     {
         private IFhirDataBulkOperation _fhirDataBulkOperation;
+        private IImportResourceLoader _importResourceLoader;
+        private IResourceBulkImporter _resourceBulkImporter;
+        private IImportErrorStoreFactory _importErrorStoreFactory;
         private IContextUpdaterFactory _contextUpdaterFactory;
-        private IBulkResourceLoader _resourceLoader;
-        private IBulkRawResourceProcessor _rawResourceProcessor;
-        private IImportErrorManager _importErrorUploader;
-        private IBulkImporter<ImportResource> _bulkImporter;
         private IFhirRequestContextAccessor _contextAccessor;
         private ILoggerFactory _loggerFactory;
 
         public TaskFactory(
             IFhirDataBulkOperation fhirDataBulkOperation,
+            IImportResourceLoader importResourceLoader,
+            IResourceBulkImporter resourceBulkImporter,
+            IImportErrorStoreFactory importErrorStoreFactory,
             IContextUpdaterFactory contextUpdaterFactory,
-            IBulkResourceLoader resourceLoader,
-            IBulkRawResourceProcessor rawResourceProcessor,
-            IImportErrorManager importErrorUploader,
-            IBulkImporter<ImportResource> bulkImporter,
             IFhirRequestContextAccessor contextAccessor,
             ILoggerFactory loggerFactory)
         {
             _fhirDataBulkOperation = fhirDataBulkOperation;
+            _importResourceLoader = importResourceLoader;
+            _resourceBulkImporter = resourceBulkImporter;
+            _importErrorStoreFactory = importErrorStoreFactory;
             _contextUpdaterFactory = contextUpdaterFactory;
-            _resourceLoader = resourceLoader;
-            _rawResourceProcessor = rawResourceProcessor;
-            _importErrorUploader = importErrorUploader;
-            _bulkImporter = bulkImporter;
             _contextAccessor = contextAccessor;
             _loggerFactory = loggerFactory;
         }
@@ -49,16 +46,15 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
                 ImportTaskInputData inputData = JsonConvert.DeserializeObject<ImportTaskInputData>(taskInfo.InputData);
-                BulkImportProgress bulkImportProgress = string.IsNullOrEmpty(taskInfo.Context) ? new BulkImportProgress() : JsonConvert.DeserializeObject<BulkImportProgress>(taskInfo.Context);
-                return new BulkImportDataProcessingTask(
+                ImportProgress importProgress = string.IsNullOrEmpty(taskInfo.Context) ? new ImportProgress() : JsonConvert.DeserializeObject<ImportProgress>(taskInfo.Context);
+                return new ImportTask(
                     inputData,
-                    bulkImportProgress,
+                    importProgress,
                     _fhirDataBulkOperation,
+                    _importResourceLoader,
+                    _resourceBulkImporter,
+                    _importErrorStoreFactory,
                     contextUpdater,
-                    _resourceLoader,
-                    _importErrorUploader,
-                    _rawResourceProcessor,
-                    _bulkImporter,
                     _contextAccessor,
                     _loggerFactory);
             }

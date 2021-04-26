@@ -15,7 +15,7 @@ using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class BulkImportDataExtractor : IImportResourceParser
+    public class ImportResourceParser : IImportResourceParser
     {
         internal static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
 
@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private IResourceWrapperFactory _resourceFactory;
         private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
 
-        public BulkImportDataExtractor(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
         {
             _parser = parser;
             _resourceFactory = resourceFactory;

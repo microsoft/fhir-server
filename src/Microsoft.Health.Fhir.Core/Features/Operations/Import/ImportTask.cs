@@ -102,10 +102,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                Channel<ImportResource> importResourceChannel = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importProgress.EndIndex, idGenerator, cancellationToken);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importProgress.EndIndex, idGenerator, cancellationToken);
 
                 // Import to data store
-                Channel<ImportProgress> progressChannel = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
+                (Channel<ImportProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
 
                 // Update progress for checkpoint
                 await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
@@ -116,7 +116,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     result.SucceedCount = _importProgress.SucceedImportCount;
                     result.FailedCount = _importProgress.FailedImportCount;
 
-                    await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_importProgress), cancellationToken);
+                    try
+                    {
+                        await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_importProgress), cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        // ignore exception for progresss update
+                        _logger.LogInformation(ex, "Failed to update context.");
+                    }
+                }
+
+                // Pop up exception during load & import
+                // Put import task before load task for resource channel full and blocking issue.
+                try
+                {
+                    await importTask;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to import data.");
+                    throw new RetriableTaskException("Failed to import data.", ex);
+                }
+
+                try
+                {
+                    await loadTask;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to load data.");
+                    throw new RetriableTaskException("Failed to load data", ex);
                 }
 
                 return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
@@ -136,6 +166,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 result.ImportError = ex.Message;
                 return new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(result));
+            }
+            finally
+            {
+                _cancellationTokenSource.Cancel();
             }
         }
 

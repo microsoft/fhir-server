@@ -64,22 +64,17 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Transient()
                 .AsService<IProvideCapability>();
 
-            services.Add<BulkResourceLoader>()
+            services.Add<ImportResourceLoader>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<BulkRawResourceProcessor>()
-                .Transient()
-                .AsImplementedInterfaces()
-                .AsSelf();
-
-            services.Add<BulkImportDataExtractor>()
+            services.Add<ImportResourceParser>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<ImportErrorsManager>()
+            services.Add<ImportErrorStoreFactory>()
                 .Transient()
                 .AsSelf()
                 .AsImplementedInterfaces();

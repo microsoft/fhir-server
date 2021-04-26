@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -23,22 +24,126 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenSqlBulkImporter_WhenImportData_AllDataShouldBeImported()
         {
-            await VerifyBulkImporterBehaviourAsync(4321, 1234, 17);
+            long expectedSucceedCount = 4321;
+            long expectedFailedCount = 0;
+            long startIndex = 0;
+            int maxResourceCountInBatch = 123;
+            int checkpointBatchCount = 345;
+            int maxConcurrentCount = 5;
+
+            await VerifyBulkImporterBehaviourAsync(expectedSucceedCount, expectedFailedCount, startIndex, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataCountEqualsBatchCount_AllDataShouldBeImported()
+        public async Task GivenSqlBulkImporter_WhenImportDataWithError_AllDataAndErrorShouldBeImported()
         {
-            await VerifyBulkImporterBehaviourAsync(10, 1234, 10);
+            long expectedSucceedCount = 2000;
+            long expectedFailedCount = 123;
+            long startIndex = 0;
+            int maxResourceCountInBatch = 123;
+            int checkpointBatchCount = 345;
+            int maxConcurrentCount = 5;
+
+            await VerifyBulkImporterBehaviourAsync(expectedSucceedCount, expectedFailedCount, startIndex, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataCountLessThanBatchCount_AllDataShouldBeImported()
+        public async Task GivenSqlBulkImporter_WhenImportDataWithAllFailed_AllErrorShouldBeImported()
         {
-            await VerifyBulkImporterBehaviourAsync(1, 1234, 10);
+            long expectedSucceedCount = 0;
+            long expectedFailedCount = 1234;
+            long startIndex = 0;
+            int maxResourceCountInBatch = 123;
+            int checkpointBatchCount = 345;
+            int maxConcurrentCount = 5;
+
+            await VerifyBulkImporterBehaviourAsync(expectedSucceedCount, expectedFailedCount, startIndex, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
         }
 
-        private static async Task VerifyBulkImporterBehaviourAsync(int resourceCount, long startSurrogatedId, int maxResourceCountInBatch)
+        [Fact]
+        public async Task GivenSqlBulkImporter_WhenImportDataEqualsBatchCount_AllDataAndErrorShouldBeImported()
+        {
+            long expectedSucceedCount = 10;
+            long expectedFailedCount = 1;
+            long startIndex = 0;
+            int maxResourceCountInBatch = 11;
+            int checkpointBatchCount = 11;
+            int maxConcurrentCount = 5;
+
+            await VerifyBulkImporterBehaviourAsync(expectedSucceedCount, expectedFailedCount, startIndex, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
+        }
+
+        [Fact]
+        public async Task GivenSqlBulkImporter_WhenImportDataLessThanBatchCount_AllDataAndErrorShouldBeImported()
+        {
+            long expectedSucceedCount = 10;
+            long expectedFailedCount = 1;
+            long startIndex = 0;
+            int maxResourceCountInBatch = 100;
+            int checkpointBatchCount = 100;
+            int maxConcurrentCount = 5;
+
+            await VerifyBulkImporterBehaviourAsync(expectedSucceedCount, expectedFailedCount, startIndex, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
+        }
+
+        [Fact]
+        public async Task GivenSqlBulkImporter_WhenImportDataFromMiddle_AllDataAndErrorShouldBeImported()
+        {
+            long expectedSucceedCount = 10;
+            long expectedFailedCount = 1;
+            long startIndex = 10;
+            int maxResourceCountInBatch = 100;
+            int checkpointBatchCount = 100;
+            int maxConcurrentCount = 5;
+
+            await VerifyBulkImporterBehaviourAsync(expectedSucceedCount, expectedFailedCount, startIndex, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
+        }
+
+        [Fact]
+        public async Task GivenSqlBulkImporter_WhenImportData_ProgressUpdateShouldInSequence()
+        {
+            long expectedSucceedCount = 1000;
+            long expectedFailedCount = 100;
+            long startIndex = 10;
+            int maxResourceCountInBatch = 10;
+            int checkpointBatchCount = 1;
+            int maxConcurrentCount = 10;
+
+            await VerifyBulkImporterBehaviourAsync(expectedSucceedCount, expectedFailedCount, startIndex, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
+        }
+
+        private static async Task VerifyBulkImporterBehaviourAsync(long expectedSucceedCount, long expectedFailedCount, long startIndex, int maxResourceCountInBatch, int checkpointBatchCount, int maxConcurrentCount)
+        {
+            Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
+            _ = Task.Run(async () =>
+            {
+                long totalCount = expectedSucceedCount + expectedFailedCount;
+                bool[] resourceFailedRecords = new bool[totalCount];
+                for (long i = 0; i < expectedFailedCount; ++i)
+                {
+                    resourceFailedRecords[i] = true;
+                }
+
+                resourceFailedRecords = resourceFailedRecords.OrderBy(_ => Guid.NewGuid()).ToArray();
+                for (long i = 0; i < totalCount; ++i)
+                {
+                    if (resourceFailedRecords[i])
+                    {
+                        await inputs.Writer.WriteAsync(new ImportResource(i, i + startIndex, "Error message"));
+                    }
+                    else
+                    {
+                        await inputs.Writer.WriteAsync(new ImportResource(i, i + startIndex, null, null));
+                    }
+                }
+
+                inputs.Writer.Complete();
+            });
+
+            await VerifyBulkImporterBehaviourAsync(inputs, expectedSucceedCount, expectedFailedCount, startIndex + expectedSucceedCount + expectedFailedCount, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
+        }
+
+        private static async Task VerifyBulkImporterBehaviourAsync(Channel<ImportResource> inputs, long expectedSucceedCount, long expectedFailedCount, long expectedEndIndex, int maxResourceCountInBatch, int checkpointBatchCount, int maxConcurrentCount)
         {
             DataTable table1 = new DataTable();
             DataTable table2 = new DataTable();
@@ -77,42 +182,32 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators);
             importer.MaxResourceCountInBatch = maxResourceCountInBatch;
+            importer.MaxConcurrentCount = maxConcurrentCount;
+            importer.CheckpointBatchResourceCount = checkpointBatchCount;
 
-            Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
-
-            Task produceTask = Task.Run(async () =>
-            {
-                for (int i = 0; i < resourceCount; ++i)
+            List<string> errorLogs = new List<string>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+            importErrorStore.When(t => t.UploadErrorsAsync(Arg.Any<string[]>(), Arg.Any<CancellationToken>()))
+                .Do(call =>
                 {
-                    await inputs.Writer.WriteAsync(new ImportResource(startSurrogatedId + i, 0, null, null));
-                }
-
-                inputs.Writer.Complete();
-            });
-
-            Dictionary<string, long> progressRecords = new Dictionary<string, long>();
-            Action<(string tableName, long endSurrogateId)> progressUpdateAction =
-                progress =>
-                {
-                    progressRecords[progress.tableName] = progress.endSurrogateId;
-                };
-            Task<long> importTask = importer.ImportResourceAsync(inputs, progressUpdateAction, CancellationToken.None);
-
-            await produceTask;
-            long importedResourceCount = await importTask;
-
-            Assert.Equal(resourceCount, importedResourceCount);
-            Assert.Equal(progressRecords["Table1"] + 1, startSurrogatedId + resourceCount);
-            Assert.Equal(progressRecords["Table2"] + 1, startSurrogatedId + resourceCount);
-            Assert.Equal(resourceCount, table1.Rows.Count);
-            Assert.Equal(resourceCount * 2, table2.Rows.Count);
-
-            for (int i = 0; i < resourceCount; ++i)
+                    string[] errors = (string[])call[0];
+                    errorLogs.AddRange(errors);
+                });
+            Channel<ImportProgress> progressChannel = importer.Import(inputs, importErrorStore, CancellationToken.None);
+            ImportProgress finalProgress = new ImportProgress();
+            await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
             {
-                Assert.Equal(startSurrogatedId + i, table1.Rows[i]["ResourceSurrogateId"]);
-                Assert.Equal(startSurrogatedId + i, table2.Rows[i * 2]["ResourceSurrogateId"]);
-                Assert.Equal(startSurrogatedId + i, table2.Rows[(i * 2) + 1]["ResourceSurrogateId"]);
+                Assert.True(finalProgress.EndIndex <= progress.EndIndex);
+                finalProgress = progress;
             }
+
+            Assert.Equal(expectedSucceedCount, finalProgress.SucceedImportCount);
+            Assert.Equal(expectedFailedCount, finalProgress.FailedImportCount);
+            Assert.Equal(expectedEndIndex, finalProgress.EndIndex);
+
+            Assert.Equal(expectedSucceedCount, table1.Rows.Count);
+            Assert.Equal(expectedSucceedCount * 2, table2.Rows.Count);
+            Assert.Equal(expectedFailedCount, errorLogs.Count);
         }
 
         private class TestDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>

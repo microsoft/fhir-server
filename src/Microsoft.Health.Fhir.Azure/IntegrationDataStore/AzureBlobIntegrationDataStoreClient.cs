@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 return await Policy.Handle<StorageException>()
                     .WaitAndRetryAsync(
-                        retryCount: 2,
+                        retryCount: 3,
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
                     .ExecuteAsync(async () =>
                         {
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 await Policy.Handle<StorageException>()
                     .WaitAndRetryAsync(
-                        retryCount: 2,
+                        retryCount: 3,
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
                     .ExecuteAsync(async () =>
                     {
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 await Policy.Handle<StorageException>()
                     .WaitAndRetryAsync(
-                        retryCount: 2,
+                        retryCount: 3,
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
                     .ExecuteAsync(async () =>
                     {

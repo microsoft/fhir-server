@@ -44,45 +44,61 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
 
-        public Channel<ImportResource> LoadResources(string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken)
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotEmptyOrWhiteSpace(resourceLocation, nameof(resourceLocation));
 
             Channel<ImportResource> outputChannel = Channel.CreateBounded<ImportResource>(ChannelMaxCapacity);
 
-            Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, idGenerator, cancellationToken));
+            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, idGenerator, cancellationToken));
 
-            return outputChannel;
+            return (outputChannel, loadTask);
         }
 
         private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken)
         {
-            using Stream inputDataStream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), 0, cancellationToken);
-            using StreamReader inputDataReader = new StreamReader(inputDataStream);
-
-            string content = null;
-            long currentIndex = 0;
-            List<(string content, long index)> buffer = new List<(string content, long index)>();
-            Queue<Task<IEnumerable<ImportResource>>> processingTasks = new Queue<Task<IEnumerable<ImportResource>>>();
-
-            while (!cancellationToken.IsCancellationRequested && !string.IsNullOrEmpty(content = await inputDataReader.ReadLineAsync()))
+            try
             {
-                // TODO: improve to load from offset in file
-                if (currentIndex < startIndex)
+                using Stream inputDataStream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), 0, cancellationToken);
+                using StreamReader inputDataReader = new StreamReader(inputDataStream);
+
+                string content = null;
+                long currentIndex = 0;
+                List<(string content, long index)> buffer = new List<(string content, long index)>();
+                Queue<Task<IEnumerable<ImportResource>>> processingTasks = new Queue<Task<IEnumerable<ImportResource>>>();
+
+                while (!cancellationToken.IsCancellationRequested && !string.IsNullOrEmpty(content = await inputDataReader.ReadLineAsync()))
                 {
+                    // TODO: improve to load from offset in file
+                    if (currentIndex < startIndex)
+                    {
+                        currentIndex++;
+                        continue;
+                    }
+
+                    buffer.Add((content, currentIndex));
                     currentIndex++;
-                    continue;
+
+                    if (buffer.Count < MaxBatchSize)
+                    {
+                        continue;
+                    }
+
+                    while (processingTasks.Count >= MaxConcurrentCount)
+                    {
+                        IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
+                        foreach (ImportResource importResource in importResources)
+                        {
+                            await outputChannel.Writer.WriteAsync(importResource);
+                        }
+                    }
+
+                    processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), idGenerator));
+                    buffer.Clear();
                 }
 
-                buffer.Add((content, currentIndex));
-                currentIndex++;
-
-                if (buffer.Count < MaxBatchSize)
-                {
-                    continue;
-                }
-
-                while (processingTasks.Count >= MaxConcurrentCount)
+                processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), idGenerator));
+                while (processingTasks.Count > 0)
                 {
                     IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
                     foreach (ImportResource importResource in importResources)
@@ -91,22 +107,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
                 }
 
-                processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), idGenerator));
-                buffer.Clear();
+                _logger.LogInformation($"{currentIndex} lines loaded.");
             }
-
-            processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), idGenerator));
-            while (processingTasks.Count > 0)
+            finally
             {
-                IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
-                foreach (ImportResource importResource in importResources)
-                {
-                    await outputChannel.Writer.WriteAsync(importResource);
-                }
+                outputChannel.Writer.Complete();
             }
-
-            outputChannel.Writer.Complete();
-            _logger.LogInformation($"{currentIndex} lines loaded.");
         }
 
         private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync((string content, long index)[] rawContents, Func<long, long> idGenerator)

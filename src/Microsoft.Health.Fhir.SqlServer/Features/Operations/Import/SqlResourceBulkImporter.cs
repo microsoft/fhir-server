@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
@@ -26,19 +27,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
         private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
         private IFhirDataBulkOperation _fhirDataBulkOperation;
+        private ILogger<SqlResourceBulkImporter> _logger;
 
         public SqlResourceBulkImporter(
             IFhirDataBulkOperation fhirDataBulkOperation,
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
-            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators)
+            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators,
+            ILogger<SqlResourceBulkImporter> logger)
         {
             EnsureArg.IsNotNull(fhirDataBulkOperation, nameof(fhirDataBulkOperation));
             EnsureArg.IsNotNull(sqlBulkCopyDataWrapperFactory, nameof(sqlBulkCopyDataWrapperFactory));
             EnsureArg.IsNotNull(generators, nameof(generators));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataBulkOperation = fhirDataBulkOperation;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
             _generators = generators;
+            _logger = logger;
         }
 
         public SqlResourceBulkImporter(
@@ -60,7 +65,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenStringCompositeSearchParamsTableBulkCopyDataGenerator tokenStringCompositeSearchParamsTableBulkCopyDataGenerator,
             TokenTextSearchParamsTableBulkCopyDataGenerator tokenTextSearchParamsTableBulkCopyDataGenerator,
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
-            UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator)
+            UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator,
+            ILogger<SqlResourceBulkImporter> logger)
         {
             EnsureArg.IsNotNull(fhirDataBulkOperation, nameof(fhirDataBulkOperation));
             EnsureArg.IsNotNull(sqlBulkCopyDataWrapperFactory, nameof(sqlBulkCopyDataWrapperFactory));
@@ -81,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(tokenTextSearchParamsTableBulkCopyDataGenerator, nameof(tokenTextSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(uriSearchParamsTableBulkCopyDataGenerator, nameof(uriSearchParamsTableBulkCopyDataGenerator));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataBulkOperation = fhirDataBulkOperation;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
@@ -102,6 +109,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _generators.Add(tokenTextSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(uriSearchParamsTableBulkCopyDataGenerator);
+
+            _logger = logger;
         }
 
         public int MaxResourceCountInBatch { get; set; } = DefaultMaxResourceCountInBatch;
@@ -110,103 +119,120 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         public int CheckpointBatchResourceCount { get; set; } = DefaultCheckpointBatchResourceCount;
 
-        public Channel<ImportProgress> Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
+        public (Channel<ImportProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
         {
             Channel<ImportProgress> outputChannel = Channel.CreateUnbounded<ImportProgress>();
 
-            Task.Run(async () =>
+            Task importTask = Task.Run(async () =>
             {
                 await ImportInternalAsync(inputChannel, outputChannel, importErrorStore, cancellationToken);
             });
 
-            return outputChannel;
+            return (outputChannel, importTask);
         }
 
         public async Task ImportInternalAsync(Channel<ImportResource> inputChannel, Channel<ImportProgress> outputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
         {
-            Task checkpointTask = Task.CompletedTask;
-
-            long succeedCount = 0;
-            long failedCount = 0;
-            long lastCheckpointIndex = -1;
-            long currentIndex = -1;
-            Dictionary<string, DataTable> resourceBuffer = new Dictionary<string, DataTable>();
-            List<string> importErrorBuffer = new List<string>();
-            Queue<Task<ImportProgress>> importTasks = new Queue<Task<ImportProgress>>();
-
-            await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync())
+            try
             {
-                currentIndex = resource.Index;
+                Task checkpointTask = Task.CompletedTask;
 
-                if (resource.ImportError != null)
-                {
-                    importErrorBuffer.Add(resource.ImportError);
-                    failedCount++;
-                }
-                else
-                {
-                    SqlBulkCopyDataWrapper dataWrapper = _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(resource);
+                long succeedCount = 0;
+                long failedCount = 0;
+                long lastCheckpointIndex = -1;
+                long currentIndex = -1;
+                Dictionary<string, DataTable> resourceBuffer = new Dictionary<string, DataTable>();
+                List<string> importErrorBuffer = new List<string>();
+                Queue<Task<ImportProgress>> importTasks = new Queue<Task<ImportProgress>>();
 
-                    foreach (TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper> generator in _generators)
+                await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync())
+                {
+                    currentIndex = resource.Index;
+
+                    if (!string.IsNullOrEmpty(resource.ImportError))
                     {
-                        if (!resourceBuffer.ContainsKey(generator.TableName))
+                        importErrorBuffer.Add(resource.ImportError);
+                        failedCount++;
+                    }
+                    else
+                    {
+                        SqlBulkCopyDataWrapper dataWrapper = _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(resource);
+
+                        // Fill in all tables for single resource
+                        foreach (TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper> generator in _generators)
                         {
-                            resourceBuffer[generator.TableName] = generator.GenerateDataTable();
+                            if (!resourceBuffer.ContainsKey(generator.TableName))
+                            {
+                                resourceBuffer[generator.TableName] = generator.GenerateDataTable();
+                            }
+
+                            generator.FillDataTable(resourceBuffer[generator.TableName], dataWrapper);
                         }
 
-                        generator.FillDataTable(resourceBuffer[generator.TableName], dataWrapper);
+                        succeedCount++;
                     }
 
-                    succeedCount++;
-                }
-
-                bool shouldCreateCheckpoint = resource.Index - lastCheckpointIndex >= CheckpointBatchResourceCount;
-                if (shouldCreateCheckpoint)
-                {
-                    string[] tableNameNeedImport = resourceBuffer.Keys.ToArray();
-
-                    foreach (string tableName in tableNameNeedImport)
+                    bool shouldCreateCheckpoint = resource.Index - lastCheckpointIndex >= CheckpointBatchResourceCount;
+                    if (shouldCreateCheckpoint)
                     {
-                        DataTable dataTable = resourceBuffer[tableName];
-                        resourceBuffer.Remove(tableName);
-                        await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                        // Create checkpoint for all tables not empty
+                        string[] tableNameNeedImport = resourceBuffer.Where(r => r.Value.Rows.Count > 0).Select(r => r.Key).ToArray();
+
+                        foreach (string tableName in tableNameNeedImport)
+                        {
+                            DataTable dataTable = resourceBuffer[tableName];
+                            resourceBuffer.Remove(tableName);
+                            await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                        }
+
+                        // wait previous checkpoint task complete
+                        await checkpointTask;
+
+                        // upload error logs for import errors
+                        string[] importErrors = importErrorBuffer.ToArray();
+                        importErrorBuffer.Clear();
+                        lastCheckpointIndex = resource.Index;
+                        checkpointTask = await EnqueueTaskAsync(importTasks, () => UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrors, currentIndex, cancellationToken), outputChannel);
                     }
-
-                    string[] importErrors = importErrorBuffer.ToArray();
-                    importErrorBuffer.Clear();
-                    await EnqueueTaskAsync(importTasks, () => UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrors, currentIndex, cancellationToken), outputChannel);
-                }
-                else
-                {
-                    string[] tableNameNeedImport =
-                                resourceBuffer.Where(r => r.Value.Rows.Count >= MaxResourceCountInBatch).Select(r => r.Key).ToArray();
-
-                    foreach (string tableName in tableNameNeedImport)
+                    else
                     {
-                        DataTable dataTable = resourceBuffer[tableName];
-                        resourceBuffer.Remove(tableName);
-                        await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                        // import table >= MaxResourceCountInBatch
+                        string[] tableNameNeedImport =
+                                    resourceBuffer.Where(r => r.Value.Rows.Count >= MaxResourceCountInBatch).Select(r => r.Key).ToArray();
+
+                        foreach (string tableName in tableNameNeedImport)
+                        {
+                            DataTable dataTable = resourceBuffer[tableName];
+                            resourceBuffer.Remove(tableName);
+                            await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                        }
                     }
                 }
-            }
 
-            foreach (string tableName in resourceBuffer.Keys.ToArray())
+                // Import all remain tables
+                foreach (string tableName in resourceBuffer.Keys.ToArray())
+                {
+                    DataTable dataTable = resourceBuffer[tableName];
+                    await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                }
+
+                // Wait all table import task complete
+                while (importTasks.Count > 0)
+                {
+                    await importTasks.Dequeue();
+                }
+
+                // Upload remain error logs
+                ImportProgress progress = await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
+                await outputChannel.Writer.WriteAsync(progress);
+            }
+            finally
             {
-                DataTable dataTable = resourceBuffer[tableName];
-                await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
+                outputChannel.Writer.Complete();
             }
-
-            while (importTasks.Count > 0)
-            {
-                await importTasks.Dequeue();
-            }
-
-            ImportProgress progress = await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
-            await outputChannel.Writer.WriteAsync(progress);
-            outputChannel.Writer.Complete();
         }
 
-        private async Task<ImportProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeedCount, long failedCount, string[] importErrors, long lastIndex, CancellationToken cancellationToken)
+        private static async Task<ImportProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeedCount, long failedCount, string[] importErrors, long lastIndex, CancellationToken cancellationToken)
         {
             await importErrorStore.UploadErrorsAsync(importErrors, cancellationToken);
             ImportProgress progress = new ImportProgress();
@@ -214,17 +240,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             progress.FailedImportCount = failedCount;
             progress.EndIndex = lastIndex + 1;
 
+            // Return progress for checkpoint progress
             return progress;
         }
 
         private async Task<ImportProgress> ImportDataTableAsync(DataTable table, CancellationToken cancellationToken)
         {
-            await _fhirDataBulkOperation.BulkCopyDataAsync(table, cancellationToken);
+            try
+            {
+                await _fhirDataBulkOperation.BulkCopyDataAsync(table, cancellationToken);
 
-            return null;
+                // Return null for non checkpoint progress
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to import table. {0}", table.TableName);
+
+                throw;
+            }
         }
 
-        private async Task EnqueueTaskAsync(Queue<Task<ImportProgress>> importTasks, Func<Task<ImportProgress>> newTaskFactory, Channel<ImportProgress> progressChannel)
+        private async Task<Task<ImportProgress>> EnqueueTaskAsync(Queue<Task<ImportProgress>> importTasks, Func<Task<ImportProgress>> newTaskFactory, Channel<ImportProgress> progressChannel)
         {
             while (importTasks.Count >= MaxConcurrentCount)
             {
@@ -235,7 +272,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
             }
 
-            importTasks.Enqueue(newTaskFactory());
+            Task<ImportProgress> newTask = newTaskFactory();
+            importTasks.Enqueue(newTask);
+
+            return newTask;
         }
     }
 }

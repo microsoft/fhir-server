@@ -6,11 +6,12 @@
 using System;
 using System.Threading;
 using System.Threading.Channels;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public interface IImportResourceLoader
     {
-        public Channel<ImportResource> LoadResources(string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken);
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken);
     }
 }
