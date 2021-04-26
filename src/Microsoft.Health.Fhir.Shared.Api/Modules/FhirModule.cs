@@ -18,7 +18,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -40,13 +39,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
     public class FhirModule : IStartupModule
     {
         private static readonly Regex MessageChecker = new Regex("Type checking the data: Literal '(.*)' cannot be parsed as a (.*). \\(at (.*)\\)", RegexOptions.Compiled);
-        private readonly FeatureConfiguration _featureConfiguration;
-
-        public FhirModule(FhirServerConfiguration fhirServerConfiguration)
-        {
-            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
-            _featureConfiguration = fhirServerConfiguration.Features;
-        }
 
         /// <inheritdoc />
         public void Load(IServiceCollection services)
