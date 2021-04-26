@@ -332,36 +332,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // call NextResultAsync to get the info messages
                     await reader.NextResultAsync(cancellationToken);
 
-                    // Continuation token prep
-                    ContinuationToken continuationToken = null;
-                    if (moreResults)
-                    {
-                        if (sortValue.HasValue)
-                        {
-                            continuationToken = new ContinuationToken(new object[]
-                            {
-                                sortValue.Value.ToString("o"),
-                                newContinuationType ?? 0,
-                                newContinuationId ?? 0,
-                            });
-                        }
-                        else if (searchType == SqlSearchType.History)
-                        {
-                            // history is always only sorted by ResourceSurrogateId
-                            continuationToken = new ContinuationToken(new object[]
-                            {
-                                newContinuationId ?? 0,
-                            });
-                        }
-                        else
-                        {
-                            continuationToken = new ContinuationToken(new object[]
-                            {
-                                newContinuationType ?? 0,
-                                newContinuationId ?? 0,
-                            });
-                        }
-                    }
+                    ContinuationToken continuationToken =
+                        moreResults
+                            ? new ContinuationToken(
+                                searchOptions.Sort.Select(s =>
+                                    s.searchParameterInfo.Name switch
+                                    {
+                                        SearchParameterNames.ResourceType => (object)newContinuationType,
+                                        SearchParameterNames.LastUpdated => newContinuationId,
+                                        _ => sortValue.Value.ToString("o"),
+                                    }).ToArray())
+                            : null;
 
                     if (isResultPartial)
                     {
@@ -464,6 +445,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), searchOptions.Sort[0].sortOrder),
                     };
                 }
+
+                return searchOptions;
+            }
+
+            if (searchOptions.Sort[^1].searchParameterInfo.Name != SearchParameterNames.LastUpdated)
+            {
+                // Make sure custom sort has _lastUpdated as the last sort parameter.
+
+                searchOptions = searchOptions.Clone();
+
+                ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
+
+                searchOptions.Sort = new List<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(searchOptions.Sort)
+                {
+                    (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+                };
+
+                return searchOptions;
             }
 
             return searchOptions;
