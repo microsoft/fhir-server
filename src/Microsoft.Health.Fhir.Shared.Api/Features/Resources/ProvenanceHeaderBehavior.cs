@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
                 // Set target to provided resource.
                 provenance.Target = new System.Collections.Generic.List<ResourceReference>()
                 {
-                    new ResourceReference($"{response.Outcome.RawResourceElement.InstanceType}/{response.Outcome.RawResourceElement.Id}"),
+                    new ResourceReference($"{response.Outcome.RawResourceElement.InstanceType}/{response.Outcome.RawResourceElement.Id}/_history/{response.Outcome.RawResourceElement.VersionId}"),
                 };
 
                 // Create Provenance resource.
