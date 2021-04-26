@@ -47,9 +47,10 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                         {
                             CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
                             CloudBlobContainer container = cloudBlobClient.GetContainerReference(containerId);
+
                             await container.CreateIfNotExistsAsync(cancellationToken);
 
-                            CloudBlockBlob blob = container.GetBlockBlobReference(fileName);
+                            CloudBlob blob = container.GetBlobReference(fileName);
                             return blob.Uri;
                         });
             }

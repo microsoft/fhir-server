@@ -28,6 +28,7 @@
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
                 "DataStore": "SqlServer",
                 "TaskHosting:Enabled": "true",
+                "TaskHosting:QueueId": "default",
                 "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },

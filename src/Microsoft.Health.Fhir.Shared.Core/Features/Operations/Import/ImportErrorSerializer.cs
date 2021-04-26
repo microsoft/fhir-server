@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import
             var issue = new OperationOutcome.IssueComponent();
             issue.Severity = OperationOutcome.IssueSeverity.Error;
             issue.Diagnostics = string.Format("Failed to process resource at line: {0}", index);
+            issue.Details = new CodeableConcept();
             issue.Details.Text = ex.Message;
             OperationOutcome operationOutcome = new OperationOutcome();
             operationOutcome.Issue.Add(issue);

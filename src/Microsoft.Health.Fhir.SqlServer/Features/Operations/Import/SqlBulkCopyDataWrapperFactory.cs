@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
@@ -36,6 +37,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 ResourceSurrogateId = resource.Id,
                 CompressedRawData = resource.CompressedRawData,
             };
+        }
+
+        public async Task EnsureInitializedAsync()
+        {
+            await _model.EnsureInitialized();
         }
     }
 }

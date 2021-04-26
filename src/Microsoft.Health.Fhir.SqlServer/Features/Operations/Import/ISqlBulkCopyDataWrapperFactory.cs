@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -10,5 +11,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
     public interface ISqlBulkCopyDataWrapperFactory
     {
         public SqlBulkCopyDataWrapper CreateSqlBulkCopyDataWrapper(ImportResource resource);
+
+        public Task EnsureInitializedAsync();
     }
 }

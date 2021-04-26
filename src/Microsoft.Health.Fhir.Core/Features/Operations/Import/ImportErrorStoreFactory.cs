@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportErrorStoreFactory : IImportErrorStoreFactory
     {
-        private const string LogContainerName = "logs";
+        private const string LogContainerName = "fhirlogs";
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;
 

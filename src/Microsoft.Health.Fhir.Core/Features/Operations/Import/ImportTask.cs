@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private string GetErrorFileName()
         {
-            return $"{_inputData.ResourceType}-{_inputData.TaskId}.ndjson";
+            return $"{_inputData.ResourceType}{_inputData.TaskId}.ndjson";
         }
 
         private async Task CleanDataAsync(CancellationToken cancellationToken)

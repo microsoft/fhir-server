@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -112,6 +113,111 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await VerifyBulkImporterBehaviourAsync(expectedSucceedCount, expectedFailedCount, startIndex, maxResourceCountInBatch, checkpointBatchCount, maxConcurrentCount);
         }
 
+        [Fact]
+        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInBulkOpertation_ChannelShouldBeCompleteAndExceptionShouldThrow()
+        {
+            Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
+            await inputs.Writer.WriteAsync(new ImportResource(0, 0, null, null));
+            inputs.Writer.Complete();
+
+            IFhirDataBulkOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            testFhirDataBulkOperation
+                .BulkCopyDataAsync(Arg.Any<DataTable>(), Arg.Any<CancellationToken>())
+                .Returns((callInfo) =>
+                {
+                    throw new InvalidOperationException();
+                });
+
+            ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
+            dataWrapperFactory.CreateSqlBulkCopyDataWrapper(Arg.Any<ImportResource>())
+                .Returns((callInfo) =>
+                {
+                    ImportResource resource = (ImportResource)callInfo[0];
+                    return new SqlBulkCopyDataWrapper()
+                    {
+                        ResourceSurrogateId = resource.Id,
+                    };
+                });
+
+            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>()
+            {
+                new TestDataGenerator("Table1", 1),
+                new TestDataGenerator("Table2", 2),
+            };
+
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, NullLogger<SqlResourceBulkImporter>.Instance);
+
+            List<string> errorLogs = new List<string>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+            (Channel<ImportProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
+
+            await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
+            {
+                // Do nothing...
+            }
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => importTask);
+        }
+
+        [Fact]
+        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInErrorLogUpload_ChannelShouldBeCompleteAndExceptionShouldThrow()
+        {
+            Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
+            await inputs.Writer.WriteAsync(new ImportResource(0, 0, "Error message"));
+            inputs.Writer.Complete();
+
+            IFhirDataBulkOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
+            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
+
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, NullLogger<SqlResourceBulkImporter>.Instance);
+
+            List<string> errorLogs = new List<string>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+            importErrorStore.UploadErrorsAsync(Arg.Any<string[]>(), Arg.Any<CancellationToken>())
+                .Returns((_) => throw new InvalidOperationException());
+
+            (Channel<ImportProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
+
+            await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
+            {
+                // Do nothing...
+            }
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => importTask);
+        }
+
+        [Fact]
+        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInProcessResource_ChannelShouldBeCompleteAndExceptionShouldThrow()
+        {
+            Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
+            await inputs.Writer.WriteAsync(new ImportResource(0, 0, null, null));
+            inputs.Writer.Complete();
+
+            IFhirDataBulkOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
+            dataWrapperFactory.CreateSqlBulkCopyDataWrapper(Arg.Any<ImportResource>())
+                .Returns((callInfo) =>
+                {
+                    throw new InvalidOperationException();
+                });
+            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
+
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, NullLogger<SqlResourceBulkImporter>.Instance);
+
+            List<string> errorLogs = new List<string>();
+            IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
+
+            (Channel<ImportProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
+
+            await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
+            {
+                // Do nothing...
+            }
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => importTask);
+        }
+
         private static async Task VerifyBulkImporterBehaviourAsync(long expectedSucceedCount, long expectedFailedCount, long startIndex, int maxResourceCountInBatch, int checkpointBatchCount, int maxConcurrentCount)
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
@@ -180,7 +286,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 new TestDataGenerator("Table2", 2),
             };
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators);
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, NullLogger<SqlResourceBulkImporter>.Instance);
             importer.MaxResourceCountInBatch = maxResourceCountInBatch;
             importer.MaxConcurrentCount = maxConcurrentCount;
             importer.CheckpointBatchResourceCount = checkpointBatchCount;
@@ -193,13 +299,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     string[] errors = (string[])call[0];
                     errorLogs.AddRange(errors);
                 });
-            Channel<ImportProgress> progressChannel = importer.Import(inputs, importErrorStore, CancellationToken.None);
+            (Channel<ImportProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
             ImportProgress finalProgress = new ImportProgress();
             await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
             {
                 Assert.True(finalProgress.EndIndex <= progress.EndIndex);
                 finalProgress = progress;
             }
+
+            await importTask;
 
             Assert.Equal(expectedSucceedCount, finalProgress.SucceedImportCount);
             Assert.Equal(expectedFailedCount, finalProgress.FailedImportCount);

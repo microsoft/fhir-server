@@ -25,6 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task UploadErrorsAsync(string[] importErrors, CancellationToken cancellationToken)
         {
+            if (importErrors == null || importErrors.Length == 0)
+            {
+                return;
+            }
+
             using Stream stream = new MemoryStream();
             using StreamWriter writer = new StreamWriter(stream);
 

@@ -11,10 +11,12 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
+using Polly;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
@@ -145,6 +147,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 List<string> importErrorBuffer = new List<string>();
                 Queue<Task<ImportProgress>> importTasks = new Queue<Task<ImportProgress>>();
 
+                await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
                 await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync())
                 {
                     currentIndex = resource.Index;
@@ -210,7 +213,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 // Import all remain tables
-                foreach (string tableName in resourceBuffer.Keys.ToArray())
+                string[] allTablesNotNull = resourceBuffer.Where(r => r.Value.Rows.Count > 0).Select(r => r.Key).ToArray();
+                foreach (string tableName in allTablesNotNull)
                 {
                     DataTable dataTable = resourceBuffer[tableName];
                     await EnqueueTaskAsync(importTasks, () => ImportDataTableAsync(dataTable, cancellationToken), outputChannel);
@@ -248,7 +252,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             try
             {
-                await _fhirDataBulkOperation.BulkCopyDataAsync(table, cancellationToken);
+                await Policy.Handle<SqlException>()
+                    .WaitAndRetryAsync(
+                        retryCount: 10,
+                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
+                    .ExecuteAsync(async () =>
+                    {
+                        await _fhirDataBulkOperation.BulkCopyDataAsync(table, cancellationToken);
+                    });
 
                 // Return null for non checkpoint progress
                 return null;
