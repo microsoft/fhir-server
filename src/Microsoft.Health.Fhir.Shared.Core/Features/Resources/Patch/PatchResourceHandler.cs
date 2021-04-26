@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
                 return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
             }
-            catch (JsonPatchException e)
+            catch (Exception e)
             {
                 throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, e.Message));
             }
