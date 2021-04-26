@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResourceLoader : IImportResourceLoader
     {
-        private const int ChannelMaxCapacity = 3000;
+        private const int DefaultChannelMaxCapacity = 3000;
         private const int DefaultMaxBatchSize = 1000;
         private static readonly int MaxConcurrentCount = Environment.ProcessorCount * 2;
 
@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         }
 
         public int MaxBatchSize { get; set; } = DefaultMaxBatchSize;
+
+        public int ChannelMaxCapacity { get; set; } = DefaultChannelMaxCapacity;
 
         public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken)
         {

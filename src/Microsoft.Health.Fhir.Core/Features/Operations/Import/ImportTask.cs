@@ -107,9 +107,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 // Import to data store
                 (Channel<ImportProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
 
-                // Update progress for checkpoint
+                // Update progress for checkpoints
                 await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException("Import task is canceled by user.");
+                    }
+
                     _importProgress.SucceedImportCount = progress.SucceedImportCount + succeedImportCount;
                     _importProgress.FailedImportCount = progress.FailedImportCount + failedImportCount;
                     _importProgress.EndIndex = progress.EndIndex;
@@ -133,6 +138,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     await importTask;
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to import data.");
@@ -142,6 +151,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 try
                 {
                     await loadTask;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -153,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogError(canceledEx, "Critical error in data processing task.");
+                _logger.LogError(canceledEx, "Data processing task is canceled.");
                 return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
             }
             catch (RetriableTaskException)
@@ -197,6 +210,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             try
             {
                 await _fhirDataBulkOperation.CleanBatchResourceAsync(startId + endIndex, endId, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
