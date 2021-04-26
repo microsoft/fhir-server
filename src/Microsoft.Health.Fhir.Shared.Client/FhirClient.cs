@@ -392,6 +392,19 @@ namespace Microsoft.Health.Fhir.Client
             await HttpClient.SendAsync(message, cancellationToken);
         }
 
+        public async Task<HttpResponseMessage> CheckBulkImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            message.Headers.Add("Accept", "application/fhir+json");
+            message.Headers.Add("Prefer", "respond-async");
+
+            var response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return response;
+        }
+
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)

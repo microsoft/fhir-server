@@ -57,32 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
                 throw new UnauthorizedFhirActionException();
             }
 
-            var inputData = JsonSerializer.Serialize(request);
-            var taskId = inputData.ToLowerInvariant().ComputeHash();
-            var bulkImportTask = await _taskManager.GetTaskAsync(taskId, cancellationToken);
-            if (bulkImportTask == null)
-            {
-                bulkImportTask = new TaskInfo()
-                {
-                    TaskId = taskId,
-                    QueueId = "0",
-                    TaskTypeId = ImportTask.ResourceImportTaskId,
-                    InputData = inputData,
-                };
-
-                try
-                {
-                    _logger.LogInformation("Attempting to create bulk import task {0}", bulkImportTask.TaskId);
-                    bulkImportTask = await _taskManager.CreateTaskAsync(bulkImportTask, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Unable to create bulk import job {0} for request {1}", bulkImportTask.TaskId, request.RequestUri);
-                    throw;
-                }
-            }
-
-            return new CreateBulkImportResponse(bulkImportTask.TaskId);
+            throw new NotImplementedException();
         }
     }
 }

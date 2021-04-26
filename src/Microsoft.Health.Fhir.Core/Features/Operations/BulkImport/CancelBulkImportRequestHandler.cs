@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -15,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
 using Microsoft.Health.Fhir.TaskManagement;
-using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
 {
@@ -45,26 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
                 throw new UnauthorizedFhirActionException();
             }
 
-            try
-            {
-                var taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
-
-                // if the task is already canceled or completed, return conflict status
-                if (taskInfo.IsCanceled || taskInfo.Status == TaskStatus.Completed)
-                {
-                    return new CancelBulkImportResponse(HttpStatusCode.Conflict);
-                }
-
-                _logger.LogInformation($"Attempting to cancel bulk import task {request.TaskId}");
-                await _taskManager.CancelTaskAsync(request.TaskId, cancellationToken);
-
-                return new CancelBulkImportResponse(HttpStatusCode.Accepted);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unable to cancel bulk import task {0}", request.TaskId);
-                throw;
-            }
+            throw new NotImplementedException();
         }
     }
 }

@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Net;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -13,7 +13,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.BulkImport;
 using Microsoft.Health.Fhir.TaskManagement;
-using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
 {
@@ -40,29 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
                 throw new UnauthorizedFhirActionException();
             }
 
-            GetBulkImportResponse bulkImportResponse;
-
-            var taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
-
-            // We have an existing job. We will determine the response based on the status of the bulk import operation.
-            if (taskInfo.Status == TaskStatus.Completed)
-            {
-                bulkImportResponse = new GetBulkImportResponse(HttpStatusCode.OK, taskInfo.Result);
-            }
-            else if (taskInfo.IsCanceled)
-            {
-                string failureReason = $"Bulk import {taskInfo.TaskId} was canceled";
-                HttpStatusCode failureStatusCode = HttpStatusCode.BadRequest;
-
-                throw new OperationFailedException(
-                    string.Format(Resources.OperationFailed, OperationsConstants.BulkImport, failureReason), failureStatusCode);
-            }
-            else
-            {
-                bulkImportResponse = new GetBulkImportResponse(HttpStatusCode.Accepted);
-            }
-
-            return bulkImportResponse;
+            throw new NotImplementedException();
         }
     }
 }

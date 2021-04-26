@@ -7,6 +7,10 @@ namespace Microsoft.Health.Fhir.TaskManagement
 {
     public class TaskResultData
     {
+        public TaskResultData()
+        {
+        }
+
         public TaskResultData(TaskResult result, string resultData)
         {
             Result = result;

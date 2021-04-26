@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 if (!context.HttpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out var contentTypeHeaderValue) ||
                     preferHeaderValue.Count != 1 ||
-                    !string.Equals(contentTypeHeaderValue[0], ContentTypeHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
+                    !contentTypeHeaderValue[0].Contains(ContentTypeHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, ContentTypeHeaderExpectedValue));
                 }
