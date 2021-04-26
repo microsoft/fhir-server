@@ -139,4 +139,7 @@
     <value>The SearchParameter with type {0} is not supported by SQL server.</value>
     <comment>{0} is the data type of the search parameter</comment>
   </data>
+  <data name="EverythingOperationNotSupported" xml:space="preserve">
+    <value>$everything operation is not yet implemented in SQL Server.</value>
+  </data>
 </root>

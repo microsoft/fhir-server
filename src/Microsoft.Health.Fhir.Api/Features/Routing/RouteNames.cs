@@ -39,6 +39,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         internal const string PostBundle = "PostBundle";
 
+        internal const string EverythingOperationById = "EverythingOperationById";
+
         internal const string ReindexOperationDefintion = "ReindexOperationDefintion";
 
         internal const string ResourceReindexOperationDefinition = "ResourceReindexOperationDefinition";

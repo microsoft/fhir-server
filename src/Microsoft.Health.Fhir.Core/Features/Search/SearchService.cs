@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// </summary>
     public abstract class SearchService : ISearchService
     {
-        private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly IFhirDataStore _fhirDataStore;
 
         /// <summary>
@@ -36,9 +35,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
 
-            _searchOptionsFactory = searchOptionsFactory;
+            SearchOptionsFactory = searchOptionsFactory;
             _fhirDataStore = fhirDataStore;
         }
+
+        protected ISearchOptionsFactory SearchOptionsFactory { get; }
 
         /// <inheritdoc />
         public async Task<SearchResult> SearchAsync(
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
+            SearchOptions searchOptions = SearchOptionsFactory.Create(resourceType, queryParameters);
 
             // Execute the actual search.
             return await SearchInternalAsync(searchOptions, cancellationToken);
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IReadOnlyList<Tuple<string, string>> queryParameters,
             CancellationToken cancellationToken)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+            SearchOptions searchOptions = SearchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters);
 
             // Execute the actual search.
             return await SearchInternalAsync(searchOptions, cancellationToken);
@@ -159,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
             }
 
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
+            SearchOptions searchOptions = SearchOptionsFactory.Create(resourceType, queryParameters);
 
             SearchResult searchResult = await SearchHistoryInternalAsync(searchOptions, cancellationToken);
 
@@ -185,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             bool countOnly,
             CancellationToken cancellationToken)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters);
+            SearchOptions searchOptions = SearchOptionsFactory.Create(null, queryParameters);
 
             if (countOnly)
             {
@@ -195,6 +196,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
 
             return results;
+        }
+
+        public async Task<SearchResult> SearchForEverythingOperationAsync(
+            string resourceType,
+            string resourceId,
+            PartialDateTime start,
+            PartialDateTime end,
+            PartialDateTime since,
+            string type,
+            int? count,
+            string continuationToken,
+            IReadOnlyList<string> includes,
+            IReadOnlyList<Tuple<string, string>> revincludes,
+            CancellationToken cancellationToken)
+        {
+            return await SearchForEverythingOperationInternalAsync(resourceType, resourceId, start, end, since, type, count, continuationToken, includes, revincludes, cancellationToken);
         }
 
         /// <summary>
@@ -214,6 +231,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         protected abstract Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
             string searchParameterHash,
+            CancellationToken cancellationToken);
+
+        protected abstract Task<SearchResult> SearchForEverythingOperationInternalAsync(
+            string resourceType,
+            string resourceId,
+            PartialDateTime start,
+            PartialDateTime end,
+            PartialDateTime since,
+            string type,
+            int? count,
+            string continuationToken,
+            IReadOnlyList<string> includes,
+            IReadOnlyList<Tuple<string, string>> revincludes,
             CancellationToken cancellationToken);
     }
 }
