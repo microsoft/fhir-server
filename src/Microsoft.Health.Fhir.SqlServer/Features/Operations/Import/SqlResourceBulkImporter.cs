@@ -137,6 +137,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             try
             {
+                _logger.LogInformation("Start to import data to SQL data store.");
+
                 Task checkpointTask = Task.CompletedTask;
 
                 long succeedCount = 0;
@@ -150,6 +152,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
                 await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync())
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException();
+                    }
+
                     currentIndex = resource.Index;
 
                     if (!string.IsNullOrEmpty(resource.ImportError))
@@ -233,6 +240,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             finally
             {
                 outputChannel.Writer.Complete();
+                _logger.LogInformation("Import data to SQL data store complete.");
             }
         }
 

@@ -61,6 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             try
             {
+                _logger.LogInformation("Start to load resource from store.");
+
                 using Stream inputDataStream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), 0, cancellationToken);
                 using StreamReader inputDataReader = new StreamReader(inputDataStream);
 
@@ -69,8 +71,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 List<(string content, long index)> buffer = new List<(string content, long index)>();
                 Queue<Task<IEnumerable<ImportResource>>> processingTasks = new Queue<Task<IEnumerable<ImportResource>>>();
 
-                while (!cancellationToken.IsCancellationRequested && !string.IsNullOrEmpty(content = await inputDataReader.ReadLineAsync()))
+                while (!string.IsNullOrEmpty(content = await inputDataReader.ReadLineAsync()))
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException();
+                    }
+
                     // TODO: improve to load from offset in file
                     if (currentIndex < startIndex)
                     {
@@ -88,6 +95,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     while (processingTasks.Count >= MaxConcurrentCount)
                     {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            throw new OperationCanceledException();
+                        }
+
                         IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
                         foreach (ImportResource importResource in importResources)
                         {
@@ -102,6 +114,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), idGenerator));
                 while (processingTasks.Count > 0)
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException();
+                    }
+
                     IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
                     foreach (ImportResource importResource in importResources)
                     {
@@ -114,6 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             finally
             {
                 outputChannel.Writer.Complete();
+                _logger.LogInformation("Load resource from store complete.");
             }
         }
 

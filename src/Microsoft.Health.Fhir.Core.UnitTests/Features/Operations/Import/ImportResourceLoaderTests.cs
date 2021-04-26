@@ -90,6 +90,56 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(1, errorCount);
         }
 
+        [Fact]
+        public async Task GivenResourceLoader_WhenCancelLoadTask_DataLoadTaskShouldBeCanceled()
+        {
+            string errorMessage = "error";
+            using MemoryStream stream = new MemoryStream();
+            using StreamWriter writer = new StreamWriter(stream);
+            await writer.WriteLineAsync("test");
+            await writer.WriteLineAsync("test");
+            await writer.FlushAsync();
+
+            stream.Position = 0;
+
+            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
+
+            IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
+            importResourceParser.Parse(Arg.Any<string>())
+                .Returns(callInfo =>
+                {
+                    autoResetEvent.WaitOne();
+
+                    throw new InvalidOperationException(errorMessage);
+                });
+
+            IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>())
+                .Returns(callInfo =>
+                {
+                    Exception ex = (Exception)callInfo[1];
+                    return ex.Message;
+                });
+
+            Func<long, long> idGenerator = (i) => i;
+            ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
+
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, idGenerator, cancellationTokenSource.Token);
+
+            cancellationTokenSource.Cancel();
+            autoResetEvent.Set();
+
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            {
+                // do nothing.
+            }
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => importTask);
+        }
+
         private async Task VerifyResourceLoaderAsync(int resourcCount, int batchSize, long startIndex)
         {
             long startId = 1;
