@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     context.StringBuilder.Append(" AND ");
                     AppendColumnName(context, column, expression);
-                    SqlParameter equalsParameter = context.Parameters.AddParameter(column, value);
+                    SqlParameter equalsParameter = context.Parameters.AddParameter(column, value, true);
                     context.StringBuilder.Append(" = ").Append(equalsParameter.ParameterName);
                 }
 
