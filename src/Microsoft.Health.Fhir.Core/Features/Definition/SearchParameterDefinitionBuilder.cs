@@ -29,16 +29,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     {
         private static readonly ISet<Uri> _knownBrokenR5 = new HashSet<Uri>
         {
-            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-url"),
-            new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"),
-            new Uri("http://hl7.org/fhir/SearchParameter/Medication-form"),
-            new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-device"),
-            new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-manufactured-item"),
-            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"),
-            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"),
             new Uri("http://hl7.org/fhir/SearchParameter/EvidenceVariable-topic"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/Medication-form"), // expression is null or empty.
             new Uri("http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost"), // expression is null or empty.
             new Uri("http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost-concept"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-url"), // expression is null or empty.
         };
 
         internal static void Build(
