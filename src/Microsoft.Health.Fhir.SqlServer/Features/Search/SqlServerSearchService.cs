@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 var queryGenerator = new SqlQueryGenerator(
                     stringBuilder,
-                    new SqlQueryParameterManager(sqlCommandWrapper.Parameters),
+                    new HashingSqlQueryParameterManager(new SqlQueryParameterManager(sqlCommandWrapper.Parameters)),
                     _model,
                     searchType,
                     _schemaInformation,
