@@ -8,14 +8,14 @@ using System.Collections.Generic;
 using EnsureThat;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
 {
     /// <summary>
     /// Class used to hold data that needs to be returned to the client when the bulk import task completes.
     /// </summary>
     public class BulkImportTaskResult
     {
-        public BulkImportTaskResult(DateTimeOffset transactionTime, Uri requestUri, IList<BulkImportOutputResponse> output, IList<BulkImportOutputResponse> errors, IList<Core.Models.OperationOutcomeIssue> issues = null)
+        public BulkImportTaskResult(DateTimeOffset transactionTime, Uri requestUri, IList<ImportOutputResponse> output, IList<ImportOutputResponse> errors, IList<Core.Models.OperationOutcomeIssue> issues = null)
         {
             EnsureArg.IsNotDefault<DateTimeOffset>(transactionTime, nameof(transactionTime));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
@@ -41,10 +41,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models
         public Uri RequestUri { get; private set; }
 
         [JsonProperty("output")]
-        public IList<BulkImportOutputResponse> Output { get; private set; }
+        public IList<ImportOutputResponse> Output { get; private set; }
 
         [JsonProperty("error")]
-        public IList<BulkImportOutputResponse> Error { get; private set; }
+        public IList<ImportOutputResponse> Error { get; private set; }
 
         [JsonProperty("issues")]
         public IList<Microsoft.Health.Fhir.Core.Models.OperationOutcomeIssue> Issues { get; private set; }

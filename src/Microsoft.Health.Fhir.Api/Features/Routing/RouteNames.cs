@@ -37,9 +37,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         internal const string GetReindexStatusById = "GetReindexStatusById";
 
-        internal const string GetBulkImportStatusById = "GetBulkImportStatusById";
+        internal const string GetImportStatusById = "GetImportStatusById";
 
-        internal const string CancelBulkImport = "CancelBulkImport";
+        internal const string CancelImport = "CancelImport";
 
         internal const string PostBundle = "PostBundle";
 

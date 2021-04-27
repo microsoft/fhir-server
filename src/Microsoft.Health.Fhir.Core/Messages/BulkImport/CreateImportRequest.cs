@@ -7,18 +7,18 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 
-namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
+namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
-    public class CreateBulkImportRequest : IRequest<CreateBulkImportResponse>
+    public class CreateImportRequest : IRequest<CreateImportResponse>
     {
-        public CreateBulkImportRequest(
+        public CreateImportRequest(
             Uri requestUri,
             string inputFormat,
             Uri inputSource,
-            IReadOnlyList<BulkImportRequestInput> input,
-            BulkImportRequestStorageDetail storageDetail)
+            IReadOnlyList<ImportRequestInput> input,
+            ImportRequestStorageDetail storageDetail)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -35,8 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
 
         public Uri InputSource { get; }
 
-        public IReadOnlyList<BulkImportRequestInput> Input { get; }
+        public IReadOnlyList<ImportRequestInput> Input { get; }
 
-        public BulkImportRequestStorageDetail StorageDetail { get; }
+        public ImportRequestStorageDetail StorageDetail { get; }
     }
 }

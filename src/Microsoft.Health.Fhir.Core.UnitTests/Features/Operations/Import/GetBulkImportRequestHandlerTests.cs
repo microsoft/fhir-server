@@ -12,10 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.TaskManagement;
 using NSubstitute;
 using Xunit;
@@ -43,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            GetBulkImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed);
+            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.NotNull(result.TaskResult);
@@ -63,13 +62,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [InlineData(TaskStatus.Queued)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
         {
-            GetBulkImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(taskStatus);
+            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(taskStatus);
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
             Assert.Null(result.TaskResult);
         }
 
-        private async Task<GetBulkImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false)
+        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false)
         {
             // Result may be changed to real style result later
             var taskInfo = new TaskInfo

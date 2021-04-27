@@ -63,6 +63,6 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string Validate = "validate";
 
-        public const string BulkImport = "import";
+        public const string Import = "import";
     }
 }

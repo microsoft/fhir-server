@@ -4,27 +4,24 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.TaskManagement;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     /// <summary>
     /// MediatR request handler. Called when the BulkImportController creates an BulkImport job.
     /// </summary>
-    public class CreateBulkImportRequestHandler : IRequestHandler<CreateBulkImportRequest, CreateBulkImportResponse>
+    public class CreateBulkImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
     {
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly ITaskManager _taskManager;
@@ -48,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
             _logger = logger;
         }
 
-        public async Task<CreateBulkImportResponse> Handle(CreateBulkImportRequest request, CancellationToken cancellationToken)
+        public async Task<CreateImportResponse> Handle(CreateImportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

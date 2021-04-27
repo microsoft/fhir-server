@@ -11,12 +11,12 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.TaskManagement;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class GetBulkImportRequestHandler : IRequestHandler<GetBulkImportRequest, GetBulkImportResponse>
+    public class GetBulkImportRequestHandler : IRequestHandler<GetImportRequest, GetImportResponse>
     {
         private readonly ITaskManager _taskManager;
         private readonly IAuthorizationService<DataActions> _authorizationService;
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
             _authorizationService = authorizationService;
         }
 
-        public async Task<GetBulkImportResponse> Handle(GetBulkImportRequest request, CancellationToken cancellationToken)
+        public async Task<GetImportResponse> Handle(GetImportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

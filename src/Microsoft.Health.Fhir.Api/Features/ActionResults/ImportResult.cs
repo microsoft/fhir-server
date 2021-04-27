@@ -11,34 +11,34 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     /// <summary>
     /// Used to return the result of a bulk import operation.
     /// </summary>
-    public class BulkImportResult : ResourceActionResult<string>
+    public class ImportResult : ResourceActionResult<string>
     {
-        public BulkImportResult(HttpStatusCode statusCode)
+        public ImportResult(HttpStatusCode statusCode)
             : base(null, statusCode)
         {
         }
 
-        public BulkImportResult(string jobResult, HttpStatusCode statusCode)
+        public ImportResult(string jobResult, HttpStatusCode statusCode)
             : base(jobResult, statusCode)
         {
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
         }
 
         /// <summary>
-        /// Creates an BulkImportResult with HttpStatusCode Accepted.
+        /// Creates an ImportResult with HttpStatusCode Accepted.
         /// </summary>
-        public static BulkImportResult Accepted()
+        public static ImportResult Accepted()
         {
-            return new BulkImportResult(HttpStatusCode.Accepted);
+            return new ImportResult(HttpStatusCode.Accepted);
         }
 
         /// <summary>
-        /// Creates an BulkImportResult with HttpStatusCode Ok.
+        /// Creates an ImportResult with HttpStatusCode Ok.
         /// </summary>
-        /// <param name="taskResult">The job payload that must be returned as part of the BulkImportResult.</param>
-        public static BulkImportResult Ok(string taskResult)
+        /// <param name="taskResult">The job payload that must be returned as part of the ImportResult.</param>
+        public static ImportResult Ok(string taskResult)
         {
-            return new BulkImportResult(taskResult, HttpStatusCode.OK);
+            return new ImportResult(taskResult, HttpStatusCode.OK);
         }
     }
 }

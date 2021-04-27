@@ -12,12 +12,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.TaskManagement;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class CancelBulkImportRequestHandler : IRequestHandler<CancelBulkImportRequest, CancelBulkImportResponse>
+    public class CancelBulkImportRequestHandler : IRequestHandler<CancelImportRequest, CancelImportResponse>
     {
         private readonly ITaskManager _taskManager;
         private readonly IAuthorizationService<DataActions> _authorizationService;
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport
             _logger = logger;
         }
 
-        public async Task<CancelBulkImportResponse> Handle(CancelBulkImportRequest request, CancellationToken cancellationToken)
+        public async Task<CancelImportResponse> Handle(CancelImportRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 

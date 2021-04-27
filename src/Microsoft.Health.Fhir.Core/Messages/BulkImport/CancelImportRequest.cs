@@ -6,11 +6,11 @@
 using EnsureThat;
 using MediatR;
 
-namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
+namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
-    public class CancelBulkImportRequest : IRequest<CancelBulkImportResponse>
+    public class CancelImportRequest : IRequest<CancelImportResponse>
     {
-        public CancelBulkImportRequest(string taskId)
+        public CancelImportRequest(string taskId)
         {
             EnsureArg.IsNotNullOrWhiteSpace(taskId, nameof(taskId));
 

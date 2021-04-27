@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public class BulkImportTaskConfiguration
+    public class ImportTaskConfiguration
     {
         /// <summary>
         /// Determines whether bulk import is enabled or not.

@@ -10,13 +10,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
-using Microsoft.Health.Fhir.Api.Features.Operations.BulkImport.Models;
+using Microsoft.Health.Fhir.Api.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.Core.Messages.Import;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -25,24 +25,24 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     public class BulkImportControllerTests
     {
-        private BulkImportController _bulkImportEnabledController;
+        private ImportController _bulkImportEnabledController;
         private IMediator _mediator = Substitute.For<IMediator>();
         private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
         public BulkImportControllerTests()
         {
-            _bulkImportEnabledController = GetController(new BulkImportTaskConfiguration() { Enabled = true });
+            _bulkImportEnabledController = GetController(new ImportTaskConfiguration() { Enabled = true });
         }
 
-        public static TheoryData<BulkImportRequest> ValidBody =>
-            new TheoryData<BulkImportRequest>
+        public static TheoryData<ImportRequest> ValidBody =>
+            new TheoryData<ImportRequest>
             {
                 GetValidBulkImportRequestConfiguration(),
             };
 
-        public static TheoryData<BulkImportRequest> InValidBody =>
-            new TheoryData<BulkImportRequest>
+        public static TheoryData<ImportRequest> InValidBody =>
+            new TheoryData<ImportRequest>
             {
                 GetBulkImportRequestConfigurationWithUnsupportedInputFormat(),
                 GetBulkImportRequestConfigurationWithUnsupportedStorageType(),
@@ -51,28 +51,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         [Theory]
         [MemberData(nameof(ValidBody), MemberType = typeof(BulkImportControllerTests))]
-        public async Task GivenAnBulkImportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown(BulkImportRequest body)
+        public async Task GivenAnBulkImportRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
-            var bulkImportController = GetController(new BulkImportTaskConfiguration() { Enabled = false });
+            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = false });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.BulkImport(body));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body));
         }
 
         [Theory]
         [MemberData(nameof(InValidBody), MemberType = typeof(BulkImportControllerTests))]
-        public async Task GivenAnBulkImportRequest_WhenRequestConfigurationNotValid_ThenRequestNotValidExceptionShouldBeThrown(BulkImportRequest body)
+        public async Task GivenAnBulkImportRequest_WhenRequestConfigurationNotValid_ThenRequestNotValidExceptionShouldBeThrown(ImportRequest body)
         {
-            var bulkImportController = GetController(new BulkImportTaskConfiguration() { Enabled = true });
+            var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.BulkImport(body));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body));
         }
 
-        private static CreateBulkImportResponse CreateBulkImportResponse()
+        private static CreateImportResponse CreateBulkImportResponse()
         {
-            return new CreateBulkImportResponse("123");
+            return new CreateImportResponse("123");
         }
 
-        private BulkImportController GetController(BulkImportTaskConfiguration bulkImportConfig)
+        private ImportController GetController(ImportTaskConfiguration bulkImportConfig)
         {
             var operationConfig = new OperationsConfiguration()
             {
@@ -86,52 +86,52 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IOptions<FeatureConfiguration> optionsFeatures = Substitute.For<IOptions<FeatureConfiguration>>();
             optionsFeatures.Value.Returns(features);
 
-            return new BulkImportController(
+            return new ImportController(
                 _mediator,
                 _fhirRequestContextAccessor,
                 _urlResolver,
                 optionsOperationConfiguration,
                 optionsFeatures,
-                NullLogger<BulkImportController>.Instance);
+                NullLogger<ImportController>.Instance);
         }
 
-        private static BulkImportRequest GetValidBulkImportRequestConfiguration()
+        private static ImportRequest GetValidBulkImportRequestConfiguration()
         {
-            var input = new List<BulkImportRequestInput>
+            var input = new List<ImportRequestInput>
             {
-                new BulkImportRequestInput
+                new ImportRequestInput
                 {
                     Type = "Patient",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
                 },
-                new BulkImportRequestInput
+                new ImportRequestInput
                 {
                     Type = "Observation",
                     Url = new Uri("https://client.example.org/obseration_file_19.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
                 },
             };
 
-            var bulkImportRequestConfiguration = new BulkImportRequest();
+            var bulkImportRequestConfiguration = new ImportRequest();
             bulkImportRequestConfiguration.InputFormat = "application/fhir+ndjson";
             bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
             bulkImportRequestConfiguration.Input = input;
-            bulkImportRequestConfiguration.StorageDetail = new BulkImportRequestStorageDetail();
+            bulkImportRequestConfiguration.StorageDetail = new ImportRequestStorageDetail();
 
             return bulkImportRequestConfiguration;
         }
 
-        private static BulkImportRequest GetBulkImportRequestConfigurationWithUnsupportedInputFormat()
+        private static ImportRequest GetBulkImportRequestConfigurationWithUnsupportedInputFormat()
         {
-            var input = new List<BulkImportRequestInput>
+            var input = new List<ImportRequestInput>
             {
-                new BulkImportRequestInput
+                new ImportRequestInput
                 {
                     Type = "Patient",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
                 },
             };
 
-            var bulkImportRequestConfiguration = new BulkImportRequest();
+            var bulkImportRequestConfiguration = new ImportRequest();
             bulkImportRequestConfiguration.InputFormat = "application/json";
             bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
             bulkImportRequestConfiguration.Input = input;
@@ -139,22 +139,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             return bulkImportRequestConfiguration;
         }
 
-        private static BulkImportRequest GetBulkImportRequestConfigurationWithUnsupportedStorageType()
+        private static ImportRequest GetBulkImportRequestConfigurationWithUnsupportedStorageType()
         {
-            var input = new List<BulkImportRequestInput>
+            var input = new List<ImportRequestInput>
             {
-                new BulkImportRequestInput
+                new ImportRequestInput
                 {
                     Type = "Patient",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
                 },
             };
 
-            var bulkImportRequestConfiguration = new BulkImportRequest();
+            var bulkImportRequestConfiguration = new ImportRequest();
             bulkImportRequestConfiguration.InputFormat = "application/fhir+ndjson";
             bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
             bulkImportRequestConfiguration.Input = input;
-            bulkImportRequestConfiguration.StorageDetail = new BulkImportRequestStorageDetail
+            bulkImportRequestConfiguration.StorageDetail = new ImportRequestStorageDetail
             {
                 Type = "Fake",
             };
@@ -162,18 +162,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             return bulkImportRequestConfiguration;
         }
 
-        private static BulkImportRequest GetBulkImportRequestConfigurationWithUnsupportedResourceType()
+        private static ImportRequest GetBulkImportRequestConfigurationWithUnsupportedResourceType()
         {
-            var input = new List<BulkImportRequestInput>
+            var input = new List<ImportRequestInput>
             {
-                new BulkImportRequestInput
+                new ImportRequestInput
                 {
                     Type = "Fake",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
                 },
             };
 
-            var bulkImportRequestConfiguration = new BulkImportRequest();
+            var bulkImportRequestConfiguration = new ImportRequest();
             bulkImportRequestConfiguration.InputFormat = "application/fhir+ndjson";
             bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
             bulkImportRequestConfiguration.Input = input;

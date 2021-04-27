@@ -7,15 +7,15 @@ using System;
 using EnsureThat;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
 {
     /// <summary>
     /// This is the output response that we send back to the client once bulk import is complete.
     /// Subset of <see cref="BulkImportFileInfo"/>.
     /// </summary>
-    public class BulkImportOutputResponse
+    public class ImportOutputResponse
     {
-        public BulkImportOutputResponse(Uri inputUrl, int count, Uri url, string type)
+        public ImportOutputResponse(Uri inputUrl, int count, Uri url, string type)
         {
             EnsureArg.IsNotNull(inputUrl, nameof(inputUrl));
             if (url != null)
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models
         }
 
         [JsonConstructor]
-        protected BulkImportOutputResponse()
+        protected ImportOutputResponse()
         {
         }
 

@@ -18,7 +18,7 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
-using Microsoft.Health.Fhir.Api.Features.Operations.BulkImport.Models;
+using Microsoft.Health.Fhir.Api.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -26,14 +26,14 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
-    public class BulkImportController : Controller
+    public class ImportController : Controller
     {
         /*
          * We are currently hardcoding the routing attribute to be specific to BulkImport and
@@ -52,16 +52,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly FeatureConfiguration _features;
-        private readonly ILogger<BulkImportController> _logger;
-        private readonly BulkImportTaskConfiguration _bulkImportConfig;
+        private readonly ILogger<ImportController> _logger;
+        private readonly ImportTaskConfiguration _importConfig;
 
-        public BulkImportController(
+        public ImportController(
             IMediator mediator,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,
-            ILogger<BulkImportController> logger)
+            ILogger<ImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _bulkImportConfig = operationsConfig.Value.BulkImport;
+            _importConfig = operationsConfig.Value.BulkImport;
             _urlResolver = urlResolver;
             _features = features.Value;
             _mediator = mediator;
@@ -79,15 +79,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         [HttpPost]
-        [Route(KnownRoutes.BulkImport)]
-        [ServiceFilter(typeof(ValidateBulkImportRequestFilterAttribute))]
-        [AuditEventType(AuditEventSubType.BulkImport)]
-        public async Task<IActionResult> BulkImport([FromBody] BulkImportRequest importRequestConfig)
+        [Route(KnownRoutes.Import)]
+        [ServiceFilter(typeof(ValidateImportRequestFilterAttribute))]
+        [AuditEventType(AuditEventSubType.Import)]
+        public async Task<IActionResult> Import([FromBody] ImportRequest importRequestConfig)
         {
-            CheckIfBulkImportIsEnabled();
+            CheckIfImportIsEnabled();
             ValidateImportRequestConfiguration(importRequestConfig);
 
-            CreateBulkImportResponse response = await _mediator.BulkImportAsync(
+            CreateImportResponse response = await _mediator.BulkImportAsync(
                  _fhirRequestContextAccessor.FhirRequestContext.Uri,
                  importRequestConfig.InputFormat,
                  importRequestConfig.InputSource,
@@ -95,26 +95,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequestConfig.StorageDetail,
                  HttpContext.RequestAborted);
 
-            var bulkImportResult = BulkImportResult.Accepted();
-            bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.BulkImport, response.TaskId);
+            var bulkImportResult = ImportResult.Accepted();
+            bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);
             return bulkImportResult;
         }
 
         [HttpDelete]
-        [Route(KnownRoutes.BulkImportJobLocation, Name = RouteNames.CancelBulkImport)]
-        [AuditEventType(AuditEventSubType.BulkImport)]
-        public async Task<IActionResult> CancelBulkImport(string idParameter)
+        [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.CancelImport)]
+        [AuditEventType(AuditEventSubType.Import)]
+        public async Task<IActionResult> CancelImport(string idParameter)
         {
-            CancelBulkImportResponse response = await _mediator.CancelBulkImportAsync(idParameter, HttpContext.RequestAborted);
+            CancelImportResponse response = await _mediator.CancelBulkImportAsync(idParameter, HttpContext.RequestAborted);
 
-            return new BulkImportResult(response.StatusCode);
+            return new ImportResult(response.StatusCode);
         }
 
         [HttpGet]
-        [Route(KnownRoutes.BulkImportJobLocation, Name = RouteNames.GetBulkImportStatusById)]
-        [ServiceFilter(typeof(ValidateBulkImportRequestFilterAttribute))]
-        [AuditEventType(AuditEventSubType.BulkImport)]
-        public async Task<IActionResult> GetBulkImportStatusById(string idParameter)
+        [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.GetImportStatusById)]
+        [ServiceFilter(typeof(ValidateImportRequestFilterAttribute))]
+        [AuditEventType(AuditEventSubType.Import)]
+        public async Task<IActionResult> GetImportStatusById(string idParameter)
         {
             var getBulkImportResult = await _mediator.GetBulkImportStatusAsync(
                 _fhirRequestContextAccessor.FhirRequestContext.Uri,
@@ -123,29 +123,29 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             // If the job is complete, we need to return 200 along with the completed data to the client.
             // Else we need to return 202 - Accepted.
-            BulkImportResult bulkImportActionResult;
+            ImportResult bulkImportActionResult;
             if (getBulkImportResult.StatusCode == HttpStatusCode.OK)
             {
-                bulkImportActionResult = BulkImportResult.Ok(getBulkImportResult.TaskResult);
+                bulkImportActionResult = ImportResult.Ok(getBulkImportResult.TaskResult);
                 bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
             }
             else
             {
-                bulkImportActionResult = BulkImportResult.Accepted();
+                bulkImportActionResult = ImportResult.Accepted();
             }
 
             return bulkImportActionResult;
         }
 
-        private void CheckIfBulkImportIsEnabled()
+        private void CheckIfImportIsEnabled()
         {
-            if (!_bulkImportConfig.Enabled)
+            if (!_importConfig.Enabled)
             {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.BulkImport));
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Import));
             }
         }
 
-        private void ValidateImportRequestConfiguration(BulkImportRequest importData)
+        private void ValidateImportRequestConfiguration(ImportRequest importData)
         {
             if (importData == null)
             {

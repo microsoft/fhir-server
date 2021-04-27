@@ -5,16 +5,16 @@
 
 using System.Net;
 
-namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
+namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
-    public class GetBulkImportResponse
+    public class GetImportResponse
     {
-        public GetBulkImportResponse(HttpStatusCode statusCode)
+        public GetImportResponse(HttpStatusCode statusCode)
             : this(statusCode, taskResult: null)
         {
         }
 
-        public GetBulkImportResponse(HttpStatusCode statusCode, string taskResult)
+        public GetImportResponse(HttpStatusCode statusCode, string taskResult)
         {
             StatusCode = statusCode;
             TaskResult = taskResult;

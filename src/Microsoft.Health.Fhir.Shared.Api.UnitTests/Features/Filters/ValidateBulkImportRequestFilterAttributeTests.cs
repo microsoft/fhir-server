@@ -24,11 +24,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private const string CorrectContentTypeHeaderValue = "application/json";
         private const string PreferHeaderName = "Prefer";
 
-        private readonly ValidateBulkImportRequestFilterAttribute _filter;
+        private readonly ValidateImportRequestFilterAttribute _filter;
 
         public ValidateBulkImportRequestFilterAttributeTests()
         {
-            _filter = new ValidateBulkImportRequestFilterAttribute();
+            _filter = new ValidateImportRequestFilterAttribute();
         }
 
         [Theory]

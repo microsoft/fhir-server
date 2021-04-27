@@ -6,7 +6,7 @@
 using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Api.Features.Operations.BulkImport.Models;
+using Microsoft.Health.Fhir.Api.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -95,9 +95,9 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Parameter-Convert-Data");
         }
 
-        public static BulkImportRequest GetDefaultBulkImportRequest()
+        public static ImportRequest GetDefaultBulkImportRequest()
         {
-            return GetJsonSample<BulkImportRequest>("BulkImportRequest");
+            return GetJsonSample<ImportRequest>("BulkImportRequest");
         }
 
         /// <summary>

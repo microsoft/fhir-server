@@ -12,10 +12,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Messages.BulkImport;
+using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.Fhir.TaskManagement;
 using NSubstitute;
 using Xunit;
@@ -79,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         {
             TaskInfo taskInfo = SetupBulkImportTask(taskStatus, isCanceled);
 
-            CancelBulkImportResponse response = await _mediator.CancelBulkImportAsync(TaskId, _cancellationToken);
+            CancelImportResponse response = await _mediator.CancelBulkImportAsync(TaskId, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(expectedStatusCode, response.StatusCode);

@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ConvertData = "convert-data";
 
-        public const string BulkImport = "import";
+        public const string Import = "import";
 
         public const string BulkImportContentTypeHeaderValue = "application/json";
     }

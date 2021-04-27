@@ -5,11 +5,11 @@
 
 using System.Net;
 
-namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
+namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
-    public class CancelBulkImportResponse
+    public class CancelImportResponse
     {
-        public CancelBulkImportResponse(HttpStatusCode statusCode)
+        public CancelImportResponse(HttpStatusCode statusCode)
         {
             StatusCode = statusCode;
         }

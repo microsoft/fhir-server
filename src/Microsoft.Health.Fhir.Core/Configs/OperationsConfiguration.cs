@@ -17,6 +17,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public IntegrationDataStoreConfiguration IntegrationDataStore { get; set; } = new IntegrationDataStoreConfiguration();
 
-        public BulkImportTaskConfiguration BulkImport { get; set; } = new BulkImportTaskConfiguration();
+        public ImportTaskConfiguration BulkImport { get; set; } = new ImportTaskConfiguration();
     }
 }

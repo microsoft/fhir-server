@@ -5,11 +5,11 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Operations.BulkImport.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 
-namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkImport.Models
+namespace Microsoft.Health.Fhir.Api.Features.Operations.Import.Models
 {
-    public class BulkImportRequest
+    public class ImportRequest
     {
         /// <summary>
         /// Determines the format of the the input data.
@@ -25,11 +25,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.BulkImport.Models
         /// <summary>
         /// Determines the details of the input file that should be imported containing in the input source.
         /// </summary>
-        public IReadOnlyList<BulkImportRequestInput> Input { get; set; }
+        public IReadOnlyList<ImportRequestInput> Input { get; set; }
 
         /// <summary>
         /// Determines the details of the storage.
         /// </summary>
-        public BulkImportRequestStorageDetail StorageDetail { get; set; }
+        public ImportRequestStorageDetail StorageDetail { get; set; }
     }
 }

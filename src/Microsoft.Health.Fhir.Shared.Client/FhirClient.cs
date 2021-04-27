@@ -16,7 +16,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Fhir.Api.Features.Operations.BulkImport.Models;
+using Microsoft.Health.Fhir.Api.Features.Operations.Import.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.Client
             return await response.Content.ReadAsStringAsync(cancellationToken);
         }
 
-        public async Task<Uri> BulkImportAsync(BulkImportRequest requestConfig, CancellationToken cancellationToken = default)
+        public async Task<Uri> BulkImportAsync(ImportRequest requestConfig, CancellationToken cancellationToken = default)
         {
             string requestPath = "$import";
             using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
