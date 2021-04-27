@@ -222,6 +222,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 column.IsAcentSensitive == expression.IgnoreCase ||
                 column.IsCaseSensitive == expression.IgnoreCase)
             {
+                if (!expression.IgnoreCase && expression.StringOperator == StringOperator.Equals && column.IsAcentSensitive != null && column.IsCaseSensitive != null)
+                {
+                    // We are doing a case/accent sensitive query over a column that is case/accent insensitive.
+                    // We can improve efficiency of the query by including an accent/case insensitive predicate
+                    // in addition to the sensitive one. This allows the optimizer choose an index seek.
+
+                    context.StringBuilder.Append(" AND ");
+                    AppendColumnName(context, column, expression);
+                    SqlParameter equalsParameter = context.Parameters.AddParameter(column, value);
+                    context.StringBuilder.Append(" = ").Append(equalsParameter.ParameterName);
+                }
+
                 context.StringBuilder.Append(" COLLATE ").Append(expression.IgnoreCase ? DefaultCaseInsensitiveCollation : DefaultCaseSensitiveCollation);
             }
 
