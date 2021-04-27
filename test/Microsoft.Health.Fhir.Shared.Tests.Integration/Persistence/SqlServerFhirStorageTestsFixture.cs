@@ -109,6 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
             serviceCollection.AddSingleton(sqlServerFhirModel);
+            serviceCollection.AddSingleton<ISqlServerFhirModel>(sqlServerFhirModel);
             serviceCollection.AddSingleton(searchParameterToSearchValueTypeMap);
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
@@ -130,6 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertSearchParamsTvpGenerator,
                 () => _filebasedSearchParameterStatusDataStore,
                 schemaInformation,
+                new SqlServerSortingValidator(schemaInformation),
                 sqlServerFhirModel);
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
@@ -170,6 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(searchParamTableExpressionQueryGeneratorFactory);
             var chainFlatteningRewriter = new ChainFlatteningRewriter(searchParamTableExpressionQueryGeneratorFactory);
             var sortRewriter = new SortRewriter(searchParamTableExpressionQueryGeneratorFactory);
+            var partitionEliminationRewriter = new PartitionEliminationRewriter(sqlServerFhirModel, schemaInformation, () => searchableSearchParameterDefinitionManager);
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -178,10 +181,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sqlRootExpressionRewriter,
                 chainFlatteningRewriter,
                 sortRewriter,
+                partitionEliminationRewriter,
                 SqlConnectionWrapperFactory,
                 schemaInformation,
-                new SqlServerSortingValidator(),
                 fhirRequestContextAccessor,
+                () => searchableSearchParameterDefinitionManager,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();

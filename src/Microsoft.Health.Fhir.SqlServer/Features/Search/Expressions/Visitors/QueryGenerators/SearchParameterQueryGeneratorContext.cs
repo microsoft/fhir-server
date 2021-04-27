@@ -6,21 +6,24 @@
 using EnsureThat;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
     internal readonly struct SearchParameterQueryGeneratorContext
     {
-        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, SqlQueryParameterManager parameters, SqlServerFhirModel model, string tableAlias = null)
+        internal SearchParameterQueryGeneratorContext(IndentedStringBuilder stringBuilder, SqlQueryParameterManager parameters, ISqlServerFhirModel model, SchemaInformation schemaInformation, string tableAlias = null)
         {
             EnsureArg.IsNotNull(stringBuilder, nameof(stringBuilder));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
             EnsureArg.IsNotNull(model, nameof(model));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             StringBuilder = stringBuilder;
             Parameters = parameters;
             Model = model;
+            SchemaInformation = schemaInformation;
             TableAlias = tableAlias;
         }
 
@@ -28,7 +31,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public SqlQueryParameterManager Parameters { get; }
 
-        public SqlServerFhirModel Model { get; }
+        public ISqlServerFhirModel Model { get; }
+
+        public SchemaInformation SchemaInformation { get; }
 
         public string TableAlias { get; }
     }
