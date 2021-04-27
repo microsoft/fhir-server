@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProgress progress = new ImportProgress();
             progress.SucceedImportCount = 3;
             progress.FailedImportCount = 1;
-            progress.EndIndex = 4;
+            progress.CurrentIndex = 4;
 
             await VerifyCommonImportTaskAsync(inputData, progress);
         }
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportTaskInput_WhenExceptionThrowForImport_ContextShouldBeUpdatedBeforeFailure()
         {
-            long endIndex = 100;
+            long currentIndex = 100;
             ImportTaskInputData inputData = GetInputData();
             ImportProgress progress = new ImportProgress();
 
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         try
                         {
                             ImportProgress progress = new ImportProgress();
-                            progress.EndIndex = endIndex;
+                            progress.CurrentIndex = currentIndex;
 
                             await progressChannel.Writer.WriteAsync(progress);
                             throw new InvalidOperationException();
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             await Assert.ThrowsAsync<RetriableTaskException>(() => task.ExecuteAsync());
 
             ImportProgress progressForContext = JsonConvert.DeserializeObject<ImportProgress>(context);
-            Assert.Equal(progressForContext.EndIndex, endIndex);
+            Assert.Equal(progressForContext.CurrentIndex, currentIndex);
         }
 
         [Fact]
@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
         private static async Task VerifyCommonImportTaskAsync(ImportTaskInputData inputData, ImportProgress progress)
         {
-            long startIndexFromProgress = progress.EndIndex;
+            long startIndexFromProgress = progress.CurrentIndex;
             long succeedCountFromProgress = progress.SucceedImportCount;
             long failedCountFromProgress = progress.FailedImportCount;
 
@@ -334,7 +334,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                                 progress.FailedImportCount++;
                             }
 
-                            progress.EndIndex = resource.Index + 1;
+                            progress.CurrentIndex = resource.Index + 1;
                         }
 
                         await progressChannel.Writer.WriteAsync(progress);
@@ -373,10 +373,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProgress progressForContext = JsonConvert.DeserializeObject<ImportProgress>(context);
             Assert.Equal(progressForContext.SucceedImportCount, result.SucceedCount);
             Assert.Equal(progressForContext.FailedImportCount, result.FailedCount);
-            Assert.Equal(startIndexFromProgress + 2, progressForContext.EndIndex);
+            Assert.Equal(startIndexFromProgress + 2, progressForContext.CurrentIndex);
 
             Assert.Equal(startIndexFromProgress, cleanStart);
-            Assert.Equal(inputData.EndId, cleanEnd);
+            Assert.Equal(inputData.EndSequenceId, cleanEnd);
         }
 
         private ImportTaskInputData GetInputData()

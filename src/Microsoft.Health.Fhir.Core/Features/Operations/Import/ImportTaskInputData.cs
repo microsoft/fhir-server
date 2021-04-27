@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public string TaskId { get; set; }
 
-        public long StartId { get; set; }
+        public long BeginSequenceId { get; set; }
 
-        public long EndId { get; set; }
+        public long EndSequenceId { get; set; }
     }
 }

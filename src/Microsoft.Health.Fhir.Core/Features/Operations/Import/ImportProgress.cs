@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public long FailedImportCount { get; set; }
 
-        public long EndIndex { get; set; }
+        public long CurrentIndex { get; set; }
     }
 }

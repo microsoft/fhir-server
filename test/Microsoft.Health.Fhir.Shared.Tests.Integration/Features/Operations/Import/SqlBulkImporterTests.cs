@@ -303,7 +303,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             ImportProgress finalProgress = new ImportProgress();
             await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
             {
-                Assert.True(finalProgress.EndIndex <= progress.EndIndex);
+                Assert.True(finalProgress.CurrentIndex <= progress.CurrentIndex);
                 finalProgress = progress;
             }
 
@@ -311,7 +311,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             Assert.Equal(expectedSucceedCount, finalProgress.SucceedImportCount);
             Assert.Equal(expectedFailedCount, finalProgress.FailedImportCount);
-            Assert.Equal(expectedEndIndex, finalProgress.EndIndex);
+            Assert.Equal(expectedEndIndex, finalProgress.CurrentIndex);
 
             Assert.Equal(expectedSucceedCount, table1.Rows.Count);
             Assert.Equal(expectedSucceedCount * 2, table2.Rows.Count);

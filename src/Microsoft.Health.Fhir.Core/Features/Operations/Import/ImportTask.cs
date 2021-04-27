@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                Func<long, long> idGenerator = (index) => _inputData.StartId + index;
+                Func<long, long> sequenceIdGenerator = (index) => _inputData.BeginSequenceId + index;
 
                 // Clean imported resource after last checkpoint.
                 await CleanDataAsync(cancellationToken);
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importProgress.EndIndex, idGenerator, cancellationToken);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importProgress.CurrentIndex, sequenceIdGenerator, cancellationToken);
 
                 // Import to data store
                 (Channel<ImportProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     _importProgress.SucceedImportCount = progress.SucceedImportCount + succeedImportCount;
                     _importProgress.FailedImportCount = progress.FailedImportCount + failedImportCount;
-                    _importProgress.EndIndex = progress.EndIndex;
+                    _importProgress.CurrentIndex = progress.CurrentIndex;
                     result.SucceedCount = _importProgress.SucceedImportCount;
                     result.FailedCount = _importProgress.FailedImportCount;
 
@@ -205,9 +205,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task CleanDataAsync(CancellationToken cancellationToken)
         {
-            long startId = _inputData.StartId;
-            long endId = _inputData.EndId;
-            long endIndex = _importProgress.EndIndex;
+            long startId = _inputData.BeginSequenceId;
+            long endId = _inputData.EndSequenceId;
+            long endIndex = _importProgress.CurrentIndex;
 
             try
             {

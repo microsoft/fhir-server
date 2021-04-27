@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             {
                 _logger.LogInformation("Start to import data to SQL data store.");
 
-                Task checkpointTask = Task.CompletedTask;
+                Task<ImportProgress> checkpointTask = Task.FromResult<ImportProgress>(null);
 
                 long succeedCount = 0;
                 long failedCount = 0;
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             ImportProgress progress = new ImportProgress();
             progress.SucceedImportCount = succeedCount;
             progress.FailedImportCount = failedCount;
-            progress.EndIndex = lastIndex + 1;
+            progress.CurrentIndex = lastIndex + 1;
 
             // Return progress for checkpoint progress
             return progress;

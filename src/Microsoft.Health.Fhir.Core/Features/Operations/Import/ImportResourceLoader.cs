@@ -46,18 +46,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public int ChannelMaxCapacity { get; set; } = DefaultChannelMaxCapacity;
 
-        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken)
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotEmptyOrWhiteSpace(resourceLocation, nameof(resourceLocation));
 
             Channel<ImportResource> outputChannel = Channel.CreateBounded<ImportResource>(ChannelMaxCapacity);
 
-            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, idGenerator, cancellationToken));
+            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, sequenceIdGenerator, cancellationToken));
 
             return (outputChannel, loadTask);
         }
 
-        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long startIndex, Func<long, long> idGenerator, CancellationToken cancellationToken)
+        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long startIndex, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
         {
             try
             {
@@ -107,11 +107,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         }
                     }
 
-                    processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), idGenerator));
+                    processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), sequenceIdGenerator));
                     buffer.Clear();
                 }
 
-                processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), idGenerator));
+                processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), sequenceIdGenerator));
                 while (processingTasks.Count > 0)
                 {
                     if (cancellationToken.IsCancellationRequested)
