@@ -5,9 +5,8 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 
-namespace Microsoft.Health.Fhir.Api.Features.Operations.Import.Models
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
 {
     public class ImportRequest
     {

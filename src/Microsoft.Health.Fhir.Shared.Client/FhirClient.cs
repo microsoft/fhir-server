@@ -16,7 +16,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Fhir.Api.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
