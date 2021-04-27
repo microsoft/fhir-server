@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            // _type and _lastUpdated sort param is handled differently than others, because it can be
+            // _type and _lastUpdated sort params are handled differently than others, because they can be
             // inferred directly from the resource table itself.
             if (context.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated))
             {

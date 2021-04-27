@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class TypeConstraintVisitor : DefaultSqlExpressionVisitor<(BitArray allowedTypes, ISqlServerFhirModel model), short?>
     {
-        internal const short NoTypes = -1;
+        private const short NoTypes = -1;
 
         internal static readonly TypeConstraintVisitor Instance = new();
 
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         /// <param name="expression">The expression to visit.</param>
         /// <param name="model">The model instance.</param>
         /// <returns>A tuple with the single allowed resource type id if there is exactly one (otherwise null) and
-        /// a <see cref="BitArray"/> with bits set for each resource type that is allowed.</returns>
+        /// a <see cref="BitArray"/> with bits set for each resource type that is allowed, or null if no types are allowed.</returns>
         public (short? singleAllowedResourceTypeId, BitArray allAllowedTypes) Visit(Expression expression, ISqlServerFhirModel model)
         {
             var allowedTypes = new BitArray(model.ResourceTypeIdRange.highestId + 1, true);
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             short? singleResourceTypeId = expression?.AcceptVisitor(this, (allowedTypes, model));
-            return (singleResourceTypeId, allowedTypes);
+            return singleResourceTypeId == NoTypes ? (null, null) : (singleResourceTypeId, allowedTypes);
         }
 
         public override short? VisitSearchParameter(SearchParameterExpression expression, (BitArray allowedTypes, ISqlServerFhirModel model) context)

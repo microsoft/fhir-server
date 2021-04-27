@@ -69,8 +69,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             switch (expectedIds.Length)
             {
                 case 0:
-                    Assert.Equal(TypeConstraintVisitor.NoTypes, result.singleAllowedResourceTypeId);
-                    break;
+                    Assert.Null(result.singleAllowedResourceTypeId);
+                    Assert.Null(result.allAllowedTypes);
+                    return;
                 case 1:
                     Assert.Equal(expectedIds[0], result.singleAllowedResourceTypeId);
                     break;

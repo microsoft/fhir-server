@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -187,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
-            var originalSearchOptions = searchOptions;
+            var originalSort = searchOptions.Sort;
             searchOptions = UpdateSort(searchOptions, searchExpression, searchType);
 
             if (searchOptions.CountOnly)
@@ -356,7 +357,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 Core.Resources.TruncatedIncludeMessage));
                     }
 
-                    return new SearchResult(resources, continuationToken?.ToJson(), originalSearchOptions.Sort, searchOptions.UnsupportedSearchParams);
+                    return new SearchResult(resources, continuationToken?.ToJson(), originalSort, searchOptions.UnsupportedSearchParams);
                 }
             }
         }
@@ -433,9 +434,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (searchOptions.Sort.Count == 1 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.LastUpdated && _schemaInformation.Current >= SchemaVersionConstants.PartitionedTables)
             {
-                (short? singleAllowedTypeId, _) = TypeConstraintVisitor.Instance.Visit(searchExpression, _model);
+                (short? singleAllowedTypeId, BitArray allowedTypes) = TypeConstraintVisitor.Instance.Visit(searchExpression, _model);
 
-                if (singleAllowedTypeId != null)
+                if (singleAllowedTypeId != null && allowedTypes != null)
                 {
                     // this means that this search is over a single type.
                     searchOptions = searchOptions.Clone();

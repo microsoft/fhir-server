@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var existingPrimaryKeyValue = (PrimaryKeyValue)existingPrimaryKeyBinaryExpression.Value;
 
             SearchParameterExpression newSearchParameterExpression;
-            if (singleAllowedResourceTypeId.HasValue)
+            if (singleAllowedResourceTypeId != null || allowedTypes == null)
             {
                 // we'll keep the existing _type parameter and just need to add a ResourceSurrogateId expression
                 newSearchParameterExpression = Expression.SearchParameter(
