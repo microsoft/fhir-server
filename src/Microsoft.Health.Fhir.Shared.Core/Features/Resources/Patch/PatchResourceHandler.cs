@@ -11,7 +11,6 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
-using Microsoft.AspNetCore.JsonPatch.Exceptions;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -78,18 +77,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
             try
             {
-                var dynamicJson = JsonConvert.DeserializeObject(currentDoc.RawResource.Data);
+                object dynamicJson = JsonConvert.DeserializeObject(currentDoc.RawResource.Data);
+                ResourceElement resource = _resourceDeserializer.Deserialize(currentDoc);
+                Resource resourceInstance = resource.Instance.ToPoco<Resource>();
+                string resourceId = message.ResourceKey.Id;
+                string resourceVersion = resourceInstance.VersionId;
+
                 message.PatchDocument.ApplyTo(dynamicJson);
 
                 string resourceJson = JsonConvert.SerializeObject(dynamicJson);
-                Resource resourcePatch = _fhirJsonParser.Parse<Resource>(resourceJson);
+                Resource patchedResource = _fhirJsonParser.Parse<Resource>(resourceJson);
 
-                // To-do: Validate there are no changes to forbidden properties.
+                if (resourceId != patchedResource.Id ||
+                    resourceVersion != patchedResource.VersionId)
+                {
+                    throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
+                }
 
-                ResourceWrapper resourceWrapper = CreateResourceWrapper(resourcePatch, deleted: false, keepMeta: true);
+                ResourceWrapper resourceWrapper = CreateResourceWrapper(patchedResource, deleted: false, keepMeta: true);
                 bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
                 UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
-                resourcePatch.VersionId = result.Wrapper.Version;
+                patchedResource.VersionId = result.Wrapper.Version;
 
                 return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
             }

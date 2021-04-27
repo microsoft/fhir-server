@@ -32,11 +32,48 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
-            string patchDocument = "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}]";
+            Assert.Equal(AdministrativeGender.Male, response.Resource.Gender);
+            Assert.NotNull(response.Resource.Address);
 
-            var patch = await _client.PatchAsync(response.Resource, patchDocument);
+            string patchDocument = "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
+
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
 
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Equal(AdministrativeGender.Female, patch.Resource.Gender);
+            Assert.Empty(patch.Resource.Address);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAPatch_ThenServerShouldPatchNewPropertyCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            poco.Address.Clear();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.Empty(response.Resource.Address);
+
+            string patchDocument = "[{\"op\":\"add\",\"path\":\"/address\",\"value\":[]},{\"op\":\"add\",\"path\":\"/address/0\",\"value\":{\"use\":\"home\",\"line\":[\"23 thule st\",\"avon\"],\"city\":\"Big Smoke\",\"country\":\"erewhon\",\"text\":\"23 thule st\"}}]";
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Single(patch.Resource.Address);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAnInvalidPatch_ThenAnErrorShouldBeReturned()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument = "[{\"op\":\"add\",\"path\":\"/dummyProperty\",\"value\":\"dummy\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+              response.Resource,
+              patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
     }
 }
