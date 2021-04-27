@@ -29394,11 +29394,11 @@
                 "component": [
                     {
                         "definition": "http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto",
-                        "expression": "code"
+                        "expression": "target"
                     },
                     {
                         "definition": "http://hl7.org/fhir/SearchParameter/DocumentReference-relation",
-                        "expression": "target"
+                        "expression": "code"
                     }
                 ]
             }
@@ -35448,6 +35448,49 @@
                 "type": "string",
                 "expression": "EvidenceVariable.title",
                 "xpath": "f:EvidenceVariable/f:title",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/EvidenceVariable-topic",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "EvidenceVariable-topic",
+                "extension": [
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+                        "valueCode": "trial-use"
+                    }
+                ],
+                "url": "http://hl7.org/fhir/SearchParameter/EvidenceVariable-topic",
+                "version": "4.5.0",
+                "name": "topic",
+                "status": "draft",
+                "experimental": false,
+                "date": "2020-08-20T17:41:31+10:00",
+                "publisher": "Health Level Seven International (Clinical Decision Support)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/dss/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "description": "Topics associated with the EvidenceVariable",
+                "code": "topic",
+                "base": [ "EvidenceVariable" ],
+                "type": "token",
                 "xpathUsage": "normal"
             }
         },
@@ -51207,6 +51250,103 @@
                 "type": "token",
                 "expression": "MedicationKnowledge.monograph.type",
                 "xpath": "f:MedicationKnowledge/f:monograph/f:type",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "MedicationKnowledge-packaging-cost",
+                "extension": [
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+                        "valueCode": "trial-use"
+                    }
+                ],
+                "url": "http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost",
+                "version": "4.5.0",
+                "name": "packaging-cost",
+                "status": "draft",
+                "experimental": false,
+                "date": "2020-08-20T17:41:31+10:00",
+                "publisher": "Health Level Seven International (Pharmacy)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/medication/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "description": "The cost of the packaged medication, if the cost is Money",
+                "code": "packaging-cost",
+                "base": [ "MedicationKnowledge" ],
+                "type": "quantity",
+                "xpathUsage": "normal",
+                "comparator": [
+                    "eq",
+                    "ne",
+                    "gt",
+                    "ge",
+                    "lt",
+                    "le",
+                    "sa",
+                    "eb",
+                    "ap"
+                ]
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost-concept",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "MedicationKnowledge-packaging-cost-concept",
+                "extension": [
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+                        "valueCode": "trial-use"
+                    }
+                ],
+                "url": "http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost-concept",
+                "version": "4.5.0",
+                "name": "packaging-cost-concept",
+                "status": "draft",
+                "experimental": false,
+                "date": "2020-08-20T17:41:31+10:00",
+                "publisher": "Health Level Seven International (Pharmacy)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/medication/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "description": "The cost of the packaged medication, if the cost is a CodeableConcept",
+                "code": "packaging-cost-concept",
+                "base": [ "MedicationKnowledge" ],
+                "type": "token",
                 "xpathUsage": "normal"
             }
         },

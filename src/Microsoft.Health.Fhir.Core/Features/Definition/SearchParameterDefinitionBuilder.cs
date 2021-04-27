@@ -36,6 +36,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-manufactured-item"),
             new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"),
             new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"),
+            new Uri("http://hl7.org/fhir/SearchParameter/EvidenceVariable-topic"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/MedicationKnowledge-packaging-cost-concept"), // expression is null or empty.
         };
 
         internal static void Build(
