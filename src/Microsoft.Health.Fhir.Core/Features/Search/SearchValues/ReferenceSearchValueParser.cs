@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 {
                     baseUri = new Uri(s.Substring(0, resourceTypeStartIndex), UriKind.RelativeOrAbsolute);
 
-                    if (baseUri == _fhirRequestContextAccessor.FhirRequestContext.BaseUri)
+                    if (baseUri == _fhirRequestContextAccessor.RequestContext.BaseUri)
                     {
                         // This is an absolute URL pointing to an internal resource.
                         return new ReferenceSearchValue(

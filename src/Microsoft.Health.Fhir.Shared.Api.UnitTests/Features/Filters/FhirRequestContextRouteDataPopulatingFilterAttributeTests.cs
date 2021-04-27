@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 FilterTestsHelper.CreateMockFhirController());
 
             _fhirRequestContext.CorrelationId = _correlationId;
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
             _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
         }
@@ -135,9 +135,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             _filterAttribute.OnActionExecuting(_actionExecutingContext);
 
-            Assert.NotNull(_fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(expectedAuditEventType, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(RouteName, _fhirRequestContextAccessor.FhirRequestContext.RouteName);
+            Assert.NotNull(_fhirRequestContextAccessor.RequestContext.AuditEventType);
+            Assert.Equal(expectedAuditEventType, _fhirRequestContextAccessor.RequestContext.AuditEventType);
+            Assert.Equal(RouteName, _fhirRequestContextAccessor.RequestContext.RouteName);
         }
     }
 }

@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
             _correlationId = Guid.NewGuid().ToString();
 
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            _fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(_correlationId);
+            _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(_correlationId);
             _formatParametersValidator = Substitute.For<IFormatParametersValidator>();
 
             _context = new DefaultHttpContext();

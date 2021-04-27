@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
         public FhirRequestContextBeforeAuthenticationMiddlewareTests()
         {
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
             _fhirRequestContextBeforeAuthenticationMiddleware = new FhirRequestContextBeforeAuthenticationMiddleware(
                 httpContext => Task.CompletedTask,

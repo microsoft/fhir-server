@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                     throw;
                 }
 
-                var localCorrelationId = _fhirRequestContextAccessor.FhirRequestContext?.CorrelationId;
+                var localCorrelationId = _fhirRequestContextAccessor.RequestContext?.CorrelationId;
 
                 Debug.Assert(!string.IsNullOrWhiteSpace(localCorrelationId), "The correlation id should have been generated.");
 

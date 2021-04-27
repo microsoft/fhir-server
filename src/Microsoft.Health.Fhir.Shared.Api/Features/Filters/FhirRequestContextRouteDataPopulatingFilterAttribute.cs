@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
         public override void OnActionExecuting(ActionExecutingContext context)
         {
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             fhirRequestContext.RouteName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
 

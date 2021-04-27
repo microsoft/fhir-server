@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
         private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             string auditEventType = fhirRequestContext.AuditEventType;
 

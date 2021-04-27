@@ -402,7 +402,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(x =>
                 {
-                    _contextAccessor.FhirRequestContext.BundleIssues.Add(issue);
+                    _contextAccessor.RequestContext.BundleIssues.Add(issue);
 
                     return CreateSearchResult();
                 });

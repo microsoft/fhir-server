@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             };
 
             IFhirRequestContextAccessor fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
             IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
 

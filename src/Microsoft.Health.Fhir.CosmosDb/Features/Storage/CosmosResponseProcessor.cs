@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 double.TryParse(responseMessage.Headers["x-ms-request-duration-ms"], out var duration) ? duration : 0,
                 responseMessage.Headers["x-ms-documentdb-partitionkeyrangeid"]);
 
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             if (fhirRequestContext == null)
             {
                 return;
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private async Task AddRequestChargeToFhirRequestContext(double responseRequestCharge, HttpStatusCode? statusCode)
         {
-            IFhirRequestContext requestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext requestContext = _fhirRequestContextAccessor.RequestContext;
 
             lock (requestContext.ResponseHeaders)
             {

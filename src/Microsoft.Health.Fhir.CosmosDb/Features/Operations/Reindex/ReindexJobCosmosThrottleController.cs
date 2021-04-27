@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
 
             if (_initialized)
             {
-                var requestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                var requestContext = _fhirRequestContextAccessor.RequestContext;
                 Debug.Assert(
                     requestContext.Method.Equals(OperationsConstants.Reindex, StringComparison.OrdinalIgnoreCase),
                     "We should not be here with FhirRequestContext that is not reindex!");

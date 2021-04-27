@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         public PrincipalClaimsExtractorTests()
         {
             _securityOptions.Value.Returns(_securityConfiguration);
-            _fhirRequestContextAccessor.FhirRequestContext.Principal.Returns(_claimsPrincipal);
+            _fhirRequestContextAccessor.RequestContext.Principal.Returns(_claimsPrincipal);
             _claimsIndexer = new PrincipalClaimsExtractor(_fhirRequestContextAccessor, _securityOptions);
         }
 

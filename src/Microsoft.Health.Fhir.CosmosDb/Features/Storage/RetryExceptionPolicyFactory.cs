@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public AsyncPolicy GetRetryPolicy()
         {
-            return _requestContextAccessor.FhirRequestContext switch
+            return _requestContextAccessor.RequestContext switch
             {
                 null or { IsBackgroundTask: true } => _backgroundJobRetryPolicy,
                 { ExecutingBatchOrTransaction: true } => _bundleActionRetryPolicy,

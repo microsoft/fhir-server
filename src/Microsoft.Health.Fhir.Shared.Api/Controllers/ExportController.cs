@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> GetExportStatusById(string idParameter)
         {
             var getExportResult = await _mediator.GetExportStatusAsync(
-                _fhirRequestContextAccessor.FhirRequestContext.Uri,
+                _fhirRequestContextAccessor.RequestContext.Uri,
                 idParameter,
                 HttpContext.RequestAborted);
 
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string anonymizationConfigFileETag = null)
         {
             CreateExportResponse response = await _mediator.ExportAsync(
-                _fhirRequestContextAccessor.FhirRequestContext.Uri,
+                _fhirRequestContextAccessor.RequestContext.Uri,
                 exportType,
                 resourceType,
                 since,

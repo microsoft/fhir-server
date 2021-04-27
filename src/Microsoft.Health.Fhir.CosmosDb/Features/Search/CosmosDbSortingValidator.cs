@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     (SearchParameterInfo searchParameter, SortOrder sortOrder) parameter = sorting[0];
 
                     if (parameter.searchParameter.SortStatus == SortParameterStatus.Enabled ||
-                        (parameter.searchParameter.SortStatus == SortParameterStatus.Supported && _contextAccessor.FhirRequestContext?.RequestHeaders.TryGetValue(KnownHeaders.PartiallyIndexedParamsHeaderName, out StringValues _) == true))
+                        (parameter.searchParameter.SortStatus == SortParameterStatus.Supported && _contextAccessor.RequestContext?.RequestHeaders.TryGetValue(KnownHeaders.PartiallyIndexedParamsHeaderName, out StringValues _) == true))
                     {
                         errorMessages = Array.Empty<string>();
                         return true;

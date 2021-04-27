@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             // Now the authentication is completed successfully, sets the user.
             if (context.User != null)
             {
-                fhirRequestContextAccessor.FhirRequestContext.Principal = context.User;
+                fhirRequestContextAccessor.RequestContext.Principal = context.User;
             }
 
             // Call the next delegate/middleware in the pipeline

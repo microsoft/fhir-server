@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
             var profileValidator = Substitute.For<IProfileValidator>();
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             config.Value.Returns(new CoreFeatureConfiguration());
-            contextAccessor.FhirRequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
+            contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
             var validator = new UpsertResourceValidator(
                 new ModelAttributeValidator(),
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
                 headers.Add(KnownHeaders.ProfileValidation, new StringValues(headerValue.Value.ToString()));
             }
 
-            contextAccessor.FhirRequestContext.RequestHeaders.Returns(headers);
+            contextAccessor.RequestContext.RequestHeaders.Returns(headers);
             var validator = new UpsertResourceValidator(
                 new ModelAttributeValidator(),
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),

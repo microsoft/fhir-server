@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
                 IsBackgroundTask = true,
                 AuditEventType = OperationsConstants.Reindex,
             };
-            _fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
+            _fhirRequestContextAccessor.RequestContext = fhirRequestContext;
         }
 
         [Fact]
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             while (loopCount < 16)
             {
                 _output.WriteLine($"Current throttle based delay is: {throttleController.GetThrottleBasedDelay()}");
-                _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "100.0");
+                _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "100.0");
                 throttleController.UpdateDatastoreUsage();
                 await Task.Delay(reindexJob.QueryDelayIntervalInMilliseconds + throttleController.GetThrottleBasedDelay());
                 loopCount++;
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             while (loopCount < 17)
             {
                 _output.WriteLine($"Current throttle based delay is: {throttleController.GetThrottleBasedDelay()}");
-                _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "100.0");
+                _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "100.0");
                 throttleController.UpdateDatastoreUsage();
                 await Task.Delay(reindexJob.QueryDelayIntervalInMilliseconds + throttleController.GetThrottleBasedDelay());
                 loopCount++;
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             while (loopCount < 17)
             {
                 _output.WriteLine($"Current throttle based delay is: {throttleController.GetThrottleBasedDelay()}");
-                _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "10.0");
+                _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "10.0");
                 throttleController.UpdateDatastoreUsage();
                 await Task.Delay(reindexJob.QueryDelayIntervalInMilliseconds + throttleController.GetThrottleBasedDelay());
                 loopCount++;
@@ -118,12 +118,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Operations.Reindex
             reindexJob.QueryDelayIntervalInMilliseconds = 50;
             throttleController.Initialize(reindexJob, 1000);
 
-            _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "1000.0");
+            _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "1000.0");
             throttleController.UpdateDatastoreUsage();
 
             Assert.Equal<uint>(80, throttleController.GetThrottleBatchSize());
 
-            _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "500.0");
+            _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Add(CosmosDbHeaders.RequestCharge, "500.0");
             throttleController.UpdateDatastoreUsage();
 
             Assert.Equal<uint>(100, throttleController.GetThrottleBatchSize());

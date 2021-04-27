@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             context.Response.Headers[KnownHeaders.RequestId] = correlationId;
 
-            fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
+            fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 
             // Call the next delegate/middleware in the pipeline
             await _next(context);

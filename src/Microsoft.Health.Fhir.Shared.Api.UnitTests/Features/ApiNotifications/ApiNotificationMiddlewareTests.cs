@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
 
         public ApiNotificationMiddlewareTests()
         {
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
             _apiNotificationMiddleware = new ApiNotificationMiddleware(
                     _fhirRequestContextAccessor,
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Notifications
         [Fact]
         public async Task GivenRequestPath_AndNullFhirRequestContext_WhenInvoked_DoesNotFail_AndDoesNotEmitMediatREvents()
         {
-            _fhirRequestContextAccessor.FhirRequestContext.Returns((IFhirRequestContext)null);
+            _fhirRequestContextAccessor.RequestContext.Returns((IFhirRequestContext)null);
 
             _httpContext.Request.Path = "/Observation";
             await _apiNotificationMiddleware.InvokeAsync(_httpContext, _next);

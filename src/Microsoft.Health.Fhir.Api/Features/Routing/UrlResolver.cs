@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
         {
-            string routeName = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
+            string routeName = _fhirRequestContextAccessor.RequestContext.RouteName;
 
             Debug.Assert(!string.IsNullOrWhiteSpace(routeName), "The routeName should not be null or empty.");
 

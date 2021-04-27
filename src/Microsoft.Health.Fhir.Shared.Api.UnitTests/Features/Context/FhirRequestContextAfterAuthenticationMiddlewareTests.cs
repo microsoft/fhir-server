@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             var fhirRequestContext = new DefaultFhirRequestContext();
 
-            fhirRequestContextAccessor.FhirRequestContext.Returns(fhirRequestContext);
+            fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
 
             HttpContext httpContext = new DefaultHttpContext();
 

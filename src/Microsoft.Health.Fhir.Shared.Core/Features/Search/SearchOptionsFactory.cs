@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     if (badTypes.Count != 0)
                     {
-                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
                             new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.NotSupported,
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 
-                    _contextAccessor.FhirRequestContext?.BundleIssues.Add(
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
                         new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,
@@ -332,8 +332,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (unsupportedSearchParameters.Any())
             {
                 bool throwForUnsupported = false;
-                if (_contextAccessor.FhirRequestContext.RequestHeaders != null &&
-                    _contextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var values))
+                if (_contextAccessor.RequestContext.RequestHeaders != null &&
+                    _contextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var values))
                 {
                     var handlingValue = values.FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));
                     if (handlingValue != default)
@@ -366,7 +366,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     foreach (var unsupported in unsupportedSearchParameters)
                     {
-                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                        _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                               OperationOutcomeConstants.IssueSeverity.Warning,
                               OperationOutcomeConstants.IssueType.NotSupported,
                               string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString))));
@@ -391,7 +391,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (SearchParameterNotSupportedException)
                     {
                         sortingsValid = false;
-                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                        _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Warning,
                             OperationOutcomeConstants.IssueType.NotSupported,
                             string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, string.Join(", ", resourceTypesString))));
@@ -411,7 +411,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         foreach (var errorMessage in errorMessages)
                         {
-                            _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                            _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.NotSupported,
                                 errorMessage));
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // See https://www.hl7.org/fhir/search.html#revinclude.
                     if (expression.Iterate && expression.CircularReference)
                     {
-                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
                         new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,

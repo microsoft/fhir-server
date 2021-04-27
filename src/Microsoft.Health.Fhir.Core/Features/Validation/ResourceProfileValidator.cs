@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             if (context.PropertyValue is ResourceElement resourceElement)
             {
-                var fhirContext = _contextAccessor.FhirRequestContext;
+                var fhirContext = _contextAccessor.RequestContext;
                 var profileValidation = _runProfileValidation;
                 if (fhirContext.RequestHeaders.ContainsKey(KnownHeaders.ProfileValidation)
                     && fhirContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var value))

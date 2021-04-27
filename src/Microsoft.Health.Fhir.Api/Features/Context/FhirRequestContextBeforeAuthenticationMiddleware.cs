@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 // The authorization middleware runs before MVC middleware and therefore,
                 // information related to route and audit will not be populated if authentication fails.
                 // Handle such condition and populate them here if possible.
-                if (_fhirRequestContextAccessor.FhirRequestContext.RouteName == null &&
+                if (_fhirRequestContextAccessor.RequestContext.RouteName == null &&
                     (statusCode == HttpStatusCode.Unauthorized || statusCode == HttpStatusCode.Forbidden))
                 {
                     RouteData routeData = context.GetRouteData();
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                         routeData.Values.TryGetValue("action", out object actionName);
                         routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
 
-                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
                         fhirRequestContext.AuditEventType = _auditEventTypeMapping.GetAuditEventType(
                             controllerName?.ToString(),
