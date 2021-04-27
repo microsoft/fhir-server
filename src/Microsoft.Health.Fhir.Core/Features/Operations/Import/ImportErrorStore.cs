@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -14,11 +15,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private Uri _fileUri;
+        private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
 
         public ImportErrorStore(IIntegrationDataStoreClient integrationDataStoreClient, Uri fileUri)
         {
             _integrationDataStoreClient = integrationDataStoreClient;
             _fileUri = fileUri;
+
+            _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
         public string ErrorFileLocation => _fileUri.ToString();
@@ -30,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 return;
             }
 
-            using Stream stream = new MemoryStream();
+            using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
             using StreamWriter writer = new StreamWriter(stream);
 
             foreach (string error in importErrors)
