@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -11,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Messages.Operation;
+using Microsoft.Health.Fhir.Core.Messages.Everything;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -46,8 +47,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
                 request.Type,
                 request.Count,
                 request.ContinuationToken,
-                request.Includes,
-                request.Revincludes,
+                Arg.Any<IReadOnlyList<string>>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 CancellationToken.None).Returns(searchResult);
 
             var expectedBundle = new Bundle().ToResourceElement();

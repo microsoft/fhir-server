@@ -6,7 +6,7 @@
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Operation
+namespace Microsoft.Health.Fhir.Core.Messages.Everything
 {
     public class EverythingOperationResponse
     {

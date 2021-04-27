@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -11,7 +13,7 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Messages.Operation;
+using Microsoft.Health.Fhir.Core.Messages.Everything;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
@@ -21,6 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly ISearchService _searchService;
         private readonly IBundleFactory _bundleFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
+
+        private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
+        private IReadOnlyList<Tuple<string, string>> _revincludes = new[] { Tuple.Create("Device", "patient") };
 
         public EverythingOperationHandler(ISearchService searchService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService)
         {
@@ -43,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             SearchResult searchResult = await _searchService.SearchForEverythingOperationAsync(
-                message.ResourceType, message.ResourceId, message.Start, message.End, message.Since, message.Type, message.Count, message.ContinuationToken, message.Includes, message.Revincludes, cancellationToken);
+                message.ResourceType, message.ResourceId, message.Start, message.End, message.Since, message.Type, message.Count, message.ContinuationToken, _includes, _revincludes, cancellationToken);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 

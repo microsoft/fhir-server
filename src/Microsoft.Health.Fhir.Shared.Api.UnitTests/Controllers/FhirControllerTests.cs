@@ -7,13 +7,19 @@ using System;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Messages.Operation;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Messages.Everything;
 using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
@@ -21,17 +27,21 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
-    public class OperationControllerTests
+    public class FhirControllerTests
     {
-        private readonly OperationController _operationController;
+        private readonly FhirController _fhirController;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private readonly ILogger<FhirController> _logger = Substitute.For<ILogger<FhirController>>();
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
+        private readonly IAuthorizationService _authorizationService = Substitute.For<IAuthorizationService>();
         private readonly HttpContext _httpContext = new DefaultHttpContext();
 
-        public OperationControllerTests()
+        public FhirControllerTests()
         {
-            _operationController = GetController();
+            _fhirController = GetController();
             var controllerContext = new ControllerContext { HttpContext = _httpContext };
-            _operationController.ControllerContext = controllerContext;
+            _fhirController.ControllerContext = controllerContext;
         }
 
         [Fact]
@@ -39,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             _mediator.Send(Arg.Any<EverythingOperationRequest>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
 
-            IActionResult result = await _operationController.EverythingById(
+            IActionResult result = await _fhirController.EverythingById(
                 typeParameter: ResourceType.Patient.ToString(),
                 idParameter: "123",
                 start: PartialDateTime.Parse("2019"),
@@ -70,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenAnEverythingOperationRequest_WhenResourceTypeIsNotPatient_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _operationController.EverythingById(
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _fhirController.EverythingById(
                 type: ResourceType.Observation.ToString(),
                 idParameter: null,
                 typeParameter: null,
@@ -81,9 +91,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 ct: null));
         }
 
-        private OperationController GetController()
+        private FhirController GetController()
         {
-            return new(_mediator);
+            var featureConfig = new FeatureConfiguration();
+
+            IOptions<FeatureConfiguration> optionsFeatureConfiguration = Substitute.For<IOptions<FeatureConfiguration>>();
+            optionsFeatureConfiguration.Value.Returns(featureConfig);
+
+            return new FhirController(_mediator, _logger, _fhirRequestContextAccessor, _urlResolver, optionsFeatureConfiguration, _authorizationService);
         }
 
         private static EverythingOperationResponse GetEverythingOperationResponse()

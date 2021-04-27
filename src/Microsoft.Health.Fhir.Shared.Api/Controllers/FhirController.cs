@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -33,6 +34,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Everything;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -486,6 +488,41 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
 
             return FhirResult.Create(bundleResponse);
+        }
+
+        /// <summary>
+        /// Returns resources defined in $everything operation
+        /// </summary>
+        /// <param name="typeParameter">The resource type</param>
+        /// <param name="idParameter">The resource ID</param>
+        /// <param name="start">The start date relates to care dates</param>
+        /// <param name="end">The end date relates to care dates</param>
+        /// <param name="since">Resources updated after this period will be included in the response</param>
+        /// <param name="type">Comma-delimited FHIR resource types to include in the return resources</param>
+        /// <param name="count">The number of resources returned in one page</param>
+        /// <param name="ct">The continuation token</param>
+        [HttpGet]
+        [Route(KnownRoutes.EverythingResourceTypeById, Name = RouteNames.EverythingOperationById)]
+        [AuditEventType(AuditEventSubType.Everything)]
+        public async Task<IActionResult> EverythingById(
+            string typeParameter,
+            string idParameter,
+            [FromQuery(Name = KnownQueryParameterNames.Start)] PartialDateTime start,
+            [FromQuery(Name = KnownQueryParameterNames.End)] PartialDateTime end,
+            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Type)] string type,
+            [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
+            string ct)
+        {
+            // $everything operation is currently supported only for Patient resource type
+            if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
+            {
+                throw new RequestNotValidException(string.Format(CultureInfo.InvariantCulture, Resources.UnsupportedResourceType, typeParameter));
+            }
+
+            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(typeParameter, idParameter, start, end, since, type, count, ct), HttpContext.RequestAborted);
+
+            return FhirResult.Create(result.Bundle);
         }
     }
 }

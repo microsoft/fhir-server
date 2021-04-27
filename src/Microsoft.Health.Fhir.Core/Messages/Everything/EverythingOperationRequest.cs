@@ -3,13 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Operation
+namespace Microsoft.Health.Fhir.Core.Messages.Everything
 {
     public class EverythingOperationRequest : IRequest<EverythingOperationResponse>
     {
@@ -43,9 +41,5 @@ namespace Microsoft.Health.Fhir.Core.Messages.Operation
         public int? Count { get; }
 
         public string ContinuationToken { get; }
-
-        public IReadOnlyList<string> Includes { get; } = new[] { "general-practitioner", "organization" };
-
-        public IReadOnlyList<Tuple<string, string>> Revincludes { get; } = new[] { Tuple.Create("Device", "patient") };
     }
 }
