@@ -75,5 +75,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAForbiddenPropertyPatch_ThenAnErrorShouldBeReturned()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument = "[{\"op\":\"replace\",\"path\":\"/versionId\",\"value\":\"100\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+              response.Resource,
+              patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+
+            patchDocument = "[{\"op\":\"replace\",\"path\":\"/resourceType\",\"value\":\"DummyResource\"}]";
+
+            var exception2 = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+            response.Resource,
+            patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception2.Response.StatusCode);
+        }
     }
 }
