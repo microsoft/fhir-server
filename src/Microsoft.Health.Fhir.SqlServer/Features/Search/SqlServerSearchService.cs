@@ -210,7 +210,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(_chainFlatteningRewriter)
                                                .AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance)
                                                .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
-                                               .AcceptVisitor(StringOverflowRewriter.Instance)
+                                               .AcceptVisitor(
+                                                   (SqlExpressionRewriterWithInitialContext<object>)(_schemaInformation.Current >= SchemaVersionConstants.PartitionedTables
+                                                       ? StringOverflowRewriter.Instance
+                                                       : LegacyStringOverflowRewriter.Instance))
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
                                                .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                                                .AcceptVisitor(TopRewriter.Instance, searchOptions)
