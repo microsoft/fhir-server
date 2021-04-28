@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -20,9 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public class SearchableSearchParameterDefinitionManager : ISearchParameterDefinitionManager
     {
         private readonly SearchParameterDefinitionManager _inner;
-        private IFhirRequestContextAccessor _fhirReqeustContextAccessor;
+        private RequestContextAccessor<IFhirRequestContext> _fhirReqeustContextAccessor;
 
-        public SearchableSearchParameterDefinitionManager(SearchParameterDefinitionManager inner, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public SearchableSearchParameterDefinitionManager(SearchParameterDefinitionManager inner, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));

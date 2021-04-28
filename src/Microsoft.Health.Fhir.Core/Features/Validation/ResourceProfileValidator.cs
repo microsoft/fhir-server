@@ -9,6 +9,7 @@ using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 using static Microsoft.Health.Fhir.Core.Models.OperationOutcomeConstants;
@@ -18,13 +19,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public sealed class ResourceProfileValidator : ResourceContentValidator
     {
         private readonly IProfileValidator _profileValidator;
-        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly bool _runProfileValidation;
 
         public ResourceProfileValidator(
             IModelAttributeValidator modelAttributeValidator,
             IProfileValidator profileValidator,
-            IFhirRequestContextAccessor contextAccessor,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             bool runProfileValidation = false)
             : base(modelAttributeValidator)
         {

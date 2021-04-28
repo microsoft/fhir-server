@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -15,10 +16,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 {
     public class PrincipalClaimsExtractor : IClaimsExtractor
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly SecurityConfiguration _securityConfiguration;
 
-        public PrincipalClaimsExtractor(IFhirRequestContextAccessor fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfiguration)
+        public PrincipalClaimsExtractor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IOptions<SecurityConfiguration> securityConfiguration)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
