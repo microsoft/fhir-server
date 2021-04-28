@@ -11,7 +11,6 @@ using System.Reflection;
 using System.Text;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Hl7.FhirPath.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using EnumerableReturnType = System.Collections.Generic.IEnumerable<Microsoft.Health.Fhir.Core.Features.Search.Parameters.SearchParameterTypeResult>;
@@ -225,9 +224,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         if (prop.GetElementType() == typeof(Element) || prop.GetElementType() == typeof(DataType) || prop.Choice == ChoiceType.DatatypeChoice)
                         {
                             string path = pathBuilder.ToString();
-                            foreach (Type fhirType in prop.FhirType)
+                            if (prop.FhirType.Length == 1 && prop.FhirType[0] == typeof(DataType) && prop.Choice == ChoiceType.DatatypeChoice)
                             {
-                                yield return new SearchParameterTypeResult(GetMapping(fhirType), ctx.SearchParamType, path, ctx.Definition);
+                                foreach (var pair in ModelInfo.FhirTypeToCsType)
+                                {
+                                    if ((ModelInfo.IsDataType(pair.Value) || ModelInfo.IsPrimitive(pair.Value))
+                                        && !pair.Value.IsAbstract)
+                                    {
+                                        yield return new SearchParameterTypeResult(GetMapping(pair.Value), ctx.SearchParamType, path, ctx.Definition);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                foreach (Type fhirType in prop.FhirType)
+                                {
+                                    yield return new SearchParameterTypeResult(GetMapping(fhirType), ctx.SearchParamType, path, ctx.Definition);
+                                }
                             }
 
                             pathBuilder.AppendFormat("({0})", string.Join(",", prop.FhirType.Select(x => x.Name)));

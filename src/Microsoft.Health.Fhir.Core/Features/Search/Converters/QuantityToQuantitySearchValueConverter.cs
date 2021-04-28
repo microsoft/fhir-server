@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public class QuantityToQuantitySearchValueConverter : FhirTypedElementToSearchValueConverter<QuantitySearchValue>
     {
         public QuantityToQuantitySearchValueConverter()
-            : base("Quantity")
+            : base("Quantity", "System.Quantity")
         {
         }
 

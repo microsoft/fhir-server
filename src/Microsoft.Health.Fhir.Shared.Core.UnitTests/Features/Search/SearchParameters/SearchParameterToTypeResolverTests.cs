@@ -25,8 +25,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 KnownResourceTypes.Patient,
                 (SearchParamType.Token, expression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-race")),
                 null).ToArray();
+            var types = results.Select(x => x.FhirNodeType).ToArray();
 
-            Assert.Equal("DataType", results.Single().FhirNodeType);
+            if (ModelInfoProvider.Version == FhirSpecification.Stu3)
+            {
+                Assert.Equal(51, types.Length);
+            }
+            else if (ModelInfoProvider.Version== FhirSpecification.R4)
+            {
+                Assert.Equal(59, types.Length);
+            }
+            else
+            {
+                Assert.Equal(62, types.Length);
+            }
+        }
+
+        [Fact]
+        public void BlaBla()
+        {
+            var expression = _compiler.Parse("CarePlan.activity.detail.product");
+            SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
+                "CarePlan",
+                (SearchParamType.Reference, expression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-race")),
+                null).ToArray();
+
+            Assert.Equal(2, results.Length);
         }
 
         [Fact]
