@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 new[] { (new SearchParameterInfo("a", "a"), SortOrder.Ascending), (new SearchParameterInfo("b", "b"), SortOrder.Descending) },
                 null,
                 null,
-                new Dictionary<string, object> { { KnownQueryParameterNames.Sort, new StringValues(new[] { "a", "-b" }) } });
+                new Dictionary<string, object> { { KnownQueryParameterNames.Sort, "a,-b" } });
         }
 
         [Fact]

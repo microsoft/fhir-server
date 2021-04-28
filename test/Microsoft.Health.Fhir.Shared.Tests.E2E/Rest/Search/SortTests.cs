@@ -252,13 +252,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
+            resources.AddRange(patients);
+
             foreach (Patient p in patients)
             {
                 var obs = await AddObservationToPatient(p, "1990-01-01", tag);
                 resources.AddRange(obs);
             }
-
-            resources.AddRange(patients);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
@@ -309,9 +309,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
+            resources.AddRange(patients.Reverse());
             observations.Reverse();
             resources.AddRange(observations);
-            resources.AddRange(patients.Reverse());
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
@@ -363,8 +363,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
-            resources.AddRange(patients);
             resources.AddRange(observations);
+            resources.AddRange(patients);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types

@@ -169,10 +169,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
                     if (string.Equals(searchParam.Key, KnownQueryParameterNames.Sort, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (resultSortOrder?.Count > 0)
+                        switch (resultSortOrder?.Count)
                         {
+                            case null:
+                            case 0:
+                                break;
+
                             // rewrite the sort order based on the sort order that was actually applied
-                            routeValues.Add(searchParam.Key, new StringValues(resultSortOrder.Select(s => $"{(s.sortOrder == SortOrder.Ascending ? string.Empty : "-")}{s.searchParameterInfo.Code}").ToArray()));
+                            case 1 when resultSortOrder[0].sortOrder == SortOrder.Ascending:
+                                routeValues.Add(searchParam.Key, resultSortOrder[0].searchParameterInfo.Code);
+                                break;
+                            default:
+                                routeValues.Add(searchParam.Key, string.Join(',', resultSortOrder.Select(s => $"{(s.sortOrder == SortOrder.Ascending ? string.Empty : "-")}{s.searchParameterInfo.Code}")));
+                                break;
                         }
                     }
                     else if (string.Equals(searchParam.Key, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
