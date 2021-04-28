@@ -449,7 +449,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             int? averagePartitionCount = queryPartitionStatistics.GetAveragePartitionCount();
 
-            if (averagePartitionCount.HasValue)
+            if (averagePartitionCount.HasValue && _cosmosConfig.UseQueryStatistics)
             {
                 // this is not a new query
 
