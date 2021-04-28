@@ -1624,7 +1624,7 @@ AS
 
     /* Update inbound references. When we support referential integrity, this only needs to be done on update */
     UPDATE dbo.ReferenceSearchParam WITH (HOLDLOCK) -- make sure nobody can insert new entries in this range
-        SET ReferenceResourceSurrogateId = @resourceSurrogateId
+        SET ReferenceResourceSurrogateId = CASE @isDeleted WHEN 1 THEN NULL ELSE @resourceSurrogateId END
         WHERE ReferenceResourceTypeId = @resourceTypeId 
             AND ReferenceResourceId = @resourceId
             AND IsHistory = 0
@@ -1842,6 +1842,13 @@ AS
 
     DELETE FROM dbo.TokenNumberNumberCompositeSearchParam
     WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
+
+    UPDATE dbo.ReferenceSearchParam WITH (HOLDLOCK) -- make sure nobody can insert new entries in this range
+    SET ReferenceResourceSurrogateId = NULL
+    WHERE ReferenceResourceTypeId = @resourceTypeId 
+        AND ReferenceResourceId = @resourceId
+        AND IsHistory = 0
+        AND BaseUri IS NULL
 
     COMMIT TRANSACTION
 GO
