@@ -238,9 +238,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory);
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
 
-            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
         }
     }
 }
