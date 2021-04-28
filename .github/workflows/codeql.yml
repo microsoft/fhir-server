@@ -1,6 +1,9 @@
 name: "Code Scanning - Action"
 
 on:
+  push:
+    branches-ignore:
+     - 'dependabot/**'
   pull_request:
   schedule:
     - cron: '0 0 * * 0'
