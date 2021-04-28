@@ -503,7 +503,46 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder
                 .Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? VLatest.Resource.ResourceTypeId : VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceTableAlias).Append(" AS ").Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "T1, " : "T2, ")
                 .Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? VLatest.Resource.ResourceSurrogateId : VLatest.ReferenceSearchParam.ReferenceResourceSurrogateId, referenceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
-                .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceTableAlias);
+                .Append("FROM ");
+
+            if (_schemaInfo.Current >= SchemaVersionConstants.ReferencesEagerlyResolved)
+            {
+                StringBuilder.Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceTableAlias);
+            }
+            else
+            {
+                // for backwards compat, select over a derived table with the same columns as VLatest.ReferenceSearchParam
+                StringBuilder.AppendLine("(");
+                using (StringBuilder.Indent())
+                {
+                    const string referenceSourceTableAlias = "refSource";
+                    const string referenceTargetResourceTableAlias = "refTarget";
+
+                    StringBuilder.Append("SELECT ")
+                        .Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias).Append(", ")
+                        .Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).Append(", ")
+                        .Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias).Append(", ")
+                        .Append(VLatest.ReferenceSearchParam.BaseUri, referenceSourceTableAlias).Append(", ")
+                        .Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias).Append(", ")
+                        .Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias).Append(", ")
+                        .Append(VLatest.ReferenceSearchParam.ReferenceResourceVersion, referenceSourceTableAlias).Append(", ")
+                        .Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias).Append(" AS ").Append(VLatest.ReferenceSearchParam.ReferenceResourceSurrogateId, null).Append(", ")
+                        .Append(VLatest.ReferenceSearchParam.IsHistory, referenceTargetResourceTableAlias).AppendLine()
+                        .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
+                        .Append(" INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
+
+                    using (var delimited = StringBuilder.BeginDelimitedOnClause())
+                    {
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                            .Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
+
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias)
+                            .Append(" = ").Append(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+                    }
+                }
+
+                StringBuilder.Append(") ").AppendLine(referenceTableAlias);
+            }
 
             // For reverse chaining, if there is a parameter on the _id search parameter, we need another join to get the resource ID of the reference source (all we have is the surrogate ID at this point)
 
