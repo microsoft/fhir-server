@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public static IFhirRequestContextAccessor SetupAccessor(this IFhirRequestContext context)
         {
             IFhirRequestContextAccessor accessor = Substitute.For<IFhirRequestContextAccessor>();
-            accessor.FhirRequestContext.Returns(context);
+            accessor.RequestContext.Returns(context);
             return accessor;
         }
     }

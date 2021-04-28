@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _fhirRequestContext.CorrelationId.Returns(CorrelationId);
             _fhirRequestContext.ResourceType.Returns("Patient");
 
-            _fhirRequestContextAccessor.FhirRequestContext = _fhirRequestContext;
+            _fhirRequestContextAccessor.RequestContext = _fhirRequestContext;
 
             _httpContext.Connection.RemoteIpAddress = CallerIpAddress;
 

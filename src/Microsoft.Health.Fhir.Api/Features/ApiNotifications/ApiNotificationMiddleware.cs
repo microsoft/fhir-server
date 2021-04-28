@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 
                     try
                     {
-                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
                         // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
                         if (fhirRequestContext?.AuditEventType != null)

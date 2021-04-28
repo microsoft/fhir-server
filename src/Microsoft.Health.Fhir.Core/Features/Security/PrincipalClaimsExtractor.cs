@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
 
         public IReadOnlyCollection<KeyValuePair<string, string>> Extract()
         {
-            return _fhirRequestContextAccessor.FhirRequestContext.Principal?.Claims?
+            return _fhirRequestContextAccessor.RequestContext.Principal?.Claims?
                 .Where(c => _securityConfiguration.PrincipalClaims?.Contains(c.Type) ?? false)
                 .Select(c => new KeyValuePair<string, string>(c.Type, c.Value))
                 .ToList();

@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _weakETag = weakETag;
             var jobSemaphore = new SemaphoreSlim(1, 1);
 
-            var existingFhirRequestContext = _contextAccessor.FhirRequestContext;
+            var existingFhirRequestContext = _contextAccessor.RequestContext;
 
             try
             {
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     AuditEventType = OperationsConstants.Reindex,
                 };
 
-                _contextAccessor.FhirRequestContext = fhirRequestContext;
+                _contextAccessor.RequestContext = fhirRequestContext;
 
                 using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
                 {
@@ -345,7 +345,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             finally
             {
                 jobSemaphore.Dispose();
-                _contextAccessor.FhirRequestContext = existingFhirRequestContext;
+                _contextAccessor.RequestContext = existingFhirRequestContext;
             }
         }
 

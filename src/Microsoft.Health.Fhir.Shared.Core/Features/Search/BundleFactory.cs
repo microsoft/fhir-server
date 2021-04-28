@@ -79,12 +79,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Create the bundle from the result.
             var bundle = new Bundle();
 
-            if (_fhirRequestContextAccessor.FhirRequestContext.BundleIssues.Any())
+            if (_fhirRequestContextAccessor.RequestContext.BundleIssues.Any())
             {
                 var operationOutcome = new OperationOutcome
                 {
-                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                    Issue = new List<OperationOutcome.IssueComponent>(_fhirRequestContextAccessor.FhirRequestContext.BundleIssues.Select(x => x.ToPoco())),
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
+                    Issue = new List<OperationOutcome.IssueComponent>(_fhirRequestContextAccessor.RequestContext.BundleIssues.Select(x => x.ToPoco())),
                 };
 
                 bundle.Entry.Add(new Bundle.EntryComponent
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Add the self link to indicate which search parameters were used.
             bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.SortOrder);
 
-            bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
+            bundle.Id = _fhirRequestContextAccessor.RequestContext.CorrelationId;
             bundle.Type = type;
             bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta

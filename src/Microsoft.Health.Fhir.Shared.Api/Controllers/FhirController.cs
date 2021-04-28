@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(
                 new OperationOutcome
                 {
-                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                     Issue = new List<OperationOutcome.IssueComponent>
                     {
                         new OperationOutcome.IssueComponent

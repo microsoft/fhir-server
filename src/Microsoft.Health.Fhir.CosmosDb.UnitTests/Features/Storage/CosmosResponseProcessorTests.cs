@@ -34,10 +34,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         public CosmosResponseProcessorTests()
         {
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders.Returns(_requestHeaders);
-            _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Returns(_responseHeaders);
-            _fhirRequestContextAccessor.FhirRequestContext.ResourceType.Returns("resource");
-            _fhirRequestContextAccessor.FhirRequestContext.AuditEventType.Returns("operation");
+            _fhirRequestContextAccessor.RequestContext.RequestHeaders.Returns(_requestHeaders);
+            _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Returns(_responseHeaders);
+            _fhirRequestContextAccessor.RequestContext.ResourceType.Returns("resource");
+            _fhirRequestContextAccessor.RequestContext.AuditEventType.Returns("operation");
 
             _mediator = Substitute.For<IMediator>();
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;

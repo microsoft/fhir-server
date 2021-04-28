@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             ExtractMinAndMaxValues(searchIndices);
 
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             return new ResourceWrapper(
                 resource,

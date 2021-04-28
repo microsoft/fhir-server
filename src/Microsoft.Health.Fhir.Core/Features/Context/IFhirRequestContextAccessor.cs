@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 {
     public interface IFhirRequestContextAccessor
     {
-        IFhirRequestContext FhirRequestContext { get; set; }
+        IFhirRequestContext RequestContext { get; set; }
     }
 }

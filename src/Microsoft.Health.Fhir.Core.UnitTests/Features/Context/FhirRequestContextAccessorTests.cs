@@ -23,9 +23,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
                 IFhirRequestContext fhirRequestContext = Substitute.For<IFhirRequestContext>();
                 fhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
 
-                fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
+                fhirRequestContextAccessor.RequestContext = fhirRequestContext;
                 await Task.Delay(50);
-                return fhirRequestContextAccessor.FhirRequestContext;
+                return fhirRequestContextAccessor.RequestContext;
             });
 
             var thread2 = Task.Run(async () =>
@@ -33,9 +33,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
                 IFhirRequestContext fhirRequestContext = Substitute.For<IFhirRequestContext>();
                 fhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
 
-                fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
+                fhirRequestContextAccessor.RequestContext = fhirRequestContext;
                 await Task.Delay(0);
-                return fhirRequestContextAccessor.FhirRequestContext;
+                return fhirRequestContextAccessor.RequestContext;
             });
 
             var correlationId1 = (await thread1).CorrelationId;

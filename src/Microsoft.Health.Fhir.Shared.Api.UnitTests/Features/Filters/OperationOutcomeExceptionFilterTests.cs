@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 FilterTestsHelper.CreateMockFhirController());
 
             _fhirRequestContext.CorrelationId = _correlationId;
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
         }
 
         [Fact]

@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 
         public ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken)
         {
-            ClaimsPrincipal principal = _requestContextAccessor.FhirRequestContext.Principal;
+            ClaimsPrincipal principal = _requestContextAccessor.RequestContext.Principal;
 
             DataActions permittedDataActions = 0;
             foreach (Claim claim in principal.FindAll(_rolesClaimName))

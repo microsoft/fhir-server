@@ -57,9 +57,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, Provider);
 
-            Assert.NotNull(fhirRequestContextAccessor.FhirRequestContext);
+            Assert.NotNull(fhirRequestContextAccessor.RequestContext);
 
-            return fhirRequestContextAccessor.FhirRequestContext;
+            return fhirRequestContextAccessor.RequestContext;
         }
 
         private HttpContext CreateHttpContext()

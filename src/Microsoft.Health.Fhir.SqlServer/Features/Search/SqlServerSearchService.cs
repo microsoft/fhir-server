@@ -350,7 +350,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     if (isResultPartial)
                     {
-                        _requestContextAccessor.FhirRequestContext.BundleIssues.Add(
+                        _requestContextAccessor.RequestContext.BundleIssues.Add(
                             new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.Incomplete,

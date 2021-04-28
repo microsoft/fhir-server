@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             optionsMonitor.Get(CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+            fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator);
             await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);

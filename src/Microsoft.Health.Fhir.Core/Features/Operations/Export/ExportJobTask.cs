@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _weakETag = weakETag;
             _fileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
 
-            var existingFhirRequestContext = _contextAccessor.FhirRequestContext;
+            var existingFhirRequestContext = _contextAccessor.RequestContext;
 
             try
             {
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     IsBackgroundTask = true,
                 };
 
-                _contextAccessor.FhirRequestContext = fhirRequestContext;
+                _contextAccessor.RequestContext = fhirRequestContext;
 
                 string connectionHash = string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection) ?
                     string.Empty :
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             finally
             {
-                _contextAccessor.FhirRequestContext = existingFhirRequestContext;
+                _contextAccessor.RequestContext = existingFhirRequestContext;
             }
         }
 
@@ -239,9 +239,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
         {
-            if (_contextAccessor?.FhirRequestContext?.BundleIssues != null)
+            if (_contextAccessor?.RequestContext?.BundleIssues != null)
             {
-                foreach (OperationOutcomeIssue issue in _contextAccessor.FhirRequestContext.BundleIssues)
+                foreach (OperationOutcomeIssue issue in _contextAccessor.RequestContext.BundleIssues)
                 {
                     _exportJobRecord.Issues.Add(issue);
                 }
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
 
-                _contextAccessor.FhirRequestContext.BundleIssues.Clear();
+                _contextAccessor.RequestContext.BundleIssues.Clear();
             }
         }
 

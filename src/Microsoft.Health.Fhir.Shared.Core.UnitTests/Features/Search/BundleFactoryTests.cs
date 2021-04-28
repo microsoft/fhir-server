@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             fhirRequestContext.CorrelationId.Returns(_correlationId);
 
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
         }
 
         [Fact]

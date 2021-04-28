@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 new Dictionary<string, StringValues>(),
                 new Dictionary<string, StringValues>());
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(dummyRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
 
             _claimsExtractor = Substitute.For<IClaimsExtractor>();
             _compartmentIndexer = Substitute.For<ICompartmentIndexer>();

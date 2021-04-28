@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private (ConsistencyLevel? consistencyLevel, string sessionToken) GetConsistencyHeaders()
         {
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             if (fhirRequestContext == null)
             {
