@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -59,8 +60,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 ResponseHeaders = new HeaderDictionary(),
             };
 
-            IFhirRequestContextAccessor fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
             IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
 

@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 originalResource.CompartmentIndices,
                 originalResource.LastModifiedClaims);
 
-            await _fhirDataStore.UpdateSearchIndexForResourceAsync(updatedResource, WeakETag.FromVersionId(originalResource.Version), CancellationToken.None);
+            await _fhirDataStore.UpdateSearchParameterIndicesAsync(updatedResource, WeakETag.FromVersionId(originalResource.Version), CancellationToken.None);
         }
     }
 }

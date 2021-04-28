@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Context;
@@ -162,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<FhirRequestContextAccessor>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IFhirRequestContextAccessor>();
+                .AsService<RequestContextAccessor<IFhirRequestContext>>();
 
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 

@@ -18,6 +18,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionConstraints;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly ILogger<FhirController> _logger;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly IAuthorizationService _authorizationService;
         private readonly FeatureConfiguration _featureConfiguration;
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public FhirController(
             IMediator mediator,
             ILogger<FhirController> logger,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<FeatureConfiguration> uiConfiguration,
             IAuthorizationService authorizationService)
@@ -125,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(
                 new OperationOutcome
                 {
-                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                     Issue = new List<OperationOutcome.IssueComponent>
                     {
                         new OperationOutcome.IssueComponent

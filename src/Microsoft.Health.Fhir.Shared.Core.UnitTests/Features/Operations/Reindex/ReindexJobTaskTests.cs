@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
         private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
-        private readonly IFhirRequestContextAccessor _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
         private ReindexJobTask _reindexJobTask;

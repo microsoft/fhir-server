@@ -3,10 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Context
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    public interface IFhirRequestContextAccessor
+    /// <summary>
+    /// Represents a row in the Resource or search parameter tables by its primary key.
+    /// </summary>
+    internal record PrimaryKeyValue(short ResourceTypeId, long ResourceSurrogateId)
     {
-        IFhirRequestContext FhirRequestContext { get; set; }
+        public override string ToString() => $"(PrimaryKey {ResourceTypeId} {ResourceSurrogateId})";
     }
 }

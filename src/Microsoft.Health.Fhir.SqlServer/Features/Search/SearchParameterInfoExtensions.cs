@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 case SearchParameterNames.LastUpdated:
                 case SqlSearchParameters.ResourceSurrogateIdParameterName:
                 case SearchParameterNames.ResourceType:
+                case SqlSearchParameters.PrimaryKeyParameterName:
                     return SearchParameterColumnLocation.ResourceTable | SearchParameterColumnLocation.SearchParamTable;
                 case SearchParameterNames.Id:
                     return SearchParameterColumnLocation.ResourceTable;

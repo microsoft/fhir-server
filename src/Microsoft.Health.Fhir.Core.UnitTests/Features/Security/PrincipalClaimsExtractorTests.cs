@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -18,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 {
     public class PrincipalClaimsExtractorTests
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IOptions<SecurityConfiguration> _securityOptions = Substitute.For<IOptions<SecurityConfiguration>>();
         private readonly SecurityConfiguration _securityConfiguration = Substitute.For<SecurityConfiguration>();
         private readonly ClaimsPrincipal _claimsPrincipal = Substitute.For<ClaimsPrincipal>();
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         public PrincipalClaimsExtractorTests()
         {
             _securityOptions.Value.Returns(_securityConfiguration);
-            _fhirRequestContextAccessor.FhirRequestContext.Principal.Returns(_claimsPrincipal);
+            _fhirRequestContextAccessor.RequestContext.Principal.Returns(_claimsPrincipal);
             _claimsIndexer = new PrincipalClaimsExtractor(_fhirRequestContextAccessor, _securityOptions);
         }
 

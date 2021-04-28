@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 Assert.Equal(51, types.Length);
             }
-            else if (ModelInfoProvider.Version== FhirSpecification.R4)
+            else if (ModelInfoProvider.Version == FhirSpecification.R4)
             {
                 Assert.Equal(59, types.Length);
             }

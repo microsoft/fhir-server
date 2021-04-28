@@ -26,6 +26,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly Dictionary<HTTPVerb, List<(RouteContext, int, string)>> _requests;
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public BundleHandler(
             IHttpContextAccessor httpContextAccessor,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             FhirJsonSerializer fhirJsonSerializer,
             FhirJsonParser fhirJsonParser,
             ITransactionHandler transactionHandler,
@@ -182,7 +183,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 throw new UnauthorizedFhirActionException();
             }
 
-            _originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            _originalFhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             try
             {
                 var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
@@ -220,7 +221,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             finally
             {
-                _fhirRequestContextAccessor.FhirRequestContext = _originalFhirRequestContext;
+                _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
             }
         }
 
@@ -299,7 +300,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             httpContext.Features[typeof(IHttpAuthenticationFeature)] = _httpAuthenticationFeature;
             httpContext.Response.Body = new MemoryStream();
 
-            var requestUri = new Uri(_fhirRequestContextAccessor.FhirRequestContext.BaseUri, requestUrl);
+            var requestUri = new Uri(_fhirRequestContextAccessor.RequestContext.BaseUri, requestUrl);
             httpContext.Request.Scheme = requestUri.Scheme;
             httpContext.Request.Host = new HostString(requestUri.Host, requestUri.Port);
             httpContext.Request.PathBase = _originalRequestBase;
@@ -490,7 +491,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 ExecutingBatchOrTransaction = true,
             };
 
-            _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
+            _fhirRequestContextAccessor.RequestContext = newFhirRequestContext;
 
             _bundleHttpContextAccessor.HttpContext = httpContext;
 

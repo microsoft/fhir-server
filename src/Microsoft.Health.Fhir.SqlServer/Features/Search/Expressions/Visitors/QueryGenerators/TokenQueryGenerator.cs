@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         .Append(" WHERE ")
                         .Append(VLatest.System.Value, null)
                         .Append(" = ")
-                        .Append(context.Parameters.AddParameter(VLatest.System.Value, expression.Value))
+                        .Append(context.Parameters.AddParameter(VLatest.System.Value, expression.Value, true))
                         .Append(")");
 
                     return context;

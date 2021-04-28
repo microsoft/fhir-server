@@ -82,6 +82,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<PartitionEliminationRewriter>()
+                .Singleton()
+                .AsSelf();
+
             services.Add<SqlServerSortingValidator>()
                 .Singleton()
                 .AsSelf()
