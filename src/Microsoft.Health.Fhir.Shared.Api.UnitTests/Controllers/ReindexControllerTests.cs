@@ -11,12 +11,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -33,7 +31,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     {
         private ReindexController _reindexEnabledController;
         private IMediator _mediator = Substitute.For<IMediator>();
-        private RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private HttpContext _httpContext = new DefaultHttpContext();
         private static ReindexJobConfiguration _reindexJobConfig = new ReindexJobConfiguration() { Enabled = true };
         private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
@@ -129,7 +126,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             return new ReindexController(
                 _mediator,
-                _fhirRequestContextAccessor,
                 optionsOperationConfiguration,
                 _urlResolver,
                 NullLogger<ReindexController>.Instance);
