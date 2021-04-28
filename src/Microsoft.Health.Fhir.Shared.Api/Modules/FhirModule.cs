@@ -128,8 +128,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<FhirRequestContextAccessor>()
                 .Singleton()
                 .AsSelf()
-                .AsService<RequestContextAccessor<IFhirRequestContext>>()
-                .AsService<IFhirRequestContextAccessor>();
+                .AsService<RequestContextAccessor<IFhirRequestContext>>();
 
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 

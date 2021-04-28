@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
-        private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly ICosmosDbCollectionPhysicalPartitionInfo _physicalPartitionInfo;
         private readonly QueryPartitionStatisticsCache _queryPartitionStatisticsCache;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IFhirRequestContextAccessor requestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             CosmosDataStoreConfiguration cosmosConfig,
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             QueryPartitionStatisticsCache queryPartitionStatisticsCache)

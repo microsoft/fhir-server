@@ -8,7 +8,7 @@ using Microsoft.Health.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
-    public class FhirRequestContextAccessor : RequestContextAccessor<IFhirRequestContext>, IFhirRequestContextAccessor
+    public class FhirRequestContextAccessor : RequestContextAccessor<IFhirRequestContext>
     {
         private readonly AsyncLocal<IFhirRequestContext> _fhirRequestContextCurrent = new AsyncLocal<IFhirRequestContext>();
 

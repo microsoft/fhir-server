@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -17,9 +18,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     internal class CosmosDbSortingValidator : ISortingValidator
     {
-        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
-        public CosmosDbSortingValidator(IFhirRequestContextAccessor contextAccessor)
+        public CosmosDbSortingValidator(RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             _contextAccessor = contextAccessor;

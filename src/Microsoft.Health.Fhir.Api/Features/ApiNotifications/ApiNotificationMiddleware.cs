@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
@@ -19,12 +20,12 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
     public class ApiNotificationMiddleware : IMiddleware
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
         private readonly ILogger<ApiNotificationMiddleware> _logger;
 
         public ApiNotificationMiddleware(
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IMediator mediator,
             ILogger<ApiNotificationMiddleware> logger)
         {

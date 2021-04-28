@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     /// </summary>
     public class UrlResolver : IUrlResolver
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlHelperFactory _urlHelperFactory;
 
         // If we update the search implementation to not use these, we should remove
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
         public UrlResolver(
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,

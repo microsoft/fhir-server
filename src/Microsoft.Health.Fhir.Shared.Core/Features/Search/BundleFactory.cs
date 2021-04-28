@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -22,9 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class BundleFactory : IBundleFactory
     {
         private readonly IUrlResolver _urlResolver;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
-        public BundleFactory(IUrlResolver urlResolver, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));

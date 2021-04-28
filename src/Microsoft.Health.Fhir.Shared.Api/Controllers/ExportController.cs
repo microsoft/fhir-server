@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
          */
 
         private readonly IMediator _mediator;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly ExportJobConfiguration _exportConfig;
         private readonly FeatureConfiguration _features;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public ExportController(
             IMediator mediator,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,

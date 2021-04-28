@@ -15,6 +15,7 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private IScoped<ISearchService> _searchService;
 
         private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
-        private readonly IFhirRequestContextAccessor _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         public ReindexJobTests(FhirStorageTestsFixture fixture)
         {

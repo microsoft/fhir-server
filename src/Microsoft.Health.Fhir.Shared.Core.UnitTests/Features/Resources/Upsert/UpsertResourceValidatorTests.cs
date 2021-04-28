@@ -8,6 +8,7 @@ using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
         [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
         public void GivenAResourceWithoutInvalidId_WhenValidatingUpsert_ThenInvalidShouldBeReturned(string id)
         {
-            var contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             config.Value.Returns(new CoreFeatureConfiguration());
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Upsert
         [Theory]
         public void GivenConfigOrHeader_WhenValidatingUpsert_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
         {
-            var contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             config.Value.Returns(new CoreFeatureConfiguration() { ProfileValidationOnUpdate = configValue });

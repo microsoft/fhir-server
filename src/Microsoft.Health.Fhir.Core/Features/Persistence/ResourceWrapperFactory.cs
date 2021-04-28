@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly ISearchIndexer _searchIndexer;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly ICompartmentIndexer _compartmentIndexer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="resourceDeserializer">Resource deserializer</param>
         public ResourceWrapperFactory(
             IRawResourceFactory rawResourceFactory,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             ISearchIndexer searchIndexer,
             IClaimsExtractor claimsExtractor,
             ICompartmentIndexer compartmentIndexer,

@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -27,11 +28,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
         private uint _targetBatchSize = 100;
         private uint _jobConfiguredBatchSize = 100;
         private bool _initialized = false;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly ILogger<ReindexJobCosmosThrottleController> _logger;
 
         public ReindexJobCosmosThrottleController(
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             ILogger<ReindexJobCosmosThrottleController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));

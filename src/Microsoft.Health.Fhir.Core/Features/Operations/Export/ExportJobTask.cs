@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IMediator _mediator;
-        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger _logger;
 
         private ExportJobRecord _exportJobRecord;
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IResourceDeserializer resourceDeserializer,
             IScoped<IAnonymizerFactory> anonymizerFactory,
             IMediator mediator,
-            IFhirRequestContextAccessor contextAccessor,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));

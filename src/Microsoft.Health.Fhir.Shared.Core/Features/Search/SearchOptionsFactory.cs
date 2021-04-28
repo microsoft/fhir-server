@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private static readonly List<string> AllIterateModifiers = IncludeIterateModifiers.Concat(RevIncludeIterateModifiers).ToList();
 
         private readonly IExpressionParser _expressionParser;
-        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISortingValidator _sortingValidator;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
-            IFhirRequestContextAccessor contextAccessor,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISortingValidator sortingValidator,
             ILogger<SearchOptionsFactory> logger)
         {

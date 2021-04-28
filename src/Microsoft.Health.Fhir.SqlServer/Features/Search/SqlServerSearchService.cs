@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
         private readonly ISortingValidator _sortingValidator;
-        private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _resourceTableColumnCount = 10;
 
         public SqlServerSearchService(
@@ -64,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             ISortingValidator sortingValidator,
-            IFhirRequestContextAccessor requestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {

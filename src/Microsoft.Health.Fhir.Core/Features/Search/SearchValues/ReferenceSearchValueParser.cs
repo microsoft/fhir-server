@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -27,9 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             ReferenceCaptureRegexPattern,
             RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
-        public ReferenceSearchValueParser(IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public ReferenceSearchValueParser(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 

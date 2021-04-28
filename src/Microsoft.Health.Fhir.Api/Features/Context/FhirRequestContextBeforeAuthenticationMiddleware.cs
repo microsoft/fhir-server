@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
@@ -20,12 +21,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
     public class FhirRequestContextBeforeAuthenticationMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
 
         public FhirRequestContextBeforeAuthenticationMiddleware(
             RequestDelegate next,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IAuditEventTypeMapping auditEventTypeMapping)
         {
             EnsureArg.IsNotNull(next, nameof(next));
