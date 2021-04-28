@@ -8,10 +8,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
     public static class SchemaVersionConstants
     {
         public const int Min = (int)SchemaVersion.V4;
-        public const int Max = PartitionedTables;
+        public const int Max = ReferencesEagerlyResolved;
         public const int SearchParameterStatusSchemaVersion = (int)SchemaVersion.V6;
         public const int SupportForReferencesWithMissingTypeVersion = (int)SchemaVersion.V7;
         public const int SearchParameterHashSchemaVersion = (int)SchemaVersion.V8;
         public const int PartitionedTables = (int)SchemaVersion.V9;
+        public const int ReferencesEagerlyResolved = (int)SchemaVersion.V11;
     }
 }

@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case SearchParamTableExpressionKind.Chain:
-                    HandleTableKindChain(searchParamTableExpression, referenceSourceTableAlias, referenceTargetResourceTableAlias);
+                    HandleTableKindChain(searchParamTableExpression);
                     break;
 
                 case SearchParamTableExpressionKind.Include:
@@ -483,17 +483,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         }
 
         private void HandleTableKindChain(
-            SearchParamTableExpression searchParamTableExpression,
-            string referenceSourceTableAlias,
-            string referenceTargetResourceTableAlias)
+            SearchParamTableExpression searchParamTableExpression)
         {
+            const string referenceTableAlias = "ref";
+
             var chainedExpression = (SqlChainLinkExpression)searchParamTableExpression.Predicate;
 
             StringBuilder.Append("SELECT ");
             if (searchParamTableExpression.ChainLevel == 1)
             {
-                StringBuilder.Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias).Append(" AS ").Append(chainedExpression.Reversed ? "T2" : "T1").Append(", ");
-                StringBuilder.Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias).Append(" AS ").Append(chainedExpression.Reversed ? "Sid2" : "Sid1").Append(", ");
+                StringBuilder.Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceTableAlias).Append(" AS ").Append(chainedExpression.Reversed ? "T2" : "T1").Append(", ");
+                StringBuilder.Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias).Append(" AS ").Append(chainedExpression.Reversed ? "Sid2" : "Sid1").Append(", ");
             }
             else
             {
@@ -501,19 +501,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             StringBuilder
-                .Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? referenceSourceTableAlias : referenceTargetResourceTableAlias).Append(" AS ").Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "T1, " : "T2, ")
-                .Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? referenceSourceTableAlias : referenceTargetResourceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
-                .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
-                .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
-
-            using (var delimited = StringBuilder.BeginDelimitedOnClause())
-            {
-                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                    .Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
-
-                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias)
-                    .Append(" = ").Append(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
-            }
+                .Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? VLatest.Resource.ResourceTypeId : VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceTableAlias).Append(" AS ").Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "T1, " : "T2, ")
+                .Append(chainedExpression.Reversed && searchParamTableExpression.ChainLevel > 1 ? VLatest.Resource.ResourceSurrogateId : VLatest.ReferenceSearchParam.ReferenceResourceSurrogateId, referenceTableAlias).Append(" AS ").AppendLine(chainedExpression.Reversed && searchParamTableExpression.ChainLevel == 1 ? "Sid1 " : "Sid2 ")
+                .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceTableAlias);
 
             // For reverse chaining, if there is a parameter on the _id search parameter, we need another join to get the resource ID of the reference source (all we have is the surrogate ID at this point)
 
@@ -527,7 +517,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
-                    delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceSourceTableAlias)
+                    delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias)
                         .Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, referenceSourceResourceTableAlias);
 
                     delimited.BeginDelimitedElement();
@@ -541,25 +531,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 using (var delimited = StringBuilder.BeginDelimitedOnClause())
                 {
-                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceTypeId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("T2");
-                    delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias).Append(" = ").Append("Sid2");
+                    delimited.BeginDelimitedElement().Append(chainedExpression.Reversed ? VLatest.ReferenceSearchParam.ReferenceResourceTypeId : VLatest.ReferenceSearchParam.ResourceTypeId, referenceTableAlias).Append(" = ").Append("T2");
+                    delimited.BeginDelimitedElement().Append(chainedExpression.Reversed ? VLatest.ReferenceSearchParam.ReferenceResourceSurrogateId : VLatest.ReferenceSearchParam.ResourceSurrogateId, referenceTableAlias).Append(" = ").Append("Sid2");
                 }
             }
 
             using (var delimited = StringBuilder.BeginDelimitedWhereClause())
             {
-                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
+                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceTableAlias)
                     .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(chainedExpression.ReferenceSearchParameter.Url), true));
 
-                AppendHistoryClause(delimited, referenceTargetResourceTableAlias);
-                AppendHistoryClause(delimited, referenceSourceTableAlias);
+                AppendHistoryClause(delimited, referenceTableAlias);
 
-                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceTableAlias)
                     .Append(" IN (")
                     .Append(string.Join(", ", chainedExpression.ResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
 
-                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceTableAlias)
                     .Append(" IN (")
                     .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x), true))))
                     .Append(")");
@@ -567,20 +556,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (searchParamTableExpression.ChainLevel == 1)
                 {
                     // if > 1, the intersection is handled by the JOIN
-                    AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
+                    AppendIntersectionWithPredecessor(
+                        delimited,
+                        searchParamTableExpression,
+                        referenceTableAlias,
+                        chainedExpression.Reversed ? VLatest.ReferenceSearchParam.ReferenceResourceTypeId : VLatest.ReferenceSearchParam.ResourceTypeId,
+                        chainedExpression.Reversed ? VLatest.ReferenceSearchParam.ReferenceResourceSurrogateId : VLatest.ReferenceSearchParam.ResourceSurrogateId);
                 }
 
                 if (chainedExpression.ExpressionOnTarget != null && !expressionOnTargetHandledBySecondJoin)
                 {
                     delimited.BeginDelimitedElement();
-                    chainedExpression.ExpressionOnTarget?.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias));
+                    chainedExpression.ExpressionOnTarget?.AcceptVisitor(
+                        ResourceTableSearchParameterQueryGenerator.Instance,
+                        GetContext(
+                            referenceTableAlias,
+                            chainedExpression.Reversed ? VLatest.ReferenceSearchParam.ResourceTypeId : VLatest.ReferenceSearchParam.ReferenceResourceTypeId,
+                            chainedExpression.Reversed ? VLatest.ReferenceSearchParam.ResourceSurrogateId : VLatest.ReferenceSearchParam.ReferenceResourceSurrogateId));
                 }
 
                 if (chainedExpression.ExpressionOnSource != null)
                 {
                     delimited.BeginDelimitedElement();
-                    chainedExpression.ExpressionOnSource.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
+                    chainedExpression.ExpressionOnSource.AcceptVisitor(
+                        ResourceTableSearchParameterQueryGenerator.Instance,
+                        GetContext(
+                            referenceTableAlias,
+                            chainedExpression.Reversed ? VLatest.ReferenceSearchParam.ReferenceResourceTypeId : VLatest.ReferenceSearchParam.ResourceTypeId,
+                            chainedExpression.Reversed ? VLatest.ReferenceSearchParam.ReferenceResourceSurrogateId : VLatest.ReferenceSearchParam.ResourceSurrogateId));
                 }
+
+                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.BaseUri, referenceTableAlias).Append(" IS NULL");
+                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceSurrogateId, referenceTableAlias).Append(" IS NOT NULL");
             }
         }
 
@@ -930,10 +937,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)
         {
-            return new SearchParameterQueryGeneratorContext(StringBuilder, Parameters, Model, _schemaInfo, tableAlias);
+            return GetContext(tableAlias, VLatest.Resource.ResourceTypeId, VLatest.Resource.ResourceSurrogateId);
         }
 
-        private void AppendIntersectionWithPredecessor(IndentedStringBuilder.DelimitedScope delimited, SearchParamTableExpression searchParamTableExpression, string tableAlias = null)
+        private SearchParameterQueryGeneratorContext GetContext(string tableAlias, Column resourceTypeIdColumn, Column resourceSurrogateIdColumn)
+        {
+            return new(StringBuilder, Parameters, Model, _schemaInfo, tableAlias, resourceTypeIdColumn, resourceSurrogateIdColumn);
+        }
+
+        private void AppendIntersectionWithPredecessor(
+            IndentedStringBuilder.DelimitedScope delimited,
+            SearchParamTableExpression searchParamTableExpression,
+            string tableAlias = null)
+        {
+            AppendIntersectionWithPredecessor(delimited, searchParamTableExpression, tableAlias, VLatest.Resource.ResourceTypeId, VLatest.Resource.ResourceSurrogateId);
+        }
+
+        private void AppendIntersectionWithPredecessor(
+            IndentedStringBuilder.DelimitedScope delimited,
+            SearchParamTableExpression searchParamTableExpression,
+            string tableAlias,
+            Column resourceTypeIdColumn,
+            Column resourceSurrogateIdColumn)
         {
             int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
 
@@ -944,8 +969,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 bool intersectWithFirst = (searchParamTableExpression.Kind == SearchParamTableExpressionKind.Chain ? searchParamTableExpression.ChainLevel - 1 : searchParamTableExpression.ChainLevel) == 0;
 
                 StringBuilder.Append("EXISTS(SELECT * FROM ").Append(TableExpressionName(predecessorIndex))
-                    .Append(" WHERE ").Append(VLatest.Resource.ResourceTypeId, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
-                    .Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
+                    .Append(" WHERE ").Append(resourceTypeIdColumn, tableAlias).Append(" = ").Append(intersectWithFirst ? "T1" : "T2")
+                    .Append(" AND ").Append(resourceSurrogateIdColumn, tableAlias).Append(" = ").Append(intersectWithFirst ? "Sid1" : "Sid2")
                     .Append(')');
             }
         }

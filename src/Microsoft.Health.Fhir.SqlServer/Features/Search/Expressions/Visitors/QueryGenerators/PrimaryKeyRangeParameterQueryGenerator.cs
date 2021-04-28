@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
@@ -24,12 +23,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder.AppendLine("(");
             using (context.StringBuilder.Indent())
             {
-                VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, null, primaryKeyRange.CurrentValue.ResourceTypeId, includeInParameterHash: false);
+                VisitSimpleBinary(BinaryOperator.Equal, context, context.ResourceTypeIdColumn, null, primaryKeyRange.CurrentValue.ResourceTypeId, includeInParameterHash: false);
                 context.StringBuilder.Append(" AND ");
-                VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, null, primaryKeyRange.CurrentValue.ResourceSurrogateId, includeInParameterHash: false);
+                VisitSimpleBinary(expression.BinaryOperator, context, context.ResourceSurrogateIdColumn, null, primaryKeyRange.CurrentValue.ResourceSurrogateId, includeInParameterHash: false);
                 context.StringBuilder.AppendLine();
                 context.StringBuilder.Append("OR ");
-                AppendColumnName(context, VLatest.Resource.ResourceTypeId, (int?)null).Append(" IN (");
+                AppendColumnName(context, context.ResourceTypeIdColumn, (int?)null).Append(" IN (");
 
                 bool first = true;
                 for (short i = 0; i < primaryKeyRange.NextResourceTypeIds.Count; i++)
@@ -45,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             context.StringBuilder.Append(", ");
                         }
 
-                        context.StringBuilder.Append(context.Parameters.AddParameter(VLatest.Resource.ResourceTypeId, i, includeInHash: false));
+                        context.StringBuilder.Append(context.Parameters.AddParameter(context.ResourceTypeIdColumn, i, includeInHash: false));
                     }
                 }
 

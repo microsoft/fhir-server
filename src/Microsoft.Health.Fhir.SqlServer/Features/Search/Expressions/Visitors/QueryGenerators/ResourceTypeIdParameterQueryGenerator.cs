@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
@@ -20,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 return context;
             }
 
-            return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, expression.ComponentIndex, resourceTypeId);
+            return VisitSimpleBinary(BinaryOperator.Equal, context, context.ResourceTypeIdColumn, expression.ComponentIndex, resourceTypeId);
         }
     }
 }

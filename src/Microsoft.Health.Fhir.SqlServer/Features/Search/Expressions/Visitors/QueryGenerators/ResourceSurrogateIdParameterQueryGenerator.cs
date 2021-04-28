@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
@@ -14,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, expression.ComponentIndex, expression.Value, includeInParameterHash: false);
+            VisitSimpleBinary(expression.BinaryOperator, context, context.ResourceSurrogateIdColumn, expression.ComponentIndex, expression.Value, includeInParameterHash: false);
             return context;
         }
     }
