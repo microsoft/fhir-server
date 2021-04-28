@@ -419,7 +419,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     if (results.Count < feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor && string.IsNullOrEmpty(continuationToken))
                     {
                         // ExecuteDocumentQueryAsync gave up on filling the pages. This suggests that we would have been better off querying in parallel.
-                        queryPartitionStatistics.Update(_physicalPartitionInfo.PhysicalPartitionCount);
+                        queryPartitionStatistics.Update((queryPartitionStatistics.GetAveragePartitionCount() ?? 10) * 10); // should increment => 100, 1000, 10,000
                     }
                     else
                     {
