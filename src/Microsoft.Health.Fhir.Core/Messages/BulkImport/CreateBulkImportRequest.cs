@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.BulkImport
 
         public Uri InputSource { get; }
 
-        public IReadOnlyList<BulkImportRequestInput> Input { get; }
+        public IReadOnlyList<BulkImportRequestInput> Input { get; } = new List<BulkImportRequestInput>();
 
         public BulkImportRequestStorageDetail StorageDetail { get; }
     }

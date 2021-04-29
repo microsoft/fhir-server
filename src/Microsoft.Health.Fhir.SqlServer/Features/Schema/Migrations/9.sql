@@ -3227,3 +3227,50 @@ AS
         
     COMMIT TRANSACTION
 GO
+
+/*************************************************************
+    Stored procedures for toggle the enable state of unclustered
+    indexs of resources and *params tables
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     ToggleUnclusteredIndex
+--
+-- DESCRIPTION
+--     Toggle the state of unclustered indexs of resources and
+--     *params tables.
+--
+-- PARAMETERS
+--     @@isDisable
+--         * Whether to disable or enable unclustered index
+CREATE OR ALTER PROCEDURE [dbo].[ToggleUnclusteredIndex]
+    @enable bit
+AS
+    DECLARE @myTable TABLE (tableName nvarchar(max), indexName nvarchar(max))
+    DECLARE @action nvarchar(32)
+
+    IF @enable = '0'
+        SET @action = 'DISABLE'
+    ELSE
+        SET @action = 'REBUILD'
+    INsert INTO @myTable
+    SELECT sysObject.name, sysIndex.name
+    FROM sys.indexes sysIndex
+    INNER JOIN sys.objects sysObject ON sysIndex.object_id = sysObject.object_id
+    INNER JOIN sys.schemas sysSchema ON sysObject.schema_id = sysSchema.schema_id
+    WHERE sysIndex.name IS NOT NULL
+    AND sysIndex.is_disabled = @enable
+    AND sysObject.type = 'U'
+    AND sysIndex.type_desc = 'NONCLUSTERED'
+    AND (sysObject.name = 'Resource' OR sysObject.name like '%Param')
+    ORDER BY sysObject.name, sysIndex.type
+
+    declare @query nvarchar(max);
+    select @query = 
+    (SELECT  'ALTER INDEX [' + myIndex.indexName + '] ON ' + myIndex.tableName + ' ' + @action + ';'
+    FROM  @myTable myIndex
+    for xml path(''));
+    exec sp_executesql @query
+
+    select indexName, tableName from @myTable
+GO
