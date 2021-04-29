@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
@@ -19,12 +20,12 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
     public class ExceptionNotificationMiddlewareTests
     {
         private readonly DefaultHttpContext _context;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         public ExceptionNotificationMiddlewareTests()
         {
-            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             _context = new DefaultHttpContext();
         }
 

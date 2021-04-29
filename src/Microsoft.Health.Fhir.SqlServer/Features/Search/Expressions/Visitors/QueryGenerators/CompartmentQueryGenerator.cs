@@ -22,12 +22,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder
                 .Append(VLatest.CompartmentAssignment.CompartmentTypeId, context.TableAlias)
                 .Append(" = ")
-                .Append(context.Parameters.AddParameter(VLatest.CompartmentAssignment.CompartmentTypeId, compartmentTypeId))
+                .Append(context.Parameters.AddParameter(VLatest.CompartmentAssignment.CompartmentTypeId, compartmentTypeId, true))
                 .AppendLine()
                 .Append("AND ")
                 .Append(VLatest.CompartmentAssignment.ReferenceResourceId, context.TableAlias)
                 .Append(" = ")
-                .Append(context.Parameters.AddParameter(VLatest.CompartmentAssignment.ReferenceResourceId, expression.CompartmentId));
+                .Append(context.Parameters.AddParameter(VLatest.CompartmentAssignment.ReferenceResourceId, expression.CompartmentId, true));
 
             return context;
         }

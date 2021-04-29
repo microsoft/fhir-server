@@ -13,10 +13,10 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel : IHostedService
+    public sealed class SqlServerFhirModel : IRequireInitializationOnFirstRequest, ISqlServerFhirModel
     {
         private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -56,6 +56,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private Dictionary<string, byte> _claimNameToId;
         private Dictionary<string, byte> _compartmentTypeToId;
         private int _highestInitializedVersion;
+
+        private (short lowestId, short highestId) _resourceTypeIdRange;
 
         public SqlServerFhirModel(
             SchemaInformation schemaInformation,
@@ -80,6 +82,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _sqlConnectionStringProvider = sqlConnectionStringProvider;
             _mediator = mediator;
             _logger = logger;
+        }
+
+        public (short lowestId, short highestId) ResourceTypeIdRange
+        {
+            get
+            {
+                ThrowIfNotInitialized();
+                return _resourceTypeIdRange;
+            }
         }
 
         public short GetResourceTypeId(string resourceTypeName)
@@ -160,23 +171,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        public async Task EnsureInitialized()
         {
             ThrowIfCurrentSchemaVersionIsNull();
 
             // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
             await Initialize((int)_schemaInformation.Current, true, CancellationToken.None);
-
-            await _mediator.Publish(new StorageInitializedNotification(), cancellationToken);
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
 
         public async Task Initialize(int version, bool runAllInitialization, CancellationToken cancellationToken)
         {
+            // This also covers the scenario when database is not setup so _highestInitializedVersion and version is 0.
             if (_highestInitializedVersion == version)
             {
                 return;
@@ -206,6 +211,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             _highestInitializedVersion = version;
+
+            await _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None);
         }
 
         private async Task InitializeBase(CancellationToken cancellationToken)
@@ -280,11 +287,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         var compartmentTypeToId = new Dictionary<string, byte>();
 
                         // result set 1
+                        short lowestResourceTypeId = short.MaxValue;
+                        short highestResourceTypeId = short.MinValue;
                         while (reader.Read())
                         {
                             (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
 
                             resourceTypeToId.Add(resourceTypeName, id);
+                            if (id > highestResourceTypeId)
+                            {
+                                highestResourceTypeId = id;
+                            }
+
+                            if (id < lowestResourceTypeId)
+                            {
+                                lowestResourceTypeId = id;
+                            }
+
                             resourceTypeIdToTypeName.Add(id, resourceTypeName);
                         }
 
@@ -340,6 +359,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _quantityCodeToId = quantityCodeToId;
                         _claimNameToId = claimNameToId;
                         _compartmentTypeToId = compartmentTypeToId;
+                        _resourceTypeIdRange = (lowestResourceTypeId, highestResourceTypeId);
                     }
                 }
             }

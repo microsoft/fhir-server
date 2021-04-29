@@ -7,6 +7,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
             HttpContext httpContext = CreateHttpContext();
 
-            var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
             string Provider() => expectedRequestId;
 
@@ -51,15 +52,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
 
         private async Task<IFhirRequestContext> SetupAsync(HttpContext httpContext)
         {
-            var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var fhirContextMiddlware = new FhirRequestContextMiddleware(next: (innerHttpContext) => Task.CompletedTask);
             string Provider() => Guid.NewGuid().ToString();
 
             await fhirContextMiddlware.Invoke(httpContext, fhirRequestContextAccessor, Provider);
 
-            Assert.NotNull(fhirRequestContextAccessor.FhirRequestContext);
+            Assert.NotNull(fhirRequestContextAccessor.RequestContext);
 
-            return fhirRequestContextAccessor.FhirRequestContext;
+            return fhirRequestContextAccessor.RequestContext;
         }
 
         private HttpContext CreateHttpContext()

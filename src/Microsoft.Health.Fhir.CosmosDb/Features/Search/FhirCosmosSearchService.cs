@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
-        private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly ICosmosDbCollectionPhysicalPartitionInfo _physicalPartitionInfo;
         private readonly QueryPartitionStatisticsCache _queryPartitionStatisticsCache;
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IFhirRequestContextAccessor requestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             CosmosDataStoreConfiguration cosmosConfig,
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             QueryPartitionStatisticsCache queryPartitionStatisticsCache)
@@ -176,7 +177,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
         {
             if (!_cosmosConfig.EnableChainedSearch &&
-                !(_requestContextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(KnownHeaders.EnableChainSearch, out StringValues featureSetting) &&
+                !(_requestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.EnableChainSearch, out StringValues featureSetting) &&
                   string.Equals(featureSetting.FirstOrDefault(), "true", StringComparison.OrdinalIgnoreCase)))
             {
                 throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
@@ -399,7 +400,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
                         // knows to add the individual ResponseMessages sent as part of this search.
 
-                        fhirRequestContext = _requestContextAccessor.FhirRequestContext;
+                        fhirRequestContext = _requestContextAccessor.RequestContext;
                         if (fhirRequestContext != null)
                         {
                             messagesList = new ConcurrentBag<ResponseMessage>();
@@ -479,7 +480,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             if (includesTruncated)
             {
-                _requestContextAccessor.FhirRequestContext.BundleIssues.Add(
+                _requestContextAccessor.RequestContext.BundleIssues.Add(
                     new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Warning,
                         OperationOutcomeConstants.IssueType.Incomplete,

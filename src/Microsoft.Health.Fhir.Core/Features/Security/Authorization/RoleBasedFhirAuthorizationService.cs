@@ -10,6 +10,7 @@ using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -21,11 +22,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
     /// </summary>
     internal class RoleBasedFhirAuthorizationService : IAuthorizationService<DataActions>
     {
-        private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly Dictionary<string, Role> _roles;
         private readonly string _rolesClaimName;
 
-        public RoleBasedFhirAuthorizationService(AuthorizationConfiguration authorizationConfiguration, IFhirRequestContextAccessor requestContextAccessor)
+        public RoleBasedFhirAuthorizationService(AuthorizationConfiguration authorizationConfiguration, RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             EnsureArg.IsNotNull(authorizationConfiguration, nameof(authorizationConfiguration));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security.Authorization
 
         public ValueTask<DataActions> CheckAccess(DataActions dataActions, CancellationToken cancellationToken)
         {
-            ClaimsPrincipal principal = _requestContextAccessor.FhirRequestContext.Principal;
+            ClaimsPrincipal principal = _requestContextAccessor.RequestContext.Principal;
 
             DataActions permittedDataActions = 0;
             foreach (Claim claim in principal.FindAll(_rolesClaimName))
