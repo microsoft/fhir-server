@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             _mediator = new Mediator(type => provider.GetService(type));
         }
 
-        [Theory]
+        [Theory(Skip = "not implemented")]
         [InlineData(TaskStatus.Completed)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
@@ -58,13 +58,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(taskStatus, taskInfo.Status);
         }
 
-        [Fact]
+        [Fact(Skip = "not implemented")]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCanceled_ThenConflictStatusCodeShouldBeReturned()
         {
             await SetupAndExecuteCancelExportAsync(TaskStatus.Queued, HttpStatusCode.Conflict, true);
         }
 
-        [Theory]
+        [Theory(Skip = "not implemented")]
         [InlineData(TaskStatus.Queued)]
         [InlineData(TaskStatus.Running)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(TaskStatus taskStatus)
