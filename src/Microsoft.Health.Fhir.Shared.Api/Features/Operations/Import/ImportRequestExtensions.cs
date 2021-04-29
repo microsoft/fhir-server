@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                 foreach (InputResource importResource in importRequest.Input)
                 {
                     ParameterComponent inputResourceComponent = new ParameterComponent() { Name = InputParamterName };
+                    paramters.Parameter.Add(inputResourceComponent);
 
                     if (!string.IsNullOrEmpty(importResource.Type))
                     {
@@ -62,8 +63,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                     {
                         inputResourceComponent.Part.Add(new ParameterComponent() { Name = UrlParamterName, Value = new FhirUri(importResource.Url) });
                     }
-
-                    paramters.Add(InputParamterName, inputResourceComponent);
                 }
             }
 
@@ -73,7 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                 storageDetailsParameterComponent.Part.Add(new ParameterComponent() { Name = TypeParamterName, Value = new FhirString(importRequest.StorageDetail.Type) });
             }
 
-            paramters.Add(StorageDetailParamterName, storageDetailsParameterComponent);
+            paramters.Parameter.Add(storageDetailsParameterComponent);
 
             return paramters;
         }
@@ -85,10 +84,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (parameters.TryGetStringValue(InputFormatParamterName, out string inputFormat))
             {
                 importRequest.InputFormat = inputFormat;
-            }
-            else
-            {
-                importRequest.InputFormat = DefaultInputFormat;
             }
 
             if (parameters.TryGetUriValue(InputSourceParamterName, out Uri uriValue))
@@ -128,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
             ParameterComponent storageDetailsComponent = parameters.GetSingle(StorageDetailParamterName);
             ParameterComponent storageTypeParam = storageDetailsComponent.Part?.Where(p => TypeParamterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
-            if (storageDetailsComponent.TryGetStringValue(out string storageType))
+            if (storageTypeParam.TryGetStringValue(out string storageType))
             {
                 importRequest.StorageDetail.Type = storageType;
             }

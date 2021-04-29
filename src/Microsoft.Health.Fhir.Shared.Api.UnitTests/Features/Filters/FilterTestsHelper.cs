@@ -31,7 +31,10 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
         public static ImportController CreateMockBulkImportController()
         {
-            return Mock.TypeWithArguments<ImportController>(Options.Create(new OperationsConfiguration()));
+            return Mock.TypeWithArguments<ImportController>(
+                new FhirRequestContextAccessor(),
+                Options.Create(new OperationsConfiguration()),
+                Options.Create(new FeatureConfiguration()));
         }
     }
 }

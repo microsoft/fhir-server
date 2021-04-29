@@ -155,25 +155,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (importData == null)
             {
                 _logger.LogInformation("Failed to deserialize import request body as import configuration.");
-                throw new RequestNotValidException(Resources.BulkImportRequestConfigurationNotValid);
+                throw new RequestNotValidException(Resources.ImportRequestNotValid);
             }
 
             var inputFormat = importData.InputFormat;
             if (!allowedImportFormat.Any(s => s.Equals(inputFormat, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new RequestNotValidException(string.Format(Resources.BulkImportRequestConfigurationValueNotValid, nameof(inputFormat)));
+                throw new RequestNotValidException(string.Format(Resources.ImportRequestNotValid, nameof(inputFormat)));
             }
 
             var storageDetails = importData.StorageDetail;
             if (storageDetails != null && !allowedStorageType.Any(s => s.Equals(storageDetails.Type, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new RequestNotValidException(string.Format(Resources.BulkImportRequestConfigurationValueNotValid, nameof(storageDetails)));
+                throw new RequestNotValidException(string.Format(Resources.ImportRequestNotValid, nameof(storageDetails)));
             }
 
             var input = importData.Input;
-            if (input == null)
+            if (input == null || input.Count == 0)
             {
-                throw new RequestNotValidException(string.Format(Resources.BulkImportRequestConfigurationValueNotValid, nameof(input)));
+                throw new RequestNotValidException(string.Format(Resources.ImportRequestNotValid, nameof(input)));
             }
 
             foreach (var item in input)
@@ -181,6 +181,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 if (!Enum.IsDefined(typeof(Hl7.Fhir.Model.ResourceType), item.Type))
                 {
                     throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, item.Type));
+                }
+
+                if (item.Url == null)
+                {
+                    throw new RequestNotValidException(string.Format(Resources.ImportRequestNotValid, "input.url"));
                 }
             }
         }

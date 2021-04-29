@@ -313,12 +313,12 @@
   <data name="ConvertDataParametersNotValid" xml:space="preserve">
     <value>Convert data operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid.</value>
   </data>
-    <data name="BulkImportRequestConfigurationValueNotValid" xml:space="preserve">
+  <data name="ImportRequestValueNotValid" xml:space="preserve">
     <value>Value of the following configuration {0} is invalid.</value>
     <comment>{0} = the configuration name which was invalid</comment>
   </data>
-  <data name="BulkImportRequestConfigurationNotValid" xml:space="preserve">
-    <value>Bulk import request configuration must be specified as a BulkImportRequestConfiguration instance.  The body provided in this request is not valid.</value>
+  <data name="ImportRequestNotValid" xml:space="preserve">
+    <value>Import request configuration must be specified as a Paramters.  The body provided in this request is not valid.</value>
   </data>
   <data name="InvalidTemplateCollectionReference" xml:space="preserve">
     <value>The template collection reference '{0}' is invalid.</value>
@@ -337,7 +337,7 @@
   </data>
   <data name="ConfigLocationRequiredForAnonymizedExport" xml:space="preserve">
     <value>Missing '_anonymizationConfig' for anonymized export</value>
-     <comment>{NumberedPlaceHolder="_anonymizationConfig"}</comment>
+    <comment>{NumberedPlaceHolder="_anonymizationConfig"}</comment>
   </data>
   <data name="ProfileIsInvalid" xml:space="preserve">
     <value>Provided value for `profile` parameter `{0}` is invalid </value>
