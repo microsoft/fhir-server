@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = false });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
         }
 
         [Theory]
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var bulkImportController = GetController(new ImportTaskConfiguration() { Enabled = true });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => bulkImportController.Import(body.ToParameters()));
         }
 
         private static CreateImportResponse CreateBulkImportResponse()
@@ -96,34 +97,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static ImportRequest GetValidBulkImportRequestConfiguration()
         {
-            var input = new List<ImportRequestInput>
+            var input = new List<InputResource>
             {
-                new ImportRequestInput
+                new InputResource
                 {
                     Type = "Patient",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
                 },
-                new ImportRequestInput
+                new InputResource
                 {
                     Type = "Observation",
                     Url = new Uri("https://client.example.org/obseration_file_19.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
                 },
             };
 
-            var bulkImportRequestConfiguration = new ImportRequest();
-            bulkImportRequestConfiguration.InputFormat = "application/fhir+ndjson";
-            bulkImportRequestConfiguration.InputSource = new Uri("https://other-server.example.org");
-            bulkImportRequestConfiguration.Input = input;
-            bulkImportRequestConfiguration.StorageDetail = new ImportRequestStorageDetail();
+            var importRequest = new ImportRequest();
+            importRequest.InputFormat = "application/fhir+ndjson";
+            importRequest.InputSource = new Uri("https://other-server.example.org");
+            importRequest.Input = input;
+            importRequest.StorageDetail = new ImportRequestStorageDetail();
 
-            return bulkImportRequestConfiguration;
+            return importRequest;
         }
 
         private static ImportRequest GetBulkImportRequestConfigurationWithUnsupportedInputFormat()
         {
-            var input = new List<ImportRequestInput>
+            var input = new List<InputResource>
             {
-                new ImportRequestInput
+                new InputResource
                 {
                     Type = "Patient",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
@@ -140,9 +141,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static ImportRequest GetBulkImportRequestConfigurationWithUnsupportedStorageType()
         {
-            var input = new List<ImportRequestInput>
+            var input = new List<InputResource>
             {
-                new ImportRequestInput
+                new InputResource
                 {
                     Type = "Patient",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),
@@ -163,9 +164,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static ImportRequest GetBulkImportRequestConfigurationWithUnsupportedResourceType()
         {
-            var input = new List<ImportRequestInput>
+            var input = new List<InputResource>
             {
-                new ImportRequestInput
+                new InputResource
                 {
                     Type = "Fake",
                     Url = new Uri("https://client.example.org/patient_file_2.ndjson?sig=RHIX5Xcg0Mq2rqI3OlWT"),

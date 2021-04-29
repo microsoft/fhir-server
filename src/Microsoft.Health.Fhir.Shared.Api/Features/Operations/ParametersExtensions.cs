@@ -3,16 +3,39 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
     public static class ParametersExtensions
     {
-        public static ImportRequest ExtractImportRequest(this Parameters parameter)
+        public static bool TryGetStringValue(this Parameters parameters, string name, out string stringValue)
         {
-            return null;
+            Parameters.ParameterComponent param = parameters.GetSingle(name);
+
+            return param.TryGetStringValue(out stringValue);
+        }
+
+        public static bool TryGetUriValue(this Parameters parameters, string name, out Uri uriValue)
+        {
+            Parameters.ParameterComponent param = parameters.GetSingle(name);
+
+            return param.TryGetUriValue(out uriValue);
+        }
+
+        public static bool TryGetStringValue(this Parameters.ParameterComponent paramComponent, out string stringValue)
+        {
+            stringValue = paramComponent?.Value?.ToString();
+
+            return stringValue != null;
+        }
+
+        public static bool TryGetUriValue(this Parameters.ParameterComponent paramComponent, out Uri uriValue)
+        {
+            Element uriElement = paramComponent?.Value;
+
+            return Uri.TryCreate(uriElement?.ToString(), UriKind.RelativeOrAbsolute, out uriValue);
         }
     }
 }

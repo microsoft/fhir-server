@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         /// <summary>
         /// Determines the details of the input file that should be imported containing in the input source.
         /// </summary>
-        public IReadOnlyList<ImportRequestInput> Input { get; set; }
+        public IReadOnlyList<InputResource> Input { get; set; }
 
         /// <summary>
         /// Determines the details of the storage.

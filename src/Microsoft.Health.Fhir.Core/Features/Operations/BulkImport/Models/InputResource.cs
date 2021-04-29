@@ -7,7 +7,7 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
 {
-    public class ImportRequestInput
+    public class InputResource
     {
         /// <summary>
         /// Determines the resource type of the input

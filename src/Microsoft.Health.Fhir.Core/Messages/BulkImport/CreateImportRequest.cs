@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             Uri requestUri,
             string inputFormat,
             Uri inputSource,
-            IReadOnlyList<ImportRequestInput> input,
+            IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
 
         public Uri InputSource { get; }
 
-        public IReadOnlyList<ImportRequestInput> Input { get; }
+        public IReadOnlyList<InputResource> Input { get; }
 
         public ImportRequestStorageDetail StorageDetail { get; }
     }

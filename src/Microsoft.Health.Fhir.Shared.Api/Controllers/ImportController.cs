@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
+using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -82,17 +84,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Import)]
         [ServiceFilter(typeof(ValidateImportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Import)]
-        public async Task<IActionResult> Import([FromBody] ImportRequest importRequestConfig)
+        public async Task<IActionResult> Import([FromBody] Parameters importTaskParameters)
         {
             CheckIfImportIsEnabled();
-            ValidateImportRequestConfiguration(importRequestConfig);
+
+            ImportRequest importRequest = importTaskParameters.ExtractImportRequest();
+            ValidateImportRequestConfiguration(importRequest);
 
             CreateImportResponse response = await _mediator.BulkImportAsync(
                  _fhirRequestContextAccessor.FhirRequestContext.Uri,
-                 importRequestConfig.InputFormat,
-                 importRequestConfig.InputSource,
-                 importRequestConfig.Input,
-                 importRequestConfig.StorageDetail,
+                 importRequest.InputFormat,
+                 importRequest.InputSource,
+                 importRequest.Input,
+                 importRequest.StorageDetail,
                  HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted();

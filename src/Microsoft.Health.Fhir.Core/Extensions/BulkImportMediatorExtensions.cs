@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             Uri requestUri,
             string inputFormat,
             Uri inputSource,
-            IReadOnlyList<ImportRequestInput> input,
+            IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
             CancellationToken cancellationToken)
         {
