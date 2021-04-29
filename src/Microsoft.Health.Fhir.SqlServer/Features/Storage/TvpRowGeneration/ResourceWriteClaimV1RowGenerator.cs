@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class ResourceWriteClaimV1RowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, ResourceWriteClaimTableTypeV1Row>
     {
-        private readonly SqlServerFhirModel _model;
+        private readonly ISqlServerFhirModel _model;
 
-        public ResourceWriteClaimV1RowGenerator(SqlServerFhirModel model)
+        public ResourceWriteClaimV1RowGenerator(ISqlServerFhirModel model)
         {
             EnsureArg.IsNotNull(model, nameof(model));
             _model = model;

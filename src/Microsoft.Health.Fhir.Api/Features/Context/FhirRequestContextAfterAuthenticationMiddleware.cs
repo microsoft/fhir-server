@@ -6,6 +6,7 @@
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -24,12 +25,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             // Now the authentication is completed successfully, sets the user.
             if (context.User != null)
             {
-                fhirRequestContextAccessor.FhirRequestContext.Principal = context.User;
+                fhirRequestContextAccessor.RequestContext.Principal = context.User;
             }
 
             // Call the next delegate/middleware in the pipeline

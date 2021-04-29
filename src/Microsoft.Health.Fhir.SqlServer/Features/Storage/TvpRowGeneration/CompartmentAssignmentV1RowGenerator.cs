@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class CompartmentAssignmentV1RowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, CompartmentAssignmentTableTypeV1Row>
     {
-        private readonly SqlServerFhirModel _model;
+        private readonly ISqlServerFhirModel _model;
         private bool _initialized;
         private byte _patientCompartmentId;
         private byte _encounterCompartmentId;
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         private byte _practitionerCompartmentId;
         private byte _deviceCompartmentId;
 
-        public CompartmentAssignmentV1RowGenerator(SqlServerFhirModel model)
+        public CompartmentAssignmentV1RowGenerator(ISqlServerFhirModel model)
         {
             EnsureArg.IsNotNull(model, nameof(model));
             _model = model;

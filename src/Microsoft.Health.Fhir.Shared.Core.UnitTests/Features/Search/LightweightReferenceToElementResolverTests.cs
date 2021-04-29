@@ -7,6 +7,7 @@ using System.Linq;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public LightweightReferenceToElementResolverTests()
         {
-            ReferenceSearchValueParser referenceSearchValueParser = Mock.TypeWithArguments<ReferenceSearchValueParser>();
+            ReferenceSearchValueParser referenceSearchValueParser = Mock.TypeWithArguments<ReferenceSearchValueParser>(new FhirRequestContextAccessor());
 
             _resolver = new LightweightReferenceToElementResolver(referenceSearchValueParser, ModelInfoProvider.Instance);
             _encounter = Samples.GetJsonSample<Encounter>("Encounter-For-Patient-f001");

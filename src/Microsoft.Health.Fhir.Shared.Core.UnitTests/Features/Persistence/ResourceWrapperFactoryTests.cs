@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
     {
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly ISearchIndexer _searchIndexer;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly ICompartmentIndexer _compartmentIndexer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -47,8 +48,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 Guid.NewGuid().ToString(),
                 new Dictionary<string, StringValues>(),
                 new Dictionary<string, StringValues>());
-            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(dummyRequestContext);
+            _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            _fhirRequestContextAccessor.RequestContext.Returns(dummyRequestContext);
 
             _claimsExtractor = Substitute.For<IClaimsExtractor>();
             _compartmentIndexer = Substitute.For<ICompartmentIndexer>();
