@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
         private readonly ISearchIndexer _searchIndexer;
         private readonly IExpressionParser _expressionParser;
         private readonly SearchParameterInfo _coverageBeneficiaryParameter;
+        private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly ILogger<MemberMatchService> _logger;
 
         public MemberMatchService(
@@ -51,7 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             _resourceDeserializer = resourceDeserializer;
             _searchIndexer = searchIndexer;
             _expressionParser = expressionParser;
-            _coverageBeneficiaryParameter = searchParameterDefinitionManagerResolver().GetSearchParameter("Coverage", "beneficiary");
+            var searchParameterDefinition = searchParameterDefinitionManagerResolver();
+            _coverageBeneficiaryParameter = searchParameterDefinition.GetSearchParameter("Coverage", "beneficiary");
+            _resourceTypeSearchParameter = searchParameterDefinition.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
             _logger = logger;
         }
 
@@ -116,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             var patientValues = _searchIndexer.Extract(patient);
             var expressions = new List<Expression>();
             var reverseChainExpressions = new List<Expression>();
-
+            expressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "Patient", false)));
             foreach (var patientValue in patientValues)
             {
                 if (IgnoreInSearch(patientValue))
