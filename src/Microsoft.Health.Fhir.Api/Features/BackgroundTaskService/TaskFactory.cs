@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private IResourceBulkImporter _resourceBulkImporter;
         private IImportErrorStoreFactory _importErrorStoreFactory;
         private IContextUpdaterFactory _contextUpdaterFactory;
-        private IFhirRequestContextAccessor _contextAccessor;
+        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private ILoggerFactory _loggerFactory;
 
         public TaskFactory(
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
             IContextUpdaterFactory contextUpdaterFactory,
-            IFhirRequestContextAccessor contextAccessor,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
             _fhirDataBulkOperation = fhirDataBulkOperation;

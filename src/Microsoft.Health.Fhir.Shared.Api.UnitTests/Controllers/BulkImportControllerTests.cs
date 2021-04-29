@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
     {
         private ImportController _bulkImportEnabledController;
         private IMediator _mediator = Substitute.For<IMediator>();
-        private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
         public BulkImportControllerTests()

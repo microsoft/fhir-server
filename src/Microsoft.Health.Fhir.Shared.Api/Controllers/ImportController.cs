@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IReadOnlyList<string> allowedImportFormat = new List<string> { "application/fhir+ndjson" };
         private readonly IReadOnlyList<string> allowedStorageType = new List<string> { "azure-blob" };
         private readonly IMediator _mediator;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public ImportController(
             IMediator mediator,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<FeatureConfiguration> features,
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidateImportRequestConfiguration(importRequest);
 
             CreateImportResponse response = await _mediator.BulkImportAsync(
-                 _fhirRequestContextAccessor.FhirRequestContext.Uri,
+                 _fhirRequestContextAccessor.RequestContext.Uri,
                  importRequest.InputFormat,
                  importRequest.InputSource,
                  importRequest.Input,
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> GetImportStatusById(string idParameter)
         {
             var getBulkImportResult = await _mediator.GetBulkImportStatusAsync(
-                _fhirRequestContextAccessor.FhirRequestContext.Uri,
+                _fhirRequestContextAccessor.RequestContext.Uri,
                 idParameter,
                 HttpContext.RequestAborted);
 

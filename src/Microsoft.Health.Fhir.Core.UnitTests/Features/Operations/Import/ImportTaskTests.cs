@@ -9,6 +9,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
-            IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
@@ -109,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                                     importer,
                                     importErrorStoreFactory,
                                     contextUpdater,
-                                    accessor,
+                                    contextAccessor,
                                     loggerFactory);
 
             await Assert.ThrowsAsync<RetriableTaskException>(() => task.ExecuteAsync());
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
-            IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
             loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
@@ -194,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                                     importer,
                                     importErrorStoreFactory,
                                     contextUpdater,
-                                    accessor,
+                                    contextAccessor,
                                     loggerFactory);
 
             await Assert.ThrowsAsync<RetriableTaskException>(() => task.ExecuteAsync());
@@ -212,7 +213,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
-            IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
             bulkOperation.CleanBatchResourceAsync(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
@@ -229,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                                     importer,
                                     importErrorStoreFactory,
                                     contextUpdater,
-                                    accessor,
+                                    contextAccessor,
                                     loggerFactory);
 
             await Assert.ThrowsAsync<RetriableTaskException>(() => task.ExecuteAsync());
@@ -247,7 +248,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
-            IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
             bulkOperation.CleanBatchResourceAsync(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
@@ -264,7 +265,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                                     importer,
                                     importErrorStoreFactory,
                                     contextUpdater,
-                                    accessor,
+                                    contextAccessor,
                                     loggerFactory);
 
             TaskResultData result = await task.ExecuteAsync();
@@ -283,7 +284,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
             IImportErrorStoreFactory importErrorStoreFactory = Substitute.For<IImportErrorStoreFactory>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
-            IFhirRequestContextAccessor accessor = new FhirRequestContextAccessor();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
             long cleanStart = -1;
@@ -361,7 +362,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                                     importer,
                                     importErrorStoreFactory,
                                     contextUpdater,
-                                    accessor,
+                                    contextAccessor,
                                     loggerFactory);
 
             TaskResultData taskResult = await task.ExecuteAsync();

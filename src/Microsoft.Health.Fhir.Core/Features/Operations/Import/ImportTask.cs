@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.TaskManagement;
 using Newtonsoft.Json;
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private IResourceBulkImporter _resourceBulkImporter;
         private IImportErrorStoreFactory _importErrorStoreFactory;
         private IContextUpdater _contextUpdater;
-        private IFhirRequestContextAccessor _contextAccessor;
+        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private ILogger<ImportTask> _logger;
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
             IContextUpdater contextUpdater,
-            IFhirRequestContextAccessor contextAccessor,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(inputData, nameof(inputData));
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 IsBackgroundTask = true,
             };
 
-            _contextAccessor.FhirRequestContext = fhirRequestContext;
+            _contextAccessor.RequestContext = fhirRequestContext;
 
             CancellationToken cancellationToken = _cancellationTokenSource.Token;
 
