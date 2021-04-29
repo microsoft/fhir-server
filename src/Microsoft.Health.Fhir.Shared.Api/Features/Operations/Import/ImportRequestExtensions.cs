@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             importRequest.StorageDetail = new ImportRequestStorageDetail();
 
             ParameterComponent storageDetailsComponent = parameters.GetSingle(StorageDetailParamterName);
-            ParameterComponent storageTypeParam = storageDetailsComponent.Part?.Where(p => TypeParamterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
+            ParameterComponent storageTypeParam = storageDetailsComponent?.Part?.Where(p => TypeParamterName.Equals(p.Name, StringComparison.Ordinal))?.FirstOrDefault();
             if (storageTypeParam.TryGetStringValue(out string storageType))
             {
                 importRequest.StorageDetail.Type = storageType;

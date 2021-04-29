@@ -3,7 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.Model;
+using System;
+using System.Collections.Generic;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Xunit;
@@ -15,15 +16,29 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
         [Fact]
         public void GivenImportReuqestInParamtersFormat_WhenConvert_ImportRequestShouldBeReturned()
         {
-            Parameters paramters = new Parameters();
-            var formatParam = new Parameters.ParameterComponent();
-            formatParam.Name = ImportRequestExtensions.InputFormatParamterName;
-            formatParam.Value = new FhirString(ImportRequestExtensions.DefaultInputFormat);
+            ImportRequest input = new ImportRequest();
+            input.InputFormat = "test";
+            input.InputSource = new Uri("http://dummy");
+            input.Input = new List<InputResource>() { new InputResource() { Etag = "etag", Type = "type", Url = new Uri("http://dummy/resource") } };
+            input.StorageDetail = new ImportRequestStorageDetail() { Type = "blob" };
 
-            paramters.Parameter.Add(formatParam);
+            ImportRequest output = input.ToParameters().ExtractImportRequest();
+            Assert.Equal(input.InputFormat, output.InputFormat);
+            Assert.Equal(input.InputSource, output.InputSource);
+            Assert.Equal(input.StorageDetail.Type, output.StorageDetail.Type);
+            Assert.Equal(input.Input[0].Type, output.Input[0].Type);
+            Assert.Equal(input.Input[0].Url, output.Input[0].Url);
+            Assert.Equal(input.Input[0].Etag, output.Input[0].Etag);
+        }
 
-            ImportRequest output = paramters.ExtractImportRequest();
-            Assert.Equal(ImportRequestExtensions.DefaultInputFormat, output.InputFormat);
+        [Fact]
+        public void GivenEmptyImportReuqestInParamtersFormat_WhenConvert_DefaultValueShouldBeFilled()
+        {
+            ImportRequest input = new ImportRequest();
+
+            ImportRequest output = input.ToParameters().ExtractImportRequest();
+            Assert.Equal(output.InputFormat, ImportRequestExtensions.DefaultInputFormat);
+            Assert.Equal(output.StorageDetail.Type, ImportRequestExtensions.DefaultStorageDetailType);
         }
     }
 }
