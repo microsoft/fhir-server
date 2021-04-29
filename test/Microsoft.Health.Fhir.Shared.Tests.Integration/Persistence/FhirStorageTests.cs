@@ -622,7 +622,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
-                await _dataStore.UpdateSearchIndexForResourceAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None);
+                await _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None);
 
                 // Get the reindexed resource from the database
                 var resourceKey1 = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
@@ -669,7 +669,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 (_, ResourceWrapper updatedWithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam2, searchValue2, original);
 
                 // Attempt to reindex the resource
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchIndexForResourceAsync(updatedWithSearchParam2, WeakETag.FromVersionId(original.Version), CancellationToken.None));
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, WeakETag.FromVersionId(original.Version), CancellationToken.None));
             }
             finally
             {
@@ -704,7 +704,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // Update the resource wrapper, adding the new search parameter and a different ID
                 (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue, null, Guid.NewGuid().ToString());
 
-                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchIndexForResourceAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None));
+                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None));
             }
             finally
             {
@@ -738,7 +738,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var resources = new List<ResourceWrapper> { updated1, updated2 };
 
-                await _dataStore.UpdateSearchParameterIndicesBatchAsync(resources, CancellationToken.None);
+                await _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None);
 
                 // Get the reindexed resources from the database
                 var resourceKey1 = new ResourceKey(upsertResult1.RawResourceElement.InstanceType, upsertResult1.RawResourceElement.Id, upsertResult1.RawResourceElement.VersionId);
@@ -797,7 +797,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var resources = new List<ResourceWrapper> { updated1WithSearchParam2, updated2WithSearchParam2 };
 
                 // Attempt to reindex resources with the old versions
-                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesBatchAsync(resources, CancellationToken.None));
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
             }
             finally
             {
@@ -838,7 +838,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var resources = new List<ResourceWrapper> { updated1, updated2 };
 
-                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchParameterIndicesBatchAsync(resources, CancellationToken.None));
+                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
             }
             finally
             {

@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly IReindexUtilities _reindexUtilities;
-        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly IReindexJobThrottleController _throttleController;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ILogger _logger;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IReindexJobThrottleController throttleController,
             IModelInfoProvider modelInfoProvider,
             ILogger<ReindexJobTask> logger)
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _weakETag = weakETag;
             var jobSemaphore = new SemaphoreSlim(1, 1);
 
-            var existingFhirRequestContext = _contextAccessor.FhirRequestContext;
+            var existingFhirRequestContext = _contextAccessor.RequestContext;
 
             try
             {
@@ -103,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     AuditEventType = OperationsConstants.Reindex,
                 };
 
-                _contextAccessor.FhirRequestContext = fhirRequestContext;
+                _contextAccessor.RequestContext = fhirRequestContext;
 
                 using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
                 {
@@ -345,7 +346,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             finally
             {
                 jobSemaphore.Dispose();
-                _contextAccessor.FhirRequestContext = existingFhirRequestContext;
+                _contextAccessor.RequestContext = existingFhirRequestContext;
             }
         }
 

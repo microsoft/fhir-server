@@ -3,6 +3,10 @@
     <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Features\Schema\Migrations\10.diff.sql" />
+    <None Remove="Features\Schema\Migrations\10.sql" />
+    <None Remove="Features\Schema\Migrations\11.diff.sql" />
+    <None Remove="Features\Schema\Migrations\11.sql" />
     <None Remove="Features\Schema\Migrations\9.diff.sql" />
     <None Remove="Features\Schema\Migrations\9.sql" />
   </ItemGroup>
@@ -26,13 +30,13 @@
       <MutableClassVersion>7</MutableClassVersion>
     </EmbeddedResource>
     <EmbeddedResource Include="Features\Schema\Migrations\8.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\8.sql">
-      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
-      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
-      <MutableClassVersion>8</MutableClassVersion>
-    </EmbeddedResource>
+    <EmbeddedResource Include="Features\Schema\Migrations\8.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\9.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\9.sql">
+    <EmbeddedResource Include="Features\Schema\Migrations\9.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\10.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\10.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\11.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\11.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
       <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
       <MutableClassVersion>Latest</MutableClassVersion>
@@ -45,7 +49,7 @@
     <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="2.0.0" />
-    <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.46041.41" />
+    <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.46367.54" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(AspNetPackageVersion)" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="2.1.2" />
   </ItemGroup>

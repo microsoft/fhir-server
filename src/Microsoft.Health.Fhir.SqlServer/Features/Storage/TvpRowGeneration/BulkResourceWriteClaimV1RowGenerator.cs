@@ -14,10 +14,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
     internal class BulkResourceWriteClaimV1RowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkResourceWriteClaimTableTypeV1Row>
     {
-        private readonly SqlServerFhirModel _model;
+        private readonly ISqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
 
-        public BulkResourceWriteClaimV1RowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
+        public BulkResourceWriteClaimV1RowGenerator(ISqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
         {
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));

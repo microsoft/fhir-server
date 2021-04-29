@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -22,9 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class BundleFactory : IBundleFactory
     {
         private readonly IUrlResolver _urlResolver;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
-        public BundleFactory(IUrlResolver urlResolver, IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -79,12 +80,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Create the bundle from the result.
             var bundle = new Bundle();
 
-            if (_fhirRequestContextAccessor.FhirRequestContext.BundleIssues.Any())
+            if (_fhirRequestContextAccessor.RequestContext.BundleIssues.Any())
             {
                 var operationOutcome = new OperationOutcome
                 {
-                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                    Issue = new List<OperationOutcome.IssueComponent>(_fhirRequestContextAccessor.FhirRequestContext.BundleIssues.Select(x => x.ToPoco())),
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
+                    Issue = new List<OperationOutcome.IssueComponent>(_fhirRequestContextAccessor.RequestContext.BundleIssues.Select(x => x.ToPoco())),
                 };
 
                 bundle.Entry.Add(new Bundle.EntryComponent
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Add the self link to indicate which search parameters were used.
             bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.SortOrder);
 
-            bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
+            bundle.Id = _fhirRequestContextAccessor.RequestContext.CorrelationId;
             bundle.Type = type;
             bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta

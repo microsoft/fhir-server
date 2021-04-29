@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         private readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly BundleFactory _bundleFactory;
 
         private const string _continuationToken = "ct";
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             fhirRequestContext.CorrelationId.Returns(_correlationId);
 
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(fhirRequestContext);
         }
 
         [Fact]

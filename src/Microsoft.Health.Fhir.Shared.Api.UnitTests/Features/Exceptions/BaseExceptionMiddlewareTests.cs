@@ -9,6 +9,7 @@ using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -23,15 +24,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
     {
         private readonly string _correlationId;
         private readonly DefaultHttpContext _context;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IFormatParametersValidator _formatParametersValidator;
 
         public BaseExceptionMiddlewareTests()
         {
             _correlationId = Guid.NewGuid().ToString();
 
-            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            _fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(_correlationId);
+            _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(_correlationId);
             _formatParametersValidator = Substitute.For<IFormatParametersValidator>();
 
             _context = new DefaultHttpContext();
