@@ -63,6 +63,6 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string Validate = "validate";
 
-        public const string MembermMatch = "member-match";
+        public const string MemberMatch = "member-match";
     }
 }

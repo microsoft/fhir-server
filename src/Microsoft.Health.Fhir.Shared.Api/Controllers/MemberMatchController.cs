@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpPost]
         [Route(KnownRoutes.MemberMatch)]
-        [AuditEventType(AuditEventSubType.MembermMatch)]
+        [AuditEventType(AuditEventSubType.MemberMatch)]
         public async Task<IActionResult> MemberMatch([FromBody] Parameters inputParams)
         {
             ValidateParams(inputParams, out ResourceElement coverage, out ResourceElement patient);

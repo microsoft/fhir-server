@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             var match = searchMatchOnly[0];
             var element = _resourceDeserializer.Deserialize(match.Resource);
             var foundPatient = element.ToPoco<Patient>();
-            var id = foundPatient.Identifier.Where(x => x.Type.Coding.Exists(x => x.Code == "MB")).FirstOrDefault();
+            var id = foundPatient.Identifier.Where(x => x.Type != null && x.Type.Coding != null && x.Type.Coding.Exists(x => x.Code == "MB")).FirstOrDefault();
             if (id == null)
             {
                 throw new MemberMatchMatchingException(Core.Resources.MemberMatchNoMatchFound);

@@ -50,9 +50,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
+        /// <summary>
+        /// Chained expression can be created either by search service or member-match service. In first case chain expression would contain only one nested expression
+        /// because this is how '_has' works. `_has:Observation:patient:code=1234-5` as example. In that case we carry on, visit expression, and created proper table expression.
+        /// For member-match service we can pass multiple restrain expression to chained expression which we put behind 'And' expression.
+        /// 'And' visitor unfortunetelly can pick up only one queryGenerator, so it will pick first one in 'And' list and if expression inside 'And' are for different tables,
+        /// that would lead to incorrect table expressions. So we handle that case separatly and create table generator for each expression in `And` expression.
+        /// </summary>
         private void ProcessChainedExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel)
         {
-            if (!(chainedExpression.Expression is MultiaryExpression multiaryExpression && multiaryExpression.MultiaryOperation == MultiaryOperator.And))
+            if (chainedExpression.Expression is MultiaryExpression multiaryExpression && multiaryExpression.MultiaryOperation == MultiaryOperator.And)
+            {
+                HandleAndExpression(chainedExpression, tableExpressions, chainLevel, multiaryExpression);
+            }
+            else
             {
                 SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
 
@@ -85,10 +96,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                             SearchParamTableExpressionKind.Normal,
                             chainLevel));
                 }
-            }
-            else
-            {
-                HandleAndExpression(chainedExpression, tableExpressions, chainLevel, multiaryExpression);
             }
         }
 
