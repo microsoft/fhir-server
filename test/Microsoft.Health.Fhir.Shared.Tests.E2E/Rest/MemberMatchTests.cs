@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Theory]
         [InlineData("Seattle", null, null, "EHCPOL", null)]
-        [InlineData(null, null, "1970", "EHCPOL", null)]
+        [InlineData(null, null, null, "EHCPOL", null)]
         public async Task GivenNotEnoughInformation_WhenMemberMatchSent_ThenTooManyFound(string city, string name, string date, string type, string subPlan)
         {
             var searchPatient = new Patient();
