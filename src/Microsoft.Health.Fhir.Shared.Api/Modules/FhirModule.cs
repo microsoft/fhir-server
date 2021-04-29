@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         {
                             Resource resource = null;
                             var parsed = false;
+                            var i = 0;
                             do
                             {
                                 try
@@ -89,6 +90,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
                                     var match = MessageChecker.Match(ex.Message);
                                     if (match.Success && match.Groups.Count == 4 && match.Groups["type"].Value == "date")
                                     {
+                                        i++;
+                                        if (i > 100)
+                                        {
+                                            throw;
+                                        }
+
                                         var valueToReplace = match.Groups["value"].Value;
                                         var location = match.Groups["location"].Value;
                                         var replace = valueToReplace.Substring(0, 10);
@@ -113,6 +120,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
                                         (currentNode as FhirJsonNode).JsonValue.Value = replace;
                                         str = root.ToJson();
+                                    }
+                                    else
+                                    {
+                                        throw;
                                     }
                                 }
                             }

@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 KnownResourceTypes.Patient,
                 (SearchParamType.Token, expression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-race")),
                 null).ToArray();
-            var types = results.Select(x => x.FhirNodeType).ToArray();
+            var types = results.Select(x => x.FhirNodeType).OrderBy(x => x).ToArray();
 
             if (ModelInfoProvider.Version == FhirSpecification.Stu3)
             {
