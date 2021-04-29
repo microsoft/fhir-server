@@ -211,6 +211,7 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 
             TestTaskConsumer consumer = new TestTaskConsumer(taskInfos.ToArray());
             bool isCancelled = false;
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 return new TestTask(
@@ -219,10 +220,10 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
                         await Task.Delay(TimeSpan.FromSeconds(10));
                         return new TaskResultData(TaskResult.Success, resultMessage);
                     },
-                    async () =>
+                    () =>
                     {
-                        await Task.Delay(TimeSpan.FromMilliseconds(20));
                         isCancelled = true;
+                        tokenSource.Cancel();
                     })
                     {
                         RunId = Guid.NewGuid().ToString(),
@@ -231,10 +232,8 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
+            taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 0;
 
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
-
-            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
             await taskHosting.StartAsync(tokenSource);
 
             Assert.True(isCancelled);
