@@ -135,7 +135,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Client", "Client", "{83B3EE
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.Smart", "test\Microsoft.Health.Fhir.Shared.Tests.Smart\Microsoft.Health.Fhir.Shared.Tests.Smart.shproj", "{A955963B-D766-492D-94FD-98A8B9EA8931}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FhirAnalyzer", "tools\FhirAnalyzer\FhirAnalyzer.csproj", "{389C844A-4DC2-4780-9821-464580396850}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogsAndInterpolations", "tools\FhirAnalyzer\FhirAnalyzer.csproj", "{389C844A-4DC2-4780-9821-464580396850}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManagement", "src\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj", "{03AD4FC4-A56F-4E94-B295-B02A9E3E3CCD}"
 EndProject
