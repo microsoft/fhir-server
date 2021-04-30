@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _inner.TryGetSearchParameter(definitionUri, out var parameter);
 
             if (parameter.IsSearchable ||
-                (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported))
+                (_fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported))
             {
                 value = parameter;
                 return true;

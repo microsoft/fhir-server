@@ -548,7 +548,6 @@
     <value>Attempt to update SearchParameter {0} failed.</value>
     <comment>{0} the uri identifying the search parameter.</comment>
   </data>
-</root>
   <data name="MemberMatchMultipleMatchesFound" xml:space="preserve">
     <value>Found multiple matches, narrow search criteria.</value>
   </data>
