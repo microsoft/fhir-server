@@ -9,14 +9,48 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.TaskManagement
 {
+    /// <summary>
+    /// Interface to consume the task: pull/keepalive/complete/reset.
+    /// </summary>
     public interface ITaskConsumer
     {
+        /// <summary>
+        /// Complete the task with result.
+        /// </summary>
+        /// <param name="taskId">Id for the task</param>
+        /// <param name="result">Result data for the task execution</param>
+        /// <param name="runId">Run id for this task execution</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task infomation after status updated</returns>
         Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Get next available tasks in task queue.
+        /// </summary>
+        /// <param name="count">max retrieve task batch count</param>
+        /// <param name="taskHeartbeatTimeoutThresholdInSeconds">heartbeat timeout threshold in seconds</param>
+        /// <param name="cancellationToken">Cancelllation Token</param>
+        /// <returns>List of available tasks</returns>
         Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(short count, int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Send keep alive request for task heartbeat
+        /// </summary>
+        /// <param name="taskId">Id for the task</param>
+        /// <param name="runId">Run id for this task execution</param>
+        /// <param name="cancellationToken">Cancelllation Token</param>
+        /// <returns>Task infomation after status updated</returns>
         Task<TaskInfo> KeepAliveAsync(string taskId, string runId, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Reset task status and allow repickup by others
+        /// </summary>
+        /// <param name="taskId">Id for the task</param>
+        /// <param name="result">Result data for the task execution</param>
+        /// <param name="runId">Run id for this task execution</param>
+        /// <param name="maxRetryCount">Max retry count for reset operation, auto complete for reset count > max retry count</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task infomation after status updated</returns>
         Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, short maxRetryCount, CancellationToken cancellationToken);
     }
 }
