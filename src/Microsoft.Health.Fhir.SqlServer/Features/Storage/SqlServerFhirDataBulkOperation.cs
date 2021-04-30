@@ -78,5 +78,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
             }
         }
+
+        public async Task ToggleUnclusteredIndexAsync(bool enable, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                try
+                {
+                    VLatest.ToggleUnclusteredIndex.PopulateCommand(sqlCommandWrapper, enable);
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogError(sqlEx, $"Failed to toggle index.");
+
+                    throw;
+                }
+            }
+        }
     }
 }

@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DotLiquid.Util;
+using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Extensions;
@@ -26,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private const int MaxRetryCount = 3;
         private const int MaxRunningTaskCount = 50;
         private const int PollingFrequencyInSeconds = 3;
+        private const long MinResourceSizeInBytes = 64;
 
         private CreateBulkImportRequest _orchestratorInputData;
         private OrchestratorTaskContext _orchestratorTaskContext; // TODO : changed later
@@ -34,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private IContextUpdater _contextUpdater;
         private IFhirRequestContextAccessor _contextAccessor;
         private ILogger<OrchestratorTask> _logger;
+        private IIntegrationDataStoreClient _iIntegrationDataStoreClient;
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
         public OrchestratorTask(
@@ -43,14 +46,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IContextUpdater contextUpdater,
             IFhirRequestContextAccessor contextAccessor,
             IFhirDataBulkOperation fhirDataBulkOperation,
+            IIntegrationDataStoreClient iIntegrationDataStoreClient,
             ILoggerFactory loggerFactory)
         {
+            EnsureArg.IsNotNull(orchestratorInputData, nameof(orchestratorInputData));
+            EnsureArg.IsNotNull(orchestratorTaskContext, nameof(orchestratorTaskContext));
+            EnsureArg.IsNotNull(taskManager, nameof(taskManager));
+            EnsureArg.IsNotNull(contextUpdater, nameof(contextUpdater));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            EnsureArg.IsNotNull(fhirDataBulkOperation, nameof(fhirDataBulkOperation));
+            EnsureArg.IsNotNull(iIntegrationDataStoreClient, nameof(iIntegrationDataStoreClient));
+            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
+
             _orchestratorInputData = orchestratorInputData;
             _orchestratorTaskContext = orchestratorTaskContext;
             _taskManager = taskManager;
             _contextUpdater = contextUpdater;
             _contextAccessor = contextAccessor;
             _fhirDataBulkOperation = fhirDataBulkOperation;
+            _iIntegrationDataStoreClient = iIntegrationDataStoreClient;
             _logger = loggerFactory.CreateLogger<OrchestratorTask>();
         }
 
@@ -77,32 +91,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.Check)
                 {
-                    // check ETag of input
-                    await MoveForwardProgress(cancellationToken);
+                    await Check(cancellationToken);
+                    await UpdateProgress(OrchestratorTaskProgress.Preprocess, cancellationToken);
                 }
 
                 if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.Preprocess)
                 {
-                    // disable unclustered index
-                    await MoveForwardProgress(cancellationToken);
+                    await _fhirDataBulkOperation.ToggleUnclusteredIndexAsync(false, cancellationToken);
+                    await UpdateProgress(OrchestratorTaskProgress.GenerateSubTaskRecords, cancellationToken);
                 }
 
                 if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.GenerateSubTaskRecords)
                 {
-                    GenerateSubTaskRecords();
-                    await MoveForwardProgress(cancellationToken);
+                    await GenerateSubTaskRecords(cancellationToken);
+                    await UpdateProgress(OrchestratorTaskProgress.CreateAndMonitorSubTask, cancellationToken);
                 }
 
                 if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.CreateAndMonitorSubTask)
                 {
                     await CreateAndMonitorSubTask(cancellationToken);
-                    await MoveForwardProgress(cancellationToken);
+                    await UpdateProgress(OrchestratorTaskProgress.Postprocess, cancellationToken);
                 }
 
                 if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.Postprocess)
                 {
-                    // re-enable unclustered index
-                    await MoveForwardProgress(cancellationToken);
+                    await _fhirDataBulkOperation.ToggleUnclusteredIndexAsync(true, cancellationToken);
+
+                    // remove duplicated resources
+
+                    await UpdateProgress(OrchestratorTaskProgress.Finished, cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -115,27 +132,47 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return new TaskResultData(TaskResult.Success, string.Empty);
         }
 
-        private async Task MoveForwardProgress(CancellationToken cancellationToken)
+        private async Task Check(CancellationToken cancellationToken)
         {
-            _orchestratorTaskContext.Progress++;
+            foreach (var input in _orchestratorInputData.Input)
+            {
+                var latestEtag = await _iIntegrationDataStoreClient.GetBlockPropertyAsync<string>(input.Url.ToString(), "ETag", cancellationToken);
+                EnsureArg.Equals(input.Etag, latestEtag);
+            }
+        }
+
+        private async Task UpdateProgress(OrchestratorTaskProgress progress, CancellationToken cancellationToken)
+        {
+            _orchestratorTaskContext.Progress = progress;
             await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_orchestratorTaskContext), cancellationToken);
         }
 
-        private void GenerateSubTaskRecords()
+        private async Task GenerateSubTaskRecords(CancellationToken cancellationToken)
         {
             // this is a first start, generate task record for every input
             if (_orchestratorTaskContext.SubTaskRecords.Count == 0)
             {
+                var initialId = (DateTime.Now.TruncateToMillisecond().Ticks << 3) - 1;
+
                 foreach (var input in _orchestratorInputData.Input)
                 {
-                    var taskInputData = GenerateSubTaskInputFromInput(input);
-                    var hash = taskInputData.ToLowerInvariant().ComputeHash();
+                    var taskId = Guid.NewGuid().ToString();
+
+                    var blobUri = input.Url.ToString();
+                    var blobSizeInBytes = await _iIntegrationDataStoreClient.GetBlockPropertyAsync<long>(blobUri, "Length", cancellationToken);
+                    var estimatedResourceNumber = (blobSizeInBytes / MinResourceSizeInBytes) + 1;
+                    var endId = initialId - estimatedResourceNumber;
+
+                    var taskInputData = GenerateSubTaskInputFromInput(input, taskId, initialId, endId);
+                    var hash = input.Url.ToString().ToLowerInvariant().ComputeHash();
 
                     _orchestratorTaskContext.SubTaskRecords[hash] = new OrchestratorSubTaskRecord
                     {
-                        TaskId = Guid.NewGuid().ToString(),
+                        TaskId = taskId,
                         TaskInputData = taskInputData,
                     };
+
+                    initialId = endId;
                 }
             }
         }
@@ -261,7 +298,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private void HandleCompletedTaskRecord(OrchestratorSubTaskRecord taskRecord, string taskResult, List<OrchestratorSubTaskRecord> pendingTaskRecords)
         {
-            var hash = taskRecord.TaskInputData.ToLowerInvariant().ComputeHash();
+            var inputData = JsonConvert.DeserializeObject<ImportTaskInputData>(taskRecord.TaskInputData);
+            var hash = inputData.ResourceLocation.ToLowerInvariant().ComputeHash();
             var result = JsonConvert.DeserializeObject<TaskResultData>(taskResult).Result;
 
             if (result == TaskResult.Success)
@@ -270,19 +308,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             else
             {
-                HandleFailedTaskRecord(taskRecord, hash, pendingTaskRecords);
+                HandleFailedTaskRecord(taskRecord, inputData, hash, pendingTaskRecords);
             }
         }
 
-        private void HandleFailedTaskRecord(OrchestratorSubTaskRecord taskRecord, string hash, List<OrchestratorSubTaskRecord> pendingTaskRecords)
+        private void HandleFailedTaskRecord(OrchestratorSubTaskRecord taskRecord, ImportTaskInputData inputData, string hash, List<OrchestratorSubTaskRecord> pendingTaskRecords)
         {
             if (taskRecord.RetryCount >= MaxRetryCount)
             {
-                throw new Exception($"Task with Input {taskRecord.TaskInputData} failed after retry {MaxRetryCount} times, latest task Id is {taskRecord.TaskId}");
+                // format
+                throw new Exception(string.Format("Task with Input {0} failed after retry {1} times, latest task Id is {2}", taskRecord.TaskInputData, MaxRetryCount, taskRecord.TaskId));
             }
 
-            _orchestratorTaskContext.SubTaskRecords[hash].TaskId = Guid.NewGuid().ToString();
+            inputData.TaskId = Guid.NewGuid().ToString();
+            _orchestratorTaskContext.SubTaskRecords[hash].TaskId = inputData.TaskId;
             _orchestratorTaskContext.SubTaskRecords[hash].RetryCount++;
+            _orchestratorTaskContext.SubTaskRecords[hash].TaskInputData = JsonConvert.SerializeObject(inputData);
             pendingTaskRecords.Insert(0, _orchestratorTaskContext.SubTaskRecords[hash]);
         }
 
@@ -297,9 +338,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             };
         }
 
-        private static string GenerateSubTaskInputFromInput(BulkImportRequestInput input)
+        private string GenerateSubTaskInputFromInput(BulkImportRequestInput input, string taskId, long satrtId, long endId)
         {
-            return input.Etag;
+            ImportTaskInputData data = new ImportTaskInputData
+            {
+                ResourceLocation = input.Url.ToString(),
+                BaseUriString = _contextAccessor.FhirRequestContext.BaseUri.ToString(),
+                UriString = _orchestratorInputData.RequestUri.ToString(),
+                ResourceType = input.Type,
+                StartId = satrtId,
+                TaskId = taskId,
+                EndId = endId,
+            };
+
+            return JsonConvert.SerializeObject(data);
         }
 
         public void Cancel()

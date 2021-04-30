@@ -14,5 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public Task CleanBatchResourceAsync(long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken);
 
         public Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken);
+
+        public Task ToggleUnclusteredIndexAsync(bool enable, CancellationToken cancellationToken);
     }
 }

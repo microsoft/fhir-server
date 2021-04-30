@@ -3243,7 +3243,7 @@ GO
 -- PARAMETERS
 --     @@isDisable
 --         * Whether to disable or enable unclustered index
-CREATE OR ALTER PROCEDURE [dbo].[ToggleUnclusteredIndex]
+CREATE PROCEDURE [dbo].[ToggleUnclusteredIndex]
     @enable bit
 AS
     DECLARE @myTable TABLE (tableName nvarchar(max), indexName nvarchar(max))
