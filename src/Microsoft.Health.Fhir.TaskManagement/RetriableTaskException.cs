@@ -13,13 +13,13 @@ namespace Microsoft.Health.Fhir.TaskManagement
         public RetriableTaskException(string message)
             : base(message)
         {
-            EnsureArg.IsNotNullOrEmpty(message, nameof(message));
+            EnsureArg.IsNotNull(message, nameof(message));
         }
 
         public RetriableTaskException(string message, Exception innerException)
             : base(message, innerException)
         {
-            EnsureArg.IsNotNullOrEmpty(message, nameof(message));
+            EnsureArg.IsNotNull(message, nameof(message));
             EnsureArg.IsNotNull(innerException, nameof(innerException));
         }
     }

@@ -13,13 +13,13 @@ namespace Microsoft.Health.Fhir.TaskManagement
         public TaskNotExistException(string message)
             : base(message)
         {
-            EnsureArg.IsNotNullOrEmpty(message, nameof(message));
+            EnsureArg.IsNotNull(message, nameof(message));
         }
 
         public TaskNotExistException(string message, Exception innerException)
             : base(message, innerException)
         {
-            EnsureArg.IsNotNullOrEmpty(message, nameof(message));
+            EnsureArg.IsNotNull(message, nameof(message));
             EnsureArg.IsNotNull(innerException, nameof(innerException));
         }
     }
