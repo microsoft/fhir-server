@@ -87,10 +87,22 @@ namespace Microsoft.Health.Fhir.Azure
             var integrationDataStoreConfiguration = new IntegrationDataStoreConfiguration();
             configuration.GetSection(IntegrationDataStoreConfigurationName).Bind(integrationDataStoreConfiguration);
 
-            // TODO: support access token client
-            fhirServerBuilder.Services.Add<AzureConnectionStringClientInitializerV2>()
+            if (!string.IsNullOrWhiteSpace(integrationDataStoreConfiguration.StorageAccountUri))
+            {
+                fhirServerBuilder.Services.Add<AzureAccessTokenClientInitializerV2>()
+                    .Transient()
+                    .AsService<IIntegrationDataStoreClientInitilizer<CloudBlobClient>>();
+
+                fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
+                    .Transient()
+                    .AsService<IAccessTokenProvider>();
+            }
+            else
+            {
+                fhirServerBuilder.Services.Add<AzureConnectionStringClientInitializerV2>()
                 .Transient()
                 .AsService<IIntegrationDataStoreClientInitilizer<CloudBlobClient>>();
+            }
 
             fhirServerBuilder.Services.Add<AzureBlobIntegrationDataStoreClient>()
                 .Transient()

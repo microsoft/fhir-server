@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             newRow[ResourceTypeId.Metadata.Name] = resourceTypeId;
             newRow[ResourceSurrogateId.Metadata.Name] = resourceSurrogateId;
             newRow[SearchParamId.Metadata.Name] = searchParamId;
-            newRow[IsHistory.Metadata.Name] = true;
+            newRow[IsHistory.Metadata.Name] = false;
 
             return newRow;
         }

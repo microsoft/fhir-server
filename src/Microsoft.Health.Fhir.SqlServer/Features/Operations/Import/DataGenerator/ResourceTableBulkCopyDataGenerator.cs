@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             FillColumn(newRow, VLatest.Resource.ResourceTypeId.Metadata.Name, resourceTypeId);
             FillColumn(newRow, VLatest.Resource.ResourceId.Metadata.Name, resourceId);
             FillColumn(newRow, VLatest.Resource.Version.Metadata.Name, 1);
-            FillColumn(newRow, VLatest.Resource.IsHistory.Metadata.Name, true);
+            FillColumn(newRow, VLatest.Resource.IsHistory.Metadata.Name, false);
             FillColumn(newRow, VLatest.Resource.ResourceSurrogateId.Metadata.Name, resourceSurrogateId);
             FillColumn(newRow, VLatest.Resource.IsDeleted.Metadata.Name, false);
             FillColumn(newRow, VLatest.Resource.RequestMethod.Metadata.Name, ImportMethod);

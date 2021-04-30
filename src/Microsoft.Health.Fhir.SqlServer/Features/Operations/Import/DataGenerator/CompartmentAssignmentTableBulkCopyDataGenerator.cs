@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             FillColumn(newRow, VLatest.CompartmentAssignment.ResourceSurrogateId.Metadata.Name, resourceSurrogateId);
             FillColumn(newRow, VLatest.CompartmentAssignment.CompartmentTypeId.Metadata.Name, rowData.CompartmentTypeId);
             FillColumn(newRow, VLatest.CompartmentAssignment.ReferenceResourceId.Metadata.Name, rowData.ReferenceResourceId);
-            FillColumn(newRow, VLatest.CompartmentAssignment.IsHistory.Metadata.Name, true);
+            FillColumn(newRow, VLatest.CompartmentAssignment.IsHistory.Metadata.Name, false);
 
             table.Rows.Add(newRow);
         }
