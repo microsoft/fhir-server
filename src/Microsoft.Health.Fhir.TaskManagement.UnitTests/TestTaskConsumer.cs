@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 
         public Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId, CancellationToken cancellationToken)
         {
-            _faultInjectionAction?.Invoke("CompleteAsync");
+            _faultInjectionAction?.Invoke(nameof(CompleteAsync));
 
             TaskInfo task = _taskInfos[taskId];
             TaskInfo taskInfo = _taskInfos[taskId];
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 
         public Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(short count, int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
         {
-            _faultInjectionAction?.Invoke("GetNextMessagesAsync");
+            _faultInjectionAction?.Invoke(nameof(GetNextMessagesAsync));
             Ensure.Comparable.IsGt<short>(count, 0, nameof(count));
 
             IReadOnlyCollection<TaskInfo> tasksInQueue = _taskInfos.Values
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 
         public Task<TaskInfo> KeepAliveAsync(string taskId, string runId, CancellationToken cancellationToken)
         {
-            _faultInjectionAction?.Invoke("KeepAliveAsync");
+            _faultInjectionAction?.Invoke(nameof(KeepAliveAsync));
 
             TaskInfo taskInfo = _taskInfos[taskId];
             if (!runId.Equals(taskInfo.RunId))
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
 
         public Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, short maxRetryCount, CancellationToken cancellationToken)
         {
-            _faultInjectionAction?.Invoke("ResetAsync");
+            _faultInjectionAction?.Invoke(nameof(ResetAsync));
 
             TaskInfo taskInfo = _taskInfos[taskId];
             if (!runId.Equals(taskInfo.RunId))
