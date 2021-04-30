@@ -190,7 +190,14 @@ namespace Microsoft.Health.Fhir.TaskManagement
 
                         if (shouldCancel)
                         {
-                            task.Cancel();
+                            try
+                            {
+                                task.Cancel();
+                            }
+                            catch (OperationCanceledException operationCanceledEx)
+                            {
+                                _logger.LogError(operationCanceledEx, "Task {taskId} was canceled.", taskId);
+                            }
                         }
                     }
                     catch (Exception ex)
