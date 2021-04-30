@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
 
-        public bool SortForNullValuesDone { get; internal set; } = false;
+        public bool SortQuerySecondPhase { get; internal set; } = false;
 
         /// <summary>
         /// Performs a shallow clone of this instance

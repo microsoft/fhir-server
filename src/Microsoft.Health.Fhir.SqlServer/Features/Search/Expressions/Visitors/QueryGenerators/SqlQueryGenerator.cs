@@ -11,11 +11,13 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
@@ -780,28 +782,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new InvalidOperationException("Multiple chain level is not possible.");
             }
 
-            var (searchParamInfo, searchSort) = context.Sort.Count == 0 ? default : context.Sort[0];
-            var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
-            object sortValue = null;
-            Health.SqlServer.Features.Schema.Model.Column sortColumnName = default(Health.SqlServer.Features.Schema.Model.Column);
-
-            if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
-            {
-                sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
-            }
-            else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
-            {
-                sortColumnName = VLatest.StringSearchParam.Text;
-            }
-
-            if (continuationToken != null)
-            {
-                DateTime dateSortValue;
-                if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
-                {
-                    sortValue = dateSortValue;
-                }
-            }
+            GetSortRelatedDetails(
+                context,
+                out SortOrder sortOrder,
+                out ContinuationToken continuationToken,
+                out object sortValue,
+                out Column sortColumnName);
 
             if (!string.IsNullOrEmpty(sortColumnName) && searchParamTableExpression.QueryGenerator != null)
             {
@@ -823,7 +809,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // if continuation token exists, add it to the query
                     if (continuationToken != null)
                     {
-                        var sortOperand = searchSort == SortOrder.Ascending ? ">" : "<";
+                        var sortOperand = sortOrder == SortOrder.Ascending ? ">" : "<";
 
                         delimited.BeginDelimitedElement();
                         StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue));
@@ -840,35 +826,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindSortWithFilter(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            var (searchParamInfo, searchSort) = context.Sort.Count == 0 ? default : context.Sort[0];
-            var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
-            object sortValue = null;
-            Health.SqlServer.Features.Schema.Model.Column sortColumnName = default(Health.SqlServer.Features.Schema.Model.Column);
-
-            if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
-            {
-                sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
-            }
-            else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
-            {
-                sortColumnName = VLatest.StringSearchParam.Text;
-            }
-
-            if (continuationToken != null)
-            {
-                if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
-                {
-                    DateTime dateSortValue;
-                    if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
-                    {
-                        sortValue = dateSortValue;
-                    }
-                }
-                else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
-                {
-                    sortValue = continuationToken.SortValue;
-                }
-            }
+            GetSortRelatedDetails(
+                context,
+                out SortOrder sortOrder,
+                out ContinuationToken continuationToken,
+                out object sortValue,
+                out Column sortColumnName);
 
             if (!string.IsNullOrEmpty(sortColumnName) && searchParamTableExpression.QueryGenerator != null)
             {
@@ -890,7 +853,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // if continuation token exists, add it to the query
                     if (continuationToken != null)
                     {
-                        var sortOperand = searchSort == SortOrder.Ascending ? ">" : "<";
+                        var sortOperand = sortOrder == SortOrder.Ascending ? ">" : "<";
 
                         delimited.BeginDelimitedElement();
                         StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue));
@@ -1062,6 +1025,50 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             return false;
+        }
+
+        private static void GetSortRelatedDetails(
+            SearchOptions context,
+            out SortOrder sortOrder,
+            out ContinuationToken continuationToken,
+            out object sortValue,
+            out Column sortColumnName)
+        {
+            SearchParameterInfo searchParamInfo = default;
+            sortOrder = default;
+            if (context.Sort?.Count > 0)
+            {
+                (searchParamInfo, sortOrder) = context.Sort[0];
+            }
+
+            continuationToken = ContinuationToken.FromString(context.ContinuationToken);
+            sortValue = null;
+            sortColumnName = default;
+
+            if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
+            {
+                sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
+            }
+            else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
+            {
+                sortColumnName = VLatest.StringSearchParam.Text;
+            }
+
+            if (continuationToken != null)
+            {
+                if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
+                {
+                    DateTime dateSortValue;
+                    if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
+                    {
+                        sortValue = dateSortValue;
+                    }
+                }
+                else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
+                {
+                    sortValue = continuationToken.SortValue;
+                }
+            }
         }
 
         /// <summary>

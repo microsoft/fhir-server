@@ -55,35 +55,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             var newTableExpressions = new List<SearchParamTableExpression>();
             newTableExpressions.AddRange(expression.SearchParamTableExpressions);
-            if (!matchFound && !context.SortForNullValuesDone)
+            var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
+
+            if (!matchFound)
             {
-                // check whether continuation token has info regarding whether we are looking
-                // at "null" values or not.
-                var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
-                if (continuationToken?.SortValue == null)
+                // We are running a sort query where the parameter by which we are sorting
+                // is not present as part of other search parameters in the query.
+
+                if (context.SortQuerySecondPhase)
                 {
-                    // Check sort order to determine what has to happen
+                    if (context.Sort[0].sortOrder == SortOrder.Descending)
+                    {
+                        // Now add the missing expression
+                        var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
+                        var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
+                        var notExistsExpression = new SearchParamTableExpression(
+                            queryGenForMissing,
+                            missingExpression,
+                            SearchParamTableExpressionKind.NotExists);
 
-                    // Now add the missing expression
-                    var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
-                    var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
-                    var notExistsExpression = new SearchParamTableExpression(
-                        queryGenForMissing,
-                        missingExpression,
-                        SearchParamTableExpressionKind.NotExists);
+                        newTableExpressions.Add(notExistsExpression);
 
-                    newTableExpressions.Add(notExistsExpression);
+                        return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+                    }
+                    else
+                    {
+                        // for ascending we don't have anything to do.
+                    }
+                }
+                else if (continuationToken == null || continuationToken.SortValue == null)
+                {
+                    if (context.Sort[0].sortOrder == SortOrder.Ascending)
+                    {
+                        // Now add the missing expression
+                        var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
+                        var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
+                        var notExistsExpression = new SearchParamTableExpression(
+                            queryGenForMissing,
+                            missingExpression,
+                            SearchParamTableExpressionKind.NotExists);
 
-                    return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+                        newTableExpressions.Add(notExistsExpression);
+
+                        return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+                    }
+                    else
+                    {
+                        // for descending we don't have anything to do.
+                    }
                 }
             }
 
             SearchParamTableExpressionKind sortKind = matchFound ? SearchParamTableExpressionKind.SortWithFilter : SearchParamTableExpressionKind.Sort;
 
             var queryGenerator = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
-
-            // var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
-            // newTableExpressions.AddRange(expression.SearchParamTableExpressions);
 
             newTableExpressions.Add(new SearchParamTableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), sortKind));
 
