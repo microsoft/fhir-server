@@ -1,0 +1,78 @@
+﻿{
+    "resourceType": "OperationDefinition",
+    "id": "member-match",
+    "text": {
+        "status": "extensions",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>MemberMatch</h2><p>OPERATION: MemberMatch</p><p>The official URL for this operation definition is: </p><pre>http://hl7.org/fhir/us/davinci-hrex/OperationDefinition/member-match</pre><div><p>The <strong>$member-match</strong> operation allows one health plan to retrieve a unique identifier for a member from another health plan using a member's demographic and coverage information.  This identifier can then be used to perform subsequent queries and operations.</p>\n</div><p>URL: [base]/Patient/$member-match</p><p>Parameters</p><table class=\"grid\"><tr><td><b>Use</b></td><td><b>Name</b></td><td><b>Cardinality</b></td><td><b>Type</b></td><td><b>Binding</b></td><td><b>Documentation</b></td></tr><tr><td>IN</td><td>MemberPatient</td><td>1..1</td><td><a href=\"http://hl7.org/fhir/R4/resource.html\">Resource</a></td><td/><td><div><p>Parameter submitted by the new plan <strong>SHALL</strong> contain US Core Patient containing member demographics.</p>\n</div></td></tr><tr><td>IN</td><td>OldCoverage</td><td>1..1</td><td><a href=\"http://hl7.org/fhir/R4/resource.html\">Resource</a></td><td/><td><div><p>Parameter submitted by the new plan <strong>SHALL</strong> contain Coverage details of prior health plan coverage provided by the member, typically from their health plan coverage card.</p>\n</div></td></tr><tr><td>IN</td><td>NewCoverage</td><td>1..1</td><td><a href=\"http://hl7.org/fhir/R4/resource.html\">Resource</a></td><td/><td><div><p>Parameter submitted by the new plan <strong>SHALL</strong> contain Coverage details of new or prospective health plan coverage provided by the new health plan based upon the member's enrollment.</p>\n</div></td></tr><tr><td>OUT</td><td>MemberPatient</td><td>1..1</td><td><a href=\"http://hl7.org/fhir/R4/resource.html\">Resource</a></td><td/><td><div><p>Parameter returned by the old plan resource <strong>SHALL</strong> contain the MemberPatient resource received from new plan with the ADDITION of an identifier of type &quot;UMB&quot; representing the unique identifier identifying the member of the old health plan.</p>\n</div></td></tr><tr><td>OUT</td><td>NewCoverage</td><td>1..1</td><td><a href=\"http://hl7.org/fhir/R4/resource.html\">Resource</a></td><td/><td><div><p>Parameter returned by the old plan resource <strong>SHALL</strong> contain the NewCoverage record received from the new plan.</p>\n</div></td></tr></table></div>"
+    },
+    "url": "http://hl7.org/fhir/us/davinci-hrex/OperationDefinition/member-match",
+    "version": "0.2.0",
+    "name": "MemberMatch",
+    "title": "HRex Member Match Operation",
+    "status": "draft",
+    "kind": "operation",
+    "date": "2020-08-09T15:38:40+00:00",
+    "publisher": "HL7 International - Clinical Interoperability Council",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/cic"
+                }
+            ]
+        }
+    ],
+    "description": "The **$member-match** operation allows one health plan to retrieve a unique identifier for a member from another health plan using a member's demographic and coverage information.  This identifier can then be used to perform subsequent queries and operations.",
+    "jurisdiction": [
+        {
+            "coding": [
+                {
+                    "system": "urn:iso:std:iso:3166",
+                    "code": "US"
+                }
+            ]
+        }
+    ],
+    "code": "member-match",
+    "resource": [
+        "Patient"
+    ],
+    "system": false,
+    "type": true,
+    "instance": false,
+    "inputProfile": "http://hl7.org/fhir/us/davinci-hrex/StructureDefinition/hrex-parameters-member-match-in",
+    "outputProfile": "http://hl7.org/fhir/us/davinci-hrex/StructureDefinition/hrex-parameters-member-match-out",
+    "parameter": [
+        {
+            "name": "MemberPatient",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "Parameter submitted by the new plan **SHALL** contain US Core Patient containing member demographics.",
+            "type": "Patient",
+            "referencedFrom": [
+                {
+                    "source": "OldCoverage",
+                    "sourceId": "beneficiary"
+                }
+            ]
+        },
+        {
+            "name": "OldCoverage",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "Parameter submitted by the new plan **SHALL** contain Coverage details of prior health plan coverage provided by the member, typically from their health plan coverage card.",
+            "type": "Coverage"
+        },
+        {
+            "name": "MemberPatient",
+            "use": "out",
+            "min": 1,
+            "max": "1",
+            "documentation": "Parameter returned by the old plan resource **SHALL** contain the MemberPatient resource received from new plan with the ADDITION of an identifier of type \"UMB\" representing the unique identifier identifying the member of the old health plan.",
+            "type": "Patient"
+        }
+    ]
+}

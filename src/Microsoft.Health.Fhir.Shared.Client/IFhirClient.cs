@@ -69,5 +69,7 @@ namespace Microsoft.Health.Fhir.Client
 
         Task<FhirResponse<T>> VReadAsync<T>(ResourceType resourceType, string resourceId, string versionId, CancellationToken cancellationToken = default)
             where T : Resource;
+
+        Task<Parameters> MemberMatch(Patient patient, Coverage coverage, CancellationToken cancellationToken = default);
     }
 }

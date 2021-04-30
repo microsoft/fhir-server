@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _resourceIdSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.Id);
         }
 
-        protected override async Task<SearchResult> SearchInternalAsync(
+        public override async Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
@@ -285,16 +285,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // When reverse chained, we take the ids and types from the child object and use it to filter the parent objects.
                 // e.g. Patient?_has:Group:member:_id=group1. In this case we would have run the query there Group.id = group1
                 // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
-                chainedExpressionReferences = chainedResults.results.SelectMany(x =>
-                        x.ReferencesToInclude.Select(include =>
-                            Expression.And(
-                                Expression.SearchParameter(
-                                    _resourceIdSearchParameter,
-                                    Expression.Equals(FieldName.TokenCode, null, include.ResourceId)),
-                                Expression.SearchParameter(
-                                    _resourceTypeSearchParameter,
-                                    Expression.Equals(FieldName.TokenCode, null, include.ResourceTypeName)))))
-                    .ToArray<Expression>();
+                chainedExpressionReferences = chainedResults.results.SelectMany(x => x.ReferencesToInclude.Select(y => y)).Distinct()
+                           .Select(include => Expression.And(
+                                  Expression.SearchParameter(
+                                      _resourceIdSearchParameter,
+                                      Expression.Equals(FieldName.TokenCode, null, include.ResourceId)),
+                                  Expression.SearchParameter(
+                                      _resourceTypeSearchParameter,
+                                      Expression.Equals(FieldName.TokenCode, null, include.ResourceTypeName))))
+                .ToArray<Expression>();
             }
 
             return chainedExpressionReferences.Length > 1 ? Expression.Or(chainedExpressionReferences) : chainedExpressionReferences.FirstOrDefault();

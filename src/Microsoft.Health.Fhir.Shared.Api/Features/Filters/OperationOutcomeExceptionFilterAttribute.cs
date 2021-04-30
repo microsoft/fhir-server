@@ -153,6 +153,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case ConfigureCustomSearchException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.FailedDependency;
                         break;
+                    case MemberMatchMatchingException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.UnprocessableEntity;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;

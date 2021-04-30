@@ -296,6 +296,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.ConvertData:
                     routeName = RouteNames.ConvertDataOperationDefinition;
                     break;
+                case OperationsConstants.MemberMatch:
+                    routeName = RouteNames.MemberMatchOperationDefinition;
+                    break;
+
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }
