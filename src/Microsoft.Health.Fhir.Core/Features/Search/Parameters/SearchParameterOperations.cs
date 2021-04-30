@@ -5,9 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -25,25 +29,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IDataStoreSearchParameterValidator _dataStoreSearchParameterValidator;
+        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly ILogger _logger;
 
         public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterSupportResolver searchParameterSupportResolver,
-            IDataStoreSearchParameterValidator dataStoreSearchParameterValidator)
+            IDataStoreSearchParameterValidator dataStoreSearchParameterValidator,
+            Func<IScoped<ISearchService>> searchServiceFactory,
+            ILogger<SearchParameterOperations> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(dataStoreSearchParameterValidator, nameof(dataStoreSearchParameterValidator));
+            EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _dataStoreSearchParameterValidator = dataStoreSearchParameterValidator;
+            _searchServiceFactory = searchServiceFactory;
+            _logger = logger;
         }
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam)
@@ -175,6 +187,86 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 throw customSearchException;
             }
+        }
+
+        /// <summary>
+        /// This method should be called periodically to get any updates to SearchParameters
+        /// added to the DB by other service instances.
+        /// It should also be called when a user starts a reindex job
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>A task.</returns>
+        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken)
+        {
+            var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates();
+
+            // first process any deletes, then we will do any adds or updates
+            // this way any deleted params which might have the same code or name as a new
+            // parameter will not cause conflicts
+            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
+            {
+                DeleteSearchParameter(searchParam.Uri.ToString());
+            }
+
+            var paramsToAdd = new List<ITypedElement>();
+            foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted))
+            {
+                var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.ToString(), cancellationToken);
+
+                if (searchParamResource == null)
+                {
+                    _logger.LogError(
+                        "Updated SearchParameter status found for SearchParameter: {0}, but did not find any SearchParameter resources when querying for this url.",
+                        searchParam.Uri);
+                    continue;
+                }
+
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri, out var existingSearchParam))
+                {
+                    // if the search parameter exists we should delete the old information currently stored
+                    DeleteSearchParameter(searchParam.Uri.ToString());
+                }
+
+                paramsToAdd.Add(searchParamResource);
+            }
+
+            // Now add the new or updated parameters to the SearchParameterDefinitionManager
+            if (paramsToAdd.Any())
+            {
+                _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
+
+                // Once added to the definition manager we can update their status
+                await _searchParameterStatusManager.ApplySearchParameterStatus(updatedSearchParameterStatus, cancellationToken);
+            }
+        }
+
+        private void DeleteSearchParameter(string url)
+        {
+            try
+            {
+                _searchParameterDefinitionManager.DeleteSearchParameter(url, false);
+            }
+            catch (Exception ex) when (ex.Message.Contains("was not found", StringComparison.OrdinalIgnoreCase))
+            {
+                // do nothing, there may not be a search parameter to remove
+            }
+        }
+
+        private async Task<ITypedElement> GetSearchParameterByUrl(string url, CancellationToken cancellationToken)
+        {
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            var queryParams = new List<Tuple<string, string>>();
+
+            queryParams.Add(new Tuple<string, string>("url", url));
+            var result = await search.Value.SearchAsync(KnownResourceTypes.SearchParameter, queryParams, cancellationToken);
+
+            if (result.Results.Any())
+            {
+                // There should be only one SearchParameter per url
+                return result.Results.First().Resource.RawResource.ToITypedElement(_modelInfoProvider);
+            }
+
+            return null;
         }
     }
 }

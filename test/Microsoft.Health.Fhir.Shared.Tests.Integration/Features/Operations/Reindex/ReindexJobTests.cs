@@ -65,7 +65,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private IScoped<ISearchService> _searchService;
 
         private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
-        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+        private readonly IFhirRequestContextAccessor _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly ISearchParameterOperations _searchParameterOperations = Substitute.For<ISearchParameterOperations>();
 
         public ReindexJobTests(FhirStorageTestsFixture fixture)
         {
@@ -161,6 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 () => _scopedOperationDataStore,
                 Options.Create(_jobConfiguration),
                 InitializeReindexJobTask,
+                _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
 
             var cancellationTokenSource = new CancellationTokenSource();
@@ -191,6 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 () => _scopedOperationDataStore,
                 Options.Create(_jobConfiguration),
                 InitializeReindexJobTask,
+                _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
 
             var cancellationTokenSource = new CancellationTokenSource();
@@ -441,6 +444,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 () => _scopedOperationDataStore,
                 Options.Create(_jobConfiguration),
                 InitializeReindexJobTask,
+                _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
             return response;
         }

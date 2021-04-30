@@ -96,5 +96,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             _inner.DeleteSearchParameter(searchParam);
         }
+
+        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value)
+        {
+            value = null;
+            if (_inner.TryGetSearchParameter(definitionUri, out var parameter) && parameter.IsSupported)
+            {
+                value = parameter;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public void DeleteSearchParameter(string url, bool calculateHash = true)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

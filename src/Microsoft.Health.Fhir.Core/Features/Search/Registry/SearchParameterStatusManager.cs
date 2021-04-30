@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
+        private DateTimeOffset _latestSearchParams;
 
         public SearchParameterStatusManager(
             ISearchParameterStatusDataStore searchParameterStatusDataStore,
@@ -41,14 +42,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _mediator = mediator;
+
+            _latestSearchParams = DateTime.MinValue;
         }
 
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
-            var updated = new List<SearchParameterInfo>();
+            var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses();
 
-            var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses())
-                .ToDictionary(x => x.Uri);
+            await ApplySearchParameterStatus(searchParamResourceStatus, cancellationToken);
+        }
+
+        internal async Task ApplySearchParameterStatus(
+            IReadOnlyCollection<ResourceSearchParameterStatus> searchParamResourceStatus,
+            CancellationToken cancellationToken)
+        {
+            var updated = new List<SearchParameterInfo>();
+            var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
+            _latestSearchParams = parameters.Values.Select(p => p.LastUpdated).Max();
 
             // Set states of known parameters
             foreach (SearchParameterInfo p in _searchParameterDefinitionManager.AllSearchParameters)
@@ -157,6 +168,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             var searchParamUris = new List<string>() { url };
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted);
+        }
+
+        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates()
+        {
+            var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses();
+            return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
         }
     }
 }

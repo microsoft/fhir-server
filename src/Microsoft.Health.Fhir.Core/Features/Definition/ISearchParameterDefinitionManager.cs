@@ -58,6 +58,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// Retrieves the search parameter with <paramref name="definitionUri"/>.
         /// </summary>
         /// <param name="definitionUri">The search parameter definition URL.</param>
+        /// <param name="value">The SearchParameterInfo pertaining to the specified <paramref name="definitionUri"/></param>
+        /// <returns>True if the search parameter is found <paramref name="definitionUri"/>.</returns>
+        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value);
+
+        /// <summary>
+        /// Retrieves the search parameter with <paramref name="definitionUri"/>.
+        /// </summary>
+        /// <param name="definitionUri">The search parameter definition URL.</param>
         /// <returns>The search parameter with the given <paramref name="definitionUri"/>.</returns>
         SearchParameterInfo GetSearchParameter(Uri definitionUri);
 
@@ -85,5 +93,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// </summary>
         /// <param name="searchParam">The custom search parameter to remove.</param>
         void DeleteSearchParameter(ITypedElement searchParam);
+
+        /// <summary>
+        /// Allows removal of a custom search parameter.
+        /// </summary>
+        /// <param name="url">The url identifying the custom search parameter to remove.</param>
+        /// <param name="calculateHash">Indicated whether the search parameter hash values should be recalulated after this delete.</param>
+        void DeleteSearchParameter(string url, bool calculateHash = true);
     }
 }

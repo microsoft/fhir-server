@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -24,18 +25,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IReindexJobTask> _reindexJobTaskFactory;
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ILogger _logger;
 
-        public ReindexJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ReindexJobConfiguration> reindexJobConfiguration, Func<IReindexJobTask> reindexJobTaskFactory, ILogger<ReindexJobWorker> logger)
+        public ReindexJobWorker(
+            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            IOptions<ReindexJobConfiguration> reindexJobConfiguration,
+            Func<IReindexJobTask> reindexJobTaskFactory,
+            ISearchParameterOperations searchParameterOperations,
+            ILogger<ReindexJobWorker> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(reindexJobTaskFactory, nameof(reindexJobTaskFactory));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _reindexJobTaskFactory = reindexJobTaskFactory;
+            _searchParameterOperations = searchParameterOperations;
             _logger = logger;
         }
 
@@ -45,6 +54,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             while (!cancellationToken.IsCancellationRequested)
             {
+                // Check for any changes to Search Parameters
+                try
+                {
+                    await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    // End the execution of the task
+                }
+                catch (Exception ex)
+                {
+                    // The job failed.
+                    _logger.LogError(ex, "Error querying latest SearchParameterStatus updates");
+                    await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
+                }
+
+                // Check for any new Reindex Jobs
                 try
                 {
                     // Remove all completed tasks.
@@ -80,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 catch (Exception ex)
                 {
                     // The job failed.
-                    _logger.LogError(ex, "Unhandled exception in the worker.");
+                    _logger.LogError(ex, "Error polling Reindex jobs.");
                     await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
                 }
             }
