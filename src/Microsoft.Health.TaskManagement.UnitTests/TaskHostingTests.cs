@@ -26,7 +26,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenValidTasks_WhenTaskHostingStart_TasksShouldBeExecute()
+        public async Task GivenValidTasks_WhenTaskHostingStart_ThenTasksShouldBeExecute()
         {
             int taskCount = 10;
             string resultMessage = "success";
@@ -74,7 +74,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenTaskWithCriticalException_WhenTaskHostingStart_TaskShouldFailWithErrorMessage()
+        public async Task GivenTaskWithCriticalException_WhenTaskHostingStart_ThenTaskShouldFailWithErrorMessage()
         {
             string errorMessage = "Test error";
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenAnCrashTask_WhenTaskHostingStart_TaskShouldBeRePickup()
+        public async Task GivenAnCrashTask_WhenTaskHostingStart_ThenTaskShouldBeRePickup()
         {
             TaskInfo taskInfo0 = new TaskInfo();
             taskInfo0.TaskId = Guid.NewGuid().ToString();
@@ -154,7 +154,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenAnLongRunningTask_WhenTaskHostingStop_TaskShouldBeCompleted()
+        public async Task GivenAnLongRunningTask_WhenTaskHostingStop_ThenTaskShouldBeCompleted()
         {
             TaskInfo taskInfo0 = new TaskInfo();
             taskInfo0.TaskId = Guid.NewGuid().ToString();
@@ -199,7 +199,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenTaskCrash_WhenTaskHostingRepickupTask_FirstTasksShouldBeCancelled()
+        public async Task GivenTaskCrash_WhenTaskHostingRepickupTask_ThenFirstTasksShouldBeCancelled()
         {
             string resultMessage = "success";
             List<TaskInfo> taskInfos = new List<TaskInfo>();
@@ -241,7 +241,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenBatchTaskMoreThanMaxConcurrentLimit_WhenExecuteTasks_RunningTaskCountShouldLessThanLimit()
+        public async Task GivenBatchTaskMoreThanMaxConcurrentLimit_WhenExecuteTasks_ThenRunningTaskCountShouldLessThanLimit()
         {
             string resultMessage = "success";
             List<TaskInfo> taskInfos = new List<TaskInfo>();
@@ -306,7 +306,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact]
-        public async Task GivenTaskWithRetriableException_WhenTaskHostingStart_TaskShouldBeRetry()
+        public async Task GivenTaskWithRetriableException_WhenTaskHostingStart_ThenTaskShouldBeRetry()
         {
             string errorMessage = "Test error";
             short maxRetryCount = 2;
@@ -377,7 +377,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact(Skip = "Fault injection test require local environment.")]
-        public async Task GivenTaskThrowException_WhenTaskHostingStart_TaskHostingShouldKeepRunning()
+        public async Task GivenTaskThrowException_WhenTaskHostingStart_ThenTaskHostingShouldKeepRunning()
         {
             int taskCount = 1000;
             List<TaskInfo> taskInfos = new List<TaskInfo>();
@@ -448,7 +448,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         }
 
         [Fact(Skip = "Fault injection test require local environment.")]
-        public async Task GivenTempUnavailableConsumer_WhenTaskHostingStart_TaskHostingShouldKeepRunning()
+        public async Task GivenTempUnavailableConsumer_WhenTaskHostingStart_ThenTaskHostingShouldKeepRunning()
         {
             Random random = new Random();
             int taskCount = 1000;

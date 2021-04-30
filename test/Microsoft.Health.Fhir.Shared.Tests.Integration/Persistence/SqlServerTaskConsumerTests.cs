@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenListOfTasksInQueue_WhenGetNextTask_AvailableTasksShouldBeReturned()
+        public async Task GivenListOfTasksInQueue_WhenGetNextTask_ThenAvailableTasksShouldBeReturned()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenACompletedTask_WhenGetNextTask_NoTaskShouldBeReturned()
+        public async Task GivenACompletedTask_WhenGetNextTask_ThenNoTaskShouldBeReturned()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenARunningTask_WhenGetNextTask_NoTaskShouldBeReturned()
+        public async Task GivenARunningTask_WhenGetNextTask_ThenNoTaskShouldBeReturned()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenARunningTaskTimeout_WhenGetNextTask_TaskShouldBeReturned()
+        public async Task GivenARunningTaskTimeout_WhenGetNextTask_ThenTaskShouldBeReturned()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenARunningTask_WhenResetTask_TaskShouldBeReturned()
+        public async Task GivenARunningTask_WhenResetTask_ThenTaskShouldBeReturned()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenARunningTask_WhenCompleteTask_TaskStatusShouldBeChanged()
+        public async Task GivenARunningTask_WhenCompleteTask_ThenTaskStatusShouldBeChanged()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenARunningTask_WhenReachMaxRetryCount_ResetShouldFail()
+        public async Task GivenARunningTask_WhenReachMaxRetryCount_ThenResetShouldFail()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -297,7 +297,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenCompletedTask_WhenResetTask_ResetShouldFail()
+        public async Task GivenCompletedTask_WhenResetTask_ThenResetShouldFail()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenARunningTask_WhenUpdateWithWrongRunid_ExceptionShouldBeThrew()
+        public async Task GivenARunningTask_WhenUpdateWithWrongRunid_ThenExceptionShouldBeThrew()
         {
             string queueId = Guid.NewGuid().ToString();
             TaskHostingConfiguration config = new TaskHostingConfiguration()
