@@ -8,10 +8,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.TaskManagement;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.TaskManagement;
 using Xunit;
-using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
+using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
 {

@@ -3,18 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
     /// <summary>
-    /// Interface for factory to create task from task information
+    /// Task result enums
     /// </summary>
-    public interface ITaskFactory
+    public enum TaskResult
     {
         /// <summary>
-        /// Create new task from TaskInfo
+        /// Task successfully completed
         /// </summary>
-        /// <param name="taskInfo">Task information payload.</param>
-        /// <returns>Task for execution.</returns>
-        ITask Create(TaskInfo taskInfo);
+        Success,
+
+        /// <summary>
+        /// Task completed with failed result.
+        /// </summary>
+        Fail,
+
+        /// <summary>
+        /// Task completed with canceled result.
+        /// </summary>
+        Canceled,
     }
 }

@@ -6,7 +6,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
     /// <summary>
     /// Interface for execution task.

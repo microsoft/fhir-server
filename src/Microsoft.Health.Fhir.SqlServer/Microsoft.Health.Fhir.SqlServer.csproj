@@ -51,7 +51,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.Fhir.TaskManagement\Microsoft.Health.Fhir.TaskManagement.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Resources.Designer.cs">
@@ -78,12 +78,12 @@
       <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.cs">
         <Generator>ImmutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(ImmutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+        <Args>@(ImmutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
       </Generated>
       <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.cs">
         <Generator>MutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(MutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+        <Args>@(MutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
       </Generated>
     </ItemGroup>
   </Target>

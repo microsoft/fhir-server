@@ -14,7 +14,7 @@ using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
+namespace Microsoft.Health.TaskManagement.UnitTests
 {
     public class TaskHostingTests
     {

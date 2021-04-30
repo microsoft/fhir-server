@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
+namespace Microsoft.Health.TaskManagement.UnitTests
 {
     public class TestTaskConsumer : ITaskConsumer
     {

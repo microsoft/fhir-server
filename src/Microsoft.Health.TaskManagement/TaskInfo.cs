@@ -5,7 +5,7 @@
 
 using System;
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
     public class TaskInfo
     {

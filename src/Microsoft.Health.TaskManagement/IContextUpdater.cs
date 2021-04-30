@@ -5,7 +5,7 @@
 
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
     /// <summary>
     /// Interface to update task context.

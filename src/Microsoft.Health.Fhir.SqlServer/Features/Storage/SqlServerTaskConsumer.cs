@@ -13,11 +13,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.TaskManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
-using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
+using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
