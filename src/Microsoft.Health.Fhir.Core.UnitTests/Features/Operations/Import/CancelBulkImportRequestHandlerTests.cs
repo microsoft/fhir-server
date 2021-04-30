@@ -15,10 +15,10 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
-using Microsoft.Health.Fhir.TaskManagement;
+using Microsoft.Health.TaskManagement;
 using NSubstitute;
 using Xunit;
-using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
+using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {

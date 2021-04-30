@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.TaskManagement;
+using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {

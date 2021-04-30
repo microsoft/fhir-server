@@ -8,7 +8,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.TaskManagement;
+using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService

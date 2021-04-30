@@ -8,12 +8,12 @@ using System.Data;
 using System.Threading.Tasks;
 using Castle.Core.Internal;
 using Microsoft.Data.SqlClient;
-using Microsoft.Health.Fhir.TaskManagement;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
 using Xunit;
-using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
+using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {

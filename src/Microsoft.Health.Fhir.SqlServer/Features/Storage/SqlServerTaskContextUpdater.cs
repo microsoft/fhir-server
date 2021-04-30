@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.TaskManagement;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {

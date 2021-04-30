@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
-using Microsoft.Health.Fhir.TaskManagement;
+using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.TaskHostingBackgroundService
 {
