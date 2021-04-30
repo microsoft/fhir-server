@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void BlaBla()
+        public void GivenAFhirPathExpressionWithTwoPossibleOutcomeTypes_WhenResolve_TwoTypesReturned()
         {
             var expression = _compiler.Parse("CarePlan.activity.detail.product");
             SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
