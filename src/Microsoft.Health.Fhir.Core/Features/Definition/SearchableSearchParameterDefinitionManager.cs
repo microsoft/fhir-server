@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
-            if (_fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams)
+            if (_fhirReqeustContextAccessor.RequestContext != null && _fhirReqeustContextAccessor.RequestContext.IncludePartiallyIndexedSearchParams)
             {
                 return _inner.GetSearchParameters(resourceType)
                 .Where(x => x.IsSupported);

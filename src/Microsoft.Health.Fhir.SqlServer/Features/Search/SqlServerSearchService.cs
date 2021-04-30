@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _searchParameterDefinitionManagerResolver = searchParameterDefinitionManagerResolver;
         }
 
-        protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
+        public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             SearchResult searchResult;
 

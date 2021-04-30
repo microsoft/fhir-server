@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.IO;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -56,6 +55,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
         }
 
         public static string GetProvenanceHeader() => GetJson("ProvenanceHeader");
+
+        public static ResourceElement GetDefaultCoverage() => GetJsonSample("Coverage");
 
         public static ResourceElement GetDefaultBatch()
         {

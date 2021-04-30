@@ -6,7 +6,7 @@
     <SharedGUID>a898cc57-69d0-4454-bb70-784c138a05bf</SharedGUID>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
-    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.E2E</Import_RootNamespace>
+    <Import_RootNamespace>Microsoft.Health.Fhir.Tests.E2E</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
@@ -28,6 +28,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportLongRunningTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\DeleteTests.cs" />
