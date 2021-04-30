@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
         private const int _chainedSearchMaxSubqueryItemLimit = 100;
+        private const string _documentDbPartitionkeyRangeIdHeaderName = "x-ms-documentdb-partitionkeyrangeid";
 
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -392,9 +393,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // This may not be true forever, in which case we would want to encode the max concurrency in the continuation token.
 
                         queryPartitionStatistics = _queryPartitionStatisticsCache.GetQueryPartitionStatistics(searchOptions.Expression);
-                        if (IsQuerySelective(queryPartitionStatistics))
+                        var queryPartitionsInParallel = CalculateQueryPartitionCount(queryPartitionStatistics);
+
+                        if (queryPartitionsInParallel.HasValue)
                         {
-                            feedOptions.MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency;
+                            feedOptions.MaxConcurrency = queryPartitionsInParallel.Value;
                         }
 
                         // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
@@ -416,15 +419,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 if (queryPartitionStatistics != null && messagesList != null)
                 {
-                    if (results.Count < feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor && string.IsNullOrEmpty(continuationToken))
+                    if (results.Count < feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor && !string.IsNullOrEmpty(nextContinuationToken))
                     {
                         // ExecuteDocumentQueryAsync gave up on filling the pages. This suggests that we would have been better off querying in parallel.
-                        queryPartitionStatistics.Update((queryPartitionStatistics.GetAveragePartitionCount() ?? 10) * 10); // should increment => 100, 1000, 10,000
+                        int partitions = queryPartitionStatistics.GetAveragePartitionCount() ??
+                            messagesList.Select(r => r.Headers[_documentDbPartitionkeyRangeIdHeaderName]).Distinct().Count();
+
+                        // Choose the number of partitions used * 2, or the max db partitions, whichever is less.
+                        int increasePartitionsOrMaxPartitions = Math.Min(partitions * 2, _physicalPartitionInfo.PhysicalPartitionCount);
+                        queryPartitionStatistics.Update(Math.Max(increasePartitionsOrMaxPartitions, 1));
                     }
                     else
                     {
                         // determine the number of unique physical partitions queried as part of this search.
-                        int physicalPartitionCount = messagesList.Select(r => r.Headers["x-ms-documentdb-partitionkeyrangeid"]).Distinct().Count();
+                        int physicalPartitionCount = messagesList.Select(r => r.Headers[_documentDbPartitionkeyRangeIdHeaderName]).Distinct().Count();
                         queryPartitionStatistics.Update(physicalPartitionCount);
                     }
                 }
@@ -445,23 +453,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         /// If it is not, we should query sequentially, since we would expect to get a full page of results from the first partition.
         /// This is really simple right now
         /// </summary>
-        private bool IsQuerySelective(QueryPartitionStatistics queryPartitionStatistics)
+        private int? CalculateQueryPartitionCount(QueryPartitionStatistics queryPartitionStatistics)
         {
             int? averagePartitionCount = queryPartitionStatistics.GetAveragePartitionCount();
 
             if (averagePartitionCount.HasValue && _cosmosConfig.UseQueryStatistics)
             {
-                // this is not a new query
+                // this is not a new query, return the average number of partitions needed in parallel
 
-                double fractionOfPartitionsHit = (double)averagePartitionCount.Value / _physicalPartitionInfo.PhysicalPartitionCount;
-
-                if (fractionOfPartitionsHit >= 0.5)
-                {
-                    return true;
-                }
+                return averagePartitionCount;
             }
 
-            return false;
+            return null;
         }
 
         private async Task<int> ExecuteCountSearchAsync(
