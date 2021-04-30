@@ -6,7 +6,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.TaskManagement.UnitTests
+namespace Microsoft.Health.TaskManagement.UnitTests
 {
     public class TestTask : ITask
     {

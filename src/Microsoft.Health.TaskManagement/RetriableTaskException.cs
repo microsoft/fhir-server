@@ -4,19 +4,23 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
-    public class TaskNotExistException : Exception
+    public class RetriableTaskException : Exception
     {
-        public TaskNotExistException(string message)
+        public RetriableTaskException(string message)
             : base(message)
         {
+            EnsureArg.IsNotNull(message, nameof(message));
         }
 
-        public TaskNotExistException(string message, Exception innerException)
+        public RetriableTaskException(string message, Exception innerException)
             : base(message, innerException)
         {
+            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(innerException, nameof(innerException));
         }
     }
 }

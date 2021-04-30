@@ -6,10 +6,18 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
+    /// <summary>
+    /// Interface to update task context.
+    /// </summary>
     public interface IContextUpdater
     {
-        public Task UpdateContextAsync(string context, CancellationToken cancellationToken);
+        /// <summary>
+        /// Update context for the task.
+        /// </summary>
+        /// <param name="taskId">Id for the task</param>
+        /// <param name="context">Task context in string format</param>
+        public Task UpdateContextAsync(string taskId, string context);
     }
 }

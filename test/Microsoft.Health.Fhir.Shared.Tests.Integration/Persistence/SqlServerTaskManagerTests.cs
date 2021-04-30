@@ -8,10 +8,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.TaskManagement;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.TaskManagement;
 using Xunit;
-using TaskStatus = Microsoft.Health.Fhir.TaskManagement.TaskStatus;
+using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
 {
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASqlTaskManager_WhenCreateTask_NewTaskShouldBeCreated()
+        public async Task GivenASqlTaskManager_WhenCreateTask_ThenNewTaskShouldBeCreated()
         {
             string queueId = Guid.NewGuid().ToString();
             string taskId = Guid.NewGuid().ToString();
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASqlTaskManager_WhenCreate2TaskWithSameTaskId_NewTaskShouldBeCreated()
+        public async Task GivenASqlTaskManager_WhenCreate2TaskWithSameTaskId_ThenNewTaskShouldBeCreated()
         {
             string queueId = Guid.NewGuid().ToString();
             string taskId = Guid.NewGuid().ToString();
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASqlTaskManager_WhenCancelTask_TaskStatusShouldBeChanged()
+        public async Task GivenASqlTaskManager_WhenCancelTask_ThenTaskStatusShouldBeChanged()
         {
             string queueId = Guid.NewGuid().ToString();
             string taskId = Guid.NewGuid().ToString();

@@ -8,9 +8,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Extensions.Logging;
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
     public class TaskHosting
     {
@@ -21,6 +22,10 @@ namespace Microsoft.Health.Fhir.TaskManagement
 
         public TaskHosting(ITaskConsumer consumer, ITaskFactory taskFactory, ILogger<TaskHosting> logger)
         {
+            EnsureArg.IsNotNull(consumer, nameof(consumer));
+            EnsureArg.IsNotNull(taskFactory, nameof(taskFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _consumer = consumer;
             _taskFactory = taskFactory;
             _logger = logger;
@@ -84,7 +89,7 @@ namespace Microsoft.Health.Fhir.TaskManagement
 
             try
             {
-                Task.WaitAll(runningTasks.ToArray());
+                await Task.WhenAll(runningTasks.ToArray());
             }
             catch (Exception ex)
             {
@@ -94,12 +99,14 @@ namespace Microsoft.Health.Fhir.TaskManagement
 
         private async Task ExecuteTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
+
             using ITask task = _taskFactory.Create(taskInfo);
             task.RunId = task.RunId ?? taskInfo.RunId;
 
             if (task == null)
             {
-                _logger.LogWarning("Not supported task type: {0}", taskInfo.TaskTypeId);
+                _logger.LogWarning("Not supported task type: {taskTypeId}", taskInfo.TaskTypeId);
                 return;
             }
 
@@ -115,7 +122,7 @@ namespace Microsoft.Health.Fhir.TaskManagement
                 }
                 catch (RetriableTaskException ex)
                 {
-                    _logger.LogError(ex, "Task {0} failed with retriable exception.", taskInfo.TaskId);
+                    _logger.LogError(ex, "Task {taskId} failed with retriable exception.", taskInfo.TaskId);
 
                     try
                     {
@@ -123,7 +130,7 @@ namespace Microsoft.Health.Fhir.TaskManagement
                     }
                     catch (Exception resetEx)
                     {
-                        _logger.LogError(resetEx, "Task {0} failed to reset.", taskInfo.TaskId);
+                        _logger.LogError(resetEx, "Task {taskId} failed to reset.", taskInfo.TaskId);
                     }
 
                     // Not complete the task for retriable exception.
@@ -131,18 +138,18 @@ namespace Microsoft.Health.Fhir.TaskManagement
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Task {0} failed.", taskInfo.TaskId);
+                    _logger.LogError(ex, "Task {taskId} failed.", taskInfo.TaskId);
                     result = new TaskResultData(TaskResult.Fail, ex.Message);
                 }
 
                 try
                 {
                     await _consumer.CompleteAsync(taskInfo.TaskId, result, task.RunId, cancellationToken);
-                    _logger.LogInformation("Task {0} completed.", taskInfo.TaskId);
+                    _logger.LogInformation("Task {taskId} completed.", taskInfo.TaskId);
                 }
                 catch (Exception completeEx)
                 {
-                    _logger.LogError(completeEx, "Task {0} failed to complete.", taskInfo.TaskId);
+                    _logger.LogError(completeEx, "Task {taskId} failed to complete.", taskInfo.TaskId);
                 }
             }
             finally
@@ -177,18 +184,25 @@ namespace Microsoft.Health.Fhir.TaskManagement
                         }
                         catch (TaskNotExistException notExistEx)
                         {
-                            _logger.LogError(notExistEx, "Task {0} not exist or runid not match.", taskId);
+                            _logger.LogError(notExistEx, "Task {taskId} not exist or runid not match.", taskId);
                             shouldCancel = true;
                         }
 
                         if (shouldCancel)
                         {
-                            task.Cancel();
+                            try
+                            {
+                                task.Cancel();
+                            }
+                            catch (OperationCanceledException operationCanceledEx)
+                            {
+                                _logger.LogError(operationCanceledEx, "Task {taskId} was canceled.", taskId);
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to keep alive on task {0}", taskId);
+                        _logger.LogError(ex, "Failed to keep alive on task {taskId}", taskId);
                     }
                 }
 

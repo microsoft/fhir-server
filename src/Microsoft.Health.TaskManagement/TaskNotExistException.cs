@@ -4,19 +4,23 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
-    public class TaskAlreadyCompletedException : Exception
+    public class TaskNotExistException : Exception
     {
-        public TaskAlreadyCompletedException(string message)
+        public TaskNotExistException(string message)
             : base(message)
         {
+            EnsureArg.IsNotNull(message, nameof(message));
         }
 
-        public TaskAlreadyCompletedException(string message, Exception innerException)
+        public TaskNotExistException(string message, Exception innerException)
             : base(message, innerException)
         {
+            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(innerException, nameof(innerException));
         }
     }
 }

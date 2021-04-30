@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.TaskManagement
+using EnsureThat;
+
+namespace Microsoft.Health.TaskManagement
 {
     public class TaskResultData
     {
@@ -13,6 +15,8 @@ namespace Microsoft.Health.Fhir.TaskManagement
 
         public TaskResultData(TaskResult result, string resultData)
         {
+            EnsureArg.IsNotNull(resultData, nameof(resultData));
+
             Result = result;
             ResultData = resultData;
         }

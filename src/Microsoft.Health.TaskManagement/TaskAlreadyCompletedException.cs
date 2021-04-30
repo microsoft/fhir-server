@@ -4,19 +4,23 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
-    public class RetriableTaskException : Exception
+    public class TaskAlreadyCompletedException : Exception
     {
-        public RetriableTaskException(string message)
+        public TaskAlreadyCompletedException(string message)
             : base(message)
         {
+            EnsureArg.IsNotNull(message, nameof(message));
         }
 
-        public RetriableTaskException(string message, Exception innerException)
+        public TaskAlreadyCompletedException(string message, Exception innerException)
             : base(message, innerException)
         {
+            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(innerException, nameof(innerException));
         }
     }
 }

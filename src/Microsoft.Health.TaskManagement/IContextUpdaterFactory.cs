@@ -3,19 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Threading.Tasks;
-
-namespace Microsoft.Health.Fhir.TaskManagement
+namespace Microsoft.Health.TaskManagement
 {
-    public interface ITask : IDisposable
+    public interface IContextUpdaterFactory
     {
-        public string RunId { get; set; }
-
-        public Task<TaskResultData> ExecuteAsync();
-
-        public void Cancel();
-
-        public bool IsCancelling();
+        public IContextUpdater CreateContextUpdater(string taskId, string runId);
     }
 }
