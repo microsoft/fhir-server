@@ -5,6 +5,7 @@
 
 using FluentValidation;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IModelAttributeValidator modelAttributeValidator,
             INarrativeHtmlSanitizer narrativeHtmlSanitizer,
             IProfileValidator profileValidator,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IOptions<CoreFeatureConfiguration> config)
         {
             RuleFor(x => x.Resource.Id)

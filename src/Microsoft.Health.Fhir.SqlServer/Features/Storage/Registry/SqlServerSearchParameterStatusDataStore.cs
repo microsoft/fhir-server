@@ -31,25 +31,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SchemaInformation _schemaInformation;
-        private readonly SqlServerFhirModel _fhirModel;
+        private readonly SqlServerSortingValidator _sortingValidator;
+        private readonly ISqlServerFhirModel _fhirModel;
 
         public SqlServerSearchParameterStatusDataStore(
             Func<IScoped<SqlConnectionWrapperFactory>> scopedSqlConnectionWrapperFactory,
             VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             SchemaInformation schemaInformation,
-            SqlServerFhirModel fhirModel)
+            SqlServerSortingValidator sortingValidator,
+            ISqlServerFhirModel fhirModel)
         {
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
+            _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
         }
 
@@ -98,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             LastUpdated = (DateTimeOffset)lastUpdated,
                         };
 
-                        if (SqlServerSortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
+                        if (_sortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
                         {
                             resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
                         }

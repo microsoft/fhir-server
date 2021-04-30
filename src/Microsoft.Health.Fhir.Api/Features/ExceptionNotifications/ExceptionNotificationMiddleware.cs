@@ -10,6 +10,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -22,12 +23,12 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
         private readonly RequestDelegate _next;
         private readonly ILogger<ExceptionNotificationMiddleware> _logger;
         private readonly IMediator _mediator;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
         public ExceptionNotificationMiddleware(
             RequestDelegate next,
             ILogger<ExceptionNotificationMiddleware> logger,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IMediator mediator)
         {
             EnsureArg.IsNotNull(next, nameof(next));
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
 
                 try
                 {
-                    IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                    IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
                     var innerMostException = exception.GetInnerMostException();
 
                     exceptionNotification.CorrelationId = fhirRequestContext?.CorrelationId;

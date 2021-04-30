@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private const char SearchSplitChar = ':';
         private const char ChainParameter = '.';
-        private const string ReverseChainParameter = "_has:";
+        internal const string ReverseChainParameter = "_has:";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExpressionParser"/> class.

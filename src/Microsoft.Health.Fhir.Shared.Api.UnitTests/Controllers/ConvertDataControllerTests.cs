@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
@@ -21,13 +20,12 @@ using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
+namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     public class ConvertDataControllerTests
     {
-        private ConvertDataController _convertDataeEnabledController;
+        private ConvertDataController _convertDataEnabledController;
         private IMediator _mediator = Substitute.For<IMediator>();
-        private HttpContext _httpContext = new DefaultHttpContext();
         private static ConvertDataConfiguration _convertDataJobConfig = new ConvertDataConfiguration() { Enabled = true };
 
         private const string _testImageReference = "test.azurecr.io/testimage:latest";
@@ -37,7 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         public ConvertDataControllerTests()
         {
             _convertDataJobConfig.ContainerRegistryServers.Add("test.azurecr.io");
-            _convertDataeEnabledController = GetController(_convertDataJobConfig);
+            _convertDataEnabledController = GetController(_convertDataJobConfig);
         }
 
         public static TheoryData<Parameters> InvalidBody =>
@@ -79,14 +77,14 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         [MemberData(nameof(InvalidBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAConvertDataRequest_WhenInvalidBodySent_ThenRequestNotValidThrown(Parameters body)
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataeEnabledController.ConvertData(body));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataEnabledController.ConvertData(body));
         }
 
         [Theory]
         [MemberData(nameof(InconsistentBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAConvertDataRequest_WhenInconsistentBodySent_ThenInconsistentThrown(Parameters body)
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataeEnabledController.ConvertData(body));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataEnabledController.ConvertData(body));
         }
 
         [Theory]
@@ -97,7 +95,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         {
             var body = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", templateCollectionReference, _testHl7v2RootTemplate);
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataeEnabledController.ConvertData(body));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _convertDataEnabledController.ConvertData(body));
         }
 
         [Theory]
@@ -105,7 +103,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         public async Task GivenAHl7v2ConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
             _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
-            await _convertDataeEnabledController.ConvertData(body);
+            await _convertDataEnabledController.ConvertData(body);
             await _mediator.Received().Send(
                 Arg.Is<ConvertDataRequest>(
                      r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputData)).Value.ToString())
@@ -121,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         public async Task GivenACcdaConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
             _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
-            await _convertDataeEnabledController.ConvertData(body);
+            await _convertDataEnabledController.ConvertData(body);
             await _mediator.Received().Send(
                 Arg.Is<ConvertDataRequest>(
                      r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputData)).Value.ToString())

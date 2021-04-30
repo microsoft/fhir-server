@@ -475,5 +475,22 @@ namespace Microsoft.Health.Fhir.Client
                 response,
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
+
+        public async Task<Parameters> MemberMatch(Patient patient, Coverage coverage, CancellationToken cancellationToken = default)
+        {
+            var inParams = new Parameters();
+            inParams.Add("MemberPatient", patient);
+            inParams.Add("OldCoverage", coverage);
+
+            using var message = new HttpRequestMessage(HttpMethod.Post, "Patient/$member-match");
+            message.Headers.Accept.Add(_mediaType);
+            message.Content = CreateStringContent(inParams);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<Parameters>(response);
+        }
     }
 }

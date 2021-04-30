@@ -75,6 +75,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             {
                 throw new ArgumentException($"Value to be compared should be of type {typeof(StringSearchValue)}");
             }
+
+            // We want to do a case and accent insensitive comparison here.
+            // This is to be in-line with the collation used in our SQL tables for the StringSearchParam values
 #pragma warning disable CA1309
             return string.Compare(ToString(), otherValue.ToString(), CultureInfo.InvariantCulture, CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreCase);
 #pragma warning restore CA1309
