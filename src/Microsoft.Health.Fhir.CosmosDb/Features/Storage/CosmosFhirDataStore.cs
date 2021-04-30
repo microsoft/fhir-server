@@ -403,7 +403,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return cosmosQuery.ExecuteNextAsync(cancellationToken);
             });
 
-            if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count == feedOptions.MaxItemCount)
+            if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count >= feedOptions.MaxItemCount)
             {
                 if (page.Count == 0)
                 {
@@ -431,9 +431,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             using var timeoutTokenSource = new CancellationTokenSource(timeout);
             using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
-            bool executingWithParallelism = feedOptions.MaxConcurrency != null && continuationToken == null;
+            bool executingWithMaxParallelism = feedOptions.MaxConcurrency == MaxQueryConcurrency && continuationToken == null;
 
-            var maxCount = executingWithParallelism
+            var maxCount = executingWithMaxParallelism
                 ? totalDesiredCount * (mustNotExceedMaxItemCount ? 1 : ExecuteDocumentQueryAsyncMaximumFillFactor) // in this mode, the SDK likely has already fetched pages, so we might as well consume them
                 : totalDesiredCount * ExecuteDocumentQueryAsyncMinimumFillFactor;
 
@@ -445,7 +445,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // The advantage is that we don't need to construct a new query with a new page size.
 
                 int currentDesiredCount = totalDesiredCount - results.Count;
-                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount && !executingWithParallelism)
+                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount && !executingWithMaxParallelism)
                 {
                     // Construct a new query with a smaller page size.
                     // We do this to ensure that we will not exceed the original max page size and that
