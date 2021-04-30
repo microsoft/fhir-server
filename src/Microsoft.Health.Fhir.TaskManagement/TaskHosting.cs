@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Health.Fhir.TaskManagement
@@ -21,6 +22,10 @@ namespace Microsoft.Health.Fhir.TaskManagement
 
         public TaskHosting(ITaskConsumer consumer, ITaskFactory taskFactory, ILogger<TaskHosting> logger)
         {
+            EnsureArg.IsNotNull(consumer, nameof(consumer));
+            EnsureArg.IsNotNull(taskFactory, nameof(taskFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _consumer = consumer;
             _taskFactory = taskFactory;
             _logger = logger;

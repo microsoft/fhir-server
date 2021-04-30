@@ -5,10 +5,24 @@
 
 namespace Microsoft.Health.Fhir.TaskManagement
 {
+    /// <summary>
+    /// Task result enums
+    /// </summary>
     public enum TaskResult
     {
+        /// <summary>
+        /// Task successfully completed
+        /// </summary>
         Success,
+
+        /// <summary>
+        /// Task completed with failed result.
+        /// </summary>
         Fail,
+
+        /// <summary>
+        /// Task completed with canceled result.
+        /// </summary>
         Canceled,
     }
 }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 
 namespace Microsoft.Health.Fhir.TaskManagement
 {
@@ -12,11 +13,14 @@ namespace Microsoft.Health.Fhir.TaskManagement
         public TaskAlreadyCompletedException(string message)
             : base(message)
         {
+            EnsureArg.IsNotNullOrEmpty(message, nameof(message));
         }
 
         public TaskAlreadyCompletedException(string message, Exception innerException)
             : base(message, innerException)
         {
+            EnsureArg.IsNotNullOrEmpty(message, nameof(message));
+            EnsureArg.IsNotNull(innerException, nameof(innerException));
         }
     }
 }
