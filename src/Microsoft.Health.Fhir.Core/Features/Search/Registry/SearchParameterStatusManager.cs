@@ -48,16 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
-            var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses();
-
-            await ApplySearchParameterStatus(searchParamResourceStatus, cancellationToken);
-        }
-
-        internal async Task ApplySearchParameterStatus(
-            IReadOnlyCollection<ResourceSearchParameterStatus> searchParamResourceStatus,
-            CancellationToken cancellationToken)
-        {
             var updated = new List<SearchParameterInfo>();
+            var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses();
             var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
             _latestSearchParams = parameters.Values.Select(p => p.LastUpdated).Max();
 
@@ -66,26 +58,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 if (parameters.TryGetValue(p.Url, out ResourceSearchParameterStatus result))
                 {
-                    bool isSearchable = result.Status == SearchParameterStatus.Enabled;
-                    bool isSupported = result.Status == SearchParameterStatus.Supported || result.Status == SearchParameterStatus.Enabled;
-                    bool isPartiallySupported = result.IsPartiallySupported;
+                    var tempStatus = EvaluateSearchParamStatus(result);
 
                     if (result.Status == SearchParameterStatus.Disabled)
                     {
                         // Re-check if this parameter is now supported.
                         (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(p);
-                        isSupported = supportedResult.Supported;
-                        isPartiallySupported = supportedResult.IsPartiallySupported;
+                        tempStatus.IsSupported = supportedResult.Supported;
+                        tempStatus.IsPartiallySupported = supportedResult.IsPartiallySupported;
                     }
 
-                    if (p.IsSearchable != isSearchable ||
-                        p.IsSupported != isSupported ||
-                        p.IsPartiallySupported != isPartiallySupported ||
+                    if (p.IsSearchable != tempStatus.IsSearchable ||
+                        p.IsSupported != tempStatus.IsSupported ||
+                        p.IsPartiallySupported != tempStatus.IsPartiallySupported ||
                         p.SortStatus != result.SortStatus)
                     {
-                        p.IsSearchable = isSearchable;
-                        p.IsSupported = isSupported;
-                        p.IsPartiallySupported = isPartiallySupported;
+                        p.IsSearchable = tempStatus.IsSearchable;
+                        p.IsSupported = tempStatus.IsSupported;
+                        p.IsPartiallySupported = tempStatus.IsPartiallySupported;
                         p.SortStatus = result.SortStatus;
 
                         updated.Add(p);
@@ -174,6 +164,46 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses();
             return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
+        }
+
+        internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
+        {
+            var updated = new List<SearchParameterInfo>();
+
+            foreach (var paramStatus in updatedSearchParameterStatus)
+            {
+                var param = _searchParameterDefinitionManager.GetSearchParameter(paramStatus.Uri);
+
+                var tempStatus = EvaluateSearchParamStatus(paramStatus);
+
+                param.IsSearchable = tempStatus.IsSearchable;
+                param.IsSupported = tempStatus.IsSupported;
+                param.IsPartiallySupported = tempStatus.IsPartiallySupported;
+                param.SortStatus = paramStatus.SortStatus;
+
+                updated.Add(param);
+            }
+
+            _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
+
+            await _mediator.Publish(new SearchParametersUpdated(updated), cancellationToken);
+        }
+
+        private static TempStatus EvaluateSearchParamStatus(ResourceSearchParameterStatus paramStatus)
+        {
+            TempStatus tempStatus;
+            tempStatus.IsSearchable = paramStatus.Status == SearchParameterStatus.Enabled;
+            tempStatus.IsSupported = paramStatus.Status == SearchParameterStatus.Supported || paramStatus.Status == SearchParameterStatus.Enabled;
+            tempStatus.IsPartiallySupported = paramStatus.IsPartiallySupported;
+
+            return tempStatus;
+        }
+
+        private struct TempStatus
+        {
+            public bool IsSearchable;
+            public bool IsSupported;
+            public bool IsPartiallySupported;
         }
     }
 }

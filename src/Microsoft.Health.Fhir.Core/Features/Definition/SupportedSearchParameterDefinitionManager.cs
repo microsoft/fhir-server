@@ -82,9 +82,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _inner.GetSearchParameterHashForResourceType(resourceType);
         }
 
-        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true)
         {
-            _inner.AddNewSearchParameters(searchParameters);
+            _inner.AddNewSearchParameters(searchParameters, calculateHash);
         }
 
         public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)

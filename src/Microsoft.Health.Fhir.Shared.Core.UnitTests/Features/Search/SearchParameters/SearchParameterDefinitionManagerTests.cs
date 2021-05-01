@@ -448,6 +448,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 searchParameterOperations,
                 () => searchService.CreateMockScope(),
                 ModelInfoProvider.Instance,
+                _mediator,
                 NullLogger<SearchParameterResourceDataStore>.Instance);
 
             _searchParameterSupportResolver

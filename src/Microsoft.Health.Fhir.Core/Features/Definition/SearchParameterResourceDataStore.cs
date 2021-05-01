@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -26,22 +27,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly IMediator _mediator;
         private readonly ILogger _logger;
 
         public SearchParameterResourceDataStore(
             ISearchParameterOperations searchParameterOperations,
             Func<IScoped<ISearchService>> searchServiceFactory,
             IModelInfoProvider modelInfoProvider,
+            IMediator mediator,
             ILogger<SearchParameterResourceDataStore> logger)
         {
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterOperations = searchParameterOperations;
             _searchServiceFactory = searchServiceFactory;
             _modelInfoProvider = modelInfoProvider;
+            _mediator = mediator;
             _logger = logger;
         }
 
@@ -94,6 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
             }
             while (continuationToken != null);
+
+            await _mediator.Publish(new SearchParametersInitializedNotification(), CancellationToken.None);
         }
 
         public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)

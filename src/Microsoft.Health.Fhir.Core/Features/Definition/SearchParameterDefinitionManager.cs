@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true)
         {
             SearchParameterDefinitionBuilder.Build(
                 searchParameters,
@@ -150,7 +150,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 TypeLookup,
                 _modelInfoProvider);
 
-            CalculateSearchParameterHash();
+            if (calculateHash)
+            {
+                CalculateSearchParameterHash();
+            }
         }
 
         private void CalculateSearchParameterHash()

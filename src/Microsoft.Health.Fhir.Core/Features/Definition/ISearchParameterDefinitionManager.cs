@@ -86,7 +86,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// Allows addition of a new search parameters at runtime.
         /// </summary>
         /// <param name="searchParameters">An collection containing SearchParameter resources.</param>
-        void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters);
+        /// <param name="calculateHash">Indicates whether the search parameter hash should be recalculated</param>
+        void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true);
 
         /// <summary>
         /// Allows removal of a custom search parameter.
