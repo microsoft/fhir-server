@@ -14,6 +14,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
@@ -166,9 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (!UrlLookup.TryRemove(new Uri(searchParamWrapper.Url), out searchParameterInfo))
             {
-#pragma warning disable CA2201
-                throw new Exception(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
-#pragma warning restore CA2201
+                throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
             }
 
             var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
