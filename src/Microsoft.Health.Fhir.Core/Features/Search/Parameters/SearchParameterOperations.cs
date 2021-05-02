@@ -236,7 +236,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd, false);
 
                 // Once added to the definition manager we can update their status
-                await _searchParameterStatusManager.ApplySearchParameterStatus(updatedSearchParameterStatus, cancellationToken);
+                await _searchParameterStatusManager.ApplySearchParameterStatus(
+                    updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted).ToList(), cancellationToken);
             }
         }
 
