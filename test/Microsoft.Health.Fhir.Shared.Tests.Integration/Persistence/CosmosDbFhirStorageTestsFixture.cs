@@ -185,7 +185,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 fhirRequestContextAccessor,
                 _cosmosDataStoreConfiguration,
                 cosmosDbPhysicalPartitionInfo,
-                new QueryPartitionStatisticsCache());
+                new QueryPartitionStatisticsCache(),
+                NullLogger<FhirCosmosSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
