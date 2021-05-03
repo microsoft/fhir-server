@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (searchParamResource == null)
                 {
-                    _logger.LogError(
+                    _logger.LogWarning(
                         "Updated SearchParameter status found for SearchParameter: {0}, but did not find any SearchParameter resources when querying for this url.",
                         searchParam.Uri);
                     continue;
@@ -236,7 +236,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
 
                 // Once added to the definition manager we can update their status
-                await _searchParameterStatusManager.ApplySearchParameterStatus(updatedSearchParameterStatus, cancellationToken);
+                await _searchParameterStatusManager.ApplySearchParameterStatus(
+                    updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted).ToList(),
+                    cancellationToken);
             }
         }
 
@@ -246,7 +248,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 _searchParameterDefinitionManager.DeleteSearchParameter(url, false);
             }
-            catch (Exception ex) when (ex.Message.Contains("was not found", StringComparison.OrdinalIgnoreCase))
+            catch (ResourceNotFoundException)
             {
                 // do nothing, there may not be a search parameter to remove
             }
@@ -262,6 +264,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             if (result.Results.Any())
             {
+                if (result.Results.Count() > 1)
+                {
+                    _logger.LogWarning("More than one SearchParameter found with url {0}. This may cause unpredictable behavior.", url);
+                }
+
                 // There should be only one SearchParameter per url
                 return result.Results.First().Resource.RawResource.ToITypedElement(_modelInfoProvider);
             }

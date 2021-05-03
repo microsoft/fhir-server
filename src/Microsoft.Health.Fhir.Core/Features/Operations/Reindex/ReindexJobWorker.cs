@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
-                        // End the execution of the task
+                        _logger.LogDebug("Reindex job worker canceled.");
                     }
                     catch (Exception ex)
                     {
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // Get list of available jobs.
                         if (runningTasks.Count < _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
                         {
-                            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+                            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory.Invoke())
                             {
                                 _logger.LogTrace("Querying datastore for reindex jobs.");
 
