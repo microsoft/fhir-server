@@ -64,6 +64,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex
                 _initialized = true;
                 _targetBatchSize = reindexJobRecord.MaximumNumberOfResourcesPerQuery;
             }
+            else
+            {
+                _logger.LogInformation("Unable to initialize throttle controller.  Throttling unavailable. Provisioned RUs: {0}", _provisionedRUThroughput);
+            }
         }
 
         public int GetThrottleBasedDelay()
