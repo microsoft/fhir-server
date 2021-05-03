@@ -30,11 +30,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Reindex
             _reindexJobConfiguration = reindexJobConfiguration.Value;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             if (_reindexJobConfiguration.Enabled)
             {
-                await _reindexJobWorker.ExecuteAsync(cancellationToken);
+                await _reindexJobWorker.ExecuteAsync(stoppingToken);
             }
         }
     }

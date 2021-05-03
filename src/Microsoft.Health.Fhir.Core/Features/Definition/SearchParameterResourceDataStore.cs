@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     continuationToken = null;
                 }
 
-                if (result != null && result.Results != null && result.Results.Count() > 0)
+                if (result != null && result.Results != null && result.Results.Any())
                 {
                     var searchParams = result.Results.Select(r => r.Resource.RawResource.ToITypedElement(_modelInfoProvider)).ToList();
 

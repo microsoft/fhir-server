@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </summary>
         public void Dispose()
         {
-            DisposeAsync().GetAwaiter().GetResult();
+            DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -229,14 +229,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     {
                         using (IScoped<Container> containerScope = _containerFactory.Invoke())
                         {
-                            await containerScope.Value.UpsertItemAsync(_lockDocument, new PartitionKey(_lockDocument.PartitionKey));
+                            await containerScope.Value.UpsertItemAsync(_lockDocument, new PartitionKey(_lockDocument.PartitionKey), cancellationToken: cancellationToken);
                         }
 
                         break;
                     }
                     catch (RequestRateExceededException)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(1));
+                        await Task.Delay(TimeSpan.FromSeconds(1), CancellationToken.None);
                     }
                 }
             }

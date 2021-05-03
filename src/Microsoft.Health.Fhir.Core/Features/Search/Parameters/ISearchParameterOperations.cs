@@ -13,8 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         Task AddSearchParameterAsync(ITypedElement searchParam);
 
-        Task DeleteSearchParameterAsync(RawResource searchParam);
+        Task DeleteSearchParameterAsync(RawResource searchParamResource);
 
-        Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam);
+        Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParamResource);
     }
 }

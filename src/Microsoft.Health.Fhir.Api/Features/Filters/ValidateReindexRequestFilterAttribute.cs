@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     /// A filter that validates the headers of a POST reindex request
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    internal class ValidateReindexRequestFilterAttribute : ActionFilterAttribute
+    internal sealed class ValidateReindexRequestFilterAttribute : ActionFilterAttribute
     {
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-sync";

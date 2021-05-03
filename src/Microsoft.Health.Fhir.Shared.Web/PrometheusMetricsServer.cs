@@ -18,7 +18,9 @@ namespace Microsoft.Health.Fhir.Web
     {
         private readonly PrometheusMetricsConfig _prometheusMetricsConfig;
         private readonly ILogger<PrometheusMetricsServer> _logger;
+#pragma warning disable CA2213 // Kestrel hides dispose method behind Stop() method
         private KestrelMetricServer _metricsServer;
+#pragma warning restore CA2213
 
         public PrometheusMetricsServer(IOptions<PrometheusMetricsConfig> config, ILogger<PrometheusMetricsServer> logger)
         {

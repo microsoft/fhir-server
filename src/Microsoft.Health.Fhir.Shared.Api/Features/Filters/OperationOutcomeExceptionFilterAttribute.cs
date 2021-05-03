@@ -31,7 +31,7 @@ using Microsoft.Net.Http.Headers;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
-    internal class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
+    internal sealed class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
     {
         private const string ValidateController = "Validate";
 

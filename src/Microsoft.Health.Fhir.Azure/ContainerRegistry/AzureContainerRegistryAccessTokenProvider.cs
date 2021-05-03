@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             parameters.Add(new KeyValuePair<string, string>("grant_type", "access_token"));
             parameters.Add(new KeyValuePair<string, string>("service", registryUri.Host));
             parameters.Add(new KeyValuePair<string, string>("access_token", aadToken));
-            var request = new HttpRequestMessage(HttpMethod.Post, exchangeUri)
+            using var request = new HttpRequestMessage(HttpMethod.Post, exchangeUri)
             {
                 Content = new FormUrlEncodedContent(parameters),
             };
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, refreshTokenResponse.StatusCode);
             }
 
-            var refreshTokenText = await refreshTokenResponse.Content.ReadAsStringAsync();
+            var refreshTokenText = await refreshTokenResponse.Content.ReadAsStringAsync(cancellationToken);
             dynamic refreshTokenJson = JsonConvert.DeserializeObject(refreshTokenText);
             string refreshToken = (string)refreshTokenJson.refresh_token;
             if (string.IsNullOrEmpty(refreshToken))
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
             // Add scope for AcrPull role (granted at registry level).
             parameters.Add(new KeyValuePair<string, string>("scope", "repository:*:pull"));
-            var request = new HttpRequestMessage(HttpMethod.Post, accessTokenUri)
+            using var request = new HttpRequestMessage(HttpMethod.Post, accessTokenUri)
             {
                 Content = new FormUrlEncodedContent(parameters),
             };
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, accessTokenResponse.StatusCode);
             }
 
-            var accessTokenText = await accessTokenResponse.Content.ReadAsStringAsync();
+            var accessTokenText = await accessTokenResponse.Content.ReadAsStringAsync(cancellationToken);
             dynamic accessTokenJson = JsonConvert.DeserializeObject(accessTokenText);
             string accessToken = accessTokenJson.access_token;
             if (string.IsNullOrEmpty(accessToken))
@@ -187,8 +187,10 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
         private async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            HttpClient httpClient = _httpClientFactory.CreateClient();
-            return await httpClient.SendAsync(request, cancellationToken);
+#pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
+            var client = _httpClientFactory.CreateClient();
+#pragma warning restore CA2000
+            return await client.SendAsync(request, cancellationToken);
         }
     }
 }

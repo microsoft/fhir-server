@@ -22,9 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _provider = provider;
         }
 
-        public async Task<GetCapabilitiesResponse> Handle(GetCapabilitiesRequest message, CancellationToken cancellationToken)
+        public async Task<GetCapabilitiesResponse> Handle(GetCapabilitiesRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
             var response = await _provider.GetMetadata(cancellationToken);
 

@@ -14,6 +14,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
@@ -166,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (!UrlLookup.TryRemove(new Uri(searchParamWrapper.Url), out searchParameterInfo))
             {
-                throw new Exception(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
+                throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
             }
 
             var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public async Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
         {
             CalculateSearchParameterHash();
-            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter));
+            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
         }
     }
 }

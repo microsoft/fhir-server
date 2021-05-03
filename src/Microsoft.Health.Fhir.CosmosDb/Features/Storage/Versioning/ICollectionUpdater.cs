@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
     public interface ICollectionUpdater
     {
-        Task ExecuteAsync(Container client);
+        Task ExecuteAsync(Container container);
     }
 }

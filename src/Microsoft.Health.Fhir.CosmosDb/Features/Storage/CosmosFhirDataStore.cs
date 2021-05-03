@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             UpdateSortIndex(cosmosWrapper);
 
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
-            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.GetRetryPolicy();
+            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
             _logger.LogDebug("Upserting {resourceType}/{resourceId}, ETag: \"{tag}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}", resource.ResourceTypeName, resource.ResourceId, weakETag?.VersionId, allowCreate, keepHistory);
 
@@ -269,7 +269,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     .WithParameter("@resourceId", key.Id)
                     .WithParameter("@version", key.VersionId);
 
-                (IReadOnlyList<FhirCosmosResourceWrapper> results, _) = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(() =>
+                (IReadOnlyList<FhirCosmosResourceWrapper> results, _) = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() =>
                     ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
                         sqlQuerySpec,
                         new QueryRequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
@@ -297,7 +297,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug("Obliterating {resourceType}/{id}", key.ResourceType, key.Id);
 
-                StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _containerScope.Value.Scripts,
                         key,
@@ -341,7 +341,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug("Replacing {resourceType}/{id}, ETag: \"{tag}\"", resourceWrapper.ResourceTypeName, resourceWrapper.ResourceId, weakETag.VersionId);
 
-                FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _replaceSingleResource.Execute(
                         _containerScope.Value.Scripts,
                         cosmosWrapper,
@@ -397,7 +397,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosQuery<T> cosmosQuery = null;
             var startTime = Clock.UtcNow;
 
-            FeedResponse<T> page = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(() =>
+            FeedResponse<T> page = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() =>
             {
                 cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context); // SDK throws if we don't recreate this on retry
                 return cosmosQuery.ExecuteNextAsync(cancellationToken);

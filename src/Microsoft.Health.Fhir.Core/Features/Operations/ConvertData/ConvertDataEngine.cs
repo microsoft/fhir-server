@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             return new ConvertDataResponse(result);
         }
 
-        private ITemplateProvider GetTemplateProvider(DataType dataType, List<Dictionary<string, Template>> templateCollection) => dataType switch
+        private static ITemplateProvider GetTemplateProvider(DataType dataType, List<Dictionary<string, Template>> templateCollection) => dataType switch
         {
             DataType.Hl7v2 => new Hl7v2TemplateProvider(templateCollection),
             DataType.Ccda => new CcdaTemplateProvider(templateCollection),

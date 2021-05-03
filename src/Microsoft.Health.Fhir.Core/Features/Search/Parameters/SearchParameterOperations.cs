@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource prevSearchParamRaw)
+        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParamResource)
         {
             try
             {
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
-                var prevSearchParam = _modelInfoProvider.ToTypedElement(prevSearchParamRaw);
+                var prevSearchParam = _modelInfoProvider.ToTypedElement(previousSearchParamResource);
                 var prevSearchParamUrl = prevSearchParam.GetStringScalar("url");
 
                 // As any part of the SearchParameter may have been changed, including the URL
