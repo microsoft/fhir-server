@@ -82,9 +82,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _inner.GetSearchParameterHashForResourceType(resourceType);
         }
 
-        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true)
         {
-            _inner.AddNewSearchParameters(searchParameters);
+            _inner.AddNewSearchParameters(searchParameters, calculateHash);
         }
 
         public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
@@ -95,6 +95,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public void DeleteSearchParameter(ITypedElement searchParam)
         {
             _inner.DeleteSearchParameter(searchParam);
+        }
+
+        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value)
+        {
+            value = null;
+            if (_inner.TryGetSearchParameter(definitionUri, out var parameter) && parameter.IsSupported)
+            {
+                value = parameter;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public void DeleteSearchParameter(string url, bool calculateHash = true)
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -1142,6 +1142,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Attempt to update SearchParameter {0} failed..
+        /// </summary>
+        internal static string UnableToUpdateSearchParameter {
+            get {
+                return ResourceManager.GetString("UnableToUpdateSearchParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unknown Error..
         /// </summary>
         internal static string UnknownError {

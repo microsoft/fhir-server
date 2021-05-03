@@ -114,7 +114,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var searchParameterDataStoreValidator = Substitute.For<IDataStoreSearchParameterValidator>();
             searchParameterDataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true, null);
 
-            _searchParameterOperations = new SearchParameterOperations(_manager, _searchParameterDefinitionManager, ModelInfoProvider.Instance, _searchParameterSupportResolver, searchParameterDataStoreValidator);
+            var searchService = Substitute.For<ISearchService>();
+
+            _searchParameterOperations = new SearchParameterOperations(
+                _manager,
+                _searchParameterDefinitionManager,
+                ModelInfoProvider.Instance,
+                _searchParameterSupportResolver,
+                searchParameterDataStoreValidator,
+                () => searchService.CreateMockScope(),
+                NullLogger<SearchParameterOperations>.Instance);
         }
 
         public async Task InitializeAsync()
@@ -430,11 +439,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterDefinitionManager,
                 ModelInfoProvider.Instance,
                 _searchParameterSupportResolver,
-                dataStoreSearchParamValidator);
+                dataStoreSearchParamValidator,
+                () => searchService.CreateMockScope(),
+                NullLogger<SearchParameterOperations>.Instance);
+
             var searchParameterResourceDataStore = new SearchParameterResourceDataStore(
                 searchParameterOperations,
                 () => searchService.CreateMockScope(),
                 ModelInfoProvider.Instance,
+                _mediator,
                 NullLogger<SearchParameterResourceDataStore>.Instance);
 
             _searchParameterSupportResolver

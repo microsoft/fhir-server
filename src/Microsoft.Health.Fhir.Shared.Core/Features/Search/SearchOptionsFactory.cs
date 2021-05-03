@@ -332,7 +332,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (unsupportedSearchParameters.Any())
             {
                 bool throwForUnsupported = false;
-                if (_contextAccessor.FhirRequestContext.RequestHeaders != null &&
+                if (_contextAccessor.FhirRequestContext?.RequestHeaders != null &&
                     _contextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var values))
                 {
                     var handlingValue = values.FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));

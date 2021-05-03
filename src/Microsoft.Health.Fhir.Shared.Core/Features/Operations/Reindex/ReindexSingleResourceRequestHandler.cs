@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IFhirDataStore _fhirDataStore;
         private readonly ISearchIndexer _searchIndexer;
         private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         private const string HttpPostName = "POST";
 
@@ -34,17 +36,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IAuthorizationService<DataActions> authorizationService,
             IFhirDataStore fhirDataStore,
             ISearchIndexer searchIndexer,
-            IResourceDeserializer deserializer)
+            IResourceDeserializer deserializer,
+            ISearchParameterOperations searchParameterOperations)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
 
             _authorizationService = authorizationService;
             _fhirDataStore = fhirDataStore;
             _searchIndexer = searchIndexer;
             _resourceDeserializer = deserializer;
+            _searchParameterOperations = searchParameterOperations;
         }
 
         public async Task<ReindexSingleResourceResponse> Handle(ReindexSingleResourceRequest request, CancellationToken cancellationToken)
@@ -63,6 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, request.ResourceType, request.ResourceId));
             }
+
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
 
             // We need to extract the "new" search indices since the assumption is that
             // a new search parameter has been added to the fhir server.
