@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParamResource)
+        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam)
         {
             try
             {
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
-                var prevSearchParam = _modelInfoProvider.ToTypedElement(previousSearchParamResource);
+                var prevSearchParam = _modelInfoProvider.ToTypedElement(previousSearchParam);
                 var prevSearchParamUrl = prevSearchParam.GetStringScalar("url");
 
                 // As any part of the SearchParameter may have been changed, including the URL
@@ -233,11 +233,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // Now add the new or updated parameters to the SearchParameterDefinitionManager
             if (paramsToAdd.Any())
             {
-                _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd, false);
+                _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
 
                 // Once added to the definition manager we can update their status
-                await _searchParameterStatusManager.ApplySearchParameterStatus(
-                    updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted).ToList(), cancellationToken);
+                await _searchParameterStatusManager.ApplySearchParameterStatus(updatedSearchParameterStatus, cancellationToken);
             }
         }
 
