@@ -105,10 +105,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _contextAccessor.FhirRequestContext = fhirRequestContext;
 
-                using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
+                if (reindexJobRecord.TargetDataStoreUsagePercentage != null &&
+                    reindexJobRecord.TargetDataStoreUsagePercentage > 0)
                 {
-                    var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(cancellationToken);
-                    _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
+                    using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
+                    {
+                        var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(cancellationToken);
+                        _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
+                    }
                 }
 
                 if (_reindexJobRecord.Status != OperationStatus.Running ||

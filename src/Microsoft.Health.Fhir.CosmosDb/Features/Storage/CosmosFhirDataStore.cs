@@ -526,7 +526,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken = default)
         {
-            return await _containerScope.Value.ReadThroughputAsync(cancellationToken);
+            try
+            {
+                return await _containerScope.Value.ReadThroughputAsync(cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogWarning("Failed to obtain provisioned RU throughput. Error: {0}", ex.Message);
+                return null;
+            }
         }
     }
 }
