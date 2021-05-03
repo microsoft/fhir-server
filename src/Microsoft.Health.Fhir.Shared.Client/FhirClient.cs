@@ -230,7 +230,6 @@ namespace Microsoft.Health.Fhir.Client
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            // return new FhirResponse(response);
             return await CreateResponseAsync<T>(response);
         }
 

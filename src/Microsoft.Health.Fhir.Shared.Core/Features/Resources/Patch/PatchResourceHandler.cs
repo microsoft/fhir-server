@@ -25,8 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
     public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, PatchResourceResponse>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly ResourceDeserializer _resourceDeserializer;
-        private readonly FhirJsonParser _fhirJsonParser;
 
         public PatchResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -34,17 +32,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
-            IModelInfoProvider modelInfoProvider,
-            FhirJsonParser fhirJsonParser,
-            ResourceDeserializer resourceDeserializer)
+            IModelInfoProvider modelInfoProvider)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-            EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
 
             _modelInfoProvider = modelInfoProvider;
-            _resourceDeserializer = resourceDeserializer;
-            _fhirJsonParser = fhirJsonParser;
         }
 
         public async Task<PatchResourceResponse> Handle(PatchResourceRequest message, CancellationToken cancellationToken)
@@ -77,18 +70,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
             try
             {
-                FhirJsonNode node = (FhirJsonNode)FhirJsonNode.Parse(currentDoc.RawResource.Data);
+                ISourceNode node = FhirJsonNode.Parse(currentDoc.RawResource.Data);
+                Resource resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPoco<Resource>();
                 JObject nodeJson = node.ToJObject();
-                string versionId = (string)nodeJson["meta"]["versionId"];
-                string resourceId = message.ResourceKey.Id;
 
                 message.PatchDocument.ApplyTo(nodeJson);
 
                 FhirJsonNode nodePatch = (FhirJsonNode)FhirJsonNode.Create(nodeJson);
                 Resource resourcePatch = nodePatch.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPoco<Resource>();
 
-                if (resourceId != resourcePatch.Id ||
-                    versionId != resourcePatch.VersionId)
+                if (resource.Id != resourcePatch.Id ||
+                    resource.VersionId != resourcePatch.VersionId ||
+                    resource.Meta.LastUpdated.Value != resourcePatch.Meta.LastUpdated.Value)
                 {
                     throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
                 }

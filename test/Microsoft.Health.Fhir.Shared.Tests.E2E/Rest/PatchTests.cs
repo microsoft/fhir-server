@@ -16,7 +16,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class PatchTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
@@ -76,28 +76,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("versionId", "100")]
+        [InlineData("resourceType", "DummyResource")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAServerThatSupportsIt_WhenSubmittingAForbiddenPropertyPatch_ThenAnErrorShouldBeReturned()
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAForbiddenPropertyPatch_ThenAnErrorShouldBeReturned(string propertyName, string value)
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
 
-            string patchDocument = "[{\"op\":\"replace\",\"path\":\"/versionId\",\"value\":\"100\"}]";
+            string patchDocument = string.Format("[{\"op\":\"replace\",\"path\":\"/{0}\",\"value\":\"{1}\"}]", propertyName, value);
 
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
               response.Resource,
               patchDocument));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
-
-            patchDocument = "[{\"op\":\"replace\",\"path\":\"/resourceType\",\"value\":\"DummyResource\"}]";
-
-            var exception2 = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
-            response.Resource,
-            patchDocument));
-
-            Assert.Equal(HttpStatusCode.BadRequest, exception2.Response.StatusCode);
         }
     }
 }
