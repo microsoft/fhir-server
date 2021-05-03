@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -65,6 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
+                _output.WriteLine($"SearchParameter is posted {searchParam.Url}");
 
                 Uri reindexJobUri;
 
@@ -75,6 +77,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
+                _output.WriteLine("ReindexJobDocument:");
+                var serializer = new FhirJsonSerializer();
+                _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
                 Assert.Contains(searchParamPosted.Resource.Url, param.Value.ToString());
 
@@ -146,6 +151,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 (reindexJobResult, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters(), $"Patient/{expectedPatient.Resource.Id}/");
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == randomNameUpdated);
 
+                if (param == null)
+                {
+                    _output.WriteLine($"Parameter with name equal to randomly generated name of this test case: {randomNameUpdated} not found in reindex result.");
+                }
+
+                Assert.NotNull(param);
                 Assert.Equal(randomName, param.Value.ToString());
 
                 // When job complete, search for resources using new parameter

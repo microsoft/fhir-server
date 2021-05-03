@@ -112,6 +112,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
+        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value)
+        {
+            return UrlLookup.TryGetValue(definitionUri, out value);
+        }
+
         public string GetSearchParameterHashForResourceType(string resourceType)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
@@ -137,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true)
         {
             SearchParameterDefinitionBuilder.Build(
                 searchParameters,
@@ -145,7 +150,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 TypeLookup,
                 _modelInfoProvider);
 
-            CalculateSearchParameterHash();
+            if (calculateHash)
+            {
+                CalculateSearchParameterHash();
+            }
         }
 
         private void CalculateSearchParameterHash()
@@ -163,11 +171,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public void DeleteSearchParameter(ITypedElement searchParam)
         {
             var searchParamWrapper = new SearchParameterWrapper(searchParam);
+            DeleteSearchParameter(searchParamWrapper.Url);
+        }
+
+        public void DeleteSearchParameter(string url, bool calculateHash = true)
+        {
             SearchParameterInfo searchParameterInfo = null;
 
-            if (!UrlLookup.TryRemove(new Uri(searchParamWrapper.Url), out searchParameterInfo))
+            if (!UrlLookup.TryRemove(new Uri(url), out searchParameterInfo))
             {
-                throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
+                throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, url));
             }
 
             var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
@@ -176,7 +189,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
             }
 
-            CalculateSearchParameterHash();
+            if (calculateHash)
+            {
+                CalculateSearchParameterHash();
+            }
         }
 
         public async Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
