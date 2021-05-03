@@ -112,7 +112,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
+                try
+                {
+                    await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    // End the execution of the task
+                }
             }
         }
 
