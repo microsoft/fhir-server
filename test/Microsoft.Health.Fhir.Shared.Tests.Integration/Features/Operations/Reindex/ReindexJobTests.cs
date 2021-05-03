@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -165,6 +166,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
 
+            await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+
             var cancellationTokenSource = new CancellationTokenSource();
 
             try
@@ -195,6 +198,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 InitializeReindexJobTask,
                 _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
+
+            await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
 
             var cancellationTokenSource = new CancellationTokenSource();
 
@@ -446,6 +451,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 InitializeReindexJobTask,
                 _searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
+
+            await _reindexJobWorker.Handle(new SearchParametersInitializedNotification(), CancellationToken.None);
+
             return response;
         }
 

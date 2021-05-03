@@ -56,6 +56,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
 
+            _reindexJobWorker.Handle(new Messages.Search.SearchParametersInitializedNotification(), CancellationToken.None);
+
             _cancellationToken = _cancellationTokenSource.Token;
         }
 

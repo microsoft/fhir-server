@@ -72,7 +72,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         // The job failed.
                         _logger.LogError(ex, "Error querying latest SearchParameterStatus updates");
-                        await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
                     }
 
                     // Check for any new Reindex Jobs
@@ -101,8 +100,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                                 }
                             }
                         }
-
-                        await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -112,9 +109,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         // The job failed.
                         _logger.LogError(ex, "Error polling Reindex jobs.");
-                        await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
                     }
                 }
+
+                await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
             }
         }
 
