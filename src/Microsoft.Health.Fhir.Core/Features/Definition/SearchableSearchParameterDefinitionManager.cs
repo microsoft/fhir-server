@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
-            if (_fhirReqeustContextAccessor.FhirRequestContext != null
+            if (_fhirReqeustContextAccessor.FhirRequestContext != null &&
                 _fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams)
             {
                 return _inner.GetSearchParameters(resourceType)
