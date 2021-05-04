@@ -41,7 +41,7 @@ namespace Microsoft.Health.TaskManagement
 
         public async Task StartAsync(CancellationTokenSource cancellationToken)
         {
-            using CancellationTokenSource keepAliveCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken.Token);
+            using CancellationTokenSource keepAliveCancellationToken = new CancellationTokenSource();
             Task keepAliveTask = KeepAliveTasksAsync(keepAliveCancellationToken.Token);
 
             await PullAndProcessTasksAsync(cancellationToken.Token);
