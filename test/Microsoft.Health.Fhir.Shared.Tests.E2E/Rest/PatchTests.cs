@@ -77,15 +77,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("versionId", "100")]
-        [InlineData("resourceType", "DummyResource")]
+        [InlineData("/versionId", "100")]
+        [InlineData("/resourceType", "DummyResource")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingAForbiddenPropertyPatch_ThenAnErrorShouldBeReturned(string propertyName, string value)
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
 
-            string patchDocument = string.Format("[{\"op\":\"replace\",\"path\":\"/{0}\",\"value\":\"{1}\"}]", propertyName, value);
+            string patchDocument = "[{\"op\":\"replace\",\"path\":\"" + propertyName + "\",\"value\":\"" + value + "\"}]";
 
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
               response.Resource,
