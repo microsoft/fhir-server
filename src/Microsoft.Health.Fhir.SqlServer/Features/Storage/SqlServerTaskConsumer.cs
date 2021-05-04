@@ -41,14 +41,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
-        public async Task<TaskInfo> CompleteAsync(string taskId, TaskResultData resultData, string runId, CancellationToken cancellationToken)
+        public async Task<TaskInfo> CompleteAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 try
                 {
-                    VLatest.CompleteTask.PopulateCommand(sqlCommandWrapper, taskId, JsonConvert.SerializeObject(resultData), runId);
+                    VLatest.CompleteTask.PopulateCommand(sqlCommandWrapper, taskId, JsonConvert.SerializeObject(taskResultData), runId);
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                     if (!sqlDataReader.Read())
@@ -204,14 +204,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<TaskInfo> ResetAsync(string taskId, TaskResultData resultData, string runId, CancellationToken cancellationToken)
+        public async Task<TaskInfo> ResetAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 try
                 {
-                    VLatest.ResetTask.PopulateCommand(sqlCommandWrapper, taskId, runId, JsonConvert.SerializeObject(resultData));
+                    VLatest.ResetTask.PopulateCommand(sqlCommandWrapper, taskId, runId, JsonConvert.SerializeObject(taskResultData));
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                     if (!sqlDataReader.Read())

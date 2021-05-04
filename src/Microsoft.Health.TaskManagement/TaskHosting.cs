@@ -41,7 +41,7 @@ namespace Microsoft.Health.TaskManagement
 
         public async Task StartAsync(CancellationTokenSource cancellationToken)
         {
-            CancellationTokenSource keepAliveCancellationToken = new CancellationTokenSource();
+            using CancellationTokenSource keepAliveCancellationToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken.Token);
             Task keepAliveTask = KeepAliveTasksAsync(keepAliveCancellationToken.Token);
 
             await PullAndProcessTasksAsync(cancellationToken.Token);
@@ -56,7 +56,7 @@ namespace Microsoft.Health.TaskManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                Task intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds));
+                Task intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
 
                 if (runningTasks.Count >= MaxRunningTaskCount)
                 {
@@ -162,7 +162,7 @@ namespace Microsoft.Health.TaskManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                Task intervalDelayTask = Task.Delay(TaskHeartbeatIntervalInSeconds);
+                Task intervalDelayTask = Task.Delay(TaskHeartbeatIntervalInSeconds, cancellationToken);
                 KeyValuePair<string, ITask>[] activeTaskRecords = _activeTaskRecordsForKeepAlive.ToArray();
 
                 foreach ((string taskId, ITask task) in activeTaskRecords)

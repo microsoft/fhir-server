@@ -18,11 +18,11 @@ namespace Microsoft.Health.TaskManagement
         /// Complete the task with result.
         /// </summary>
         /// <param name="taskId">Id for the task</param>
-        /// <param name="result">Result data for the task execution</param>
+        /// <param name="taskResultData">Result data for the task execution</param>
         /// <param name="runId">Run id for this task execution</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Task infomation after status updated</returns>
-        Task<TaskInfo> CompleteAsync(string taskId, TaskResultData result, string runId, CancellationToken cancellationToken);
+        Task<TaskInfo> CompleteAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken);
 
         /// <summary>
         /// Get next available tasks in task queue.
@@ -46,10 +46,10 @@ namespace Microsoft.Health.TaskManagement
         /// Reset task status and allow repickup by others
         /// </summary>
         /// <param name="taskId">Id for the task</param>
-        /// <param name="result">Result data for the task execution</param>
+        /// <param name="taskResultData">Result data for the task execution</param>
         /// <param name="runId">Run id for this task execution</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Task infomation after status updated</returns>
-        Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, CancellationToken cancellationToken);
+        Task<TaskInfo> ResetAsync(string taskId, TaskResultData taskResultData, string runId, CancellationToken cancellationToken);
     }
 }
