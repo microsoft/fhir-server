@@ -21,5 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public Task AppendCommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken);
 
         public Task CommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken);
+
+        public Task<T> GetBlockPropertyAsync<T>(string blobUri, string propertyName, CancellationToken cancellationToken);
     }
 }

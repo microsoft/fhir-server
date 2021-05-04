@@ -128,7 +128,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerFhirDataBulkOperation>()
+            services.Add<SqlServerFhirDataBulkImportOperation>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();

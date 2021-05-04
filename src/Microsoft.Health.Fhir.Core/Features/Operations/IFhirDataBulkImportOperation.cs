@@ -9,10 +9,14 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public interface IFhirDataBulkOperation
+    public interface IFhirDataBulkImportOperation
     {
         public Task CleanBatchResourceAsync(long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken);
 
         public Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken);
+
+        public Task DisableIndexesAsync(CancellationToken cancellationToken);
+
+        public Task RebuildIndexesAsync(CancellationToken cancellationToken);
     }
 }

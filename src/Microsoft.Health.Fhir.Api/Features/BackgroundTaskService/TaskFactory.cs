@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 {
     public class TaskFactory : ITaskFactory
     {
-        private IFhirDataBulkOperation _fhirDataBulkOperation;
+        private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
         private IImportResourceLoader _importResourceLoader;
         private IResourceBulkImporter _resourceBulkImporter;
         private IImportErrorStoreFactory _importErrorStoreFactory;
@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private ILoggerFactory _loggerFactory;
 
         public TaskFactory(
-            IFhirDataBulkOperation fhirDataBulkOperation,
+            IFhirDataBulkImportOperation fhirDataBulkImportOperation,
             IImportResourceLoader importResourceLoader,
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
-            _fhirDataBulkOperation = fhirDataBulkOperation;
+            _fhirDataBulkImportOperation = fhirDataBulkImportOperation;
             _importResourceLoader = importResourceLoader;
             _resourceBulkImporter = resourceBulkImporter;
             _importErrorStoreFactory = importErrorStoreFactory;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                 return new ImportTask(
                     inputData,
                     importProgress,
-                    _fhirDataBulkOperation,
+                    _fhirDataBulkImportOperation,
                     _importResourceLoader,
                     _resourceBulkImporter,
                     _importErrorStoreFactory,

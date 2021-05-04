@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await inputs.Writer.WriteAsync(new ImportResource(0, 0, null, null));
             inputs.Writer.Complete();
 
-            IFhirDataBulkOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             testFhirDataBulkOperation
                 .BulkCopyDataAsync(Arg.Any<DataTable>(), Arg.Any<CancellationToken>())
                 .Returns((callInfo) =>
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await inputs.Writer.WriteAsync(new ImportResource(0, 0, "Error message"));
             inputs.Writer.Complete();
 
-            IFhirDataBulkOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
             List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
 
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await inputs.Writer.WriteAsync(new ImportResource(0, 0, null, null));
             inputs.Writer.Complete();
 
-            IFhirDataBulkOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
             dataWrapperFactory.CreateSqlBulkCopyDataWrapper(Arg.Any<ImportResource>())
                 .Returns((callInfo) =>
@@ -253,7 +253,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             DataTable table1 = new DataTable();
             DataTable table2 = new DataTable();
-            IFhirDataBulkOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             testFhirDataBulkOperation
                 .When(t => t.BulkCopyDataAsync(Arg.Any<DataTable>(), Arg.Any<CancellationToken>()))
                 .Do(call =>

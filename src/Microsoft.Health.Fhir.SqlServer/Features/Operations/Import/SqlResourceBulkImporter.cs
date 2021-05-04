@@ -28,11 +28,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
         private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
-        private IFhirDataBulkOperation _fhirDataBulkOperation;
+        private IFhirDataBulkImportOperation _fhirDataBulkOperation;
         private ILogger<SqlResourceBulkImporter> _logger;
 
         public SqlResourceBulkImporter(
-            IFhirDataBulkOperation fhirDataBulkOperation,
+            IFhirDataBulkImportOperation fhirDataBulkOperation,
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators,
             ILogger<SqlResourceBulkImporter> logger)
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         }
 
         public SqlResourceBulkImporter(
-            IFhirDataBulkOperation fhirDataBulkOperation,
+            IFhirDataBulkImportOperation fhirDataBulkOperation,
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             ResourceTableBulkCopyDataGenerator resourceTableBulkCopyDataGenerator,
             CompartmentAssignmentTableBulkCopyDataGenerator compartmentAssignmentTableBulkCopyDataGenerator,

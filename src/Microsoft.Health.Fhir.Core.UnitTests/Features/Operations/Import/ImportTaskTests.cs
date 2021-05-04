@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportTaskInputData inputData = GetInputData();
             ImportProgress progress = new ImportProgress();
 
-            IFhirDataBulkOperation bulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportTaskInputData inputData = GetInputData();
             ImportProgress progress = new ImportProgress();
 
-            IFhirDataBulkOperation bulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportTaskInputData inputData = GetInputData();
             ImportProgress progress = new ImportProgress();
 
-            IFhirDataBulkOperation bulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportTaskInputData inputData = GetInputData();
             ImportProgress progress = new ImportProgress();
 
-            IFhirDataBulkOperation bulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -278,7 +278,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             long succeedCountFromProgress = progress.SucceedImportCount;
             long failedCountFromProgress = progress.FailedImportCount;
 
-            IFhirDataBulkOperation bulkOperation = Substitute.For<IFhirDataBulkOperation>();
+            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();

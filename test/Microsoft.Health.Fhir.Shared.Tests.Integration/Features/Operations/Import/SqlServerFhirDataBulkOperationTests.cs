@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenBatchResources_WhenBulkCopy_RecordsShouldBeAdded()
         {
-            SqlServerFhirDataBulkOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), NullLogger<SqlServerFhirDataBulkOperation>.Instance);
+            SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             int count = 1001;
 
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenImportedBatchResources_WhenCleanData_RecordsShouldBeDeleted()
         {
-            SqlServerFhirDataBulkOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), NullLogger<SqlServerFhirDataBulkOperation>.Instance);
+            SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             int count = 1001;
 
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenBatchInValidResources_WhenBulkCopy_ExceptionShouldBeThrow()
         {
-            SqlServerFhirDataBulkOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), NullLogger<SqlServerFhirDataBulkOperation>.Instance);
+            SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             int count = 1001;
 
@@ -100,14 +100,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await Assert.ThrowsAsync<InvalidOperationException>(async () => await sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None));
         }
 
-        private async Task VerifyDataForBulkImport(SqlServerFhirDataBulkOperation sqlServerFhirDataBulkOperation, long startSurrogateId, int count, Func<int, long, DataTable> tableGenerator)
+        private async Task VerifyDataForBulkImport(SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation, long startSurrogateId, int count, Func<int, long, DataTable> tableGenerator)
         {
             DataTable inputTable = tableGenerator(count, startSurrogateId);
             await sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None);
             await CheckTableDataAsync(inputTable, startSurrogateId, startSurrogateId + count);
         }
 
-        private async Task<string> ImportDataAsync(SqlServerFhirDataBulkOperation sqlServerFhirDataBulkOperation, long startSurrogateId, int count, Func<int, long, DataTable> tableGenerator)
+        private async Task<string> ImportDataAsync(SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation, long startSurrogateId, int count, Func<int, long, DataTable> tableGenerator)
         {
             DataTable inputTable = tableGenerator(count, startSurrogateId);
             await sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None);

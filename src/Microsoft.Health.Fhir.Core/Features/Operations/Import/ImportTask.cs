@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private ImportTaskInputData _inputData;
         private ImportProgress _importProgress;
-        private IFhirDataBulkOperation _fhirDataBulkOperation;
+        private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
         private IImportResourceLoader _importResourceLoader;
         private IResourceBulkImporter _resourceBulkImporter;
         private IImportErrorStoreFactory _importErrorStoreFactory;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportTask(
             ImportTaskInputData inputData,
             ImportProgress importProgress,
-            IFhirDataBulkOperation fhirDataBulkOperation,
+            IFhirDataBulkImportOperation fhirDataBulkOperation,
             IImportResourceLoader importResourceLoader,
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _inputData = inputData;
             _importProgress = importProgress;
-            _fhirDataBulkOperation = fhirDataBulkOperation;
+            _fhirDataBulkImportOperation = fhirDataBulkOperation;
             _importResourceLoader = importResourceLoader;
             _resourceBulkImporter = resourceBulkImporter;
             _importErrorStoreFactory = importErrorStoreFactory;
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                await _fhirDataBulkOperation.CleanBatchResourceAsync(startId + endIndex, endId, cancellationToken);
+                await _fhirDataBulkImportOperation.CleanBatchResourceAsync(startId + endIndex, endId, cancellationToken);
             }
             catch (OperationCanceledException)
             {

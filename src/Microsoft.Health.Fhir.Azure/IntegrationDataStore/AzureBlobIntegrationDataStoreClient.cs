@@ -128,6 +128,30 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
         }
 
+        public async Task<T> GetBlockPropertyAsync<T>(string blobUri, string propertyName, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await Policy.Handle<StorageException>()
+                    .WaitAndRetryAsync(
+                        retryCount: 3,
+                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
+                    .ExecuteAsync(async () =>
+                    {
+                        CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
+                        ICloudBlob blob = await cloudBlobClient.GetBlobReferenceFromServerAsync(new Uri(blobUri));
+                        var value = blob.Properties.GetType().GetProperty(propertyName).GetValue(blob.Properties);
+                        return value == null ? default(T) : (T)value;
+                    });
+            }
+            catch (StorageException storageEx)
+            {
+                _logger.LogError(storageEx, "Failed to get property {0} of blob {1}", propertyName, blobUri);
+
+                throw;
+            }
+        }
+
         private async Task AppendCommitInternalAsync(CloudBlockBlob blob, string[] blockIds, CancellationToken cancellationToken)
         {
             IEnumerable<ListBlockItem> blockList = await blob.DownloadBlockListAsync(
