@@ -21,7 +21,9 @@ namespace Microsoft.Health.TaskManagement
 
         public bool IsCanceled { get; set; }
 
-        public int RetryCount { get; set; }
+        public short RetryCount { get; set; }
+
+        public short? MaxRetryCount { get; set; }
 
         public DateTime? HeartbeatDateTime { get; set; }
 

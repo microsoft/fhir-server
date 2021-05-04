@@ -57,18 +57,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     var taskInfoTable = VLatest.TaskInfo;
-                    (_, string queueId, short status, short taskTypeId, string runIdResult, bool isCanceled, short retryCount, DateTime? heartbeatDateTime, string inputData, string taskContext, string result) = sqlDataReader.ReadRow(
-                        taskInfoTable.TaskId,
-                        taskInfoTable.QueueId,
-                        taskInfoTable.Status,
-                        taskInfoTable.TaskTypeId,
-                        taskInfoTable.RunId,
-                        taskInfoTable.IsCanceled,
-                        taskInfoTable.RetryCount,
-                        taskInfoTable.HeartbeatDateTime,
-                        taskInfoTable.InputData,
-                        taskInfoTable.TaskContext,
-                        taskInfoTable.Result);
+                    _ = sqlDataReader.Read(taskInfoTable.TaskId, 0);
+                    string queueId = sqlDataReader.Read(taskInfoTable.QueueId, 1);
+                    short status = sqlDataReader.Read(taskInfoTable.Status, 2);
+                    short taskTypeId = sqlDataReader.Read(taskInfoTable.TaskTypeId, 3);
+                    string taskRunId = sqlDataReader.Read(taskInfoTable.RunId, 4);
+                    bool isCanceled = sqlDataReader.Read(taskInfoTable.IsCanceled, 5);
+                    short retryCount = sqlDataReader.Read(taskInfoTable.RetryCount, 6);
+                    short maxRetryCount = sqlDataReader.Read(taskInfoTable.MaxRetryCount, 7);
+                    DateTime? heartbeatDateTime = sqlDataReader.Read(taskInfoTable.HeartbeatDateTime, 8);
+                    string inputData = sqlDataReader.Read(taskInfoTable.InputData, 9);
+                    string taskContext = sqlDataReader.Read(taskInfoTable.TaskContext, 10);
+                    string result = sqlDataReader.Read(taskInfoTable.Result, 11);
 
                     return new TaskInfo()
                     {
@@ -76,9 +76,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         QueueId = queueId,
                         Status = (TaskStatus)status,
                         TaskTypeId = taskTypeId,
-                        RunId = runIdResult,
+                        RunId = taskRunId,
                         IsCanceled = isCanceled,
                         RetryCount = retryCount,
+                        MaxRetryCount = maxRetryCount,
                         HeartbeatDateTime = heartbeatDateTime,
                         InputData = inputData,
                         Context = taskContext,
@@ -110,18 +111,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 var taskInfoTable = VLatest.TaskInfo;
                 while (sqlDataReader.Read())
                 {
-                    (string id, string queueId, short status, short taskTypeId, string runId, bool isCanceled, short retryCount, DateTime? heartbeatDateTime, string inputData, string taskContext, string result) = sqlDataReader.ReadRow(
-                        taskInfoTable.TaskId,
-                        taskInfoTable.QueueId,
-                        taskInfoTable.Status,
-                        taskInfoTable.TaskTypeId,
-                        taskInfoTable.RunId,
-                        taskInfoTable.IsCanceled,
-                        taskInfoTable.RetryCount,
-                        taskInfoTable.HeartbeatDateTime,
-                        taskInfoTable.InputData,
-                        taskInfoTable.TaskContext,
-                        taskInfoTable.Result);
+                    string id = sqlDataReader.Read(taskInfoTable.TaskId, 0);
+                    string queueId = sqlDataReader.Read(taskInfoTable.QueueId, 1);
+                    short status = sqlDataReader.Read(taskInfoTable.Status, 2);
+                    short taskTypeId = sqlDataReader.Read(taskInfoTable.TaskTypeId, 3);
+                    string taskRunId = sqlDataReader.Read(taskInfoTable.RunId, 4);
+                    bool isCanceled = sqlDataReader.Read(taskInfoTable.IsCanceled, 5);
+                    short retryCount = sqlDataReader.Read(taskInfoTable.RetryCount, 6);
+                    short maxRetryCount = sqlDataReader.Read(taskInfoTable.MaxRetryCount, 7);
+                    DateTime? heartbeatDateTime = sqlDataReader.Read(taskInfoTable.HeartbeatDateTime, 8);
+                    string inputData = sqlDataReader.Read(taskInfoTable.InputData, 9);
+                    string taskContext = sqlDataReader.Read(taskInfoTable.TaskContext, 10);
+                    string result = sqlDataReader.Read(taskInfoTable.Result, 11);
 
                     TaskInfo taskInfo = new TaskInfo()
                     {
@@ -129,9 +130,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         QueueId = queueId,
                         Status = (TaskStatus)status,
                         TaskTypeId = taskTypeId,
-                        RunId = runId,
+                        RunId = taskRunId,
                         IsCanceled = isCanceled,
                         RetryCount = retryCount,
+                        MaxRetryCount = maxRetryCount,
                         HeartbeatDateTime = heartbeatDateTime,
                         InputData = inputData,
                         Context = taskContext,
@@ -161,18 +163,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     var taskInfoTable = VLatest.TaskInfo;
-                    (_, string queueId, short status, short taskTypeId, string runIdResult, bool isCanceled, short retryCount, DateTime? heartbeatDateTime, string inputData, string taskContext, string result) = sqlDataReader.ReadRow(
-                        taskInfoTable.TaskId,
-                        taskInfoTable.QueueId,
-                        taskInfoTable.Status,
-                        taskInfoTable.TaskTypeId,
-                        taskInfoTable.RunId,
-                        taskInfoTable.IsCanceled,
-                        taskInfoTable.RetryCount,
-                        taskInfoTable.HeartbeatDateTime,
-                        taskInfoTable.InputData,
-                        taskInfoTable.TaskContext,
-                        taskInfoTable.Result);
+                    _ = sqlDataReader.Read(taskInfoTable.TaskId, 0);
+                    string queueId = sqlDataReader.Read(taskInfoTable.QueueId, 1);
+                    short status = sqlDataReader.Read(taskInfoTable.Status, 2);
+                    short taskTypeId = sqlDataReader.Read(taskInfoTable.TaskTypeId, 3);
+                    string taskRunId = sqlDataReader.Read(taskInfoTable.RunId, 4);
+                    bool isCanceled = sqlDataReader.Read(taskInfoTable.IsCanceled, 5);
+                    short retryCount = sqlDataReader.Read(taskInfoTable.RetryCount, 6);
+                    short maxRetryCount = sqlDataReader.Read(taskInfoTable.MaxRetryCount, 7);
+                    DateTime? heartbeatDateTime = sqlDataReader.Read(taskInfoTable.HeartbeatDateTime, 8);
+                    string inputData = sqlDataReader.Read(taskInfoTable.InputData, 9);
+                    string taskContext = sqlDataReader.Read(taskInfoTable.TaskContext, 10);
+                    string result = sqlDataReader.Read(taskInfoTable.Result, 11);
 
                     return new TaskInfo()
                     {
@@ -180,9 +182,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         QueueId = queueId,
                         Status = (TaskStatus)status,
                         TaskTypeId = taskTypeId,
-                        RunId = runIdResult,
+                        RunId = taskRunId,
                         IsCanceled = isCanceled,
                         RetryCount = retryCount,
+                        MaxRetryCount = maxRetryCount,
                         HeartbeatDateTime = heartbeatDateTime,
                         InputData = inputData,
                         Context = taskContext,
@@ -201,14 +204,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<TaskInfo> ResetAsync(string taskId, TaskResultData resultData, string runId, short maxRetryCount, CancellationToken cancellationToken)
+        public async Task<TaskInfo> ResetAsync(string taskId, TaskResultData resultData, string runId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 try
                 {
-                    VLatest.ResetTask.PopulateCommand(sqlCommandWrapper, taskId, runId, JsonConvert.SerializeObject(resultData), maxRetryCount);
+                    VLatest.ResetTask.PopulateCommand(sqlCommandWrapper, taskId, runId, JsonConvert.SerializeObject(resultData));
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                     if (!sqlDataReader.Read())
@@ -217,18 +220,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     var taskInfoTable = VLatest.TaskInfo;
-                    (_, string queueId, short status, short taskTypeId, string runIdResult, bool isCanceled, short retryCount, DateTime? heartbeatDateTime, string inputData, string taskContext, string result) = sqlDataReader.ReadRow(
-                        taskInfoTable.TaskId,
-                        taskInfoTable.QueueId,
-                        taskInfoTable.Status,
-                        taskInfoTable.TaskTypeId,
-                        taskInfoTable.RunId,
-                        taskInfoTable.IsCanceled,
-                        taskInfoTable.RetryCount,
-                        taskInfoTable.HeartbeatDateTime,
-                        taskInfoTable.InputData,
-                        taskInfoTable.TaskContext,
-                        taskInfoTable.Result);
+                    _ = sqlDataReader.Read(taskInfoTable.TaskId, 0);
+                    string queueId = sqlDataReader.Read(taskInfoTable.QueueId, 1);
+                    short status = sqlDataReader.Read(taskInfoTable.Status, 2);
+                    short taskTypeId = sqlDataReader.Read(taskInfoTable.TaskTypeId, 3);
+                    string taskRunId = sqlDataReader.Read(taskInfoTable.RunId, 4);
+                    bool isCanceled = sqlDataReader.Read(taskInfoTable.IsCanceled, 5);
+                    short retryCount = sqlDataReader.Read(taskInfoTable.RetryCount, 6);
+                    short maxRetryCount = sqlDataReader.Read(taskInfoTable.MaxRetryCount, 7);
+                    DateTime? heartbeatDateTime = sqlDataReader.Read(taskInfoTable.HeartbeatDateTime, 8);
+                    string inputData = sqlDataReader.Read(taskInfoTable.InputData, 9);
+                    string taskContext = sqlDataReader.Read(taskInfoTable.TaskContext, 10);
+                    string result = sqlDataReader.Read(taskInfoTable.Result, 11);
 
                     TaskStatus taskStatus = (TaskStatus)status;
                     return taskStatus == TaskStatus.Completed
@@ -239,9 +242,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             QueueId = queueId,
                             Status = taskStatus,
                             TaskTypeId = taskTypeId,
-                            RunId = runIdResult,
+                            RunId = taskRunId,
                             IsCanceled = isCanceled,
                             RetryCount = retryCount,
+                            MaxRetryCount = maxRetryCount,
                             HeartbeatDateTime = heartbeatDateTime,
                             InputData = inputData,
                             Context = taskContext,

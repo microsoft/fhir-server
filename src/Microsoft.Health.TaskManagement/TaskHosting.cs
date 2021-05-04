@@ -35,8 +35,6 @@ namespace Microsoft.Health.TaskManagement
 
         public short MaxRunningTaskCount { get; set; } = Constants.DefaultMaxRunningTaskCount;
 
-        public short MaxRetryCount { get; set; } = Constants.DefaultMaxRetryCount;
-
         public int TaskHeartbeatTimeoutThresholdInSeconds { get; set; } = Constants.DefaultTaskHeartbeatTimeoutThresholdInSeconds;
 
         public int TaskHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultTaskHeartbeatIntervalInSeconds;
@@ -126,7 +124,7 @@ namespace Microsoft.Health.TaskManagement
 
                     try
                     {
-                        await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message), taskInfo.RunId, MaxRetryCount, cancellationToken);
+                        await _consumer.ResetAsync(taskInfo.TaskId, new TaskResultData(TaskResult.Fail, ex.Message), taskInfo.RunId, cancellationToken);
                     }
                     catch (Exception resetEx)
                     {

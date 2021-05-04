@@ -88,7 +88,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             return Task.FromResult<TaskInfo>(taskInfo);
         }
 
-        public Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, short maxRetryCount, CancellationToken cancellationToken)
+        public Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, CancellationToken cancellationToken)
         {
             _faultInjectionAction?.Invoke(nameof(ResetAsync));
 
@@ -101,7 +101,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             taskInfo.Result = JsonConvert.SerializeObject(result);
             taskInfo.RetryCount += 1;
 
-            if (taskInfo.RetryCount > maxRetryCount)
+            if (taskInfo.RetryCount > taskInfo.MaxRetryCount)
             {
                 taskInfo.Status = TaskStatus.Completed;
             }
