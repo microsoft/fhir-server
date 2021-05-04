@@ -125,7 +125,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
         }
 
+#pragma warning disable CA1002 // Do not expose generic lists
         protected static void EnsureAllocatedAndPopulated<TExpression>(ref List<TExpression> destination, IReadOnlyList<TExpression> source, int count)
+#pragma warning restore CA1002 // Do not expose generic lists
             where TExpression : Expression
         {
             if (destination == null)
@@ -139,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Like <see cref="EnsureAllocatedAndPopulated{TExpression}(ref TExpression[],System.Collections.Generic.IReadOnlyList{TExpression},int)"/>,
+        /// Like <see cref="EnsureAllocatedAndPopulated{TExpression}(ref TExpression[], IReadOnlyList{TExpression}, int)"/>,
         /// but where the destination list if is of a derived type
         /// </summary>
         /// <typeparam name="TDestination">The destination list type</typeparam>
@@ -147,7 +149,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="destination">The destination list to allocate and populate</param>
         /// <param name="source">The source list</param>
         /// <param name="count">The number of elements from source to copy to destination</param>
+#pragma warning disable CA1002 // Do not expose generic lists
         protected static void EnsureAllocatedAndPopulatedChangeType<TDestination, TSource>(ref List<TDestination> destination, IReadOnlyList<TSource> source, int count)
+#pragma warning restore CA1002 // Do not expose generic lists
             where TSource : Expression
             where TDestination : TSource
         {

@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ushort MaximumConcurrency { get; private set; }
 
         [JsonProperty(JobRecordProperties.Error)]
-        public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
+        public ICollection<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
 
         /// <summary>
         /// Use Concurrent dictionary to allow access to specific items in the list
@@ -81,10 +81,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ushort FailureCount { get; set; }
 
         [JsonProperty(JobRecordProperties.Resources)]
-        public List<string> Resources { get; private set; } = new List<string>();
+        public ICollection<string> Resources { get; private set; } = new List<string>();
 
         [JsonProperty(JobRecordProperties.SearchParams)]
-        public List<string> SearchParams { get; private set; } = new List<string>();
+        public ICollection<string> SearchParams { get; private set; } = new List<string>();
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
         public uint MaximumNumberOfResourcesPerQuery { get; private set; }

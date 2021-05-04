@@ -125,10 +125,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             Channel<ImportProgress> outputChannel = Channel.CreateUnbounded<ImportProgress>();
 
-            Task importTask = Task.Run(async () =>
-            {
-                await ImportInternalAsync(inputChannel, outputChannel, importErrorStore, cancellationToken);
-            });
+            Task importTask = Task.Run(
+                async () =>
+                {
+                    await ImportInternalAsync(inputChannel, outputChannel, importErrorStore, cancellationToken);
+                },
+                cancellationToken);
 
             return (outputChannel, importTask);
         }
@@ -150,7 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 Queue<Task<ImportProgress>> importTasks = new Queue<Task<ImportProgress>>();
 
                 await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
-                await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync())
+                await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync(cancellationToken))
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -235,7 +237,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 // Upload remain error logs
                 ImportProgress progress = await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
-                await outputChannel.Writer.WriteAsync(progress);
+                await outputChannel.Writer.WriteAsync(progress, cancellationToken);
             }
             finally
             {

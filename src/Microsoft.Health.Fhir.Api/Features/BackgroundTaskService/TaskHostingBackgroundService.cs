@@ -44,7 +44,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds = _taskHostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds;
                 }
 
-                await taskHostingValue.StartAsync(CancellationTokenSource.CreateLinkedTokenSource(stoppingToken));
+                using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                await taskHostingValue.StartAsync(cancellationTokenSource);
             }
         }
     }

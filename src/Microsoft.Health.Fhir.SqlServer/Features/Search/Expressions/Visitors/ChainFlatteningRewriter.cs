@@ -50,36 +50,81 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
+        /// <summary>
+        /// Chained expression can be created either by search service or member-match service. In first case chain expression would contain only one nested expression
+        /// because this is how '_has' works. `_has:Observation:patient:code=1234-5` as example. In that case we carry on, visit expression, and created proper table expression.
+        /// For member-match service we can pass multiple restrain expression to chained expression which we put behind 'And' expression.
+        /// 'And' visitor unfortunetelly can pick up only one queryGenerator, so it will pick first one in 'And' list and if expression inside 'And' are for different tables,
+        /// that would lead to incorrect table expressions. So we handle that case separatly and create table generator for each expression in `And` expression.
+        /// </summary>
         private void ProcessChainedExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel)
         {
-            SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+            if (chainedExpression.Expression is MultiaryExpression multiaryExpression && multiaryExpression.MultiaryOperation == MultiaryOperator.And)
+            {
+                HandleAndExpression(chainedExpression, tableExpressions, chainLevel, multiaryExpression);
+            }
+            else
+            {
+                SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
 
-            Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
+                Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
 
-            var sqlChainLinkExpression = new SqlChainLinkExpression(
+                var sqlChainLinkExpression = new SqlChainLinkExpression(
+                    chainedExpression.ResourceTypes,
+                    chainedExpression.ReferenceSearchParameter,
+                    chainedExpression.TargetResourceTypes,
+                    chainedExpression.Reversed,
+                    expressionOnTarget: expressionOnTarget);
+
+                tableExpressions.Add(
+                    new SearchParamTableExpression(
+                        ChainLinkQueryGenerator.Instance,
+                        sqlChainLinkExpression,
+                        SearchParamTableExpressionKind.Chain,
+                        chainLevel));
+
+                if (chainedExpression.Expression is ChainedExpression nestedChainedExpression)
+                {
+                    ProcessChainedExpression(nestedChainedExpression, tableExpressions, chainLevel + 1);
+                }
+                else if (queryGenerator != null)
+                {
+                    tableExpressions.Add(
+                        new SearchParamTableExpression(
+                            queryGenerator,
+                            chainedExpression.Expression,
+                            SearchParamTableExpressionKind.Normal,
+                            chainLevel));
+                }
+            }
+        }
+
+        /// <summary>
+        /// And expression inside chained expression wouldn't be handled properly because we can have different types of paramaters to filter on.
+        /// But acceptVisitor method returns only one table generator (first we encounter).
+        /// This method takes table generator for each subexpression and create table expression for it.
+        /// </summary>
+        private void HandleAndExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel, MultiaryExpression multiaryExpression)
+        {
+            var chainLinkExpression = new SqlChainLinkExpression(
                 chainedExpression.ResourceTypes,
                 chainedExpression.ReferenceSearchParameter,
                 chainedExpression.TargetResourceTypes,
-                chainedExpression.Reversed,
-                expressionOnTarget: expressionOnTarget);
+                chainedExpression.Reversed);
 
-            tableExpressions.Add(
-                new SearchParamTableExpression(
-                    ChainLinkQueryGenerator.Instance,
-                    sqlChainLinkExpression,
-                    SearchParamTableExpressionKind.Chain,
-                    chainLevel));
+            tableExpressions.Add(new SearchParamTableExpression(
+                                  ChainLinkQueryGenerator.Instance,
+                                  chainLinkExpression,
+                                  SearchParamTableExpressionKind.Chain,
+                                  chainLevel));
 
-            if (chainedExpression.Expression is ChainedExpression nestedChainedExpression)
+            foreach (var expression in multiaryExpression.Expressions)
             {
-                ProcessChainedExpression(nestedChainedExpression, tableExpressions, chainLevel + 1);
-            }
-            else if (queryGenerator != null)
-            {
+                var handler = expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
                 tableExpressions.Add(
                     new SearchParamTableExpression(
-                        queryGenerator,
-                        chainedExpression.Expression,
+                        handler,
+                        expression,
                         SearchParamTableExpressionKind.Normal,
                         chainLevel));
             }

@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
             var decimalValue = (decimal?)value.Scalar("value");
 
-            if (decimalValue == null)
+            if (!decimalValue.HasValue)
             {
                 yield break;
             }

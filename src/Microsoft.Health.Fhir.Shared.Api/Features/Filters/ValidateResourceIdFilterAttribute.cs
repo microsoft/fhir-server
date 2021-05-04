@@ -15,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Method)]
-    internal class ValidateResourceIdFilterAttribute : ParameterCompatibleFilter
+    internal sealed class ValidateResourceIdFilterAttribute : ParameterCompatibleFilter
     {
         public ValidateResourceIdFilterAttribute(bool allowParametersResource = false)
             : base(allowParametersResource)

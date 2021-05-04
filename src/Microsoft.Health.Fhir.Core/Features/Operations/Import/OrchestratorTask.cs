@@ -226,10 +226,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
 
                     runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
-                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds));
+                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds));
+                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
             }
         }
 

@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
         }
 
-        private async Task AppendCommitInternalAsync(CloudBlockBlob blob, string[] blockIds, CancellationToken cancellationToken)
+        private static async Task AppendCommitInternalAsync(CloudBlockBlob blob, string[] blockIds, CancellationToken cancellationToken)
         {
             IEnumerable<ListBlockItem> blockList = await blob.DownloadBlockListAsync(
                                                             BlockListingFilter.Committed,
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         private async Task<ICloudBlob> GetCloudBlobClientFromServerAsync(Uri blobUri, CancellationToken cancellationToken)
         {
             CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-            return await cloudBlobClient.GetBlobReferenceFromServerAsync(blobUri);
+            return await cloudBlobClient.GetBlobReferenceFromServerAsync(blobUri, cancellationToken);
         }
     }
 }

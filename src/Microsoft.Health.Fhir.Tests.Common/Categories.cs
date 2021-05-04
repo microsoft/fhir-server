@@ -42,5 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string CustomConvertData = "CustomConvertData";
 
         public const string CustomSearch = "CustomSearch";
+
+        public const string MemberMatch = "MemberMatch";
     }
 }

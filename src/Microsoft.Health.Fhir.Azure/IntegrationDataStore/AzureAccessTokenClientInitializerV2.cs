@@ -66,7 +66,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                 throw new IntegrationDataStoreClientInitializerException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
             }
 
-            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
+#pragma warning disable CA2000 // Dispose objects before losing scope
+            StorageCredentials storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
+#pragma warning restore CA2000 // Dispose objects before losing scope
             return new CloudBlobClient(storageAccountUri, storageCredentials);
         }
     }

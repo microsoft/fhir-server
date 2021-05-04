@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, Guid.NewGuid().ToString(), startSurrogatedId + i, new byte[10], string.Empty);
+                ResourceTableBulkCopyDataGenerator.FillDataTable(result, 103, Guid.NewGuid().ToString(), startSurrogatedId + i, new byte[10], string.Empty);
             }
 
             return result;
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new DateTimeSearchParamTableTypeV1Row(0, default(DateTimeOffset), default(DateTimeOffset), true));
+                DateTimeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new DateTimeSearchParamTableTypeV1Row(0, default(DateTimeOffset), default(DateTimeOffset), true));
             }
 
             return result;
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new NumberSearchParamTableTypeV1Row(0, 1, 1, 1));
+                NumberSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new NumberSearchParamTableTypeV1Row(0, 1, 1, 1));
             }
 
             return result;
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new QuantitySearchParamTableTypeV1Row(0, 1, 1, 1, 1, 1));
+                QuantitySearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new QuantitySearchParamTableTypeV1Row(0, 1, 1, 1, 1, 1));
             }
 
             return result;
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new ReferenceSearchParamTableTypeV2Row(0, string.Empty, 1, string.Empty, 1));
+                ReferenceSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new ReferenceSearchParamTableTypeV2Row(0, string.Empty, 1, string.Empty, 1));
             }
 
             return result;
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new ReferenceTokenCompositeSearchParamTableTypeV2Row(0, string.Empty, 1, string.Empty, 1, 1, string.Empty));
+                ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new ReferenceTokenCompositeSearchParamTableTypeV2Row(0, string.Empty, 1, string.Empty, 1, 1, string.Empty));
             }
 
             return result;
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new StringSearchParamTableTypeV1Row(0, string.Empty, string.Empty));
+                StringSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new StringSearchParamTableTypeV1Row(0, string.Empty, string.Empty));
             }
 
             return result;
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenDateTimeCompositeSearchParamTableTypeV1Row(0, 1, string.Empty, default(DateTimeOffset), default(DateTimeOffset), true));
+                TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new TokenDateTimeCompositeSearchParamTableTypeV1Row(0, 1, string.Empty, default(DateTimeOffset), default(DateTimeOffset), true));
             }
 
             return result;
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 1, string.Empty, 0, 0, 0, 0, 0, 0, true));
+                TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new TokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 1, string.Empty, 0, 0, 0, 0, 0, 0, true));
             }
 
             return result;
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, 0, 0, 0, 0, 0));
+                TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new TokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, 0, 0, 0, 0, 0));
             }
 
             return result;
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenSearchParamTableTypeV1Row(0, 0, string.Empty));
+                TokenSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new TokenSearchParamTableTypeV1Row(0, 0, string.Empty));
             }
 
             return result;
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenStringCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, string.Empty, string.Empty));
+                TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new TokenStringCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, string.Empty, string.Empty));
             }
 
             return result;
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenTextTableTypeV1Row(0, string.Empty));
+                TokenTextSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new TokenTextTableTypeV1Row(0, string.Empty));
             }
 
             return result;
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new TokenTokenCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, 0, string.Empty));
+                TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new TokenTokenCompositeSearchParamTableTypeV1Row(0, 0, string.Empty, 0, string.Empty));
             }
 
             return result;
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new UriSearchParamTableTypeV1Row(0, string.Empty));
+                UriSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new UriSearchParamTableTypeV1Row(0, string.Empty));
             }
 
             return result;
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new CompartmentAssignmentTableTypeV1Row(1, string.Empty));
+                CompartmentAssignmentTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new CompartmentAssignmentTableTypeV1Row(1, string.Empty));
             }
 
             return result;
@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, startSurrogatedId + i, new ResourceWriteClaimTableTypeV1Row(1, string.Empty));
+                ResourceWriteClaimTableBulkCopyDataGenerator.FillDataTable(result, startSurrogatedId + i, new ResourceWriteClaimTableTypeV1Row(1, string.Empty));
             }
 
             return result;
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                generator.FillDataTable(result, 103, startSurrogatedId + i, new UriSearchParamTableTypeV1Row(0, null));
+                UriSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, 103, startSurrogatedId + i, new UriSearchParamTableTypeV1Row(0, null));
             }
 
             return result;

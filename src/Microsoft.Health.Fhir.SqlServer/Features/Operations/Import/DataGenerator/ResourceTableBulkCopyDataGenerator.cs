@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             FillDataTable(table, input.ResourceTypeId, input.Resource.ResourceId, input.ResourceSurrogateId, input.CompressedRawData, input.Resource.SearchParameterHash);
         }
 
-        internal void FillDataTable(DataTable table, short resourceTypeId, string resourceId, long resourceSurrogateId, byte[] data, string searchParameterHash)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, string resourceId, long resourceSurrogateId, byte[] data, string searchParameterHash)
         {
             DataRow newRow = table.NewRow();
 

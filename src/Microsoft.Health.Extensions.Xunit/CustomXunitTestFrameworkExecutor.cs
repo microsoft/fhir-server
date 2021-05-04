@@ -225,12 +225,12 @@ namespace Microsoft.Health.Extensions.Xunit
                 // now get the the arguments. We don't know what type they are, so we look at the FixtureArgumentSetsAttribute on the class and look at its arguments
                 IAttributeInfo attributeInfo = typeInfo.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).Single();
 
-                SingleFlagEnum[] arguments = attributeInfo
+                SingleFlag[] arguments = attributeInfo
                     .GetConstructorArguments()
                     .Cast<Enum>()
                     .Zip(
                         match.Groups["VALUE"].Captures,
-                        (e, c) => new SingleFlagEnum((Enum)Enum.Parse(e.GetType(), c.Value)))
+                        (e, c) => new SingleFlag((Enum)Enum.Parse(e.GetType(), c.Value)))
                     .ToArray();
 
                 return new TestClassWithFixtureArgumentsTypeInfo(typeInfo, arguments);

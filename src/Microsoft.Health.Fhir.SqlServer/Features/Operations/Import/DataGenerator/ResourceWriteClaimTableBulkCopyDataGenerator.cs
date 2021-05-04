@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             }
         }
 
-        internal void FillDataTable(DataTable table, long resourceSurrogateId, ResourceWriteClaimTableTypeV1Row claim)
+        internal static void FillDataTable(DataTable table, long resourceSurrogateId, ResourceWriteClaimTableTypeV1Row claim)
         {
             DataRow newRow = table.NewRow();
 

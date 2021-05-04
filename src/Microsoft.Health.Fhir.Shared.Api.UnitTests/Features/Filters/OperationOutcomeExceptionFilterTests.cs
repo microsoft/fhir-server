@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData(HttpStatusCode.NotFound)]
         public void GivenATransactionFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(HttpStatusCode statusCode)
         {
-            ValidateOperationOutcome(new FhirTransactionFailedException("Transaction failed.", statusCode, new List<OperationOutcomeIssue>()), statusCode);
+            ValidateOperationOutcome(new FhirTransactionFailedException("Transaction failed.", statusCode, Array.Empty<OperationOutcomeIssue>()), statusCode);
         }
 
         [Fact]

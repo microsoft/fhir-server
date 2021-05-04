@@ -41,14 +41,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _backgroundJobRetryPolicy = CreateExtendedRetryPolicy(3, configuration.RetryOptions.MaxWaitTimeInSeconds * 3);
         }
 
-        public AsyncPolicy GetRetryPolicy()
+        public AsyncPolicy RetryPolicy
         {
-            return _requestContextAccessor.RequestContext switch
+            get
             {
-                null or { IsBackgroundTask: true } => _backgroundJobRetryPolicy,
-                { ExecutingBatchOrTransaction: true } => _bundleActionRetryPolicy,
-                _ => _sdkOnlyRetryPolicy,
-            };
+                return _requestContextAccessor.RequestContext switch
+                {
+                    null or { IsBackgroundTask: true } => _backgroundJobRetryPolicy,
+                    { ExecutingBatchOrTransaction: true } => _bundleActionRetryPolicy,
+                    _ => _sdkOnlyRetryPolicy,
+                };
+            }
         }
 
         private static AsyncRetryPolicy CreateExtendedRetryPolicy(int maxRetries, int maxWaitTimeInSeconds)

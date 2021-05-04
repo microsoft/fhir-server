@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             }
         }
 
-        internal void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, ReferenceTokenCompositeSearchParamTableTypeV2Row searchParam)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, ReferenceTokenCompositeSearchParamTableTypeV2Row searchParam)
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
             FillColumn(newRow, VLatest.ReferenceTokenCompositeSearchParam.BaseUri1.Metadata.Name, searchParam.BaseUri1);

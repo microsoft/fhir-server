@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public interface IIntegrationDataStoreClient
     {
-        public Stream DownloadResource(Uri blobUri, long startPosition, CancellationToken cancellationToken);
+        public Stream DownloadResource(Uri blobUri, long startOffset, CancellationToken cancellationToken);
 
         public Task<Uri> PrepareResourceAsync(string containerId, string fileName, CancellationToken cancellationToken);
 

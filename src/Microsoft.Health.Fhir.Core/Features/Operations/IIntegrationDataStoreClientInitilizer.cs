@@ -13,6 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     {
         Task<T> GetAuthorizedClientAsync(CancellationToken cancellationToken);
 
-        Task<T> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration configuration, CancellationToken cancellationToken);
+        Task<T> GetAuthorizedClientAsync(IntegrationDataStoreConfiguration integrationDataStoreConfiguration, CancellationToken cancellationToken);
     }
 }

@@ -57,6 +57,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public static string GetProvenanceHeader() => GetJson("ProvenanceHeader");
 
+        public static ResourceElement GetDefaultCoverage() => GetJsonSample("Coverage");
+
         public static ResourceElement GetDefaultBatch()
         {
             var batch = GetJsonSample("Bundle-Batch").ToPoco<Bundle>();

@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     /// Short-circuits the pipeline if they are invalid.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    internal class ValidateImportRequestFilterAttribute : ActionFilterAttribute
+    internal sealed class ValidateImportRequestFilterAttribute : ActionFilterAttribute
     {
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";

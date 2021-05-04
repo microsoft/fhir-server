@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
-        private SearchParameterQueryGenerator GetSearchParameterQueryGenerator(SearchParameterExpressionBase searchParameter)
+        private static SearchParameterQueryGenerator GetSearchParameterQueryGenerator(SearchParameterExpressionBase searchParameter)
         {
             return GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(searchParameter) ?? throw new InvalidOperationException($"Unexpected search parameter {searchParameter.Parameter.Code}");
         }

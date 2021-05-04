@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
         /// <param name="message">The exception message.</param>
         /// <param name="httpStatusCode">The status code to report to the user.</param>
         /// <param name="operationOutcomeIssues">A list of issues to include in the operation outcome.</param>
-        public FhirTransactionFailedException(string message, HttpStatusCode httpStatusCode, List<OperationOutcomeIssue> operationOutcomeIssues = null)
+        public FhirTransactionFailedException(string message, HttpStatusCode httpStatusCode, IReadOnlyList<OperationOutcomeIssue> operationOutcomeIssues = null)
             : base(message)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
@@ -34,7 +34,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Bundle
 
             if (operationOutcomeIssues != null)
             {
-                operationOutcomeIssues.ForEach(x => Issues.Add(x));
+                foreach (var issue in operationOutcomeIssues)
+                {
+                    Issues.Add(issue);
+                }
             }
         }
 

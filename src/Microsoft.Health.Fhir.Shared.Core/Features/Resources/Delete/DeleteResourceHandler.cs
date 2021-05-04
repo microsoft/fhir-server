@@ -30,17 +30,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
         }
 
-        public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest message, CancellationToken cancellationToken)
+        public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions requiredDataAction = message.HardDelete ? DataActions.Delete | DataActions.HardDelete : DataActions.Delete;
+            DataActions requiredDataAction = request.HardDelete ? DataActions.Delete | DataActions.HardDelete : DataActions.Delete;
             if (await AuthorizationService.CheckAccess(requiredDataAction, cancellationToken) != requiredDataAction)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            var key = message.ResourceKey;
+            var key = request.ResourceKey;
 
             if (!string.IsNullOrEmpty(key.VersionId))
             {
@@ -49,14 +49,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
             string version = null;
 
-            if (message.HardDelete)
+            if (request.HardDelete)
             {
                 await FhirDataStore.HardDeleteAsync(key, cancellationToken);
             }
             else
             {
-                var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(message.ResourceKey.ResourceType));
-                emptyInstance.Id = message.ResourceKey.Id;
+                var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceKey.ResourceType));
+                emptyInstance.Id = request.ResourceKey.Id;
 
                 ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true, keepMeta: false);
 

@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             Channel<ImportResource> outputChannel = Channel.CreateBounded<ImportResource>(ChannelMaxCapacity);
 
-            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, sequenceIdGenerator, cancellationToken));
+            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, sequenceIdGenerator, cancellationToken), cancellationToken);
 
             return (outputChannel, loadTask);
         }
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
                         foreach (ImportResource importResource in importResources)
                         {
-                            await outputChannel.Writer.WriteAsync(importResource);
+                            await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
                         }
                     }
 
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     IEnumerable<ImportResource> importResources = await processingTasks.Dequeue();
                     foreach (ImportResource importResource in importResources)
                     {
-                        await outputChannel.Writer.WriteAsync(importResource);
+                        await outputChannel.Writer.WriteAsync(importResource, cancellationToken);
                     }
                 }
 
