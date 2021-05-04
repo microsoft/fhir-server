@@ -40,16 +40,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<PatchResourceResponse> Handle(PatchResourceRequest message, CancellationToken cancellationToken)
+        public async Task<PatchResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
             if (await AuthorizationService.CheckAccess(DataActions.Write, cancellationToken) != DataActions.Write)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            ResourceKey key = message.ResourceKey;
+            ResourceKey key = request.ResourceKey;
 
             if (!string.IsNullOrEmpty(key.VersionId))
             {
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 Resource resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPoco<Resource>();
                 JObject nodeJson = node.ToJObject();
 
-                message.PatchDocument.ApplyTo(nodeJson);
+                request.PatchDocument.ApplyTo(nodeJson);
 
                 FhirJsonNode nodePatch = (FhirJsonNode)FhirJsonNode.Create(nodeJson);
                 Resource resourcePatch = nodePatch.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPoco<Resource>();
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
                 ResourceWrapper resourceWrapper = CreateResourceWrapper(resourcePatch, deleted: false, keepMeta: true);
                 bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
-                UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, false, keepHistory, cancellationToken);
+                UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, request.WeakETag, false, keepHistory, cancellationToken);
                 resourcePatch.VersionId = result.Wrapper.Version;
 
                 return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
