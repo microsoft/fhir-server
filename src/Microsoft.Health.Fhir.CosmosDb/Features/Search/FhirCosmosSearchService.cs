@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly ICosmosDbCollectionPhysicalPartitionInfo _physicalPartitionInfo;
         private readonly QueryPartitionStatisticsCache _queryPartitionStatisticsCache;
+        private readonly ILogger<FhirCosmosSearchService> _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
         private const int _chainedSearchMaxSubqueryItemLimit = 100;
@@ -51,7 +53,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             CosmosDataStoreConfiguration cosmosConfig,
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
-            QueryPartitionStatisticsCache queryPartitionStatisticsCache)
+            QueryPartitionStatisticsCache queryPartitionStatisticsCache,
+            ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -61,6 +64,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(cosmosConfig, nameof(cosmosConfig));
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(queryPartitionStatisticsCache, nameof(queryPartitionStatisticsCache));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
             _queryBuilder = queryBuilder;
@@ -68,6 +72,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _cosmosConfig = cosmosConfig;
             _physicalPartitionInfo = physicalPartitionInfo;
             _queryPartitionStatisticsCache = queryPartitionStatisticsCache;
+            _logger = logger;
             _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
             _resourceIdSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.Id);
         }
@@ -416,10 +421,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 if (queryPartitionStatistics != null && messagesList != null)
                 {
-                    if (results.Count < feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor && string.IsNullOrEmpty(continuationToken))
+                    var desiredItemCount = feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor;
+
+                    if (results.Count < desiredItemCount && !string.IsNullOrEmpty(nextContinuationToken))
                     {
                         // ExecuteDocumentQueryAsync gave up on filling the pages. This suggests that we would have been better off querying in parallel.
                         queryPartitionStatistics.Update(_physicalPartitionInfo.PhysicalPartitionCount);
+
+                        _logger.LogInformation(
+                            "Failed to fill items, found {ItemCount}, needed {DesiredItemCount}. Updating statistics to {PhysicalPartitionCount}",
+                            results.Count,
+                            desiredItemCount,
+                            _physicalPartitionInfo.PhysicalPartitionCount);
                     }
                     else
                     {
@@ -449,7 +462,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             int? averagePartitionCount = queryPartitionStatistics.GetAveragePartitionCount();
 
-            if (averagePartitionCount.HasValue)
+            if (averagePartitionCount.HasValue && _cosmosConfig.UseQueryStatistics)
             {
                 // this is not a new query
 
@@ -457,6 +470,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 if (fractionOfPartitionsHit >= 0.5)
                 {
+                    _logger.LogInformation(
+                        "Query was Selective. Avg. Partitions: {AvgPartitions} / Physical Partitions: {PhysicalPartitionCount} = {FractionOfPartitionsHit}",
+                        averagePartitionCount.Value,
+                        _physicalPartitionInfo.PhysicalPartitionCount,
+                        fractionOfPartitionsHit);
+
                     return true;
                 }
             }
@@ -591,7 +610,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                     cancellationToken);
 
                                 // check if we will restart the query in the next iteration (see next case below)
-                                if (includeResponse.continuationToken == null || includeResponse.maxConcurrency != null)
+                                // if not, take the results now
+                                if (includeResponse.continuationToken == null || includeResponse.maxConcurrency != null || includeResponse.results.Count >= maxIncludeCount)
                                 {
                                     includes.AddRange(includeResponse.results);
                                 }
@@ -637,6 +657,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                             int toRemove = includes.Count - maxIncludeCount;
                             includes.RemoveRange(includes.Count - toRemove, toRemove);
                             includesTruncated = true;
+
+                            // break from the for loop because enough results have been found
                             break;
                         }
                     }

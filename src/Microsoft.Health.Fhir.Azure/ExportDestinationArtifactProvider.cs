@@ -6,7 +6,6 @@
 using System;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -38,14 +37,14 @@ namespace Microsoft.Health.Fhir.Azure
             _exportJobConfiguration = exportJobConfiguration.Value;
         }
 
-        public async Task FetchAsync(string blobNameWithETag, Stream targetStream, CancellationToken cancellationToken)
+        public async Task FetchAsync(string location, Stream targetStream, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNullOrEmpty(blobNameWithETag, nameof(blobNameWithETag));
+            EnsureArg.IsNotNullOrEmpty(location, nameof(location));
             EnsureArg.IsNotNull(targetStream, nameof(targetStream));
 
-            string[] blobLocation = blobNameWithETag.Split(':', StringSplitOptions.RemoveEmptyEntries);
+            string[] blobLocation = location.Split(':', StringSplitOptions.RemoveEmptyEntries);
             string blobName = blobLocation[0];
-            string eTag = blobLocation.Count() > 1 ? blobLocation[1] : null;
+            string eTag = blobLocation.Length > 1 ? blobLocation[1] : null;
             eTag = AddDoubleQuotesIfMissing(eTag);
 
             CloudBlobClient blobClient = await ConnectAsync(cancellationToken);
@@ -88,7 +87,7 @@ namespace Microsoft.Health.Fhir.Azure
             }
         }
 
-        private string AddDoubleQuotesIfMissing(string eTag)
+        private static string AddDoubleQuotesIfMissing(string eTag)
         {
             if (string.IsNullOrWhiteSpace(eTag) || eTag.StartsWith('\"'))
             {
@@ -108,9 +107,7 @@ namespace Microsoft.Health.Fhir.Azure
             return _blobClient;
         }
 
-        private bool CheckConfigurationIsTooLarge(CloudBlob blob)
-        {
-            return blob.Properties.Length > 1 * 1024 * 1024; // Max content length is 1 MB
-        }
+        private static bool CheckConfigurationIsTooLarge(CloudBlob blob) =>
+            blob.Properties.Length > 1 * 1024 * 1024; // Max content length is 1 MB
     }
 }

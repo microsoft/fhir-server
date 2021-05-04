@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
     public interface IReindexJobThrottleController
     {
-        void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDataStoreCapacity);
+        void Initialize(ReindexJobRecord reindexJobRecord, int? provisionedDatastoreCapacity);
 
         /// <summary>
         /// Gets the current delay to achieve a target resource utilization

@@ -32,9 +32,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _authorizationService = authorizationService;
         }
 
-        public async Task<SearchResourceHistoryResponse> Handle(SearchResourceHistoryRequest message, CancellationToken cancellationToken)
+        public async Task<SearchResourceHistoryResponse> Handle(SearchResourceHistoryRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
             if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
             {
@@ -42,13 +42,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             SearchResult searchResult = await _searchService.SearchHistoryAsync(
-                message.ResourceType,
-                message.ResourceId,
-                message.At,
-                message.Since,
-                message.Before,
-                message.Count,
-                message.ContinuationToken,
+                request.ResourceType,
+                request.ResourceId,
+                request.At,
+                request.Since,
+                request.Before,
+                request.Count,
+                request.ContinuationToken,
                 cancellationToken);
 
             ResourceElement bundle = _bundleFactory.CreateHistoryBundle(searchResult);

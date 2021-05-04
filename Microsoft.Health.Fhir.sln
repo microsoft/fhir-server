@@ -29,6 +29,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{B70945F4
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{404C6C33-DB00-4182-BD90-F10A8B17C321}"
 	ProjectSection(SolutionItems) = preProject
+		CustomAnalysisRules.ruleset = CustomAnalysisRules.ruleset
+		CustomAnalysisRules.Test.ruleset = CustomAnalysisRules.Test.ruleset
+		.editorconfig = .editorconfig
 		Directory.Build.props = Directory.Build.props
 		GitVersion.yml = GitVersion.yml
 		global.json = global.json
@@ -135,7 +138,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Client", "Client", "{83B3EE
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.Smart", "test\Microsoft.Health.Fhir.Shared.Tests.Smart\Microsoft.Health.Fhir.Shared.Tests.Smart.shproj", "{A955963B-D766-492D-94FD-98A8B9EA8931}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogsAndInterpolations", "tools\FhirAnalyzer\FhirAnalyzer.csproj", "{389C844A-4DC2-4780-9821-464580396850}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FhirAnalyzer", "tools\FhirAnalyzer\FhirAnalyzer.csproj", "{389C844A-4DC2-4780-9821-464580396850}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -420,7 +423,7 @@ Global
 		{389C844A-4DC2-4780-9821-464580396850} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 EndGlobal

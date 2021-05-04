@@ -113,6 +113,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             if (disposing)
             {
+                _initializationOperation.Dispose();
                 _client.Dispose();
                 _container = null;
             }
@@ -124,7 +125,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 try
                 {
-                    _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
+                    _initializationOperation.EnsureInitialized().AsTask().GetAwaiter().GetResult();
                 }
                 catch (Exception ex) when (ex is not RequestRateExceededException)
                 {

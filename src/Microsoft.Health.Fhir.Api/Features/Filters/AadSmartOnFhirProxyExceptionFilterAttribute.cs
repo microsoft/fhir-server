@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Api.Features.Exceptions;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
-    internal class AadSmartOnFhirProxyExceptionFilterAttribute : ActionFilterAttribute
+    internal sealed class AadSmartOnFhirProxyExceptionFilterAttribute : ActionFilterAttribute
     {
         public override void OnActionExecuted(ActionExecutedContext context)
         {

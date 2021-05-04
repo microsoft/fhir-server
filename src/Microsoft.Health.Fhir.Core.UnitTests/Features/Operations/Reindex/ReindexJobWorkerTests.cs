@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using NSubstitute;
 using Xunit;
 
@@ -46,11 +47,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var scopedOperationDataStore = Substitute.For<IScoped<IFhirOperationDataStore>>();
             scopedOperationDataStore.Value.Returns(_fhirOperationDataStore);
 
+            var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+
             _reindexJobWorker = new ReindexJobWorker(
                 () => scopedOperationDataStore,
                 Options.Create(_reindexJobConfiguration),
                 _reindexJobTaskFactory,
+                searchParameterOperations,
                 NullLogger<ReindexJobWorker>.Instance);
+
+            _reindexJobWorker.Handle(new Messages.Search.SearchParametersInitializedNotification(), CancellationToken.None);
 
             _cancellationToken = _cancellationTokenSource.Token;
         }
