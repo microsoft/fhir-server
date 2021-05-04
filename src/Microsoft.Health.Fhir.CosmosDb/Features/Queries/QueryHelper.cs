@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             {
                 _queryBuilder
                     .Append(logicalOperator)
-                    .Append(" ");
+                    .Append(' ');
 
                 (string name, object value) = conditions[i];
 
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         {
             string comparison = equal ? " = " : " != ";
             _queryBuilder
-                    .Append(_rootAliasName).Append(".").Append(name)
+                    .Append(_rootAliasName).Append('.').Append(name)
                     .Append(comparison)
                     .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
         }
@@ -78,16 +78,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             _queryBuilder
                 .Append("AND")
                 .Append(" (")
-                .Append(_rootAliasName).Append(".")
+                .Append(_rootAliasName).Append('.')
                 .Append(KnownResourceWrapperProperties.SearchParameterHash)
                 .Append(" != ")
                 .Append(_queryParameterManager.AddOrGetParameterMapping(hashValue))
                 .Append(" OR IS_DEFINED(")
-                .Append(_rootAliasName).Append(".")
+                .Append(_rootAliasName).Append('.')
                 .Append(KnownResourceWrapperProperties.SearchParameterHash)
                 .Append(") = ")
                 .Append(_queryParameterManager.AddOrGetParameterMapping(false))
-                .Append(")");
+                .Append(')');
         }
     }
 }

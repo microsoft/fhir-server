@@ -22,7 +22,6 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
@@ -36,7 +35,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class ReindexController : Controller
     {
         private readonly IMediator _mediator;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ReindexJobConfiguration _config;
         private readonly ILogger<ReindexController> _logger;
         private static Dictionary<string, HashSet<string>> _supportedParams = InitSupportedParams();
@@ -44,19 +42,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         public ReindexController(
             IMediator mediator,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
             IOptions<OperationsConfiguration> operationsConfig,
             IUrlResolver urlResolver,
             ILogger<ReindexController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Reindex, nameof(operationsConfig));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _config = operationsConfig.Value.Reindex;
             _urlResolver = urlResolver;
             _logger = logger;

@@ -36,6 +36,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
         }
 
+        public short? ResourceTypeId
+        {
+            get
+            {
+                if (_tokens.Length < 2)
+                {
+                    return null;
+                }
+
+                return _tokens[^2] switch
+                {
+                    short s => s,
+                    long l => (short)l, // deserialization from JSON creates longs
+                    _ => null,
+                };
+            }
+
+            set
+            {
+                _tokens[^2] = value;
+            }
+        }
+
         // Currently only a single sort is implemented
         public string SortValue
         {

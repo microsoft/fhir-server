@@ -9,6 +9,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
@@ -20,12 +21,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
     public class FhirRequestContextBeforeAuthenticationMiddleware
     {
         private readonly RequestDelegate _next;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
 
         public FhirRequestContextBeforeAuthenticationMiddleware(
             RequestDelegate next,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IAuditEventTypeMapping auditEventTypeMapping)
         {
             EnsureArg.IsNotNull(next, nameof(next));
@@ -51,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 // The authorization middleware runs before MVC middleware and therefore,
                 // information related to route and audit will not be populated if authentication fails.
                 // Handle such condition and populate them here if possible.
-                if (_fhirRequestContextAccessor.FhirRequestContext.RouteName == null &&
+                if (_fhirRequestContextAccessor.RequestContext.RouteName == null &&
                     (statusCode == HttpStatusCode.Unauthorized || statusCode == HttpStatusCode.Forbidden))
                 {
                     RouteData routeData = context.GetRouteData();
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                         routeData.Values.TryGetValue("action", out object actionName);
                         routeData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
 
-                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
                         fhirRequestContext.AuditEventType = _auditEventTypeMapping.GetAuditEventType(
                             controllerName?.ToString(),

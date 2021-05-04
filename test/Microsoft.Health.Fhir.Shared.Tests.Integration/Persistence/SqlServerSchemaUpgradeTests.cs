@@ -136,7 +136,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var schemaUpgradeRunner = new SchemaUpgradeRunner(
                 scriptProvider,
                 baseScriptProvider,
-                mediator,
                 NullLogger<SchemaUpgradeRunner>.Instance,
                 sqlConnectionFactory,
                 schemaManagerDataStore);
@@ -147,6 +146,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 schemaInformation,
                 sqlConnectionFactory,
                 sqlConnectionStringProvider,
+                mediator,
                 NullLogger<SchemaInitializer>.Instance);
 
             await testHelper.CreateAndInitializeDatabase(

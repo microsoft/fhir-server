@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private Task<GetReindexResponse> GetListOfReindexJobs()
+        private static Task<GetReindexResponse> GetListOfReindexJobs()
         {
             // TODO: build list of reindex jobs
             throw new OperationNotImplementedException("Get list of Reindex jobs not yet implemented.");

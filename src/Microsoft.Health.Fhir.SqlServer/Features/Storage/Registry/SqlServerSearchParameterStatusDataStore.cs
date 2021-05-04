@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -30,25 +31,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SchemaInformation _schemaInformation;
-        private readonly SqlServerFhirModel _fhirModel;
+        private readonly SqlServerSortingValidator _sortingValidator;
+        private readonly ISqlServerFhirModel _fhirModel;
 
         public SqlServerSearchParameterStatusDataStore(
             Func<IScoped<SqlConnectionWrapperFactory>> scopedSqlConnectionWrapperFactory,
             VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             SchemaInformation schemaInformation,
-            SqlServerFhirModel fhirModel)
+            SqlServerSortingValidator sortingValidator,
+            ISqlServerFhirModel fhirModel)
         {
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
+            _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
         }
 
@@ -84,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         {
                             // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
                             // They should be populated as soon as they are added to the table and should never be null.
-                            throw new NullReferenceException(Resources.SearchParameterStatusShouldNotBeNull);
+                            throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
                         }
 
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
@@ -97,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             LastUpdated = (DateTimeOffset)lastUpdated,
                         };
 
-                        if (SqlServerSortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
+                        if (_sortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
                         {
                             resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
                         }
@@ -115,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         }
 
         // TODO: Make cancellation token an input.
-        public async Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -133,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses));
+                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
 
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
                 {

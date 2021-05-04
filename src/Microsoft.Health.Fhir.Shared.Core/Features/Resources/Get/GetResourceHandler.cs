@@ -30,16 +30,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         {
         }
 
-        public async Task<GetResourceResponse> Handle(GetResourceRequest message, CancellationToken cancellationToken)
+        public async Task<GetResourceResponse> Handle(GetResourceRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
             if (await AuthorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            var key = message.ResourceKey;
+            var key = request.ResourceKey;
 
             var currentDoc = await FhirDataStore.GetAsync(key, cancellationToken);
 

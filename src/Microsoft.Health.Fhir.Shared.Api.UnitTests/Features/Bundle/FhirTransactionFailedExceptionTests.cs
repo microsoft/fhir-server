@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -37,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
             string message = "message";
             HttpStatusCode statusCode = HttpStatusCode.Processing;
 
-            var exception = new FhirTransactionFailedException(message, statusCode, new List<OperationOutcomeIssue>());
+            var exception = new FhirTransactionFailedException(message, statusCode, Array.Empty<OperationOutcomeIssue>());
 
             Assert.NotNull(exception.Issues);
             Assert.Single(exception.Issues);
@@ -52,9 +53,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
             Assert.Equal(message, issue.Diagnostics);
         }
 
-        private static List<OperationOutcomeIssue> GetOperationOutcomeIssues(string message)
+        private static OperationOutcomeIssue[] GetOperationOutcomeIssues(string message)
         {
-            return new List<OperationOutcomeIssue>()
+            return new OperationOutcomeIssue[2]
             {
                 new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.NotFound, message),
                 new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, message),
