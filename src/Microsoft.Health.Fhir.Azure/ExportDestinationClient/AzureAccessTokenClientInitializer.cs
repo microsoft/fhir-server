@@ -67,7 +67,9 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                 throw new ExportClientInitializerException(Resources.CannotGetAccessToken, HttpStatusCode.Unauthorized);
             }
 
-            var storageCredentials = new StorageCredentials(new TokenCredential(accessToken));
+            using var tokenCredential = new TokenCredential(accessToken);
+
+            var storageCredentials = new StorageCredentials(tokenCredential);
             return new CloudBlobClient(storageAccountUri, storageCredentials);
         }
     }

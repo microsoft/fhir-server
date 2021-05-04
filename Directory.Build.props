@@ -27,9 +27,9 @@
     <IdentityModelVersion>6.11.0</IdentityModelVersion>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.5</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>2.1.14</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>2.1.15</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
-  </PropertyGroup>
+   </PropertyGroup>
 
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test'))">
@@ -40,6 +40,8 @@
     </When>
     <Otherwise>
       <PropertyGroup>
+        <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <IsPackable>true</IsPackable>
         <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
       </PropertyGroup>
@@ -58,8 +60,6 @@
   <Choose>
     <When Condition="$(MSBuildProjectName)!='SmartLauncher' and $(MSBuildProjectName)!='FhirAnalyzer'  AND !$(MSBuildProjectName.Contains('Test'))">
       <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" PrivateAssets="All" />
-
         <ProjectReference Include="..\..\tools\FhirAnalyzer\FhirAnalyzer.csproj">
           <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
           <OutputItemType>Analyzer</OutputItemType>

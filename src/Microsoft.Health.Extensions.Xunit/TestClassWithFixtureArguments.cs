@@ -27,7 +27,7 @@ namespace Microsoft.Health.Extensions.Xunit
         {
         }
 
-        public TestClassWithFixtureArguments(ITestCollection testCollection, ITypeInfo underlyingClass, SingleFlagEnum[] fixtureArguments)
+        public TestClassWithFixtureArguments(ITestCollection testCollection, ITypeInfo underlyingClass, SingleFlag[] fixtureArguments)
         {
             EnsureArg.IsNotNull(testCollection, nameof(testCollection));
             EnsureArg.IsNotNull(underlyingClass, nameof(underlyingClass));
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Extensions.Xunit
         /// <inheritdoc/>
         public ITypeInfo Class { get; set; }
 
-        public IReadOnlyList<SingleFlagEnum> FixtureArguments { get; set; }
+        public IReadOnlyList<SingleFlag> FixtureArguments { get; set; }
 
         /// <inheritdoc/>
         public ITestCollection TestCollection { get; set; }
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Extensions.Xunit
 
             Enum[] rawFixtureArguments = info.GetValue<Enum[]>("FixtureArguments");
 
-            FixtureArguments = Array.ConvertAll(rawFixtureArguments, e => new SingleFlagEnum(e));
+            FixtureArguments = Array.ConvertAll(rawFixtureArguments, e => new SingleFlag(e));
 
             Class = new TestClassWithFixtureArgumentsTypeInfo(_underlyingClass, FixtureArguments);
         }

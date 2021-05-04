@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public void Update(int partitionCount)
         {
+#pragma warning disable CA2002
             lock (this) // lgtm[cs/lock-this] no need to allocate another lock object for this internal class
             {
                 _partitionSum += partitionCount;
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 return _executionCount == 0 ? null : (int)(_partitionSum / _executionCount);
             }
+#pragma warning restore CA2002
         }
     }
 }

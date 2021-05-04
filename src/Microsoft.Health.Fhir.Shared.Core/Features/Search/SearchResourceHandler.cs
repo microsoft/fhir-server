@@ -42,16 +42,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <inheritdoc />
-        public async Task<SearchResourceResponse> Handle(SearchResourceRequest message, CancellationToken cancellationToken)
+        public async Task<SearchResourceResponse> Handle(SearchResourceRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
             if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            SearchResult searchResult = await _searchService.SearchAsync(message.ResourceType, message.Queries, cancellationToken);
+            SearchResult searchResult = await _searchService.SearchAsync(request.ResourceType, request.Queries, cancellationToken);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 

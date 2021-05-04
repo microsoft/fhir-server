@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return false;
         }
 
-        protected SearchParameterQueryGeneratorContext VisitSimpleBinary(BinaryOperator binaryOperator, SearchParameterQueryGeneratorContext context, Column column, int? componentIndex, object value, bool includeInParameterHash = true)
+        protected static SearchParameterQueryGeneratorContext VisitSimpleBinary(BinaryOperator binaryOperator, SearchParameterQueryGeneratorContext context, Column column, int? componentIndex, object value, bool includeInParameterHash = true)
         {
             AppendColumnName(context, column, componentIndex);
 
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
-        protected SearchParameterQueryGeneratorContext VisitSimpleString(StringExpression expression, SearchParameterQueryGeneratorContext context, StringColumn column, string value)
+        protected static SearchParameterQueryGeneratorContext VisitSimpleString(StringExpression expression, SearchParameterQueryGeneratorContext context, StringColumn column, string value)
         {
             AppendColumnName(context, column, expression);
 

@@ -13,12 +13,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public interface ITypedElementToSearchValueConverterManager
     {
         /// <summary>
-        /// Gets the converter associated with the <paramref name="fhirElementType"/>.
+        /// Gets the converter associated with the <paramref name="fhirType"/>.
         /// </summary>
-        /// <param name="fhirElementType">The FHIR element type whose associated converter to get.</param>
+        /// <param name="fhirType">The FHIR type whose associated converter to get.</param>
         /// <param name="searchValueType">The type of the search value that the converter creates</param>
-        /// <param name="converter">When this method returns, contains the converter associated with the FHIR element type if the FHIR element type exists; otherwise, <c>null</c>.</param>
+        /// <param name="converter">When this method returns, contains the converter associated with the FHIR type if the FHIR type exists; otherwise, <c>null</c>.</param>
         /// <returns><c>true</c> if the converter exists; otherwise, <c>false</c>.</returns>
-        bool TryGetConverter(string fhirElementType, Type searchValueType, out ITypedElementToSearchValueConverter converter);
+        bool TryGetConverter(string fhirType, Type searchValueType, out ITypedElementToSearchValueConverter converter);
     }
 }

@@ -17,6 +17,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\FhirServerBuilderMemberMatchRegistrationExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\IMemberMatchService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\MemberMatchService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />

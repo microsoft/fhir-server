@@ -97,16 +97,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                         if (string.Equals(sortOption.searchParameterInfo.Code, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
                         {
-                            _queryBuilder.Append(SearchValueConstants.RootAliasName).Append(".")
-                                .Append(KnownResourceWrapperProperties.LastModified).Append(" ")
+#pragma warning disable CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
+                            _queryBuilder.Append(SearchValueConstants.RootAliasName).Append('.')
+#pragma warning restore CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
+                                .Append(KnownResourceWrapperProperties.LastModified).Append(' ')
                                 .AppendLine(sortOption.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
                         }
                         else
                         {
+#pragma warning disable CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
                             _queryBuilder.Append(SearchValueConstants.RootAliasName)
+#pragma warning restore CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
                                 .Append(".sort[\"").Append(sortOption.searchParameterInfo.Code).Append("\"].")
                                 .Append(sortOption.sortOrder == SortOrder.Ascending ? SearchValueConstants.SortLowValueFieldName : SearchValueConstants.SortHighValueFieldName)
-                                .Append(" ").AppendLine(sortOption.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                                .Append(' ').AppendLine(sortOption.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
                         }
                     }
                 }
@@ -137,7 +141,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 _queryBuilder
                     .Append("ORDER BY ")
-                    .Append(SearchValueConstants.RootAliasName).Append(".").Append(KnownResourceWrapperProperties.LastModified)
+#pragma warning disable CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
+                    .Append(SearchValueConstants.RootAliasName).Append('.').Append(KnownResourceWrapperProperties.LastModified)
+#pragma warning restore CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
                     .AppendLine(" DESC");
 
                 var query = new QueryDefinition(_queryBuilder.ToString());
@@ -214,20 +220,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                             _queryBuilder.Append(" OR ");
                         }
 
-                        _queryBuilder.Append("(");
+                        _queryBuilder.Append('(');
 
                         if (includeExpression.WildCard)
                         {
-                            _queryBuilder.Append("IS_DEFINED(p.").Append(SearchValueConstants.ReferenceResourceIdName).Append(")");
+                            _queryBuilder.Append("IS_DEFINED(p.").Append(SearchValueConstants.ReferenceResourceIdName).Append(')');
                         }
                         else
                         {
                             _queryBuilder
                                 .Append("p.")
+#pragma warning disable CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
                                 .Append(SearchValueConstants.ParamName)
+#pragma warning restore CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
                                 .Append(" = '")
                                 .Append(includeExpression.ReferenceSearchParameter.Code)
-                                .Append("'");
+                                .Append('\'');
                         }
 
                         if (!string.IsNullOrEmpty(includeExpression.TargetResourceType))
@@ -237,10 +245,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                                 .Append(SearchValueConstants.ReferenceResourceTypeName)
                                 .Append(" = '")
                                 .Append(includeExpression.TargetResourceType)
-                                .Append("'");
+                                .Append('\'');
                         }
 
-                        _queryBuilder.Append(")");
+                        _queryBuilder.Append(')');
                     }
 
                     _queryBuilder.Append(") AS ").Append(KnownDocumentProperties.ReferencesToInclude);

@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
 {
     public class GetOperationVersionsResponse
     {
-        public GetOperationVersionsResponse(List<string> supportedVersions, string defaultVersion)
+        public GetOperationVersionsResponse(ICollection<string> supportedVersions, string defaultVersion)
         {
             EnsureArg.IsNotNull(supportedVersions, nameof(supportedVersions));
             EnsureArg.IsNotNullOrWhiteSpace(defaultVersion, nameof(defaultVersion));
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Get
             DefaultVersion = defaultVersion;
         }
 
-        public List<string> SupportedVersions { get; }
+        public ICollection<string> SupportedVersions { get; }
 
         public string DefaultVersion { get; }
     }

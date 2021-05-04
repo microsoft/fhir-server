@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Determines the registered container registry list.
         /// </summary>
-        public List<string> ContainerRegistryServers { get; } = new List<string>();
+        public ICollection<string> ContainerRegistryServers { get; } = new List<string>();
 
         /// <summary>
         /// ArmResourceManagerId to aquire AAD token for ACR access token since ACR is not an AAD resource.

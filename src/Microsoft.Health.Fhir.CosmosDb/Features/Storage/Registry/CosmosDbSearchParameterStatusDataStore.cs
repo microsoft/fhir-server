@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             return parameterStatus;
         }
 
-        public async Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 

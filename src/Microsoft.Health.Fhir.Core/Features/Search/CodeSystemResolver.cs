@@ -17,7 +17,7 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public class CodeSystemResolver : ICodeSystemResolver, IHostedService
+    public sealed class CodeSystemResolver : ICodeSystemResolver, IHostedService
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private Dictionary<string, string> _dictionary;
@@ -60,9 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return Task.CompletedTask;
         }
 
-        private string NormalizePath(string path)
-        {
-            return Regex.Replace(path, "\\[\\w+\\]", string.Empty);
-        }
+        private static string NormalizePath(string path) =>
+         Regex.Replace(path, "\\[\\w+\\]", string.Empty);
     }
 }

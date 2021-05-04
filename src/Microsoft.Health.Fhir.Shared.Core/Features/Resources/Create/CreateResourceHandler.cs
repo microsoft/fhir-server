@@ -43,16 +43,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
-        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest message, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
             if (await AuthorizationService.CheckAccess(DataActions.Write, cancellationToken) != DataActions.Write)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            var resource = message.Resource.ToPoco<Resource>();
+            var resource = request.Resource.ToPoco<Resource>();
 
             // If an Id is supplied on create it should be removed/ignored
             resource.Id = null;

@@ -106,10 +106,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 _contextAccessor.RequestContext = fhirRequestContext;
 
-                using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
+                if (reindexJobRecord.TargetDataStoreUsagePercentage != null &&
+                    reindexJobRecord.TargetDataStoreUsagePercentage > 0)
                 {
-                    var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(cancellationToken);
-                    _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
+                    using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
+                    {
+                        var provisionedCapacity = await store.Value.GetProvisionedDataStoreCapacityAsync(cancellationToken);
+                        _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
+                    }
                 }
 
                 if (_reindexJobRecord.Status != OperationStatus.Running ||
@@ -174,8 +178,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         }
                     }
 
-                    _reindexJobRecord.Resources.AddRange(resourceList);
-                    _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Url.ToString()));
+                    foreach (var resource in resourceList)
+                    {
+                        _reindexJobRecord.Resources.Add(resource);
+                    }
+
+                    foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.ToString()))
+                    {
+                        _reindexJobRecord.SearchParams.Add(searchParams);
+                    }
 
                     await CalculateTotalAndResourceCounts(cancellationToken);
 
@@ -238,7 +249,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         q => q.Status == OperationStatus.Running && q.LastModified < Clock.UtcNow - _reindexJobConfiguration.JobHeartbeatTimeoutThreshold);
                     foreach (var staleQuery in staleQueries)
                     {
-                        await jobSemaphore.WaitAsync();
+                        await jobSemaphore.WaitAsync(cancellationToken);
                         try
                         {
                             // if this query has a created task, cancel it
@@ -267,14 +278,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _logger.LogInformation($"Reindex avaerage DB consumption: {averageDbConsumption}");
                     var throttleDelayTime = _throttleController.GetThrottleBasedDelay();
                     _logger.LogInformation($"Reindex throttle delay: {throttleDelayTime}");
-                    await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + throttleDelayTime);
+                    await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + throttleDelayTime, cancellationToken);
 
                     // Remove all finished tasks from the collections of tasks
                     // and cancellationTokens
                     if (queryTasks.Count >= reindexJobRecord.MaximumConcurrency)
                     {
                         var taskArray = queryTasks.ToArray();
-                        Task.WaitAny(taskArray);
+                        Task.WaitAny(taskArray, cancellationToken);
                         var finishedTasks = queryTasks.Where(t => t.IsCompleted).ToArray();
                         foreach (var finishedTask in finishedTasks)
                         {
@@ -295,9 +306,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                Task.WaitAll(queryTasks.ToArray());
+                Task.WaitAll(queryTasks.ToArray(), cancellationToken);
 
-                await jobSemaphore.WaitAsync();
+                await jobSemaphore.WaitAsync(cancellationToken);
                 try
                 {
                     await CheckJobCompletionStatus(cancellationToken);
@@ -314,7 +325,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                await jobSemaphore.WaitAsync();
+                await jobSemaphore.WaitAsync(cancellationToken);
                 try
                 {
                     _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
@@ -356,7 +367,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 SearchResult results;
 
-                await jobSemaphore.WaitAsync();
+                await jobSemaphore.WaitAsync(cancellationToken);
                 try
                 {
                     query.Status = OperationStatus.Running;
@@ -391,7 +402,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    await jobSemaphore.WaitAsync();
+                    await jobSemaphore.WaitAsync(cancellationToken);
                     try
                     {
                         _logger.LogInformation("Reindex job updating progress, current result count: {0}", results.Results.Count());
@@ -423,7 +434,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                await jobSemaphore.WaitAsync();
+                await jobSemaphore.WaitAsync(cancellationToken);
                 try
                 {
                     query.Error = ex.Message;
@@ -559,7 +570,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task UpdateParametersAndCompleteJob(CancellationToken cancellationToken)
         {
-            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams, cancellationToken);
+            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams.ToList(), cancellationToken);
 
             if (success)
             {
