@@ -313,10 +313,12 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             TaskInfo taskInfo0 = new TaskInfo();
             taskInfo0.TaskId = Guid.NewGuid().ToString();
             taskInfo0.TaskTypeId = 0;
+            taskInfo0.MaxRetryCount = maxRetryCount;
 
             TaskInfo taskInfo1 = new TaskInfo();
             taskInfo1.TaskId = Guid.NewGuid().ToString();
             taskInfo1.TaskTypeId = 1;
+            taskInfo1.MaxRetryCount = maxRetryCount;
 
             int executeCount0 = 0;
             int executeCount1 = 0;
@@ -355,7 +357,6 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
-            taskHosting.MaxRetryCount = maxRetryCount;
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 

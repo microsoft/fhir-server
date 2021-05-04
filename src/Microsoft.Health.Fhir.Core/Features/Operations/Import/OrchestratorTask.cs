@@ -5,17 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using DotLiquid.Util;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
 using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
@@ -24,7 +20,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class OrchestratorTask : ITask
     {
-        private const int MaxRunningTaskCount = 10;
         private const int PollingFrequencyInSeconds = 3;
         private const long MinResourceSizeInBytes = 64;
 
@@ -232,12 +227,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
                     await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds));
-                }
-
-                TaskInfo latestTaskInfo1 = await _taskManager.GetTaskAsync(taskInfo.TaskId, cancellationToken);
-                if (latestTaskInfo.Status == TaskStatus.Completed)
-                {
-
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds));

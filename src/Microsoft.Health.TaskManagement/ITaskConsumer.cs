@@ -48,9 +48,8 @@ namespace Microsoft.Health.TaskManagement
         /// <param name="taskId">Id for the task</param>
         /// <param name="result">Result data for the task execution</param>
         /// <param name="runId">Run id for this task execution</param>
-        /// <param name="maxRetryCount">Max retry count for reset operation, auto complete for reset count > max retry count</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Task infomation after status updated</returns>
-        Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, short maxRetryCount, CancellationToken cancellationToken);
+        Task<TaskInfo> ResetAsync(string taskId, TaskResultData result, string runId, CancellationToken cancellationToken);
     }
 }

@@ -12,6 +12,7 @@ BEGIN
         [RunId] [varchar](50) null,
 	    [IsCanceled] [bit] NOT NULL,
         [RetryCount] [smallint] NOT NULL,
+        [MaxRetryCount] [smallint] NOT NULL,
 	    [HeartbeatDateTime] [datetime2](7) NULL,
 	    [InputData] [varchar](max) NOT NULL,
 	    [TaskContext] [varchar](max) NULL,
@@ -50,6 +51,7 @@ CREATE OR ALTER PROCEDURE [dbo].[CreateTask]
     @taskId varchar(64),
     @queueId varchar(64),
 	@taskTypeId smallint,
+    @maxRetryCount smallint = 3,
     @inputData varchar(max)
 AS
     SET NOCOUNT ON
@@ -74,11 +76,11 @@ AS
 
     -- Create new task
     INSERT INTO [dbo].[TaskInfo]
-        (TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, HeartbeatDateTime, InputData)
+        (TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData)
     VALUES
-        (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @heartbeatDateTime, @inputData)
+        (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @maxRetryCount, @heartbeatDateTime, @inputData)
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 
@@ -104,7 +106,7 @@ CREATE OR ALTER PROCEDURE [dbo].[GetTaskDetails]
 AS
     SET NOCOUNT ON
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 GO
@@ -155,7 +157,7 @@ AS
 	SET HeartbeatDateTime = @heartbeatDateTime, TaskContext = @taskContext
 	WHERE TaskId = @taskId
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 
@@ -205,7 +207,7 @@ AS
 	SET HeartbeatDateTime = @heartbeatDateTime
 	WHERE TaskId = @taskId
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 
@@ -257,7 +259,7 @@ AS
 	SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @taskResult
 	WHERE TaskId = @taskId
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 
@@ -303,7 +305,7 @@ AS
 	SET IsCanceled = 1, HeartbeatDateTime = @heartbeatDateTime
 	WHERE TaskId = @taskId
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 
@@ -330,8 +332,7 @@ GO
 CREATE OR ALTER PROCEDURE [dbo].[ResetTask]
     @taskId varchar(64),
     @runId varchar(50),
-    @result varchar(max),
-    @maxRetryCount smallint = 3
+    @result varchar(max)
 AS
     SET NOCOUNT ON
 
@@ -341,17 +342,18 @@ AS
     -- Can only reset task with same runid
     DECLARE @retryCount smallint
     DECLARE @status smallint
+    DECLARE @maxRetryCount smallint
 
-    SELECT @retryCount = RetryCount, @status = Status
+    SELECT @retryCount = RetryCount, @status = Status, @maxRetryCount = MaxRetryCount
     FROM [dbo].[TaskInfo]
     WHERE TaskId = @taskId and RunId = @runId
 
 	-- We will timestamp the jobs when we update them to track stale jobs.
-    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
-
     IF (@retryCount IS NULL) BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
+
+    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
     IF (@retryCount >= @maxRetryCount) BEGIN
 		UPDATE dbo.TaskInfo
@@ -364,7 +366,7 @@ AS
 		WHERE TaskId = @taskId
 	END
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
 	FROM [dbo].[TaskInfo]
 	where TaskId = @taskId
 
@@ -428,7 +430,7 @@ AS
     SET Status = 2, HeartbeatDateTime = @heartbeatDateTime, RunId = CAST(NEWID() AS NVARCHAR(50))
     FROM dbo.TaskInfo task INNER JOIN @availableJobs availableJob ON task.TaskId = availableJob.TaskId
 
-	Select task.TaskId, task.QueueId, task.Status, task.TaskTypeId, task.RunId, task.IsCanceled, task.RetryCount, task.HeartbeatDateTime, task.InputData, task.TaskContext, task.Result
+	Select task.TaskId, task.QueueId, task.Status, task.TaskTypeId, task.RunId, task.IsCanceled, task.RetryCount, task.MaxRetryCount, task.HeartbeatDateTime, task.InputData, task.TaskContext, task.Result
 	from dbo.TaskInfo task INNER JOIN @availableJobs availableJob ON task.TaskId = availableJob.TaskId
 
     COMMIT TRANSACTION

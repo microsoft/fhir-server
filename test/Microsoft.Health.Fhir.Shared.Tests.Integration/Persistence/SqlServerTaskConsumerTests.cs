@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
             string firstRunId = taskInfo.RunId;
             TaskResultData result = new TaskResultData(TaskResult.Success, "Result");
-            taskInfo = await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, taskInfo.RunId, 3, CancellationToken.None);
+            taskInfo = await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, taskInfo.RunId, CancellationToken.None);
             Assert.Equal(1, taskInfo.RetryCount);
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
@@ -281,15 +281,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 QueueId = queueId,
                 TaskTypeId = typeId,
                 InputData = inputData,
+                MaxRetryCount = 1,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
             TaskResultData result = new TaskResultData(TaskResult.Fail, "Result");
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
-            taskInfo = await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, taskInfo.RunId, 1, CancellationToken.None);
+            taskInfo = await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, taskInfo.RunId, CancellationToken.None);
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
-            await Assert.ThrowsAsync<TaskAlreadyCompletedException>(async () => await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, taskInfo.RunId, 1, CancellationToken.None));
+            await Assert.ThrowsAsync<TaskAlreadyCompletedException>(async () => await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, taskInfo.RunId, CancellationToken.None));
 
             taskInfo = await sqlServerTaskManager.GetTaskAsync(taskInfo.TaskId, CancellationToken.None);
             Assert.Equal(TaskStatus.Completed, taskInfo.Status);
@@ -322,6 +323,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 QueueId = queueId,
                 TaskTypeId = typeId,
                 InputData = inputData,
+                MaxRetryCount = 1,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
@@ -329,7 +331,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
             _ = await sqlServerTaskConsumer.CompleteAsync(taskInfo.TaskId, result, taskInfo.RunId, CancellationToken.None);
-            await Assert.ThrowsAsync<TaskAlreadyCompletedException>(async () => await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, taskInfo.RunId, 1, CancellationToken.None));
+            await Assert.ThrowsAsync<TaskAlreadyCompletedException>(async () => await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, taskInfo.RunId, CancellationToken.None));
         }
 
         [Fact]
@@ -358,6 +360,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 QueueId = queueId,
                 TaskTypeId = typeId,
                 InputData = inputData,
+                MaxRetryCount = 1,
             };
 
             _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
@@ -366,7 +369,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
             await Assert.ThrowsAsync<TaskNotExistException>(async () => await sqlServerTaskConsumer.KeepAliveAsync(taskInfo.TaskId, "invalid", CancellationToken.None));
             await Assert.ThrowsAsync<TaskNotExistException>(async () => await sqlServerTaskConsumer.CompleteAsync(taskInfo.TaskId, result, "invalid", CancellationToken.None));
-            await Assert.ThrowsAsync<TaskNotExistException>(async () => await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, "invalid", 1, CancellationToken.None));
+            await Assert.ThrowsAsync<TaskNotExistException>(async () => await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, "invalid", CancellationToken.None));
         }
     }
 }
