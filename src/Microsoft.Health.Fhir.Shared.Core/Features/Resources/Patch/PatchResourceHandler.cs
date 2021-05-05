@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
@@ -73,15 +74,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 ISourceNode node = FhirJsonNode.Parse(currentDoc.RawResource.Data);
                 Resource resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPoco<Resource>();
                 JObject nodeJson = node.ToJObject();
+                string narrative = resource.Scalar(KnownFhirPaths.ResourceNarrative) as string;
+                string narrativeStatus = (string)nodeJson["text"]["status"];
 
                 request.PatchDocument.ApplyTo(nodeJson);
 
                 FhirJsonNode nodePatch = (FhirJsonNode)FhirJsonNode.Create(nodeJson);
                 Resource resourcePatch = nodePatch.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPoco<Resource>();
+                string narrativePatch = resourcePatch.Scalar(KnownFhirPaths.ResourceNarrative) as string;
+                string narrativeStatusPatch = (string)nodeJson["text"]["status"];
 
                 if (resource.Id != resourcePatch.Id ||
                     resource.VersionId != resourcePatch.VersionId ||
-                    resource.Meta.LastUpdated.Value != resourcePatch.Meta.LastUpdated.Value)
+                    resource.Meta.LastUpdated.Value != resourcePatch.Meta.LastUpdated.Value ||
+                    narrative != narrativePatch ||
+                    narrativeStatus != narrativeStatusPatch)
                 {
                     throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
                 }

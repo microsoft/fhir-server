@@ -79,6 +79,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("/versionId", "100")]
         [InlineData("/resourceType", "DummyResource")]
+        [InlineData("/text/div", "<div>dummy narrative</div>")]
+        [InlineData("/text/status", "extensions")]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingAForbiddenPropertyPatch_ThenAnErrorShouldBeReturned(string propertyName, string value)
         {
