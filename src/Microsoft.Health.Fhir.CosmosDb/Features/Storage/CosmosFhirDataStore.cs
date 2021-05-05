@@ -461,11 +461,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     if (page.Count > 0)
                     {
                         results.AddRange(page);
-                        if (mustNotExceedMaxItemCount && results.Count > feedOptions.MaxItemCount)
+                        if (mustNotExceedMaxItemCount && page.Count > feedOptions.MaxItemCount)
                         {
                             // we might get here if executingWithParallelism == true
 
-                            int toRemove = results.Count - feedOptions.MaxItemCount.Value;
+                            int toRemove = page.Count - feedOptions.MaxItemCount.Value;
                             results.RemoveRange(results.Count - toRemove, toRemove);
                             break;
                         }
