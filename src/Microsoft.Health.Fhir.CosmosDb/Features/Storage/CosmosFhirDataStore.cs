@@ -445,7 +445,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // The advantage is that we don't need to construct a new query with a new page size.
 
                 int currentDesiredCount = totalDesiredCount - results.Count;
-                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount && !executingWithMaxParallelism)
+                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount)
                 {
                     // Construct a new query with a smaller page size.
                     // We do this to ensure that we will not exceed the original max page size and that
@@ -461,14 +461,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     if (page.Count > 0)
                     {
                         results.AddRange(page);
-                        if (mustNotExceedMaxItemCount && page.Count > feedOptions.MaxItemCount)
-                        {
-                            // we might get here if executingWithParallelism == true
-
-                            int toRemove = page.Count - feedOptions.MaxItemCount.Value;
-                            results.RemoveRange(results.Count - toRemove, toRemove);
-                            break;
-                        }
                     }
                 }
                 catch (CosmosException e) when (e.IsRequestRateExceeded())
