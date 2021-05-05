@@ -130,10 +130,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
                 }
             }
+            catch (ImportFileEtagNotMatchException eTagEx)
+            {
+                _logger.LogError(eTagEx, "Import file etag not match.");
+                return new TaskResultData(TaskResult.Fail, eTagEx.Message);
+            }
             catch (Exception ex)
             {
-                // DO THINK: shuld we recover the db here?
-                // log here and throw and return error result
+                _logger.LogError(ex, "Failed to import data.");
                 throw new RetriableTaskException(ex.Message);
             }
 
@@ -216,7 +220,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 while (runningTasks.Count >= _orchestratorInputData.MaxConcurrentProcessingTaskCount)
                 {
-                    await MonitorRunningTasks(runningTasks, cancellationToken);
+                    List<Uri> completedTaskResourceUris = await MonitorRunningTasksAsync(runningTasks, cancellationToken);
+
+                    if (completedTaskResourceUris.Count > 0)
+                    {
+                        runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
+                        await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
+                    }
+                    else
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                    }
                 }
 
                 TaskInfo taskInfoFromServer = await _taskManager.GetTaskAsync(taskInfo.TaskId, cancellationToken);
@@ -235,11 +249,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             while (runningTasks.Count > 0)
             {
-                await MonitorRunningTasks(runningTasks, cancellationToken);
+                List<Uri> completedTaskResourceUris = await MonitorRunningTasksAsync(runningTasks, cancellationToken);
+
+                if (completedTaskResourceUris.Count > 0)
+                {
+                    runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
+                    await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
+                }
+                else
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                }
             }
         }
 
-        private async Task MonitorRunningTasks(List<(Uri resourceUri, TaskInfo taskInfo)> runningTasks, CancellationToken cancellationToken)
+        private async Task<List<Uri>> MonitorRunningTasksAsync(List<(Uri resourceUri, TaskInfo taskInfo)> runningTasks, CancellationToken cancellationToken)
         {
             List<Uri> completedTaskResourceUris = new List<Uri>();
 
@@ -252,12 +276,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     completedTaskResourceUris.Add(runningResourceUri);
                 }
-
-                // TODO Aggregate task result
             }
 
-            runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
-            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+            return completedTaskResourceUris;
         }
 
         public void Cancel()

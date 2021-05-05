@@ -7,16 +7,18 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class ImportTaskConfiguration
     {
+        private const uint DefaultMaximumConcurrency = 5;
+
         /// <summary>
         /// Determines whether bulk import is enabled or not.
         /// </summary>
-        public bool Enabled { get; set; } = true;
+        public bool Enabled { get; set; }
 
         public string ProcessingTaskQueueId { get; set; }
 
         /// <summary>
         /// Controls how many resources will be returned for each search query while importing the data.
         /// </summary>
-        public uint MaximumConcurrency { get; set; } = 5;
+        public uint MaximumConcurrency { get; set; } = DefaultMaximumConcurrency;
     }
 }
