@@ -3498,7 +3498,7 @@ AS
 	    SELECT *
 	    , DupRank = ROW_NUMBER() OVER (
 				      PARTITION BY ResourceId
-				      ORDER BY ResourceSurrogateId)
+				      ORDER BY ResourceSurrogateId desc)
 	    From dbo.Resource
     ) as rank
     where rank.DupRank > 1

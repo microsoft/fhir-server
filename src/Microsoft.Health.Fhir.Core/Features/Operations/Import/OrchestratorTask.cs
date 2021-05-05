@@ -30,7 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private OrchestratorTaskContext _orchestratorTaskContext; // TODO : changed later
         private ITaskManager _taskManager;
-        private string _processingQueueId;
         private ISequenceIdGenerator<long> _sequenceIdGenerator;
         private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
         private IContextUpdater _contextUpdater;
@@ -42,7 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             ImportOrchestratorTaskInputData orchestratorInputData,
             OrchestratorTaskContext orchestratorTaskContext,
             ITaskManager taskManager,
-            string processingQueueId,
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IContextUpdater contextUpdater,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
@@ -53,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             EnsureArg.IsNotNull(orchestratorInputData, nameof(orchestratorInputData));
             EnsureArg.IsNotNull(orchestratorTaskContext, nameof(orchestratorTaskContext));
             EnsureArg.IsNotNull(taskManager, nameof(taskManager));
-            EnsureArg.IsNotNullOrEmpty(processingQueueId, nameof(processingQueueId));
             EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(contextUpdater, nameof(contextUpdater));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
@@ -64,7 +61,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _orchestratorInputData = orchestratorInputData;
             _orchestratorTaskContext = orchestratorTaskContext;
             _taskManager = taskManager;
-            _processingQueueId = processingQueueId;
             _sequenceIdGenerator = sequenceIdGenerator;
             _contextUpdater = contextUpdater;
             _contextAccessor = contextAccessor;
@@ -193,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 TaskInfo processingTask = new TaskInfo()
                 {
-                    QueueId = _processingQueueId,
+                    QueueId = _orchestratorInputData.ProcessingTaskQueueId,
                     TaskId = taskId,
                     TaskTypeId = ImportTask.ImportProcessingTaskId,
                     InputData = JsonConvert.SerializeObject(importTaskPayload),

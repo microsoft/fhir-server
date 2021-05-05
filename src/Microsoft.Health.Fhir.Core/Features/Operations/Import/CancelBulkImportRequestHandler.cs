@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -43,7 +43,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            throw new NotImplementedException();
+            TaskInfo taskInfo = await _taskManager.CancelTaskAsync(request.TaskId, cancellationToken);
+
+            if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
+            {
+                return new CancelImportResponse(HttpStatusCode.Conflict);
+            }
+            else
+            {
+                return new CancelImportResponse(HttpStatusCode.Accepted);
+            }
         }
     }
 }

@@ -9,12 +9,15 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.TaskManagement;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -23,24 +26,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// </summary>
     public class CreateBulkImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
     {
-        private readonly IClaimsExtractor _claimsExtractor;
         private readonly ITaskManager _taskManager;
+        private readonly ImportTaskConfiguration _importTaskConfiguration;
+        private readonly TaskHostingConfiguration _taskHostingConfiguration;
         private readonly ILogger<CreateBulkImportRequestHandler> _logger;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
         public CreateBulkImportRequestHandler(
-            IClaimsExtractor claimsExtractor,
             ITaskManager taskManager,
+            IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<TaskHostingConfiguration> taskHostingConfiguration,
             ILogger<CreateBulkImportRequestHandler> logger,
             IAuthorizationService<DataActions> authorizationService)
         {
-            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(taskManager, nameof(taskManager));
+            EnsureArg.IsNotNull(operationsConfig.Value, nameof(operationsConfig));
+            EnsureArg.IsNotNull(taskHostingConfiguration.Value, nameof(taskHostingConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _claimsExtractor = claimsExtractor;
             _taskManager = taskManager;
+            _importTaskConfiguration = operationsConfig.Value.BulkImport;
+            _taskHostingConfiguration = taskHostingConfiguration.Value;
             _authorizationService = authorizationService;
             _logger = logger;
         }
@@ -54,7 +61,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            throw new NotImplementedException();
+            string taskId = Guid.NewGuid().ToString("N");
+
+            string processingTaskQueueId = string.IsNullOrEmpty(_importTaskConfiguration.ProcessingTaskQueueId) ? _taskHostingConfiguration.QueueId : _importTaskConfiguration.ProcessingTaskQueueId;
+            ImportOrchestratorTaskInputData inputData = new ImportOrchestratorTaskInputData()
+            {
+                RequestUri = request.RequestUri,
+                BaseUri = new Uri(request.RequestUri.GetLeftPart(UriPartial.Authority)),
+                Input = request.Input,
+                InputFormat = request.InputFormat,
+                InputSource = request.InputSource,
+                StorageDetail = request.StorageDetail,
+                MaxConcurrentProcessingTaskCount = (int)_importTaskConfiguration.MaximumConcurrency,
+                ProcessingTaskQueueId = processingTaskQueueId,
+                TaskId = taskId,
+            };
+
+            TaskInfo taskInfo = new TaskInfo()
+            {
+                TaskId = taskId,
+                TaskTypeId = OrchestratorTask.ImportOrchestratorTaskId,
+                MaxRetryCount = 5,
+                QueueId = _taskHostingConfiguration.QueueId,
+                InputData = JsonConvert.SerializeObject(inputData),
+            };
+
+            await _taskManager.CreateTaskAsync(taskInfo, cancellationToken);
+
+            return new CreateImportResponse(taskId);
         }
     }
 }

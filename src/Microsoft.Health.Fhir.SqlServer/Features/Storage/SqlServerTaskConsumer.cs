@@ -23,8 +23,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerTaskConsumer : ITaskConsumer
     {
-        private const string DefaultQueueId = "default";
-
         private TaskHostingConfiguration _taskHostingConfiguration;
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ILogger<SqlServerTaskConsumer> _logger;
@@ -107,7 +105,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                string queueId = string.IsNullOrEmpty(_taskHostingConfiguration.QueueId) ? DefaultQueueId : _taskHostingConfiguration.QueueId;
+                string queueId = _taskHostingConfiguration.QueueId;
                 VLatest.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, count, taskHeartbeatTimeoutThresholdInSeconds);
                 SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 

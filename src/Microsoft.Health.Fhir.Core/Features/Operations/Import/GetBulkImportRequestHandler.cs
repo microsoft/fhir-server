@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.TaskManagement;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -39,7 +40,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            throw new NotImplementedException();
+            TaskInfo taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
+            if (taskInfo.Status != TaskManagement.TaskStatus.Completed)
+            {
+                return new GetImportResponse(HttpStatusCode.Accepted);
+            }
+            else
+            {
+                TaskResultData resultData = JsonConvert.DeserializeObject<TaskResultData>(taskInfo.Result);
+                if (resultData.Result == TaskResult.Success)
+                {
+                    return new GetImportResponse(HttpStatusCode.OK, resultData.ResultData);
+                }
+                else
+                {
+                    return new GetImportResponse(HttpStatusCode.BadRequest, resultData.ResultData);
+                }
+            }
         }
     }
 }

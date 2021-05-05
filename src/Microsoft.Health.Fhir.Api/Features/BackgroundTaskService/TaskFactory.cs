@@ -79,7 +79,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     inputData,
                     orchestratorTaskProgress,
                     _taskmanager,
-                    "default",
                     _sequenceIdGenerator,
                     contextUpdater,
                     _contextAccessor,

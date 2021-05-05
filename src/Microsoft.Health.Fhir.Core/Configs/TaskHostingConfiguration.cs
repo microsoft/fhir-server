@@ -7,9 +7,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class TaskHostingConfiguration
     {
+        public const string DefaultQueueId = "default";
+
         public bool Enabled { get; set; }
 
-        public string QueueId { get; set; }
+        public string QueueId { get; set; } = DefaultQueueId;
 
         public int? TaskHeartbeatTimeoutThresholdInSeconds { get; set; }
 

@@ -26,5 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportRequestStorageDetail StorageDetail { get; set; }
 
         public int MaxConcurrentProcessingTaskCount { get; set; }
+
+        public string ProcessingTaskQueueId { get; set; }
     }
 }

@@ -12,21 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public bool Enabled { get; set; } = true;
 
-        /// <summary>
-        /// Determines the number of consecutive failures (per data processing task) allowed before the job is marked as failed.
-        /// Setting this number to 0 means job will not be retired and setting this number of -1 means there is no threshold.
-        /// </summary>
-        public int ConsecutiveFailuresThreshold { get; set; } = 3;
-
-        /// <summary>
-        /// Determines the number of seconds allowed before the worker declares job to be stale and can be picked up again.
-        /// </summary>
-        public ushort JobHeartbeatTimeoutThresholdInSeconds { get; set; } = 600;
-
-        /// <summary>
-        /// Determines the frequency of polling new jobs in milliseconds
-        /// </summary>
-        public ushort JobPollingFrequencyInMilliseconds { get; set; } = 30;
+        public string ProcessingTaskQueueId { get; set; }
 
         /// <summary>
         /// Controls how many resources will be returned for each search query while importing the data.
