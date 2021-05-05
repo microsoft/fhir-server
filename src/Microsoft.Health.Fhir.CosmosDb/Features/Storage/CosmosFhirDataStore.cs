@@ -389,10 +389,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         ///     If specified, overrides <see cref="CosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds"/> </param> as the maximum amount of time to spend enumerating pages from the SDK to get at least <see cref="QueryRequestOptions.MaxItemCount"/> * <see cref="ExecuteDocumentQueryAsyncMinimumFillFactor"/> results.
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The results and possible continuation token</returns>
-        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, TimeSpan? searchEnumerationTimeoutOverride = default, CancellationToken cancellationToken = default)
+        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(
+            QueryDefinition sqlQuerySpec,
+            QueryRequestOptions feedOptions,
+            string continuationToken = null,
+            bool mustNotExceedMaxItemCount = true,
+            TimeSpan? searchEnumerationTimeoutOverride = default,
+            CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
+            // Execution of the query can alter feedOptions.MaxItemCount, so assing how much items we want here.
+            int totalDesiredCount = feedOptions.MaxItemCount.Value;
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
             ICosmosQuery<T> cosmosQuery = null;
             var startTime = Clock.UtcNow;
@@ -415,10 +423,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return (singlePageResults, page.ContinuationToken);
             }
 
-            int totalDesiredCount = feedOptions.MaxItemCount.Value;
-
             // try to obtain at least half of the requested results
-
             var results = new List<T>(totalDesiredCount);
             results.AddRange(page);
 

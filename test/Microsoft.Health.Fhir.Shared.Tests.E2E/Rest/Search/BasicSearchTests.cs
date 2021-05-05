@@ -834,6 +834,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenSetOfChunkyResources_WhenIteratingOverThem_ThenAllResourcesReturned()
         {
+            int n = 30;
             var tag = Guid.NewGuid().ToString();
             var sb = new StringBuilder();
             for (int i = 0; i < 500_000; i++)
@@ -843,7 +844,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var text = "<div>" + sb.ToString() + "</div>";
 
-            for (int i = 0; i < 50; i++)
+            for (int i = 0; i < n; i++)
             {
                 var observation = await Client.CreateResourcesAsync<Observation>(() => new Observation()
                 {
@@ -855,7 +856,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
             }
 
-            List<int> values = new List<int>();
+            List<int> values = new();
             int count = 0;
             string nextLink = $"Observation?_count=20&_tag={tag}";
             do
@@ -870,8 +871,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 nextLink = firstBundle.NextLink?.ToString();
             }
             while (nextLink != null);
-            Assert.Equal(50, count);
-            Assert.Equal(Enumerable.Range(0, 50), values.OrderBy(x => x));
+            Assert.Equal(n, count);
+            Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
+        }
+
+        [Fact]
+        public async Task GivenSetOfChunkyResources_WhenIteratingOverThemWithSort_ThenAllResourcesReturned()
+        {
+            int n = 30;
+            var tag = Guid.NewGuid().ToString();
+            var sb = new StringBuilder();
+            for (int i = 0; i < 500_000; i++)
+            {
+                sb.Append('A');
+            }
+
+            var text = "<div>" + sb.ToString() + "</div>";
+            var date = new DateTime(2000, 01, 01);
+            for (int i = 0; i < n; i++)
+            {
+                var observation = await Client.CreateResourcesAsync<Patient>(() => new Patient()
+                {
+                    Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } },
+                    BirthDate = date.AddDays(i).ToString("yyyy-MM-dd"),
+                    Text = new Narrative() { Div = text },
+                });
+            }
+
+            List<int> values = new();
+            int count = 0;
+            string nextLink = $"Patient?_count=20&_tag={tag}&_sort=-_lastUpdated";
+            do
+            {
+                Bundle firstBundle = await Client.SearchAsync(nextLink);
+                foreach (var entity in firstBundle.Entry)
+                {
+                    values.Add(DateTime.Parse(((Patient)entity.Resource).BirthDate).Subtract(date).Days);
+                }
+
+                count += firstBundle.Entry.Count;
+                nextLink = firstBundle.NextLink?.ToString();
+            }
+            while (nextLink != null);
+            Assert.Equal(n, count);
+            Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
         }
 
         private async Task<Patient[]> CreatePatientsWithSpecifiedElements(Coding tag, string[] elements)
