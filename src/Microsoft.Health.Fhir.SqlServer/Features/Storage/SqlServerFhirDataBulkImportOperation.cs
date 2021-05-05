@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerFhirDataBulkImportOperation : IFhirDataBulkImportOperation
     {
+        private const int RemoveDuplicatedResourceCommandTimeoutInSec = 60 * 10;
+
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
         private ILogger<SqlServerFhirDataBulkImportOperation> _logger;
@@ -39,43 +41,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
-        public IReadOnlyDictionary<string, Index> UnclusteredIndexes { get; } =
-            new Dictionary<string, Index>()
+        public IReadOnlyList<(string tableName, Index index)> UnclusteredIndexes { get; } =
+            new List<(string tableName, Index index)>()
             {
-                { VLatest.Resource.TableName, VLatest.Resource.IX_Resource_ResourceSurrogateId },
-                { VLatest.Resource.TableName, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId },
-                { VLatest.Resource.TableName, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId_Version },
-                { VLatest.Resource.TableName, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId },
-                { VLatest.CompartmentAssignment.TableName, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId },
-                { VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime },
-                { VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long },
-                { VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime },
-                { VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long },
-                { VLatest.NumberSearchParam.TableName, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_HighValue_LowValue },
-                { VLatest.NumberSearchParam.TableName, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_LowValue_HighValue },
-                { VLatest.NumberSearchParam.TableName, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_SingleValue },
-                { VLatest.QuantitySearchParam.TableName, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue },
-                { VLatest.QuantitySearchParam.TableName, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue },
-                { VLatest.QuantitySearchParam.TableName, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue },
-                { VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion },
-                { VLatest.ReferenceTokenCompositeSearchParam.TableName, VLatest.ReferenceTokenCompositeSearchParam.IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2 },
-                { VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_Text },
-                { VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_TextWithOverflow },
-                { VLatest.TokenDateTimeCompositeSearchParam.TableName, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2 },
-                { VLatest.TokenDateTimeCompositeSearchParam.TableName, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long },
-                { VLatest.TokenDateTimeCompositeSearchParam.TableName, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2 },
-                { VLatest.TokenDateTimeCompositeSearchParam.TableName, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long },
-                { VLatest.TokenNumberNumberCompositeSearchParam.TableName, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3 },
-                { VLatest.TokenNumberNumberCompositeSearchParam.TableName, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2 },
-                { VLatest.TokenQuantityCompositeSearchParam.TableName, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2 },
-                { VLatest.TokenQuantityCompositeSearchParam.TableName, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2 },
-                { VLatest.TokenQuantityCompositeSearchParam.TableName, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2 },
-                { VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.IX_TokenSeachParam_SearchParamId_Code_SystemId },
-                { VLatest.TokenStringCompositeSearchParam.TableName, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2 },
-                { VLatest.TokenStringCompositeSearchParam.TableName, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow },
-                { VLatest.TokenText.TableName, VLatest.TokenText.IX_TokenText_SearchParamId_Text },
-                { VLatest.TokenTokenCompositeSearchParam.TableName, VLatest.TokenTokenCompositeSearchParam.IX_TokenTokenCompositeSearchParam_Code1_Code2 },
-                { VLatest.UriSearchParam.TableName, VLatest.UriSearchParam.IX_UriSearchParam_SearchParamId_Uri },
+                (VLatest.Resource.TableName, VLatest.Resource.IX_Resource_ResourceSurrogateId),
+                (VLatest.Resource.TableName, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId),
+                (VLatest.Resource.TableName, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId_Version),
+                (VLatest.Resource.TableName, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId),
+                (VLatest.CompartmentAssignment.TableName, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId),
+                (VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime),
+                (VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long),
+                (VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime),
+                (VLatest.DateTimeSearchParam.TableName, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long),
+                (VLatest.NumberSearchParam.TableName, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_HighValue_LowValue),
+                (VLatest.NumberSearchParam.TableName, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_LowValue_HighValue),
+                (VLatest.NumberSearchParam.TableName, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_SingleValue),
+                (VLatest.QuantitySearchParam.TableName, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue),
+                (VLatest.QuantitySearchParam.TableName, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue),
+                (VLatest.QuantitySearchParam.TableName, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue),
+                (VLatest.ReferenceSearchParam.TableName, VLatest.ReferenceSearchParam.IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion),
+                (VLatest.ReferenceTokenCompositeSearchParam.TableName, VLatest.ReferenceTokenCompositeSearchParam.IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2),
+                (VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_Text),
+                (VLatest.StringSearchParam.TableName, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_TextWithOverflow),
+                (VLatest.TokenDateTimeCompositeSearchParam.TableName, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2),
+                (VLatest.TokenDateTimeCompositeSearchParam.TableName, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long),
+                (VLatest.TokenDateTimeCompositeSearchParam.TableName, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2),
+                (VLatest.TokenDateTimeCompositeSearchParam.TableName, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long),
+                (VLatest.TokenNumberNumberCompositeSearchParam.TableName, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3),
+                (VLatest.TokenNumberNumberCompositeSearchParam.TableName, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2),
+                (VLatest.TokenQuantityCompositeSearchParam.TableName, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2),
+                (VLatest.TokenQuantityCompositeSearchParam.TableName, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2),
+                (VLatest.TokenQuantityCompositeSearchParam.TableName, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2),
+                (VLatest.TokenSearchParam.TableName, VLatest.TokenSearchParam.IX_TokenSeachParam_SearchParamId_Code_SystemId),
+                (VLatest.TokenStringCompositeSearchParam.TableName, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2),
+                (VLatest.TokenStringCompositeSearchParam.TableName, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow),
+                (VLatest.TokenText.TableName, VLatest.TokenText.IX_TokenText_SearchParamId_Text),
+                (VLatest.TokenTokenCompositeSearchParam.TableName, VLatest.TokenTokenCompositeSearchParam.IX_TokenTokenCompositeSearchParam_Code1_Code2),
+                (VLatest.UriSearchParam.TableName, VLatest.UriSearchParam.IX_UriSearchParam_SearchParamId_Uri),
 
                 // ResourceWriteClaim Table - No unclustered index
             };
@@ -130,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    IndexTableTypeV1Row[] indexes = UnclusteredIndexes.Select(index => new IndexTableTypeV1Row(index.Key, index.Value.IndexName)).ToArray();
+                    IndexTableTypeV1Row[] indexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.tableName, indexRecord.index.IndexName)).ToArray();
 
                     VLatest.DisableIndexes.PopulateCommand(sqlCommandWrapper, indexes);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -151,7 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    IndexTableTypeV1Row[] indexes = UnclusteredIndexes.Select(index => new IndexTableTypeV1Row(index.Key, index.Value.IndexName)).ToArray();
+                    IndexTableTypeV1Row[] indexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.tableName, indexRecord.index.IndexName)).ToArray();
 
                     VLatest.RebuildIndexes.PopulateCommand(sqlCommandWrapper, indexes);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -159,6 +161,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (SqlException sqlEx)
                 {
                     _logger.LogError(sqlEx, $"Failed to disable indexes.");
+
+                    throw;
+                }
+            }
+        }
+
+        public async Task DeleteDuplicatedResourcesAsync(CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                try
+                {
+                    sqlCommandWrapper.CommandTimeout = RemoveDuplicatedResourceCommandTimeoutInSec;
+
+                    VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogError(sqlEx, $"Failed to remove duplicated resources.");
 
                     throw;
                 }

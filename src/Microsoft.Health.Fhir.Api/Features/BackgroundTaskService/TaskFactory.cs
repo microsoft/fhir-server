@@ -19,6 +19,9 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private IImportResourceLoader _importResourceLoader;
         private IResourceBulkImporter _resourceBulkImporter;
         private IImportErrorStoreFactory _importErrorStoreFactory;
+        private ISequenceIdGenerator<long> _sequenceIdGenerator;
+        private IIntegrationDataStoreClient _integrationDataStoreClient;
+        private ITaskManager _taskmanager;
         private IContextUpdaterFactory _contextUpdaterFactory;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private ILoggerFactory _loggerFactory;
@@ -29,6 +32,9 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
             IContextUpdaterFactory contextUpdaterFactory,
+            ITaskManager taskmanager,
+            ISequenceIdGenerator<long> sequenceIdGenerator,
+            IIntegrationDataStoreClient integrationDataStoreClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
@@ -36,6 +42,9 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _importResourceLoader = importResourceLoader;
             _resourceBulkImporter = resourceBulkImporter;
             _importErrorStoreFactory = importErrorStoreFactory;
+            _sequenceIdGenerator = sequenceIdGenerator;
+            _integrationDataStoreClient = integrationDataStoreClient;
+            _taskmanager = taskmanager;
             _contextUpdaterFactory = contextUpdaterFactory;
             _contextAccessor = contextAccessor;
             _loggerFactory = loggerFactory;
@@ -43,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 
         public ITask Create(TaskInfo taskInfo)
         {
-            if (taskInfo.TaskTypeId == ImportTask.ResourceImportTaskId)
+            if (taskInfo.TaskTypeId == ImportTask.ImportProcessingTaskId)
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
                 ImportTaskInputData inputData = JsonConvert.DeserializeObject<ImportTaskInputData>(taskInfo.InputData);
@@ -57,6 +66,25 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     _importErrorStoreFactory,
                     contextUpdater,
                     _contextAccessor,
+                    _loggerFactory);
+            }
+
+            if (taskInfo.TaskTypeId == OrchestratorTask.ImportOrchestratorTaskId)
+            {
+                IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
+                ImportOrchestratorTaskInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorTaskInputData>(taskInfo.InputData);
+                OrchestratorTaskContext orchestratorTaskProgress = string.IsNullOrEmpty(taskInfo.Context) ? new OrchestratorTaskContext() : JsonConvert.DeserializeObject<OrchestratorTaskContext>(taskInfo.Context);
+
+                return new OrchestratorTask(
+                    inputData,
+                    orchestratorTaskProgress,
+                    _taskmanager,
+                    "default",
+                    _sequenceIdGenerator,
+                    contextUpdater,
+                    _contextAccessor,
+                    _fhirDataBulkImportOperation,
+                    _integrationDataStoreClient,
                     _loggerFactory);
             }
 

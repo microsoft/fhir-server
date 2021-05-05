@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public Task CommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken);
 
-        public Task<T> GetBlockPropertyAsync<T>(string blobUri, string propertyName, CancellationToken cancellationToken);
+        public Task<Dictionary<string, object>> GetPropertiesAsync(Uri blobUri, CancellationToken cancellationToken);
     }
 }

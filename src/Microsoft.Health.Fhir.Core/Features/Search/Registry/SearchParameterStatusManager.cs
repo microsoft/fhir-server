@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _mediator = mediator;
 
-            _latestSearchParams = DateTime.MinValue;
+            _latestSearchParams = DateTimeOffset.MinValue;
         }
 
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)

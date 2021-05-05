@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
         }
 
-        public async Task<T> GetBlockPropertyAsync<T>(string blobUri, string propertyName, CancellationToken cancellationToken)
+        public async Task<Dictionary<string, object>> GetPropertiesAsync(Uri blobUri, CancellationToken cancellationToken)
         {
             try
             {
@@ -139,14 +139,18 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                     .ExecuteAsync(async () =>
                     {
                         CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-                        ICloudBlob blob = await cloudBlobClient.GetBlobReferenceFromServerAsync(new Uri(blobUri));
-                        var value = blob.Properties.GetType().GetProperty(propertyName).GetValue(blob.Properties);
-                        return value == null ? default(T) : (T)value;
+                        ICloudBlob blob = await cloudBlobClient.GetBlobReferenceFromServerAsync(blobUri);
+
+                        Dictionary<string, object> result = new Dictionary<string, object>();
+                        result[IntegrationDataStoreClientConstants.BlobPropertyETag] = blob.Properties.ETag;
+                        result[IntegrationDataStoreClientConstants.BlobPropertyLength] = blob.Properties.Length;
+
+                        return result;
                     });
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, "Failed to get property {0} of blob {1}", propertyName, blobUri);
+                _logger.LogError(storageEx, "Failed to get properties of blob {0}", blobUri);
 
                 throw;
             }

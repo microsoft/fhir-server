@@ -18,5 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public Task DisableIndexesAsync(CancellationToken cancellationToken);
 
         public Task RebuildIndexesAsync(CancellationToken cancellationToken);
+
+        public Task DeleteDuplicatedResourcesAsync(CancellationToken cancellationToken);
     }
 }

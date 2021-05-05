@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -20,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class OrchestratorTask : ITask
     {
+        public const short ImportOrchestratorTaskId = 2;
+
         private const int PollingFrequencyInSeconds = 3;
         private const long MinResourceSizeInBytes = 64;
 
@@ -124,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.SubTasksCompleted)
                 {
-                    // remove duplicated resources
+                    await _fhirDataBulkImportOperation.DeleteDuplicatedResourcesAsync(cancellationToken);
                     await _fhirDataBulkImportOperation.RebuildIndexesAsync(cancellationToken);
 
                     _orchestratorTaskContext.Progress = OrchestratorTaskProgress.PostprocessCompleted;
@@ -145,8 +148,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             foreach (var input in _orchestratorInputData.Input)
             {
-                var latestEtag = await _integrationDataStoreClient.GetBlockPropertyAsync<string>(input.Url.ToString(), "ETag", cancellationToken);
-                EnsureArg.Equals(input.Etag, latestEtag);
+                if (!string.IsNullOrEmpty(input.Etag))
+                {
+                    Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
+                    if (!input.Etag.Equals(properties[IntegrationDataStoreClientConstants.BlobPropertyETag]))
+                    {
+                        throw new ImportFileEtagNotMatchException(string.Format("Input file Etag not match. {0}", input.Url));
+                    }
+                }
             }
         }
 
@@ -165,8 +174,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 string taskId = Guid.NewGuid().ToString("N");
 
-                string blobUri = input.Url.ToString();
-                long blobSizeInBytes = await _integrationDataStoreClient.GetBlockPropertyAsync<long>(blobUri, "Length", cancellationToken);
+                Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
+                long blobSizeInBytes = (long)properties[IntegrationDataStoreClientConstants.BlobPropertyLength];
+
                 long estimatedResourceNumber = (blobSizeInBytes / MinResourceSizeInBytes) + 1;
                 long endSequenceId = beginSequenceId + estimatedResourceNumber;
 
@@ -185,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     QueueId = _processingQueueId,
                     TaskId = taskId,
-                    TaskTypeId = ImportTask.ResourceImportTaskId,
+                    TaskTypeId = ImportTask.ImportProcessingTaskId,
                     InputData = JsonConvert.SerializeObject(importTaskPayload),
                 };
 
@@ -201,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             List<(Uri resourceUri, TaskInfo taskInfo)> runningTasks = new List<(Uri resourceUri, TaskInfo taskInfo)>();
 
-            foreach ((Uri resourceUri, TaskInfo taskInfo) in _orchestratorTaskContext.DataProcessingTasks)
+            foreach ((Uri resourceUri, TaskInfo taskInfo) in _orchestratorTaskContext.DataProcessingTasks.ToArray())
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -210,27 +220,48 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 while (runningTasks.Count >= _orchestratorInputData.MaxConcurrentProcessingTaskCount)
                 {
-                    List<Uri> completedTaskResourceUris = new List<Uri>();
-
-                    foreach ((Uri runningResourceUri, TaskInfo runningTaskInfo) in runningTasks)
-                    {
-                        TaskInfo latestTaskInfo = await _taskManager.GetTaskAsync(runningTaskInfo.TaskId, cancellationToken);
-
-                        _orchestratorTaskContext.DataProcessingTasks[runningResourceUri] = latestTaskInfo;
-                        if (latestTaskInfo.Status == TaskStatus.Completed)
-                        {
-                            completedTaskResourceUris.Add(runningResourceUri);
-                        }
-
-                        // TODO Aggregate task result
-                    }
-
-                    runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
-                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                    await MonitorRunningTasks(runningTasks, cancellationToken);
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                TaskInfo taskInfoFromServer = await _taskManager.GetTaskAsync(taskInfo.TaskId, cancellationToken);
+                if (taskInfoFromServer == null)
+                {
+                    taskInfoFromServer = await _taskManager.CreateTaskAsync(taskInfo, cancellationToken);
+                }
+
+                _orchestratorTaskContext.DataProcessingTasks[resourceUri] = taskInfoFromServer;
+                if (taskInfoFromServer.Status != TaskStatus.Completed)
+                {
+                    runningTasks.Add((resourceUri, taskInfoFromServer));
+                    await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                }
             }
+
+            while (runningTasks.Count > 0)
+            {
+                await MonitorRunningTasks(runningTasks, cancellationToken);
+            }
+        }
+
+        private async Task MonitorRunningTasks(List<(Uri resourceUri, TaskInfo taskInfo)> runningTasks, CancellationToken cancellationToken)
+        {
+            List<Uri> completedTaskResourceUris = new List<Uri>();
+
+            foreach ((Uri runningResourceUri, TaskInfo runningTaskInfo) in runningTasks)
+            {
+                TaskInfo latestTaskInfo = await _taskManager.GetTaskAsync(runningTaskInfo.TaskId, cancellationToken);
+
+                _orchestratorTaskContext.DataProcessingTasks[runningResourceUri] = latestTaskInfo;
+                if (latestTaskInfo.Status == TaskStatus.Completed)
+                {
+                    completedTaskResourceUris.Add(runningResourceUri);
+                }
+
+                // TODO Aggregate task result
+            }
+
+            runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
+            await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
         }
 
         public void Cancel()

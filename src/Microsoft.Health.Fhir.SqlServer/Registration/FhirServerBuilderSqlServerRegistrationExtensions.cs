@@ -211,6 +211,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsSelf();
 
+            services.Add<SqlStoreSequenceIdGenerator>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

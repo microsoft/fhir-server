@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportTask : ITask
     {
-        public const short ResourceImportTaskId = 1;
+        public const short ImportProcessingTaskId = 1;
 
         private ImportTaskInputData _inputData;
         private ImportProgress _importProgress;

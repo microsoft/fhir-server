@@ -25,10 +25,11 @@
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
-                "SqlServer:ConnectionString": "Server=tcp:tongwu-task.database.windows.net,1433;Initial Catalog=tongu0412;Persist Security Info=False;User ID=tongwu;Password=!1qaz@2wsx#3edc;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;",
+                "SqlServer:ConnectionString": "Server=tcp:tongwu-task.database.windows.net,1433;Initial Catalog=tongwu0505;Persist Security Info=False;User ID=tongwu;Password=!1qaz@2wsx#3edc;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;",
                 "DataStore": "SqlServer",
                 "TaskHosting:Enabled": "true",
                 "TaskHosting:QueueId": "default",
+                "TaskHosting:MaxRunningTaskCount": "2",
                 "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
