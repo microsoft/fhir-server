@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private readonly FhirController _fhirController;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
         private readonly ILogger<FhirController> _logger = Substitute.For<ILogger<FhirController>>();
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
         private readonly IAuthorizationService _authorizationService = Substitute.For<IAuthorizationService>();
         private readonly HttpContext _httpContext = new DefaultHttpContext();

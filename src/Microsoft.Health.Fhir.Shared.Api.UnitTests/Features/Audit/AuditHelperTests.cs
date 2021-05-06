@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private static readonly IPAddress CallerIpAddress = new IPAddress(new byte[] { 0xA, 0x0, 0x0, 0x0 }); // 10.0.0.0
         private const string CallerIpAddressInString = "10.0.0.0";
 
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
         private readonly IAuditHeaderReader _auditHeaderReader = Substitute.For<IAuditHeaderReader>();
 
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _fhirRequestContext.CorrelationId.Returns(CorrelationId);
             _fhirRequestContext.ResourceType.Returns("Patient");
 
-            _fhirRequestContextAccessor.FhirRequestContext = _fhirRequestContext;
+            _fhirRequestContextAccessor.RequestContext = _fhirRequestContext;
 
             _httpContext.Connection.RemoteIpAddress = CallerIpAddress;
 

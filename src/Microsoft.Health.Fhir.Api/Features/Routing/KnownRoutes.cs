@@ -52,6 +52,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ConvertData = "$convert-data";
         public const string ConvertDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.ConvertData;
 
+        public const string MemberMatch = "Patient/$member-match";
+        public const string MemberMatchOperationDefinition = OperationDefinition + "/" + OperationsConstants.MemberMatch;
+
         public const string Everything = "$everything";
         public const string EverythingResourceTypeById = ResourceTypeById + "/" + Everything;
 

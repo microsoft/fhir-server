@@ -29,6 +29,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             CancellationToken cancellationToken);
 
         /// <summary>
+        /// Searches the resources using the <paramref name="searchOptions"/>.
+        /// </summary>
+        /// <param name="searchOptions">The options to use during the search.</param>
+        /// <param name="cancellationToken">The cancellationToken.</param>
+        /// <returns>The search result.</returns>
+        Task<SearchResult> SearchAsync(
+            SearchOptions searchOptions,
+            CancellationToken cancellationToken);
+
+        /// <summary>
         /// Searches resources based on the given compartment using the <paramref name="queryParameters"/>.
         /// </summary>
         /// <param name="compartmentType">The compartment type that needs to be searched.</param>

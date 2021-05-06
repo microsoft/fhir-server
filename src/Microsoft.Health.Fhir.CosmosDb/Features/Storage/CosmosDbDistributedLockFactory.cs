@@ -32,11 +32,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return new CosmosDbDistributedLock(_containerScopeFactory, lockId, _logger);
         }
 
-        public ICosmosDbDistributedLock Create(Container client, string lockId)
+        public ICosmosDbDistributedLock Create(Container container, string lockId)
         {
             EnsureArg.IsNotNullOrEmpty(lockId, nameof(lockId));
 
-            return new CosmosDbDistributedLock(() => new NonDisposingScope(client), lockId, _logger);
+            return new CosmosDbDistributedLock(() => new NonDisposingScope(container), lockId, _logger);
         }
     }
 }

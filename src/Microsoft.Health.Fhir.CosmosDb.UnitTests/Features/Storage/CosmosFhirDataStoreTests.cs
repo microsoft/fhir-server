@@ -13,6 +13,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,
-                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<IFhirRequestContextAccessor>()),
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<RequestContextAccessor<IFhirRequestContext>>()),
                 NullLogger<CosmosFhirDataStore>.Instance,
                 Options.Create(new CoreFeatureConfiguration()),
                 new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()));

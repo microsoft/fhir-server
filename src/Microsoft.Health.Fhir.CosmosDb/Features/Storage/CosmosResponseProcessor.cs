@@ -15,6 +15,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -23,12 +24,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class CosmosResponseProcessor : ICosmosResponseProcessor
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
         private readonly ICosmosQueryLogger _queryLogger;
         private readonly ILogger<CosmosResponseProcessor> _logger;
 
-        public CosmosResponseProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, IMediator mediator, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
+        public CosmosResponseProcessor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IMediator mediator, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -101,7 +102,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 double.TryParse(responseMessage.Headers["x-ms-request-duration-ms"], out var duration) ? duration : 0,
                 responseMessage.Headers["x-ms-documentdb-partitionkeyrangeid"]);
 
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             if (fhirRequestContext == null)
             {
                 return;
@@ -126,7 +127,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private async Task AddRequestChargeToFhirRequestContext(double responseRequestCharge, HttpStatusCode? statusCode)
         {
-            IFhirRequestContext requestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext requestContext = _fhirRequestContextAccessor.RequestContext;
 
             lock (requestContext.ResponseHeaders)
             {
@@ -166,7 +167,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private string GetCustomerManagedKeyErrorMessage(int subStatusCode)
+        private static string GetCustomerManagedKeyErrorMessage(int subStatusCode)
         {
             string errorMessage = Resources.CmkDefaultError;
 

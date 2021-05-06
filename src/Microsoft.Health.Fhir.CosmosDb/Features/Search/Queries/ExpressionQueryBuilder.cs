@@ -154,8 +154,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .Append(" FROM ")
                 .Append(SearchValueConstants.SearchIndexAliasName)
                 .Append(" IN ")
+#pragma warning disable CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
                 .Append(SearchValueConstants.RootAliasName)
-                .Append(".")
+#pragma warning restore CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
+                .Append('.')
                 .Append(KnownResourceWrapperProperties.SearchIndices)
                 .Append(" WHERE ");
 
@@ -176,7 +178,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 expression.AcceptVisitor(this, context);
             }
 
-            _queryBuilder.Append(")");
+            _queryBuilder.Append(')');
         }
 
         public object VisitBinary(BinaryExpression expression, Context context)
@@ -200,8 +202,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             _queryBuilder
                 .Append("NOT IS_DEFINED(")
-                .Append(context.InstanceVariableName).Append(".").Append(GetFieldName(expression, context))
-                .Append(")");
+                .Append(context.InstanceVariableName).Append('.').Append(GetFieldName(expression, context))
+                .Append(')');
             return null;
         }
 
@@ -209,7 +211,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             _queryBuilder.Append("NOT (");
             expression.Expression.AcceptVisitor(this, context);
-            _queryBuilder.Append(")");
+            _queryBuilder.Append(')');
             return null;
         }
 
@@ -245,7 +247,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             if (op == MultiaryOperator.Or)
             {
-                _queryBuilder.Append("(");
+                _queryBuilder.Append('(');
             }
 
             for (int i = 0; i < expressions.Count; i++)
@@ -257,16 +259,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 {
                     if (!char.IsWhiteSpace(_queryBuilder[_queryBuilder.Length - 1]))
                     {
-                        _queryBuilder.Append(" ");
+                        _queryBuilder.Append(' ');
                     }
 
-                    _queryBuilder.Append(operation).Append(" ");
+                    _queryBuilder.Append(operation).Append(' ');
                 }
             }
 
             if (op == MultiaryOperator.Or)
             {
-                _queryBuilder.Append(")");
+                _queryBuilder.Append(')');
             }
 
             return null;
@@ -286,7 +288,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             if (expression.StringOperator == StringOperator.Equals)
             {
                 _queryBuilder
-                    .Append(context.InstanceVariableName).Append(".").Append(fieldName)
+                    .Append(context.InstanceVariableName).Append('.').Append(fieldName)
                     .Append(" = ")
                     .Append(AddParameterMapping(value));
             }
@@ -294,11 +296,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             {
                 _queryBuilder
                     .Append(GetMappedValue(StringOperatorMapping, expression.StringOperator))
-                    .Append("(")
-                    .Append(context.InstanceVariableName).Append(".").Append(fieldName)
+                    .Append('(')
+                    .Append(context.InstanceVariableName).Append('.').Append(fieldName)
                     .Append(", ")
                     .Append(AddParameterMapping(value))
-                    .Append(")");
+                    .Append(')');
             }
 
             return null;
@@ -326,14 +328,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             string paramName = AddParameterMapping(value);
 
             _queryBuilder
-                .Append(state.InstanceVariableName).Append(".").Append(fieldName)
-                .Append(" ")
+                .Append(state.InstanceVariableName).Append('.').Append(fieldName)
+                .Append(' ')
                 .Append(GetMappedValue(BinaryOperatorMapping, op))
-                .Append(" ")
+                .Append(' ')
                 .Append(paramName);
         }
 
-        private string GetFieldName(IFieldExpression fieldExpression, Context state)
+        private static string GetFieldName(IFieldExpression fieldExpression, Context state)
         {
             string overrideValue = state.FieldNameOverride?.Invoke(fieldExpression.FieldName, fieldExpression.ComponentIndex);
             if (overrideValue != null)
@@ -388,7 +390,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         {
             _queryBuilder
                 .Append("ARRAY_CONTAINS(")
-                .Append(SearchValueConstants.RootAliasName).Append(".").Append(name)
+#pragma warning disable CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
+                .Append(SearchValueConstants.RootAliasName)
+#pragma warning restore CA1834 // Consider using 'StringBuilder.Append(char)' when applicable
+                .Append('.').Append(name)
                 .Append(", ")
                 .Append(_queryParameterManager.AddOrGetParameterMapping(value))
                 .AppendLine(")");

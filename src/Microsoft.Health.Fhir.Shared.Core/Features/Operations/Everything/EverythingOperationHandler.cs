@@ -38,9 +38,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             _authorizationService = authorizationService;
         }
 
-        public async Task<EverythingOperationResponse> Handle(EverythingOperationRequest message, CancellationToken cancellationToken)
+        public async Task<EverythingOperationResponse> Handle(EverythingOperationRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
             if (await _authorizationService.CheckAccess(DataActions.Read, cancellationToken) != DataActions.Read)
             {
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             SearchResult searchResult = await _searchService.SearchForEverythingOperationAsync(
-                message.ResourceType, message.ResourceId, message.Start, message.End, message.Since, message.Type, message.Count, message.ContinuationToken, _includes, _revincludes, cancellationToken);
+                request.ResourceType, request.ResourceId, request.Start, request.End, request.Since, request.Type, request.Count, request.ContinuationToken, _includes, _revincludes, cancellationToken);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 

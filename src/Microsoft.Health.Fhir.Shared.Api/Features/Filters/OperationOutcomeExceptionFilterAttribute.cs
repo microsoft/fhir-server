@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -30,13 +31,13 @@ using Microsoft.Net.Http.Headers;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
-    internal class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
+    internal sealed class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
     {
         private const string ValidateController = "Validate";
 
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
-        public OperationOutcomeExceptionFilterAttribute(IFhirRequestContextAccessor fhirRequestContextAccessor)
+        public OperationOutcomeExceptionFilterAttribute(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 var operationOutcomeResult = new OperationOutcomeResult(
                     new OperationOutcome
                     {
-                        Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                        Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                         Issue = fhirException.Issues.Select(x => x.ToPoco()).ToList(),
                     },
                     HttpStatusCode.BadRequest);
@@ -152,6 +153,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case ConfigureCustomSearchException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.FailedDependency;
                         break;
+                    case MemberMatchMatchingException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.UnprocessableEntity;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;
@@ -188,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         healthExceptionResult = new OperationOutcomeResult(
                             new OperationOutcome
                             {
-                                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                                Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                             },
                             HttpStatusCode.InternalServerError);
                         break;
@@ -221,7 +225,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             return new OperationOutcomeResult(
                 new OperationOutcome
                 {
-                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                    Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                     Issue = new List<OperationOutcome.IssueComponent>
                     {
                         new OperationOutcome.IssueComponent

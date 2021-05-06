@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -25,13 +26,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<BaseExceptionMiddleware> _logger;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IFormatParametersValidator _parametersValidator;
 
         public BaseExceptionMiddleware(
             RequestDelegate next,
             ILogger<BaseExceptionMiddleware> logger,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IFormatParametersValidator parametersValidator)
         {
             EnsureArg.IsNotNull(next, nameof(next));
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                     throw;
                 }
 
-                var localCorrelationId = _fhirRequestContextAccessor.FhirRequestContext?.CorrelationId;
+                var localCorrelationId = _fhirRequestContextAccessor.RequestContext?.CorrelationId;
 
                 Debug.Assert(!string.IsNullOrWhiteSpace(localCorrelationId), "The correlation id should have been generated.");
 

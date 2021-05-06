@@ -51,17 +51,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return validator;
         }
 
-        public OperationOutcomeIssue[] TryValidate(ITypedElement instance, string profile = null)
+        public OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null)
         {
             var validator = GetValidator();
             OperationOutcome result;
             if (!string.IsNullOrWhiteSpace(profile))
             {
-                result = validator.Validate(instance, profile);
+                result = validator.Validate(resource, profile);
             }
             else
             {
-                result = validator.Validate(instance);
+                result = validator.Validate(resource);
             }
 
             var outcomeIssues = result.Issue.OrderBy(x => x.Severity)

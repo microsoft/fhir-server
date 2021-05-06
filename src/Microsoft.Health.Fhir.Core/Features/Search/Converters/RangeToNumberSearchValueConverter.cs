@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
@@ -27,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             var lowValue = (decimal?)value.Scalar("low");
             var highValue = (decimal?)value.Scalar("high");
 
-            if (lowValue != null || highValue != null)
+            if (lowValue.HasValue || highValue.HasValue)
             {
                 yield return new NumberSearchValue(lowValue, highValue);
             }

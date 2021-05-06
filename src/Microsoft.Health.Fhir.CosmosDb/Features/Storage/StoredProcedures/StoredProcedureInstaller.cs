@@ -23,17 +23,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
             _storedProcedures = storedProcedures;
         }
 
-        public async Task ExecuteAsync(Container client)
+        public async Task ExecuteAsync(Container container)
         {
             foreach (IStoredProcedure storedProc in _storedProcedures)
             {
                 try
                 {
-                    await client.Scripts.ReadStoredProcedureAsync(storedProc.FullName);
+                    await container.Scripts.ReadStoredProcedureAsync(storedProc.FullName);
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
                 {
-                    await client.Scripts.CreateStoredProcedureAsync(storedProc.ToStoredProcedureProperties());
+                    await container.Scripts.CreateStoredProcedureAsync(storedProc.ToStoredProcedureProperties());
                 }
             }
         }

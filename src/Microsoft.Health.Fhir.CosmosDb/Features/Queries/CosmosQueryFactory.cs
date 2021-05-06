@@ -32,19 +32,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         }
 
         /// <inheritdoc />
-        public ICosmosQuery<T> Create<T>(Container container, CosmosQueryContext context)
+        public ICosmosQuery<T> Create<T>(Container container, CosmosQueryContext queryContext)
         {
             EnsureArg.IsNotNull(container, nameof(container));
-            EnsureArg.IsNotNull(context, nameof(context));
+            EnsureArg.IsNotNull(queryContext, nameof(queryContext));
 
             var documentQuery = container
                 .GetItemQueryIterator<T>(
-                    context.SqlQuerySpec,
-                    continuationToken: context.ContinuationToken,
-                    requestOptions: context.FeedOptions);
+                    queryContext.SqlQuerySpec,
+                    continuationToken: queryContext.ContinuationToken,
+                    requestOptions: queryContext.FeedOptions);
 
             return new CosmosQuery<T>(
-                context,
+                queryContext,
                 documentQuery,
                 _cosmosResponseProcessor,
                 _logger);

@@ -36,21 +36,21 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             // get the class-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
-            SingleFlagEnum[][] classLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(attributeInfo);
+            SingleFlag[][] classLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(attributeInfo);
 
             // convert these to the form (Arg1.OptionA, Arg2.OptionA), (Arg1.OptionA, Arg2.OptionB), (Arg1.OptionB, Arg2.OptionA), (Arg1.OptionB, Arg2.OptionB)
-            SingleFlagEnum[][] classLevelClosedParameterSets = CartesianProduct(classLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
+            SingleFlag[][] classLevelClosedParameterSets = CartesianProduct(classLevelOpenParameterSets).Select(e => e.ToArray()).ToArray();
 
             foreach (var method in testClass.Class.GetMethods(true))
             {
                 IAttributeInfo fixtureParameterAttributeInfo = method.GetCustomAttributes(typeof(FixtureArgumentSetsAttribute)).SingleOrDefault();
 
-                SingleFlagEnum[][] closedSets = classLevelClosedParameterSets;
+                SingleFlag[][] closedSets = classLevelClosedParameterSets;
 
                 if (fixtureParameterAttributeInfo != null)
                 {
                     // get the method-level parameter sets in the form (Arg1.OptionA, Arg1.OptionB), (Arg2.OptionA, Arg2.OptionB)
-                    SingleFlagEnum[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttributeInfo);
+                    SingleFlag[][] methodLevelOpenParameterSets = ExpandEnumFlagsFromAttributeData(fixtureParameterAttributeInfo);
 
                     bool hasOverride = false;
                     for (int i = 0; i < methodLevelOpenParameterSets.Length; i++)
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     }
                 }
 
-                foreach (SingleFlagEnum[] closedVariant in closedSets)
+                foreach (SingleFlag[] closedVariant in closedSets)
                 {
                     var closedVariantTestClass = new TestClassWithFixtureArguments(testClass.TestCollection, testClass.Class, closedVariant);
                     var closedVariantTestMethod = new TestMethod(closedVariantTestClass, method);
@@ -88,14 +88,14 @@ namespace Microsoft.Health.Extensions.Xunit
             return true;
         }
 
-        private static SingleFlagEnum[][] ExpandEnumFlagsFromAttributeData(IAttributeInfo attributeInfo)
+        private static SingleFlag[][] ExpandEnumFlagsFromAttributeData(IAttributeInfo attributeInfo)
         {
             bool IsPowerOfTwo(long x)
             {
                 return (x != 0) && ((x & (x - 1)) == 0);
             }
 
-            IEnumerable<SingleFlagEnum> GetSingleValuedFlags(Enum e)
+            IEnumerable<SingleFlag> GetSingleValuedFlags(Enum e)
             {
                 if (e is null)
                 {
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     {
                         if ((enumAsLong & flagAsLong) != 0)
                         {
-                            yield return new SingleFlagEnum(value);
+                            yield return new SingleFlag(value);
                         }
                     }
                 }

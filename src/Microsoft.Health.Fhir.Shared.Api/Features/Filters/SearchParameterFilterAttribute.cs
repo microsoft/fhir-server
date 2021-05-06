@@ -14,7 +14,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Method)]
-    internal class SearchParameterFilterAttribute : ActionFilterAttribute
+    internal sealed class SearchParameterFilterAttribute : ActionFilterAttribute
     {
         private ISearchParameterValidator _searchParameterValidator;
 
