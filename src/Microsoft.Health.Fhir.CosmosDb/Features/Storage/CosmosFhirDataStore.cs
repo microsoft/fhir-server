@@ -393,6 +393,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
+            int totalDesiredCount = 0;
+
+            if (feedOptions.MaxItemCount.HasValue)
+            {
+                totalDesiredCount = feedOptions.MaxItemCount.Value;
+            }
+
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
             ICosmosQuery<T> cosmosQuery = null;
             var startTime = Clock.UtcNow;
@@ -414,8 +421,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 singlePageResults.AddRange(page);
                 return (singlePageResults, page.ContinuationToken);
             }
-
-            int totalDesiredCount = feedOptions.MaxItemCount.Value;
 
             // try to obtain at least half of the requested results
 
