@@ -20,10 +20,10 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 {
-    public class ImportTaskTests
+    public class ImportProcessingTaskTests
     {
         [Fact]
-        public async Task GivenImportTaskInput_WhenCleanStart_AllResoruceShouldBeImported()
+        public async Task GivenImportTaskInput_WhenCleanStart_ThenAllResoruceShouldBeImported()
         {
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportTaskInput_WhenStartFromMiddle_AllResoruceShouldBeImported()
+        public async Task GivenImportTaskInput_WhenStartFromMiddle_ThenAllResoruceShouldBeImported()
         {
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportTaskInput_WhenExceptionThrowForImport_ContextShouldBeUpdatedBeforeFailure()
+        public async Task GivenImportTaskInput_WhenExceptionThrowForImport_ThenContextShouldBeUpdatedBeforeFailure()
         {
             long currentIndex = 100;
             ImportProcessingTaskInputData inputData = GetInputData();
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportTaskInput_WhenExceptionThrowForLoad_RetriableExceptionShouldBeThrow()
+        public async Task GivenImportTaskInput_WhenExceptionThrowForLoad_ThenRetriableExceptionShouldBeThrow()
         {
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportTaskInput_WhenExceptionThrowForCleanData_RetriableExceptionShouldBeThrow()
+        public async Task GivenImportTaskInput_WhenExceptionThrowForCleanData_ThenRetriableExceptionShouldBeThrow()
         {
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenImportTaskInput_WhenOperationWasCancelledExceptionThrow_TaskShouldBeCanceled()
+        public async Task GivenImportTaskInput_WhenOperationWasCancelledExceptionThrow_ThenTaskShouldBeCanceled()
         {
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
