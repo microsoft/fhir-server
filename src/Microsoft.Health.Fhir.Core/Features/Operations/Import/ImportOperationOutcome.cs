@@ -3,14 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Channels;
-using System.Threading.Tasks;
+using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IResourceBulkImporter
+    public class ImportOperationOutcome
     {
-        public (Channel<ImportProcessingProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken);
+        public string Type { get; set; }
+
+        public long Count { get; set; }
+
+        public Uri InputUrl { get; set; }
+
+#pragma warning disable CA1056 // URI-like properties should not be strings
+        public string Url { get; set; }
+#pragma warning restore CA1056 // URI-like properties should not be strings
     }
 }

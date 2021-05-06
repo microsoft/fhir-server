@@ -52,12 +52,12 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 
         public ITask Create(TaskInfo taskInfo)
         {
-            if (taskInfo.TaskTypeId == ImportTask.ImportProcessingTaskId)
+            if (taskInfo.TaskTypeId == ImportProcessingTask.ImportProcessingTaskId)
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
-                ImportTaskInputData inputData = JsonConvert.DeserializeObject<ImportTaskInputData>(taskInfo.InputData);
-                ImportProgress importProgress = string.IsNullOrEmpty(taskInfo.Context) ? new ImportProgress() : JsonConvert.DeserializeObject<ImportProgress>(taskInfo.Context);
-                return new ImportTask(
+                ImportProcessingTaskInputData inputData = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(taskInfo.InputData);
+                ImportProcessingProgress importProgress = string.IsNullOrEmpty(taskInfo.Context) ? new ImportProcessingProgress() : JsonConvert.DeserializeObject<ImportProcessingProgress>(taskInfo.Context);
+                return new ImportProcessingTask(
                     inputData,
                     importProgress,
                     _fhirDataBulkImportOperation,
@@ -69,13 +69,13 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     _loggerFactory);
             }
 
-            if (taskInfo.TaskTypeId == OrchestratorTask.ImportOrchestratorTaskId)
+            if (taskInfo.TaskTypeId == ImportOrchestratorTask.ImportOrchestratorTaskId)
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
                 ImportOrchestratorTaskInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorTaskInputData>(taskInfo.InputData);
-                OrchestratorTaskContext orchestratorTaskProgress = string.IsNullOrEmpty(taskInfo.Context) ? new OrchestratorTaskContext() : JsonConvert.DeserializeObject<OrchestratorTaskContext>(taskInfo.Context);
+                ImportOrchestratorTaskContext orchestratorTaskProgress = string.IsNullOrEmpty(taskInfo.Context) ? new ImportOrchestratorTaskContext() : JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(taskInfo.Context);
 
-                return new OrchestratorTask(
+                return new ImportOrchestratorTask(
                     inputData,
                     orchestratorTaskProgress,
                     _taskmanager,

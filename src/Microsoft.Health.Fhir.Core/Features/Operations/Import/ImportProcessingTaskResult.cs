@@ -5,13 +5,16 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public enum OrchestratorTaskProgress
+    public class ImportProcessingTaskResult
     {
-        Initalized,
-        InputResourcesValidated,
-        PreprocessCompleted,
-        SubTaskRecordsGenerated,
-        SubTasksCompleted,
-        PostprocessCompleted,
+        public string ResourceType { get; set; }
+
+        public long SucceedCount { get; set; }
+
+        public long FailedCount { get; set; }
+
+        public string ErrorLogLocation { get; set; }
+
+        public string ImportError { get; set; }
     }
 }

@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportTaskInputData
+    public class ImportProcessingTaskInputData
     {
         public string ResourceLocation { get; set; }
 

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -19,7 +20,7 @@ using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class OrchestratorTask : ITask
+    public class ImportOrchestratorTask : ITask
     {
         public const short ImportOrchestratorTaskId = 2;
 
@@ -28,18 +29,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private ImportOrchestratorTaskInputData _orchestratorInputData;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private OrchestratorTaskContext _orchestratorTaskContext; // TODO : changed later
+        private ImportOrchestratorTaskContext _orchestratorTaskContext; // TODO : changed later
         private ITaskManager _taskManager;
         private ISequenceIdGenerator<long> _sequenceIdGenerator;
         private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
         private IContextUpdater _contextUpdater;
-        private ILogger<OrchestratorTask> _logger;
+        private ILogger<ImportOrchestratorTask> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private List<(Uri resourceUri, TaskInfo taskInfo)> _runningTasks = new List<(Uri resourceUri, TaskInfo taskInfo)>();
 
-        public OrchestratorTask(
+        public ImportOrchestratorTask(
             ImportOrchestratorTaskInputData orchestratorInputData,
-            OrchestratorTaskContext orchestratorTaskContext,
+            ImportOrchestratorTaskContext orchestratorTaskContext,
             ITaskManager taskManager,
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IContextUpdater contextUpdater,
@@ -66,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _contextAccessor = contextAccessor;
             _fhirDataBulkImportOperation = fhirDataBulkImportOperation;
             _integrationDataStoreClient = integrationDataStoreClient;
-            _logger = loggerFactory.CreateLogger<OrchestratorTask>();
+            _logger = loggerFactory.CreateLogger<ImportOrchestratorTask>();
         }
 
         public string RunId { get; set; }
@@ -88,60 +90,85 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             CancellationToken cancellationToken = _cancellationTokenSource.Token;
 
+            ImportTaskResult result = null;
             try
             {
-                if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.Initalized)
+                if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.Initalized)
                 {
                     await ValidateResourcesAsync(cancellationToken);
 
-                    _orchestratorTaskContext.Progress = OrchestratorTaskProgress.InputResourcesValidated;
+                    _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.InputResourcesValidated;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
                 }
 
-                if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.InputResourcesValidated)
+                if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.InputResourcesValidated)
                 {
                     await _fhirDataBulkImportOperation.DisableIndexesAsync(cancellationToken);
 
-                    _orchestratorTaskContext.Progress = OrchestratorTaskProgress.PreprocessCompleted;
+                    _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.PreprocessCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
                 }
 
-                if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.PreprocessCompleted)
+                if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.PreprocessCompleted)
                 {
                     _orchestratorTaskContext.DataProcessingTasks = await GenerateSubTaskRecordsAsync(cancellationToken);
-                    _orchestratorTaskContext.Progress = OrchestratorTaskProgress.SubTaskRecordsGenerated;
+                    _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.SubTaskRecordsGenerated;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
                 }
 
-                if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.SubTaskRecordsGenerated)
+                if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.SubTaskRecordsGenerated)
                 {
-                    await ExecuteDataProcessingTasksAsync(cancellationToken);
+                    result = await ExecuteDataProcessingTasksAsync(cancellationToken);
 
-                    _orchestratorTaskContext.Progress = OrchestratorTaskProgress.SubTasksCompleted;
+                    _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.SubTasksCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
                 }
 
-                if (_orchestratorTaskContext.Progress == OrchestratorTaskProgress.SubTasksCompleted)
+                if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.SubTasksCompleted)
                 {
                     await _fhirDataBulkImportOperation.DeleteDuplicatedResourcesAsync(cancellationToken);
                     await _fhirDataBulkImportOperation.RebuildIndexesAsync(cancellationToken);
 
-                    _orchestratorTaskContext.Progress = OrchestratorTaskProgress.PostprocessCompleted;
+                    _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.PostprocessCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
                 }
+            }
+            catch (TaskCanceledException taskCanceledEx)
+            {
+                _logger.LogWarning(taskCanceledEx, "Import task canceled. {0}", taskCanceledEx.Message);
+
+                await TryToCancelRunningTasksAsync();
+                return new TaskResultData(TaskResult.Canceled, taskCanceledEx.Message);
+            }
+            catch (OperationCanceledException canceledEx)
+            {
+                _logger.LogWarning(canceledEx, "Import task canceled. {0}", canceledEx.Message);
+
+                await TryToCancelRunningTasksAsync();
+                return new TaskResultData(TaskResult.Canceled, canceledEx.Message);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
                 _logger.LogError(eTagEx, "Import file etag not match.");
-                return new TaskResultData(TaskResult.Fail, eTagEx.Message);
+
+                ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
+                errorResult.HttpStatusCode = HttpStatusCode.BadRequest;
+                errorResult.ErrorMessage = eTagEx.Message;
+
+                return new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to import data.");
-                throw new RetriableTaskException(ex.Message);
+
+                ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
+                errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
+                errorResult.ErrorMessage = ex.Message;
+
+                throw new RetriableTaskException(JsonConvert.SerializeObject(errorResult));
             }
 
-            return new TaskResultData(TaskResult.Success, string.Empty);
+            return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
         }
 
         private async Task ValidateResourcesAsync(CancellationToken cancellationToken)
@@ -159,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task UpdateProgressAsync(OrchestratorTaskContext context, CancellationToken cancellationToken)
+        private async Task UpdateProgressAsync(ImportOrchestratorTaskContext context, CancellationToken cancellationToken)
         {
             await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(context), cancellationToken);
         }
@@ -180,7 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 long estimatedResourceNumber = (blobSizeInBytes / MinResourceSizeInBytes) + 1;
                 long endSequenceId = beginSequenceId + estimatedResourceNumber;
 
-                ImportTaskInputData importTaskPayload = new ImportTaskInputData()
+                ImportProcessingTaskInputData importTaskPayload = new ImportProcessingTaskInputData()
                 {
                     ResourceLocation = input.Url.ToString(),
                     UriString = _orchestratorInputData.RequestUri.ToString(),
@@ -195,7 +222,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     QueueId = _orchestratorInputData.ProcessingTaskQueueId,
                     TaskId = taskId,
-                    TaskTypeId = ImportTask.ImportProcessingTaskId,
+                    TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
                     InputData = JsonConvert.SerializeObject(importTaskPayload),
                 };
 
@@ -207,9 +234,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return result;
         }
 
-        private async Task ExecuteDataProcessingTasksAsync(CancellationToken cancellationToken)
+        private async Task<ImportTaskResult> ExecuteDataProcessingTasksAsync(CancellationToken cancellationToken)
         {
-            List<(Uri resourceUri, TaskInfo taskInfo)> runningTasks = new List<(Uri resourceUri, TaskInfo taskInfo)>();
+            List<ImportOperationOutcome> completedOperationOutcome = new List<ImportOperationOutcome>();
+            List<ImportOperationOutcome> failedOperationOutcome = new List<ImportOperationOutcome>();
 
             foreach ((Uri resourceUri, TaskInfo taskInfo) in _orchestratorTaskContext.DataProcessingTasks.ToArray())
             {
@@ -218,13 +246,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                while (runningTasks.Count >= _orchestratorInputData.MaxConcurrentProcessingTaskCount)
+                while (_runningTasks.Count >= _orchestratorInputData.MaxConcurrentProcessingTaskCount)
                 {
-                    List<Uri> completedTaskResourceUris = await MonitorRunningTasksAsync(runningTasks, cancellationToken);
+                    List<Uri> completedTaskResourceUris = await MonitorRunningTasksAsync(_runningTasks, cancellationToken);
 
                     if (completedTaskResourceUris.Count > 0)
                     {
-                        runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
+                        AddToResult(completedOperationOutcome, failedOperationOutcome, completedTaskResourceUris);
+
+                        _runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
                         await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
                     }
                     else
@@ -242,23 +272,59 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _orchestratorTaskContext.DataProcessingTasks[resourceUri] = taskInfoFromServer;
                 if (taskInfoFromServer.Status != TaskStatus.Completed)
                 {
-                    runningTasks.Add((resourceUri, taskInfoFromServer));
+                    _runningTasks.Add((resourceUri, taskInfoFromServer));
                     await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
                 }
             }
 
-            while (runningTasks.Count > 0)
+            while (_runningTasks.Count > 0)
             {
-                List<Uri> completedTaskResourceUris = await MonitorRunningTasksAsync(runningTasks, cancellationToken);
+                List<Uri> completedTaskResourceUris = await MonitorRunningTasksAsync(_runningTasks, cancellationToken);
 
                 if (completedTaskResourceUris.Count > 0)
                 {
-                    runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
+                    AddToResult(completedOperationOutcome, failedOperationOutcome, completedTaskResourceUris);
+
+                    _runningTasks.RemoveAll(t => completedTaskResourceUris.Contains(t.resourceUri));
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
                 }
                 else
                 {
                     await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                }
+            }
+
+            return new ImportTaskResult()
+            {
+                Request = _orchestratorInputData.RequestUri.ToString(),
+                Output = completedOperationOutcome,
+                Error = failedOperationOutcome,
+            };
+        }
+
+        private void AddToResult(List<ImportOperationOutcome> completedOperationOutcome, List<ImportOperationOutcome> failedOperationOutcome, List<Uri> completedTaskResourceUris)
+        {
+            foreach (Uri completedResourceUri in completedTaskResourceUris)
+            {
+                TaskInfo completeTaskInfo = _orchestratorTaskContext.DataProcessingTasks[completedResourceUri];
+                TaskResultData taskResultData = JsonConvert.DeserializeObject<TaskResultData>(completeTaskInfo.Result);
+
+                if (taskResultData.Result == TaskResult.Success)
+                {
+                    ImportProcessingTaskResult procesingTaskResult = JsonConvert.DeserializeObject<ImportProcessingTaskResult>(taskResultData.ResultData);
+                    completedOperationOutcome.Add(new ImportOperationOutcome() { Type = procesingTaskResult.ResourceType, Count = procesingTaskResult.SucceedCount, InputUrl = completedResourceUri });
+                    if (procesingTaskResult.FailedCount > 0)
+                    {
+                        failedOperationOutcome.Add(new ImportOperationOutcome() { Type = procesingTaskResult.ResourceType, Count = procesingTaskResult.FailedCount, InputUrl = completedResourceUri, Url = procesingTaskResult.ErrorLogLocation });
+                    }
+                }
+                else if (taskResultData.Result == TaskResult.Fail)
+                {
+                    throw new ImportProcessingException(string.Format("Failed to process file: {0}. {1}", completedResourceUri, taskResultData));
+                }
+                else if (taskResultData.Result == TaskResult.Canceled)
+                {
+                    throw new OperationCanceledException(taskResultData.ResultData);
                 }
             }
         }
@@ -269,6 +335,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             foreach ((Uri runningResourceUri, TaskInfo runningTaskInfo) in runningTasks)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException();
+                }
+
                 TaskInfo latestTaskInfo = await _taskManager.GetTaskAsync(runningTaskInfo.TaskId, cancellationToken);
 
                 _orchestratorTaskContext.DataProcessingTasks[runningResourceUri] = latestTaskInfo;
@@ -279,6 +350,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             return completedTaskResourceUris;
+        }
+
+        public async Task TryToCancelRunningTasksAsync()
+        {
+            foreach ((_, TaskInfo runningTaskInfo) in _runningTasks)
+            {
+                try
+                {
+                    await _taskManager.CancelTaskAsync(runningTaskInfo.TaskId, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "failed to cancel task {0}", runningTaskInfo.TaskId);
+                }
+            }
         }
 
         public void Cancel()

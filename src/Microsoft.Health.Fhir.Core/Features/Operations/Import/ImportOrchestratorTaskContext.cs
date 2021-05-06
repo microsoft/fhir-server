@@ -9,12 +9,12 @@ using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class OrchestratorTaskContext
+    public class ImportOrchestratorTaskContext
     {
 #pragma warning disable CA2227 // Collection properties should be read only
         public IDictionary<Uri, TaskInfo> DataProcessingTasks { get; set; } = new Dictionary<Uri, TaskInfo>();
 #pragma warning restore CA2227 // Collection properties should be read only
 
-        public OrchestratorTaskProgress Progress { get; set; }
+        public ImportOrchestratorTaskProgress Progress { get; set; }
     }
 }

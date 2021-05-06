@@ -10,7 +10,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -80,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
-                TaskTypeId = OrchestratorTask.ImportOrchestratorTaskId,
+                TaskTypeId = ImportOrchestratorTask.ImportOrchestratorTaskId,
                 MaxRetryCount = 5,
                 QueueId = _taskHostingConfiguration.QueueId,
                 InputData = JsonConvert.SerializeObject(inputData),

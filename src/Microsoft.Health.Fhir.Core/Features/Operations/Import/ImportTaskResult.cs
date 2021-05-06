@@ -3,18 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportTaskResult
     {
-        public string ResourceType { get; set; }
+        public string Request { get; set; }
 
-        public long SucceedCount { get; set; }
+        public IReadOnlyCollection<ImportOperationOutcome> Output { get; set; }
 
-        public long FailedCount { get; set; }
-
-        public string ErrorLogLocation { get; set; }
-
-        public string ImportError { get; set; }
+        public IReadOnlyCollection<ImportOperationOutcome> Error { get; set; }
     }
 }

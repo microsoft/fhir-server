@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 TaskId = TaskId,
                 QueueId = "0",
                 Status = taskStatus,
-                TaskTypeId = ImportTask.ImportProcessingTaskId,
+                TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
                 InputData = string.Empty,
                 IsCanceled = isCanceled,
             };

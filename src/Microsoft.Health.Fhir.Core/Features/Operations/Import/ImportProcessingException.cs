@@ -8,15 +8,15 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportFileEtagNotMatchException : Exception
+    public class ImportProcessingException : Exception
     {
-        public ImportFileEtagNotMatchException(string message)
+        public ImportProcessingException(string message)
             : base(message)
         {
             EnsureArg.IsNotNull(message, nameof(message));
         }
 
-        public ImportFileEtagNotMatchException(string message, Exception innerException)
+        public ImportProcessingException(string message, Exception innerException)
             : base(message, innerException)
         {
             EnsureArg.IsNotNull(message, nameof(message));

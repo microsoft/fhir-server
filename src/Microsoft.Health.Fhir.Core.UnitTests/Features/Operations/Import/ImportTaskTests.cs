@@ -25,16 +25,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportTaskInput_WhenCleanStart_AllResoruceShouldBeImported()
         {
-            ImportTaskInputData inputData = GetInputData();
-            ImportProgress progress = new ImportProgress();
+            ImportProcessingTaskInputData inputData = GetInputData();
+            ImportProcessingProgress progress = new ImportProcessingProgress();
             await VerifyCommonImportTaskAsync(inputData, progress);
         }
 
         [Fact]
         public async Task GivenImportTaskInput_WhenStartFromMiddle_AllResoruceShouldBeImported()
         {
-            ImportTaskInputData inputData = GetInputData();
-            ImportProgress progress = new ImportProgress();
+            ImportProcessingTaskInputData inputData = GetInputData();
+            ImportProcessingProgress progress = new ImportProcessingProgress();
             progress.SucceedImportCount = 3;
             progress.FailedImportCount = 1;
             progress.CurrentIndex = 4;
@@ -46,8 +46,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         public async Task GivenImportTaskInput_WhenExceptionThrowForImport_ContextShouldBeUpdatedBeforeFailure()
         {
             long currentIndex = 100;
-            ImportTaskInputData inputData = GetInputData();
-            ImportProgress progress = new ImportProgress();
+            ImportProcessingTaskInputData inputData = GetInputData();
+            ImportProcessingProgress progress = new ImportProcessingProgress();
 
             IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
@@ -72,13 +72,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    Channel<ImportProgress> progressChannel = Channel.CreateUnbounded<ImportProgress>();
+                    Channel<ImportProcessingProgress> progressChannel = Channel.CreateUnbounded<ImportProcessingProgress>();
 
                     Task loadTask = Task.Run(async () =>
                     {
                         try
                         {
-                            ImportProgress progress = new ImportProgress();
+                            ImportProcessingProgress progress = new ImportProcessingProgress();
                             progress.CurrentIndex = currentIndex;
 
                             await progressChannel.Writer.WriteAsync(progress);
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            ImportTask task = new ImportTask(
+            ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
                                     bulkOperation,
@@ -115,15 +115,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             await Assert.ThrowsAsync<RetriableTaskException>(() => task.ExecuteAsync());
 
-            ImportProgress progressForContext = JsonConvert.DeserializeObject<ImportProgress>(context);
+            ImportProcessingProgress progressForContext = JsonConvert.DeserializeObject<ImportProcessingProgress>(context);
             Assert.Equal(progressForContext.CurrentIndex, currentIndex);
         }
 
         [Fact]
         public async Task GivenImportTaskInput_WhenExceptionThrowForLoad_RetriableExceptionShouldBeThrow()
         {
-            ImportTaskInputData inputData = GetInputData();
-            ImportProgress progress = new ImportProgress();
+            ImportProcessingTaskInputData inputData = GetInputData();
+            ImportProcessingProgress progress = new ImportProcessingProgress();
 
             IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
@@ -159,13 +159,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    Channel<ImportProgress> progressChannel = Channel.CreateUnbounded<ImportProgress>();
+                    Channel<ImportProcessingProgress> progressChannel = Channel.CreateUnbounded<ImportProcessingProgress>();
 
                     Task loadTask = Task.Run(async () =>
                     {
                         try
                         {
-                            ImportProgress progress = new ImportProgress();
+                            ImportProcessingProgress progress = new ImportProcessingProgress();
 
                             await progressChannel.Writer.WriteAsync(progress);
                         }
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            ImportTask task = new ImportTask(
+            ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
                                     bulkOperation,
@@ -204,8 +204,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportTaskInput_WhenExceptionThrowForCleanData_RetriableExceptionShouldBeThrow()
         {
-            ImportTaskInputData inputData = GetInputData();
-            ImportProgress progress = new ImportProgress();
+            ImportProcessingTaskInputData inputData = GetInputData();
+            ImportProcessingProgress progress = new ImportProcessingProgress();
 
             IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     throw new InvalidOperationException();
                 });
 
-            ImportTask task = new ImportTask(
+            ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
                                     bulkOperation,
@@ -239,8 +239,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenImportTaskInput_WhenOperationWasCancelledExceptionThrow_TaskShouldBeCanceled()
         {
-            ImportTaskInputData inputData = GetInputData();
-            ImportProgress progress = new ImportProgress();
+            ImportProcessingTaskInputData inputData = GetInputData();
+            ImportProcessingProgress progress = new ImportProcessingProgress();
 
             IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     throw new OperationCanceledException();
                 });
 
-            ImportTask task = new ImportTask(
+            ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
                                     bulkOperation,
@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(TaskResult.Canceled, result.Result);
         }
 
-        private static async Task VerifyCommonImportTaskAsync(ImportTaskInputData inputData, ImportProgress progress)
+        private static async Task VerifyCommonImportTaskAsync(ImportProcessingTaskInputData inputData, ImportProcessingProgress progress)
         {
             long startIndexFromProgress = progress.CurrentIndex;
             long succeedCountFromProgress = progress.SucceedImportCount;
@@ -319,11 +319,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 .Returns(callInfo =>
                 {
                     Channel<ImportResource> resourceChannel = (Channel<ImportResource>)callInfo[0];
-                    Channel<ImportProgress> progressChannel = Channel.CreateUnbounded<ImportProgress>();
+                    Channel<ImportProcessingProgress> progressChannel = Channel.CreateUnbounded<ImportProcessingProgress>();
 
                     Task loadTask = Task.Run(async () =>
                     {
-                        ImportProgress progress = new ImportProgress();
+                        ImportProcessingProgress progress = new ImportProcessingProgress();
                         await foreach (ImportResource resource in resourceChannel.Reader.ReadAllAsync())
                         {
                             if (string.IsNullOrEmpty(resource.ImportError))
@@ -354,7 +354,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            ImportTask task = new ImportTask(
+            ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
                                     bulkOperation,
@@ -367,11 +367,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             TaskResultData taskResult = await task.ExecuteAsync();
             Assert.Equal(TaskResult.Success, taskResult.Result);
-            ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(taskResult.ResultData);
+            ImportProcessingTaskResult result = JsonConvert.DeserializeObject<ImportProcessingTaskResult>(taskResult.ResultData);
             Assert.Equal(1 + failedCountFromProgress, result.FailedCount);
             Assert.Equal(1 + succeedCountFromProgress, result.SucceedCount);
 
-            ImportProgress progressForContext = JsonConvert.DeserializeObject<ImportProgress>(context);
+            ImportProcessingProgress progressForContext = JsonConvert.DeserializeObject<ImportProcessingProgress>(context);
             Assert.Equal(progressForContext.SucceedImportCount, result.SucceedCount);
             Assert.Equal(progressForContext.FailedImportCount, result.FailedCount);
             Assert.Equal(startIndexFromProgress + 2, progressForContext.CurrentIndex);
@@ -380,9 +380,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(inputData.EndSequenceId, cleanEnd);
         }
 
-        private ImportTaskInputData GetInputData()
+        private ImportProcessingTaskInputData GetInputData()
         {
-            ImportTaskInputData inputData = new ImportTaskInputData();
+            ImportProcessingTaskInputData inputData = new ImportProcessingTaskInputData();
             inputData.BaseUriString = "http://dummy";
             inputData.ResourceLocation = "http://dummy";
             inputData.ResourceType = "Resource";

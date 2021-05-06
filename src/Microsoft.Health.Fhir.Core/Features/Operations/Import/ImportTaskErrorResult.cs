@@ -3,14 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Channels;
-using System.Threading.Tasks;
+using System.Net;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public interface IResourceBulkImporter
+    public class ImportTaskErrorResult
     {
-        public (Channel<ImportProcessingProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken);
+        public HttpStatusCode HttpStatusCode { get; set; }
+
+        public string ErrorMessage { get; set; }
     }
 }

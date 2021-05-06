@@ -50,11 +50,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 TaskResultData resultData = JsonConvert.DeserializeObject<TaskResultData>(taskInfo.Result);
                 if (resultData.Result == TaskResult.Success)
                 {
-                    return new GetImportResponse(HttpStatusCode.OK, resultData.ResultData);
+                    ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(resultData.ResultData);
+                    return new GetImportResponse(HttpStatusCode.OK, result);
+                }
+                else if (resultData.Result == TaskResult.Fail)
+                {
+                    ImportTaskErrorResult errorResult = JsonConvert.DeserializeObject<ImportTaskErrorResult>(resultData.ResultData);
+
+                    string failureReason = errorResult.ErrorMessage;
+                    HttpStatusCode failureStatusCode = errorResult.HttpStatusCode;
+
+                    throw new OperationFailedException(
+                        string.Format(Resources.OperationFailed, OperationsConstants.Import, failureReason), failureStatusCode);
                 }
                 else
                 {
-                    return new GetImportResponse(HttpStatusCode.BadRequest, resultData.ResultData);
+                    throw new OperationFailedException(Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
             }
         }

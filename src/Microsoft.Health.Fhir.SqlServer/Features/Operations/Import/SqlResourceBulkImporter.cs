@@ -121,9 +121,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         public int CheckpointBatchResourceCount { get; set; } = DefaultCheckpointBatchResourceCount;
 
-        public (Channel<ImportProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
+        public (Channel<ImportProcessingProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
         {
-            Channel<ImportProgress> outputChannel = Channel.CreateUnbounded<ImportProgress>();
+            Channel<ImportProcessingProgress> outputChannel = Channel.CreateUnbounded<ImportProcessingProgress>();
 
             Task importTask = Task.Run(
                 async () =>
@@ -135,13 +135,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             return (outputChannel, importTask);
         }
 
-        public async Task ImportInternalAsync(Channel<ImportResource> inputChannel, Channel<ImportProgress> outputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
+        public async Task ImportInternalAsync(Channel<ImportResource> inputChannel, Channel<ImportProcessingProgress> outputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
         {
             try
             {
                 _logger.LogInformation("Start to import data to SQL data store.");
 
-                Task<ImportProgress> checkpointTask = Task.FromResult<ImportProgress>(null);
+                Task<ImportProcessingProgress> checkpointTask = Task.FromResult<ImportProcessingProgress>(null);
 
                 long succeedCount = 0;
                 long failedCount = 0;
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 long currentIndex = -1;
                 Dictionary<string, DataTable> resourceBuffer = new Dictionary<string, DataTable>();
                 List<string> importErrorBuffer = new List<string>();
-                Queue<Task<ImportProgress>> importTasks = new Queue<Task<ImportProgress>>();
+                Queue<Task<ImportProcessingProgress>> importTasks = new Queue<Task<ImportProcessingProgress>>();
 
                 await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
                 await foreach (ImportResource resource in inputChannel.Reader.ReadAllAsync(cancellationToken))
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 }
 
                 // Upload remain error logs
-                ImportProgress progress = await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
+                ImportProcessingProgress progress = await UploadImportErrorsAsync(importErrorStore, succeedCount, failedCount, importErrorBuffer.ToArray(), currentIndex, cancellationToken);
                 await outputChannel.Writer.WriteAsync(progress, cancellationToken);
             }
             finally
@@ -246,10 +246,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private static async Task<ImportProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeedCount, long failedCount, string[] importErrors, long lastIndex, CancellationToken cancellationToken)
+        private static async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeedCount, long failedCount, string[] importErrors, long lastIndex, CancellationToken cancellationToken)
         {
             await importErrorStore.UploadErrorsAsync(importErrors, cancellationToken);
-            ImportProgress progress = new ImportProgress();
+            ImportProcessingProgress progress = new ImportProcessingProgress();
             progress.SucceedImportCount = succeedCount;
             progress.FailedImportCount = failedCount;
             progress.CurrentIndex = lastIndex + 1;
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             return progress;
         }
 
-        private async Task<ImportProgress> ImportDataTableAsync(DataTable table, CancellationToken cancellationToken)
+        private async Task<ImportProcessingProgress> ImportDataTableAsync(DataTable table, CancellationToken cancellationToken)
         {
             try
             {
@@ -282,18 +282,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private async Task<Task<ImportProgress>> EnqueueTaskAsync(Queue<Task<ImportProgress>> importTasks, Func<Task<ImportProgress>> newTaskFactory, Channel<ImportProgress> progressChannel)
+        private async Task<Task<ImportProcessingProgress>> EnqueueTaskAsync(Queue<Task<ImportProcessingProgress>> importTasks, Func<Task<ImportProcessingProgress>> newTaskFactory, Channel<ImportProcessingProgress> progressChannel)
         {
             while (importTasks.Count >= MaxConcurrentCount)
             {
-                ImportProgress progress = await importTasks.Dequeue();
+                ImportProcessingProgress progress = await importTasks.Dequeue();
                 if (progress != null)
                 {
                     await progressChannel.Writer.WriteAsync(progress);
                 }
             }
 
-            Task<ImportProgress> newTask = newTaskFactory();
+            Task<ImportProcessingProgress> newTask = newTaskFactory();
             importTasks.Enqueue(newTask);
 
             return newTask;

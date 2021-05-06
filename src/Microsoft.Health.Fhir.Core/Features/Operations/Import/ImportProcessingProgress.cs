@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportProgress
+    public class ImportProcessingProgress
     {
         public long SucceedImportCount { get; set; }
 

@@ -5,20 +5,21 @@
 
 using System.Net;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     /// <summary>
     /// Used to return the result of a bulk import operation.
     /// </summary>
-    public class ImportResult : ResourceActionResult<string>
+    public class ImportResult : ResourceActionResult<ImportTaskResult>
     {
         public ImportResult(HttpStatusCode statusCode)
             : base(null, statusCode)
         {
         }
 
-        public ImportResult(string jobResult, HttpStatusCode statusCode)
+        public ImportResult(ImportTaskResult jobResult, HttpStatusCode statusCode)
             : base(jobResult, statusCode)
         {
             EnsureArg.IsNotNull(jobResult, nameof(jobResult));
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// Creates an ImportResult with HttpStatusCode Ok.
         /// </summary>
         /// <param name="taskResult">The job payload that must be returned as part of the ImportResult.</param>
-        public static ImportResult Ok(string taskResult)
+        public static ImportResult Ok(ImportTaskResult taskResult)
         {
             return new ImportResult(taskResult, HttpStatusCode.OK);
         }

@@ -149,9 +149,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
-            (Channel<ImportProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
+            (Channel<ImportProcessingProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
 
-            await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
+            await foreach (ImportProcessingProgress progress in progressChannel.Reader.ReadAllAsync())
             {
                 // Do nothing...
             }
@@ -177,9 +177,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             importErrorStore.UploadErrorsAsync(Arg.Any<string[]>(), Arg.Any<CancellationToken>())
                 .Returns((_) => throw new InvalidOperationException());
 
-            (Channel<ImportProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
+            (Channel<ImportProcessingProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
 
-            await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
+            await foreach (ImportProcessingProgress progress in progressChannel.Reader.ReadAllAsync())
             {
                 // Do nothing...
             }
@@ -208,9 +208,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
 
-            (Channel<ImportProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
+            (Channel<ImportProcessingProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
 
-            await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
+            await foreach (ImportProcessingProgress progress in progressChannel.Reader.ReadAllAsync())
             {
                 // Do nothing...
             }
@@ -299,9 +299,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     string[] errors = (string[])call[0];
                     errorLogs.AddRange(errors);
                 });
-            (Channel<ImportProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
-            ImportProgress finalProgress = new ImportProgress();
-            await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
+            (Channel<ImportProcessingProgress> progressChannel, Task importTask) = importer.Import(inputs, importErrorStore, CancellationToken.None);
+            ImportProcessingProgress finalProgress = new ImportProcessingProgress();
+            await foreach (ImportProcessingProgress progress in progressChannel.Reader.ReadAllAsync())
             {
                 Assert.True(finalProgress.CurrentIndex <= progress.CurrentIndex);
                 finalProgress = progress;

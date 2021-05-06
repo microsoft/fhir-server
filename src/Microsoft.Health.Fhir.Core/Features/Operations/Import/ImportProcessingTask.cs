@@ -18,24 +18,24 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportTask : ITask
+    public class ImportProcessingTask : ITask
     {
         public const short ImportProcessingTaskId = 1;
 
-        private ImportTaskInputData _inputData;
-        private ImportProgress _importProgress;
+        private ImportProcessingTaskInputData _inputData;
+        private ImportProcessingProgress _importProgress;
         private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
         private IImportResourceLoader _importResourceLoader;
         private IResourceBulkImporter _resourceBulkImporter;
         private IImportErrorStoreFactory _importErrorStoreFactory;
         private IContextUpdater _contextUpdater;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private ILogger<ImportTask> _logger;
+        private ILogger<ImportProcessingTask> _logger;
         private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
-        public ImportTask(
-            ImportTaskInputData inputData,
-            ImportProgress importProgress,
+        public ImportProcessingTask(
+            ImportProcessingTaskInputData inputData,
+            ImportProcessingProgress importProgress,
             IFhirDataBulkImportOperation fhirDataBulkOperation,
             IImportResourceLoader importResourceLoader,
             IResourceBulkImporter resourceBulkImporter,
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _contextUpdater = contextUpdater;
             _contextAccessor = contextAccessor;
 
-            _logger = loggerFactory.CreateLogger<ImportTask>();
+            _logger = loggerFactory.CreateLogger<ImportProcessingTask>();
         }
 
         public string RunId { get; set; }
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             long succeedImportCount = _importProgress.SucceedImportCount;
             long failedImportCount = _importProgress.FailedImportCount;
 
-            ImportTaskResult result = new ImportTaskResult();
+            ImportProcessingTaskResult result = new ImportProcessingTaskResult();
             result.ResourceType = _inputData.ResourceType;
 
             try
@@ -106,10 +106,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importProgress.CurrentIndex, sequenceIdGenerator, cancellationToken);
 
                 // Import to data store
-                (Channel<ImportProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
+                (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
 
                 // Update progress for checkpoints
-                await foreach (ImportProgress progress in progressChannel.Reader.ReadAllAsync())
+                await foreach (ImportProcessingProgress progress in progressChannel.Reader.ReadAllAsync())
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -167,6 +167,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
             }
+            catch (TaskCanceledException canceledEx)
+            {
+                _logger.LogError(canceledEx, "Data processing task is canceled.");
+                return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
+            }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogError(canceledEx, "Data processing task is canceled.");
@@ -180,8 +185,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogError(ex, "Critical error in data processing task.");
 
-                result.ImportError = ex.Message;
-                return new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(result));
+                throw new RetriableTaskException(ex.Message);
             }
             finally
             {

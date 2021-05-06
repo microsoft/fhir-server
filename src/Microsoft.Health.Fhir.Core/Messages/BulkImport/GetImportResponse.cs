@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Import
 {
@@ -14,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         {
         }
 
-        public GetImportResponse(HttpStatusCode statusCode, string taskResult)
+        public GetImportResponse(HttpStatusCode statusCode, ImportTaskResult taskResult)
         {
             StatusCode = statusCode;
             TaskResult = taskResult;
@@ -22,6 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
 
         public HttpStatusCode StatusCode { get; }
 
-        public string TaskResult { get; }
+        public ImportTaskResult TaskResult { get; }
     }
 }
