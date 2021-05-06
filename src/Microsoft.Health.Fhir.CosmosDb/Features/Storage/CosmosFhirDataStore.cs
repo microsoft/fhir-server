@@ -459,8 +459,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     var prevPage = page;
                     page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+
                     if (mustNotExceedMaxItemCount && (page.Count + results.Count > totalDesiredCount))
                     {
+                        // page.Count + results.Count should only be larger than our totalDesired
+                        // when executingWithMaxParallelism because we have left the feedOption.MaxItemCount
+                        // large in order to preserve the pre-fetched resources in a parallel query
+                        // This may result in one or more pages of results being thrown away
+                        // and a result that is smaller than the totalDesiredCount
+                        // TODO: analyze the current result count to determine if is is too few
+                        // and possibly start a new query to fill in more results
+
+                        _logger.LogInformation("Returning results with fewer than desired total, {count} out of {totalDesired}.", results.Count, totalDesiredCount);
                         return (results, prevPage.ContinuationToken);
                     }
                     else
