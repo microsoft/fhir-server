@@ -148,22 +148,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task RebuildIndexesAsync(CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            IndexTableTypeV1Row[] allIndexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.tableName, indexRecord.index.IndexName)).ToArray();
+            List<IndexTableTypeV1Row[]> indexBatches = new List<IndexTableTypeV1Row[]>();
+            int batchCount = 3;
+            for (int i = 0; i < allIndexes.Length; i += batchCount)
             {
-                try
-                {
-                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
-                    IndexTableTypeV1Row[] indexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.tableName, indexRecord.index.IndexName)).ToArray();
+                indexBatches.Add(allIndexes.Skip(i).Take(batchCount).ToArray());
+            }
 
-                    VLatest.RebuildIndexes.PopulateCommand(sqlCommandWrapper, indexes);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (SqlException sqlEx)
+            foreach (IndexTableTypeV1Row[] indexes in indexBatches)
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    _logger.LogError(sqlEx, $"Failed to disable indexes.");
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
-                    throw;
+                        VLatest.RebuildIndexes.PopulateCommand(sqlCommandWrapper, indexes);
+                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to rebuild indexes.");
+
+                        throw;
+                    }
                 }
             }
         }
