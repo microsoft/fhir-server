@@ -168,6 +168,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new RetriableTaskException(JsonConvert.SerializeObject(errorResult));
             }
 
+            result.TransactionTime = _orchestratorInputData.TaskCreateTime;
             return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
         }
 

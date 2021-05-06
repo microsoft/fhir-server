@@ -28,5 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public int MaxConcurrentProcessingTaskCount { get; set; }
 
         public string ProcessingTaskQueueId { get; set; }
+
+        public DateTimeOffset TaskCreateTime { get; set; }
     }
 }

@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerFhirDataBulkImportOperation : IFhirDataBulkImportOperation
     {
-        private const int RemoveDuplicatedResourceCommandTimeoutInSec = 60 * 10;
+        private const int LongRunningCommandTimeoutInSec = 60 * 10;
 
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
@@ -153,6 +153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
+                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
                     IndexTableTypeV1Row[] indexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.tableName, indexRecord.index.IndexName)).ToArray();
 
                     VLatest.RebuildIndexes.PopulateCommand(sqlCommandWrapper, indexes);
@@ -174,7 +175,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    sqlCommandWrapper.CommandTimeout = RemoveDuplicatedResourceCommandTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
                     VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);

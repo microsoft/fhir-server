@@ -41,8 +41,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             TaskInfo taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
+
             if (taskInfo.Status != TaskManagement.TaskStatus.Completed)
             {
+                if (taskInfo.IsCanceled)
+                {
+                    throw new OperationFailedException(Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
+                }
+
                 return new GetImportResponse(HttpStatusCode.Accepted);
             }
             else

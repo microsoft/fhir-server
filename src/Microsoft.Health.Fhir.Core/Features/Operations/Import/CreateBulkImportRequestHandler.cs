@@ -10,6 +10,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -74,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 MaxConcurrentProcessingTaskCount = (int)_importTaskConfiguration.MaximumConcurrency,
                 ProcessingTaskQueueId = processingTaskQueueId,
                 TaskId = taskId,
+                TaskCreateTime = Clock.UtcNow,
             };
 
             TaskInfo taskInfo = new TaskInfo()
