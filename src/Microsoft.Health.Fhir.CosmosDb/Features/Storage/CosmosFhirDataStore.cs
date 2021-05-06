@@ -457,18 +457,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 try
                 {
+                    var prevPage = page;
                     page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
-                    if (page.Count > 0)
+                    if (mustNotExceedMaxItemCount && (page.Count + results.Count > totalDesiredCount))
+                    {
+                        return (results, prevPage.ContinuationToken);
+                    }
+                    else
                     {
                         results.AddRange(page);
-                        if (mustNotExceedMaxItemCount && results.Count > feedOptions.MaxItemCount)
-                        {
-                            // we might get here if executingWithParallelism == true
-
-                            int toRemove = results.Count - feedOptions.MaxItemCount.Value;
-                            results.RemoveRange(results.Count - toRemove, toRemove);
-                            break;
-                        }
                     }
                 }
                 catch (CosmosException e) when (e.IsRequestRateExceeded())
