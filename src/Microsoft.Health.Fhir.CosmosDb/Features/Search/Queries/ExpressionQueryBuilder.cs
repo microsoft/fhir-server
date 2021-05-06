@@ -292,6 +292,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     .Append(" = ")
                     .Append(AddParameterMapping(value));
             }
+            else if (expression.StringOperator == StringOperator.LeftSideStartsWith)
+            {
+                _queryBuilder
+                    .Append(GetMappedValue(StringOperatorMapping, StringOperator.StartsWith))
+                    .Append('(')
+                    .Append(AddParameterMapping(value))
+                    .Append(", ")
+                    .Append(context.InstanceVariableName).Append('.').Append(fieldName)
+                    .Append(')');
+            }
             else
             {
                 _queryBuilder
