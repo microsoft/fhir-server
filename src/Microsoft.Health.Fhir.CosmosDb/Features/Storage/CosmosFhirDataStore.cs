@@ -441,7 +441,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             var maxCount = executingWithMaxParallelism
                 ? totalDesiredCount * (mustNotExceedMaxItemCount ? 1 : ExecuteDocumentQueryAsyncMaximumFillFactor) // in this mode, the SDK likely has already fetched pages, so we might as well consume them
                 : totalDesiredCount * ExecuteDocumentQueryAsyncMinimumFillFactor;
-
+            _logger.LogInformation("Doing extra fetch thingy total {total} {maxCount}", totalDesiredCount, maxCount);
             while (cosmosQuery.HasMoreResults &&
                    (results.Count < maxCount)) // we still want to get more results
             {
@@ -458,11 +458,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     feedOptions.MaxItemCount = currentDesiredCount;
                     context = new CosmosQueryContext(sqlQuerySpec, feedOptions, page.ContinuationToken);
                     cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
+                    _logger.LogInformation("Running new query looking for {maxItems}", feedOptions.MaxItemCount);
                 }
 
                 try
                 {
                     page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                    _logger.LogInformation("Get back {count} results", page.Count);
                     if (page.Count > 0)
                     {
                         results.AddRange(page);
