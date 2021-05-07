@@ -7,11 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Polly;
 
@@ -58,7 +60,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 _logger.LogError(storageEx, "Failed to create container for {0}:{1}", containerId, fileName);
 
-                throw;
+                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
+                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
             }
         }
 
@@ -80,7 +83,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 _logger.LogError(storageEx, "Failed to commit for {0}", resourceUri);
 
-                throw;
+                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
+                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
             }
         }
 
@@ -102,7 +106,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 _logger.LogError(storageEx, "Failed to commit for {0}", resourceUri);
 
-                throw;
+                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
+                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
             }
         }
 
@@ -124,7 +129,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 _logger.LogError(storageEx, "Failed to append commit for {0}", resourceUri);
 
-                throw;
+                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
+                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
             }
         }
 
@@ -152,7 +158,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             {
                 _logger.LogError(storageEx, "Failed to get properties of blob {0}", blobUri);
 
-                throw;
+                HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
+                throw new IntegrationDataStoreException(storageEx.Message, statusCode);
             }
         }
 

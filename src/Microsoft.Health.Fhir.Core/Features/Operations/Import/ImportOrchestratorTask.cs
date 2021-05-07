@@ -147,6 +147,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 await TryToCancelRunningTasksAsync();
                 return new TaskResultData(TaskResult.Canceled, canceledEx.Message);
             }
+            catch (IntegrationDataStoreException integrationDataStoreEx)
+            {
+                _logger.LogError(integrationDataStoreEx, "Failed to access input files.");
+
+                ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
+                errorResult.HttpStatusCode = integrationDataStoreEx.StatusCode;
+                errorResult.ErrorMessage = integrationDataStoreEx.Message;
+
+                return new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
+            }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
                 _logger.LogError(eTagEx, "Import file etag not match.");
@@ -176,9 +186,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             foreach (var input in _orchestratorInputData.Input)
             {
+                Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
                 if (!string.IsNullOrEmpty(input.Etag))
                 {
-                    Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
                     if (!input.Etag.Equals(properties[IntegrationDataStoreClientConstants.BlobPropertyETag]))
                     {
                         throw new ImportFileEtagNotMatchException(string.Format("Input file Etag not match. {0}", input.Url));
