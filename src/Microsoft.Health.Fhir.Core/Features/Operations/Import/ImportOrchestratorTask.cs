@@ -24,8 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     {
         public const short ImportOrchestratorTaskId = 2;
 
-        private const int PollingFrequencyInSeconds = 3;
-        private const long MinResourceSizeInBytes = 64;
+        private const int DefaultPollingFrequencyInSeconds = 3;
+        private const long DefaultResourceSizePerByte = 64;
 
         private ImportOrchestratorTaskInputData _orchestratorInputData;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -72,6 +72,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         }
 
         public string RunId { get; set; }
+
+        public int PollingFrequencyInSeconds { get; set; } = DefaultPollingFrequencyInSeconds;
 
         public async Task<TaskResultData> ExecuteAsync()
         {
@@ -214,8 +216,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 Dictionary<string, object> properties = await _integrationDataStoreClient.GetPropertiesAsync(input.Url, cancellationToken);
                 long blobSizeInBytes = (long)properties[IntegrationDataStoreClientConstants.BlobPropertyLength];
-
-                long estimatedResourceNumber = (blobSizeInBytes / MinResourceSizeInBytes) + 1;
+                long estimatedResourceNumber = CalculateResourceNumberByResourceSize(blobSizeInBytes, DefaultResourceSizePerByte);
                 long endSequenceId = beginSequenceId + estimatedResourceNumber;
 
                 ImportProcessingTaskInputData importTaskPayload = new ImportProcessingTaskInputData()
@@ -243,6 +244,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
 
             return result;
+        }
+
+        private static long CalculateResourceNumberByResourceSize(long blobSizeInBytes, long resourceSizePerBytes)
+        {
+            return Math.Max((blobSizeInBytes / resourceSizePerBytes) + 1, 10000L);
         }
 
         private async Task<ImportTaskResult> ExecuteDataProcessingTasksAsync(CancellationToken cancellationToken)
