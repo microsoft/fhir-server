@@ -32,10 +32,10 @@ GO
     Partitioning function and scheme
 **************************************************************/
 
-CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId (smallint) 
+CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId (smallint)
 AS RANGE RIGHT FOR VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150);
 
-CREATE PARTITION SCHEME PartitionScheme_ResourceTypeId 
+CREATE PARTITION SCHEME PartitionScheme_ResourceTypeId
 AS PARTITION PartitionFunction_ResourceTypeId ALL TO ([PRIMARY]);
 
 /*************************************************************
@@ -115,7 +115,7 @@ CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource
 (
     ResourceTypeId,
     ResourceSurrogateId
-) 
+)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 
@@ -230,7 +230,7 @@ ON dbo.CompartmentAssignment
     CompartmentTypeId,
     ReferenceResourceId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId
@@ -242,7 +242,7 @@ ON dbo.CompartmentAssignment
     ResourceSurrogateId
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -282,7 +282,7 @@ ON dbo.ReferenceSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
@@ -300,7 +300,7 @@ INCLUDE
     ReferenceResourceVersion
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -336,7 +336,7 @@ ON dbo.TokenSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
@@ -352,7 +352,7 @@ INCLUDE
     SystemId
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -386,7 +386,7 @@ ON dbo.TokenText
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
@@ -398,7 +398,7 @@ ON dbo.TokenText
     ResourceSurrogateId
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -434,7 +434,7 @@ ON dbo.StringSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
@@ -450,7 +450,7 @@ INCLUDE
     TextOverflow -- will not be needed when all servers are targeting at least this version.
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
@@ -462,7 +462,7 @@ ON dbo.StringSearchParam
     ResourceSurrogateId
 )
 WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -496,7 +496,7 @@ ON dbo.UriSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
@@ -508,7 +508,7 @@ ON dbo.UriSearchParam
     ResourceSurrogateId
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -630,7 +630,7 @@ ON dbo.QuantitySearchParam
     ResourceTypeId,
     ResourceSurrogateId,
     SearchParamId
-) 
+)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
@@ -817,7 +817,7 @@ ON dbo.ReferenceTokenCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
@@ -836,7 +836,7 @@ INCLUDE
     SystemId2
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -875,7 +875,7 @@ ON dbo.TokenTokenCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam_Code1_Code2
@@ -893,7 +893,7 @@ INCLUDE
     SystemId2
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -935,7 +935,7 @@ ON dbo.TokenDateTimeCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2
@@ -955,7 +955,7 @@ INCLUDE
 )
 
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2
@@ -974,7 +974,7 @@ INCLUDE
     IsLongerThanADay2
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long
@@ -993,7 +993,7 @@ INCLUDE
 )
 
 WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long
@@ -1011,7 +1011,7 @@ INCLUDE
     SystemId1
 )
 WHERE IsHistory = 0 AND IsLongerThanADay2 = 1
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -1057,7 +1057,7 @@ ON dbo.TokenQuantityCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2
@@ -1076,7 +1076,7 @@ INCLUDE
     SystemId2
 )
 WHERE IsHistory = 0 AND SingleValue2 IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
@@ -1096,7 +1096,7 @@ INCLUDE
     SystemId2
 )
 WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
@@ -1116,7 +1116,7 @@ INCLUDE
     SystemId2
 )
 WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -1155,7 +1155,7 @@ ON dbo.TokenStringCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
@@ -1173,7 +1173,7 @@ INCLUDE
     TextOverflow2 -- will not be needed when all servers are targeting at least this version.
 )
 WHERE IsHistory = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
@@ -1190,7 +1190,7 @@ INCLUDE
     SystemId1
 )
 WHERE IsHistory = 0 AND TextOverflow2 IS NOT NULL
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -1246,7 +1246,7 @@ ON dbo.TokenNumberNumberCompositeSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2
@@ -1264,7 +1264,7 @@ INCLUDE
     SystemId1
 )
 WHERE IsHistory = 0 AND HasRange = 0
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3
@@ -1284,7 +1284,7 @@ INCLUDE
     SystemId1
 )
 WHERE IsHistory = 0 AND HasRange = 1
-WITH (DATA_COMPRESSION = PAGE) 
+WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
@@ -1970,7 +1970,7 @@ AS
     SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = @rawJobRecord
     WHERE Id = @id
 
-    SELECT MIN_ACTIVE_ROWVERSION()
+    SELECT @@DBTS
 
     COMMIT TRANSACTION
 GO
@@ -2257,7 +2257,7 @@ AS
     SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = @rawJobRecord
     WHERE Id = @id
 
-    SELECT MIN_ACTIVE_ROWVERSION()
+    SELECT @@DBTS
 
     COMMIT TRANSACTION
 GO
@@ -3295,264 +3295,3 @@ AS
     COMMIT TRANSACTION
 GO
 
-
-/*************************************************************
-    Batch Operations
-**************************************************************/
-
-CREATE TYPE dbo.IndexTableType_1 AS TABLE
-(
-    TableName nvarchar(128) COLLATE Latin1_General_CI_AI NOT NULL,
-    IndexName nvarchar(128) COLLATE Latin1_General_CI_AI NOT NULL
-)
-
-GO
-
-/*************************************************************
-    Stored procedures for delete batch resources
-**************************************************************/
---
--- STORED PROCEDURE
---     DeleteBatchResources
---
--- DESCRIPTION
---     Delete batch resources
---
--- PARAMETERS
---     @startResourceSurrogateId
---         * The start ResourceSurrogateId
---     @endResourceSurrogateId
---         * The end ResourceSurrogateId
-CREATE PROCEDURE dbo.DeleteBatchResources
-    @startResourceSurrogateId bigint,
-    @endResourceSurrogateId bigint
-AS
-    SET NOCOUNT ON
-    SET XACT_ABORT ON
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-    BEGIN TRANSACTION
-
-    DELETE FROM dbo.Resource
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.ResourceWriteClaim
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.CompartmentAssignment
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.ReferenceSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenText
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.StringSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.UriSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.NumberSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.QuantitySearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.DateTimeSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.ReferenceTokenCompositeSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenTokenCompositeSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenDateTimeCompositeSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenQuantityCompositeSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenStringCompositeSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenNumberNumberCompositeSearchParam
-    WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-        
-    COMMIT TRANSACTION
-GO
-
-/*************************************************************
-    Stored procedures for disable indexes
-**************************************************************/
---
--- STORED PROCEDURE
---     DisableIndexes
---
--- DESCRIPTION
---     Stored procedures for disable indexes
---
--- PARAMETERS
---     @indexes indexes table
-CREATE PROCEDURE [dbo].[DisableIndexes]
-    @indexes dbo.IndexTableType_1 READONLY
-AS
-    SET NOCOUNT ON
-    SET XACT_ABORT ON
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-    BEGIN TRANSACTION
-
-    declare commands cursor for
-    SELECT N'ALTER INDEX [' + indexes.IndexName + '] ON ' + indexes.TableName + ' Disable;'
-    FROM @indexes as indexes
-
-    declare @cmd varchar(max)
-
-    open commands
-    fetch next from commands into @cmd
-    while @@FETCH_STATUS=0
-    begin
-      exec(@cmd)
-      fetch next from commands into @cmd
-    end
-
-    select indexName, tableName from @indexes
-
-    COMMIT TRANSACTION
-GO
-
-/*************************************************************
-    Stored procedures for rebuild indexes
-**************************************************************/
---
--- STORED PROCEDURE
---     RebuildIndexes
---
--- DESCRIPTION
---     Stored procedures for rebuild indexes
---
--- PARAMETERS
---     @indexes indexes table
-CREATE PROCEDURE [dbo].[RebuildIndexes]
-    @indexes dbo.IndexTableType_1 READONLY
-AS
-    SET NOCOUNT ON
-    SET XACT_ABORT ON
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-    BEGIN TRANSACTION
-
-    declare commands cursor for
-    SELECT N'ALTER INDEX [' + indexes.IndexName + '] ON ' + indexes.TableName + ' Rebuild;'
-    FROM @indexes as indexes
-
-    declare @cmd varchar(max)
-
-    open commands
-    fetch next from commands into @cmd
-    while @@FETCH_STATUS=0
-    begin
-      exec(@cmd)
-      fetch next from commands into @cmd
-    end
-
-    select indexName, tableName from @indexes
-
-    COMMIT TRANSACTION
-GO
-
-/*************************************************************
-    Stored procedures for remove duplicate resources
-**************************************************************/
---
--- STORED PROCEDURE
---     DeleteDuplicatedResources
---
--- DESCRIPTION
---     Delete duplicated resources
---
--- PARAMETERS
---
-CREATE PROCEDURE dbo.DeleteDuplicatedResources
-AS
-    SET NOCOUNT ON
-    SET XACT_ABORT ON
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-    BEGIN TRANSACTION
-
-    DECLARE @duplicatedResource TABLE 
-    (
-	    ResourceSurrogateId bigint
-    )
-
-    Insert Into @duplicatedResource
-    Select ResourceSurrogateId from 
-    (
-	    SELECT *
-	    , DupRank = ROW_NUMBER() OVER (
-				      PARTITION BY ResourceId
-				      ORDER BY ResourceSurrogateId desc)
-	    From dbo.Resource
-    ) as rank
-    where rank.DupRank > 1
-
-    DELETE target FROM dbo.Resource target
-    INNER JOIN @duplicatedResource dup ON target.ResourceSurrogateId = dup.ResourceSurrogateId
-
-    DELETE FROM dbo.ResourceWriteClaim 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-    
-    DELETE FROM dbo.CompartmentAssignment 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-    
-    DELETE FROM dbo.ReferenceSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenText 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.StringSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.UriSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.NumberSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.QuantitySearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.DateTimeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.ReferenceTokenCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenTokenCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenDateTimeCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenQuantityCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenStringCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenNumberNumberCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    COMMIT TRANSACTION
-GO
