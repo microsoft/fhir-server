@@ -113,17 +113,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 var searchParamUri = new Uri(uri);
 
-                var paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
-                updated.Add(paramInfo);
-                paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
-                paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
+                SearchParameterInfo paramInfo = null;
+                try
+                {
+                    paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
+                    updated.Add(paramInfo);
+                    paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
+                    paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
+                }
+                catch (SearchParameterNotSupportedException)
+                {
+                    // Don't do anything
+                }
 
                 if (parameters.TryGetValue(searchParamUri, out var existingStatus))
                 {
                     existingStatus.LastUpdated = Clock.UtcNow;
                     existingStatus.Status = status;
 
-                    if (paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
+                    if (paramInfo != null && paramInfo.IsSearchable && existingStatus.SortStatus == SortParameterStatus.Supported)
                     {
                         existingStatus.SortStatus = SortParameterStatus.Enabled;
                         paramInfo.SortStatus = SortParameterStatus.Enabled;

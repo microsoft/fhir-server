@@ -180,7 +180,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (!UrlLookup.TryRemove(new Uri(url), out searchParameterInfo))
             {
-                throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, url));
+                // throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, url));
+                return;
             }
 
             var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
