@@ -142,6 +142,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             try
             {
+                await GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
                 (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
