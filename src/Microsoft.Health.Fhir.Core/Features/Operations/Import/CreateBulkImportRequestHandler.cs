@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _taskManager = taskManager;
-            _importTaskConfiguration = operationsConfig.Value.BulkImport;
+            _importTaskConfiguration = operationsConfig.Value.Import;
             _taskHostingConfiguration = taskHostingConfiguration.Value;
             _authorizationService = authorizationService;
             _logger = logger;

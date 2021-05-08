@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _importConfig = operationsConfig.Value.BulkImport;
+            _importConfig = operationsConfig.Value.Import;
             _urlResolver = urlResolver;
             _features = features.Value;
             _mediator = mediator;

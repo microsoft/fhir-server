@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var operationConfig = new OperationsConfiguration()
             {
-                BulkImport = bulkImportConfig,
+                Import = bulkImportConfig,
             };
 
             IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
