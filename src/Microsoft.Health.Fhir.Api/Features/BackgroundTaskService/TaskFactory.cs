@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -13,6 +14,9 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 {
+    /// <summary>
+    /// Factory to create different tasks.
+    /// </summary>
     public class TaskFactory : ITaskFactory
     {
         private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
@@ -38,6 +42,17 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
+            EnsureArg.IsNotNull(fhirDataBulkImportOperation, nameof(fhirDataBulkImportOperation));
+            EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
+            EnsureArg.IsNotNull(resourceBulkImporter, nameof(resourceBulkImporter));
+            EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
+            EnsureArg.IsNotNull(contextUpdaterFactory, nameof(contextUpdaterFactory));
+            EnsureArg.IsNotNull(taskmanager, nameof(taskmanager));
+            EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
+            EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
+
             _fhirDataBulkImportOperation = fhirDataBulkImportOperation;
             _importResourceLoader = importResourceLoader;
             _resourceBulkImporter = resourceBulkImporter;
@@ -52,6 +67,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 
         public ITask Create(TaskInfo taskInfo)
         {
+            EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
+
             if (taskInfo.TaskTypeId == ImportProcessingTask.ImportProcessingTaskId)
             {
                 IContextUpdater contextUpdater = _contextUpdaterFactory.CreateContextUpdater(taskInfo.TaskId, taskInfo.RunId);
