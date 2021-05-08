@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importResourceParser.Parse(Arg.Any<string>())
                 .Returns(callInfo =>
                 {
-                    autoResetEvent.WaitOne();
+                    autoResetEvent.Set();
 
                     throw new InvalidOperationException(errorMessage);
                 });
@@ -129,15 +129,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, idGenerator, cancellationTokenSource.Token);
 
+            autoResetEvent.WaitOne();
             cancellationTokenSource.Cancel();
-            autoResetEvent.Set();
 
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
             {
                 // do nothing.
             }
 
-            await Assert.ThrowsAsync<OperationCanceledException>(() => importTask);
+            try
+            {
+                await importTask;
+                throw new InvalidOperationException();
+            }
+            catch (TaskCanceledException)
+            {
+                // Expected error
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected error
+            }
         }
 
         private async Task VerifyResourceLoaderAsync(int resourcCount, int batchSize, long startIndex)

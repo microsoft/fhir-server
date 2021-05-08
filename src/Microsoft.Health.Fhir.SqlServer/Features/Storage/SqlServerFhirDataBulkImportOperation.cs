@@ -45,10 +45,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public static IReadOnlyList<(Table table, Index index)> UnclusteredIndexes { get; } =
             new List<(Table table, Index index)>()
             {
-                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId),
+                // (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId),
                 (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId),
                 (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId_Version),
-                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId),
+                /* (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId),
                 (VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId),
                 (VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime),
                 (VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long),
@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 (VLatest.TokenText, VLatest.TokenText.IX_TokenText_SearchParamId_Text),
                 (VLatest.TokenTokenCompositeSearchParam, VLatest.TokenTokenCompositeSearchParam.IX_TokenTokenCompositeSearchParam_Code1_Code2),
                 (VLatest.UriSearchParam, VLatest.UriSearchParam.IX_UriSearchParam_SearchParamId_Uri),
+                */
 
                 // ResourceWriteClaim Table - No unclustered index
             };

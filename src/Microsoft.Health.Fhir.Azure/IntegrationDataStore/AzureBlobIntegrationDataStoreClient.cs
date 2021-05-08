@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             IIntegrationDataStoreClientInitilizer<CloudBlobClient> integrationDataStoreClientInitializer,
             ILogger<AzureBlobIntegrationDataStoreClient> logger)
         {
+            EnsureArg.IsNotNull(integrationDataStoreClientInitializer, nameof(integrationDataStoreClientInitializer));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _integrationDataStoreClientInitializer = integrationDataStoreClientInitializer;
             _logger = logger;
         }
