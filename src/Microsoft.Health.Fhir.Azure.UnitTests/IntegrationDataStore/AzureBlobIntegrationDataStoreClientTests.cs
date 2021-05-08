@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
         {
             IntegrationDataStoreConfiguration configuration = new IntegrationDataStoreConfiguration()
             {
-                StorageAccountConnection = "DefaultEndpointsProtocol=https;AccountName=adfyufei;AccountKey=uecU5X800P+SU37P/7grvUcqIJ48aOVDyRGZ90ghUYqpAJBgpfiIjRbvJrTRJ2N6ZAUMgO8FKQ4zGbr80k3mGQ==;EndpointSuffix=core.windows.net",
+                StorageAccountConnection = "UseDevelopmentStorage=true",
             };
             AzureConnectionStringClientInitializerV2 initializer = new AzureConnectionStringClientInitializerV2(Options.Create(configuration), new NullLogger<AzureConnectionStringClientInitializerV2>());
             return initializer;
