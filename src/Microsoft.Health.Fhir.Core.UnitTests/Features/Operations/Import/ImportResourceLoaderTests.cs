@@ -98,11 +98,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             using StreamWriter writer = new StreamWriter(stream);
             await writer.WriteLineAsync("test");
             await writer.WriteLineAsync("test");
+            await writer.WriteLineAsync("test");
+            await writer.WriteLineAsync("test");
             await writer.FlushAsync();
 
             stream.Position = 0;
 
-            AutoResetEvent autoResetEvent = new AutoResetEvent(false);
+            AutoResetEvent resetEvent1 = new AutoResetEvent(false);
+            ManualResetEvent resetEvent2 = new ManualResetEvent(false);
+
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
 
@@ -110,9 +114,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importResourceParser.Parse(Arg.Any<string>())
                 .Returns(callInfo =>
                 {
-                    autoResetEvent.Set();
+                    resetEvent1.Set();
+                    resetEvent2.WaitOne();
 
-                    throw new InvalidOperationException(errorMessage);
+                    throw new InvalidCastException(errorMessage);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
@@ -129,8 +134,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, idGenerator, cancellationTokenSource.Token);
 
-            autoResetEvent.WaitOne();
+            resetEvent1.WaitOne();
             cancellationTokenSource.Cancel();
+            resetEvent2.Set();
 
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
             {
