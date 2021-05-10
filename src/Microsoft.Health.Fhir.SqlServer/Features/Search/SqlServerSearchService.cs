@@ -542,7 +542,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 sb.Append("DECLARE ")
                     .Append(p)
-                    .Append(" ")
+                    .Append(' ')
                     .Append(p.SqlDbType)
                     .Append(p.Value is string ? $"({p.Size})" : p.Value is decimal ? $"({p.Precision},{p.Scale})" : null)
                     .Append(" = ")

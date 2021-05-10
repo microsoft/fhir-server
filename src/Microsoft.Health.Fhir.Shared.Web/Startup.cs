@@ -37,11 +37,11 @@ namespace Microsoft.Health.Fhir.Web
                 .AddMemberMatch();
 
             string dataStore = Configuration["DataStore"];
-            if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
+            if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
             {
                 fhirServerBuilder.AddCosmosDb();
             }
-            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
+            else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
                 fhirServerBuilder.AddSqlServer(Configuration);
             }

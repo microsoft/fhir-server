@@ -294,7 +294,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Resource>> PostAsync(string resourceType, string body, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}")
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}")
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
@@ -490,7 +490,7 @@ namespace Microsoft.Health.Fhir.Client
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return (await CreateResponseAsync<Parameters>(response)).Resource;
+            return await CreateResponseAsync<Parameters>(response);
         }
     }
 }

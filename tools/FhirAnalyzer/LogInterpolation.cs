@@ -18,7 +18,7 @@ namespace FhirAnalyzer
     {
         public const string DiagnosticId = "StringInterpolationInLogger";
 
-        private static readonly LocalizableString Title = "String interpolation in logger method.";
+        private static readonly LocalizableString Title = "String interpolation in logger method";
         private static readonly LocalizableString MessageFormat = "Found string interpolation in logger method which can impend structural logging. Please rewrite code to pass string and parameters for it.";
         private static readonly LocalizableString Description = "Logging doesn't work well with string interpolation, it's better to rewrite code to string.Format message as first one and pass all parameters in the end.";
 
@@ -35,7 +35,9 @@ namespace FhirAnalyzer
 
         public override void Initialize(AnalysisContext context)
         {
+#pragma warning disable CA1062 // Validate arguments of public methods
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+#pragma warning restore CA1062 // Validate arguments of public methods
             context.EnableConcurrentExecution();
 
             context.RegisterSyntaxNodeAction(AnalyzeNode, SyntaxKind.InvocationExpression);
@@ -88,7 +90,7 @@ namespace FhirAnalyzer
                     if (!((content is InterpolationSyntax interpolation &&
                         interpolation.Expression is InvocationExpressionSyntax invocationSyntax &&
                         invocationSyntax.Expression is IdentifierNameSyntax nameSyntax &&
-                        nameSyntax.Identifier.ValueText.Equals("nameof", System.StringComparison.InvariantCulture))
+                        nameSyntax.Identifier.ValueText.Equals("nameof", System.StringComparison.OrdinalIgnoreCase))
 
                         // it's ok to have string itself
                         || content.Kind() == SyntaxKind.InterpolatedStringText))

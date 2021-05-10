@@ -394,7 +394,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (searchParamTableExpression.Predicate != null)
                 {
                     delimited.BeginDelimitedElement();
-                    searchParamTableExpression.Predicate?.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
+                    searchParamTableExpression.Predicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
                 }
             }
         }
@@ -573,7 +573,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (chainedExpression.ExpressionOnTarget != null && !expressionOnTargetHandledBySecondJoin)
                 {
                     delimited.BeginDelimitedElement();
-                    chainedExpression.ExpressionOnTarget?.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias));
+                    chainedExpression.ExpressionOnTarget.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias));
                 }
 
                 if (chainedExpression.ExpressionOnSource != null)

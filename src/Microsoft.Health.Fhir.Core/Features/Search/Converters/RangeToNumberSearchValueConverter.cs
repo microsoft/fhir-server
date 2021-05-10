@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             var lowValue = (decimal?)value.Scalar("low");
             var highValue = (decimal?)value.Scalar("high");
 
-            if (lowValue != null || highValue != null)
+            if (lowValue.HasValue || highValue.HasValue)
             {
                 yield return new NumberSearchValue(lowValue, highValue);
             }

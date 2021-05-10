@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -13,6 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static Type ToResourceModelType(this ResourceElement resourceType)
         {
+            EnsureArg.IsNotNull(resourceType, nameof(resourceType));
             return ModelInfoProvider.GetTypeForFhirType(resourceType.InstanceType);
         }
 

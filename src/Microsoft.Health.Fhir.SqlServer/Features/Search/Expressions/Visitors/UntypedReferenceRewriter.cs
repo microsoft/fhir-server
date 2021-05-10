@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         ///     A bitset with bits set at indexes where components are reference search parameters that can be of a single type.
         ///     Bit index 0 is used for non-composite search parameters. Bits 1 and up are the one-based indexes of the components of a composite search parameter.</param>
         /// <returns>A rewritten expression or the same instance if no changes made.</returns>
-        private Expression RewriteSubexpression(SearchParameterInfo searchParameter, Expression expression, int componentCandidates)
+        private static Expression RewriteSubexpression(SearchParameterInfo searchParameter, Expression expression, int componentCandidates)
         {
             // now see which components have a expression on the reference type
             int componentsPresent = expression.AcceptVisitor(ParameterPredicateVisitor.Instance, null);

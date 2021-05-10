@@ -20,15 +20,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             throw new FhirTransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }
 
-        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationOutcomeIssueList)
+        public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(IReadOnlyList<OperationOutcome.IssueComponent> operationOutcomeIssues)
         {
             var issues = new List<OperationOutcomeIssue>();
-
-            operationOutcomeIssueList.ForEach(x =>
+            foreach (var issue in operationOutcomeIssues)
+            {
                 issues.Add(new OperationOutcomeIssue(
-                    x.Severity.ToString(),
-                    x.Code.ToString(),
-                    x.Diagnostics)));
+                     issue.Severity.ToString(),
+                     issue.Code.ToString(),
+                     issue.Diagnostics));
+            }
 
             return issues;
         }

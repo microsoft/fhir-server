@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Versions
     [XmlRoot("versions")]
     public class VersionsResult
     {
-        public VersionsResult(List<string> versions, string defaultVersion)
+        public VersionsResult(ICollection<string> versions, string defaultVersion)
         {
             EnsureArg.IsNotNull(versions, nameof(versions));
             EnsureArg.IsNotNullOrWhiteSpace(defaultVersion, nameof(defaultVersion));
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Versions
 
         [XmlElement("version")]
         [JsonProperty("versions")]
-        public List<string> Versions { get; }
+        public ICollection<string> Versions { get; }
 
         [XmlElement("default")]
         [JsonProperty("default")]

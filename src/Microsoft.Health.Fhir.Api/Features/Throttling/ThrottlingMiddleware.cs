@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             _samplingLoopTask.Dispose();
         }
 
-        public void Dispose() => DisposeAsync().GetAwaiter().GetResult();
+        public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
         private class MethodPathTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<(string method, string path)>
         {

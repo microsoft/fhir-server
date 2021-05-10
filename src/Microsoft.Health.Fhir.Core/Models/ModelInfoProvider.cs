@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             if (_modelInfoProvider == null)
             {
-                throw new Exception("Please call SetProvider before using methods on this class.");
+                throw new InvalidOperationException("Please call SetProvider before using methods on this class.");
             }
         }
 

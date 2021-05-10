@@ -53,6 +53,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         public bool EnableChainedSearch { get; set; }
 
         /// <summary>
+        /// Uses query statistics to determine the optimal level of partition parallelism needed to return results
+        /// </summary>
+        public bool UseQueryStatistics { get; set; }
+
+        /// <summary>
         /// A list of Search Parameter URIs that will be enabled on first initialization
         /// </summary>
         public HashSet<string> InitialSortParameterUris { get; } = new();

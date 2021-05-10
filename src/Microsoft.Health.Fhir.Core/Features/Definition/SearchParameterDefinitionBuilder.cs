@@ -145,12 +145,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
                 catch (FormatException)
                 {
-                    AddIssue(Core.Resources.SearchParameterDefinitionInvalidDefinitionUri, entryIndex);
+                    AddIssue(Resources.SearchParameterDefinitionInvalidDefinitionUri, entryIndex);
                     continue;
                 }
                 catch (ArgumentException)
                 {
-                    AddIssue(Core.Resources.SearchParameterDefinitionDuplicatedEntry, searchParameter.Url);
+                    AddIssue(Resources.SearchParameterDefinitionDuplicatedEntry, searchParameter.Url);
                     continue;
                 }
             }
@@ -304,8 +304,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider);
                 results.UnionWith(baseResults);
             }
-
-            Debug.Assert(results != null, "The results should not be null.");
 
             results.UnionWith(searchParametersLookup[resourceType]);
 

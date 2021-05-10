@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
@@ -48,11 +49,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex), Arg.Any<CancellationToken>()).Returns(DataActions.Reindex);
 
+            var searchParameterOperations = Substitute.For<ISearchParameterOperations>();
+
             _reindexHandler = new ReindexSingleResourceRequestHandler(
                 _authorizationService,
                 _fhirDataStore,
                 _searchIndexer,
-                _resourceDeserializer);
+                _resourceDeserializer,
+                searchParameterOperations);
         }
 
         [Fact]
