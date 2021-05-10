@@ -236,7 +236,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 case SaveOutcomeType.Updated:
                     return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.OK)
                         .SetETagHeader()
-                        .SetLastModifiedHeader();
+                        .SetLastModifiedHeader()
+                        .SetLocationHeader(_urlResolver);
             }
 
             return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);

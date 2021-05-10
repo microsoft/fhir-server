@@ -5,6 +5,7 @@
 
 using System;
 using System.Net;
+using System.Net.Http.Headers;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -137,6 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}");
 
             Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+            Assert.NotNull(updateResponse.Headers.Location);
 
             Observation updatedResource = updateResponse.Resource;
 
