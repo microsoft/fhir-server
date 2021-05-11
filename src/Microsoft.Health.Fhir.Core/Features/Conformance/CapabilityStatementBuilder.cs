@@ -248,6 +248,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     if (!string.Equals(resource, KnownResourceTypes.AuditEvent, StringComparison.Ordinal))
                     {
                         component.ConditionalUpdate = true;
+
+                        component.ConditionalDelete.Add(ConditionalDeleteStatus.NotSupported);
+                        component.ConditionalDelete.Add(ConditionalDeleteStatus.Single);
+                        component.ConditionalDelete.Add(ConditionalDeleteStatus.Multiple);
                     }
 
                     component.ReadHistory = true;
