@@ -102,7 +102,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                                                 _fhirOperationDataStore,
                                                 DisabledFhirAuthorizationService.Instance,
                                                 optionsReindexConfig,
-                                                _searchParameterDefinitionManager);
+                                                _searchParameterDefinitionManager,
+                                                _searchParameterOperations);
 
             _reindexUtilities = new ReindexUtilities(
                 () => _scopedDataStore,

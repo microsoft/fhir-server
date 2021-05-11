@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 
@@ -24,22 +25,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         public CreateReindexRequestHandler(
             IFhirOperationDataStore fhirOperationDataStore,
             IAuthorizationService<DataActions> authorizationService,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ISearchParameterOperations searchParameterOperations)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(reindexJobConfiguration, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
 
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterOperations = searchParameterOperations;
         }
 
         public async Task<CreateReindexResponse> Handle(CreateReindexRequest request, CancellationToken cancellationToken)
@@ -56,6 +61,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 throw new JobConflictException(string.Format(Resources.OnlyOneResourceJobAllowed, reindexJobId));
             }
+
+            await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
 
             var jobRecord = new ReindexJobRecord(
                 _searchParameterDefinitionManager.SearchParameterHashMap,
