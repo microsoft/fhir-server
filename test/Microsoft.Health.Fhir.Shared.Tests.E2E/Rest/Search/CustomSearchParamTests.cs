@@ -96,11 +96,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.True(resourcesReindexed > 0.0);
 
                 // When job complete, search for resources using new parameter
+                // When there are multiple instances of the fhir-server running, it could take some time
+                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // adding some retries below to account for that delay.
                 int retryCount = 0;
                 bool success = true;
                 do
                 {
-                    await Task.Delay(10000);
+                    await Task.Delay(7500);
                     success = true;
                     retryCount++;
                     try

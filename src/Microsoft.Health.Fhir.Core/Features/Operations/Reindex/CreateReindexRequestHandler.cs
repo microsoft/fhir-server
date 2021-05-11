@@ -62,6 +62,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new JobConflictException(string.Format(Resources.OnlyOneResourceJobAllowed, reindexJobId));
             }
 
+            // We need to pull in latest search parameter updates from the data store before creating a reindex job.
+            // There could be a potential delay of <see cref="ReindexJobConfiguration.JobPollingFrequency"/> before
+            // search parameter updates on one instance propagates to other instances. If we store the reindex
+            // job with the old hash value in _searchParameterDefinitionManager.SearchParameterHashMap, then we will
+            // not detect the resources that need to be reindexed.
             await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
 
             var jobRecord = new ReindexJobRecord(
