@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Features.Security
@@ -25,8 +26,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
         private readonly ILogger<SecurityConfiguration> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IUrlResolver _urlResolver;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
-        public SecurityProvider(IOptions<SecurityConfiguration> securityConfiguration, IHttpClientFactory httpClientFactory, ILogger<SecurityConfiguration> logger, IUrlResolver urlResolver)
+        public SecurityProvider(
+            IOptions<SecurityConfiguration> securityConfiguration,
+            IHttpClientFactory httpClientFactory,
+            ILogger<SecurityConfiguration> logger,
+            IUrlResolver urlResolver,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
             EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
@@ -36,6 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _urlResolver = urlResolver;
+            _modelInfoProvider = modelInfoProvider;
         }
 
         public void Build(ICapabilityStatementBuilder builder)
@@ -44,19 +52,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             {
                 builder.Apply(statement =>
                 {
+                    bool stu3 = _modelInfoProvider.Version.Equals(FhirSpecification.Stu3);
                     if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                     {
-                        AddProxyOAuthSecurityService(statement, _urlResolver, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
+                        AddProxyOAuthSecurityService(statement, _urlResolver, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken, stu3);
                     }
                     else
                     {
-                        AddOAuthSecurityService(statement, _securityConfiguration.Authentication.Authority, _httpClientFactory, _logger);
+                        AddOAuthSecurityService(statement, _securityConfiguration.Authentication.Authority, _httpClientFactory, _logger, stu3);
                     }
                 });
             }
         }
 
-        private static void AddProxyOAuthSecurityService(ListedCapabilityStatement statement, IUrlResolver urlResolver, string authorizeRouteName, string tokenRouteName)
+        private static void AddProxyOAuthSecurityService(ListedCapabilityStatement statement, IUrlResolver urlResolver, string authorizeRouteName, string tokenRouteName, bool stu3Version)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
@@ -66,9 +75,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             ListedRestComponent restComponent = statement.Rest.Server();
             SecurityComponent security = restComponent.Security ?? new SecurityComponent();
 
-            var codableConceptInfo = new Core.Models.CodableConceptInfo();
+            var codableConceptInfo = new CodableConceptInfo();
             security.Service.Add(codableConceptInfo);
-            codableConceptInfo.Coding.Add(Constants.RestfulSecurityServiceOAuth);
+
+            codableConceptInfo.Coding.Add(stu3Version ? Constants.RestfulSecurityServiceStu3OAuth : Constants.RestfulSecurityServiceOAuth);
 
             Uri tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
             Uri authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
@@ -95,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             restComponent.Security = security;
         }
 
-        private static void AddOAuthSecurityService(ListedCapabilityStatement statement, string authority, IHttpClientFactory httpClientFactory, ILogger logger)
+        private static void AddOAuthSecurityService(ListedCapabilityStatement statement, string authority, IHttpClientFactory httpClientFactory, ILogger logger, bool stu3Version)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(authority, nameof(authority));
@@ -104,9 +114,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             ListedRestComponent restComponent = statement.Rest.Server();
             SecurityComponent security = restComponent.Security ?? new SecurityComponent();
 
-            var codableConceptInfo = new Core.Models.CodableConceptInfo();
+            var codableConceptInfo = new CodableConceptInfo();
             security.Service.Add(codableConceptInfo);
-            codableConceptInfo.Coding.Add(Constants.RestfulSecurityServiceOAuth);
+
+            codableConceptInfo.Coding.Add(stu3Version ? Constants.RestfulSecurityServiceStu3OAuth : Constants.RestfulSecurityServiceOAuth);
 
             var openIdConfigurationUrl = $"{authority}/.well-known/openid-configuration";
 
