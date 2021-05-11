@@ -103,7 +103,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 bool success = true;
                 do
                 {
-                    await Task.Delay(7500);
                     success = true;
                     retryCount++;
                     try
@@ -116,9 +115,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
+                        await Task.Delay(10000);
                     }
                 }
-                while (!success && retryCount <= 3);
+                while (!success && retryCount < 3);
 
                 Assert.True(success);
             }
