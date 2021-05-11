@@ -5,14 +5,14 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -25,9 +25,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 {
     public class ConditionalDeleteResourceHandler : BaseResourceHandler, IRequestHandler<ConditionalDeleteResourceRequest, DeleteResourceResponse>
     {
-        private const int MaxDeletedItems = 500;
         private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
+        private readonly int _conditionalDeleteMaxItems;
 
         public ConditionalDeleteResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -36,14 +36,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            IOptions<CoreFeatureConfiguration> featureConfiguration)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
 
             _searchService = searchService;
             _mediator = mediator;
+            _conditionalDeleteMaxItems = featureConfiguration.Value.ConditionalDeleteMaxItems;
         }
 
         public async Task<DeleteResourceResponse> Handle(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
@@ -70,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
             else
             {
-                if (!request.DeleteMultiple)
+                if (!request.DeleteMultiple || _conditionalDeleteMaxItems <= 0)
                 {
                     // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
                     throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
@@ -82,18 +85,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                     // Delete the matched results...
                     while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
                     {
-                        foreach (IEnumerable<SearchResultEntry> batch in matchedResults.Take(MaxDeletedItems - itemsDeleted).TakeBatch(10))
+                        foreach (IEnumerable<SearchResultEntry> batch in matchedResults.Take(_conditionalDeleteMaxItems - itemsDeleted).TakeBatch(10))
                         {
                             DeleteResourceResponse[] results = await Task.WhenAll(batch.Select(result => _mediator.Send(new DeleteResourceRequest(request.ResourceType, result.Resource.ResourceId, request.HardDelete), cancellationToken)));
                             itemsDeleted += results.Sum(x => x.ResourcesDeleted);
                         }
 
-                        if (!string.IsNullOrEmpty(ct) && MaxDeletedItems - itemsDeleted > 0)
+                        if (!string.IsNullOrEmpty(ct) && _conditionalDeleteMaxItems - itemsDeleted > 0)
                         {
                             (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
                                 request.ResourceType,
                                 request.ConditionalParameters,
-                                MaxDeletedItems - itemsDeleted,
+                                _conditionalDeleteMaxItems - itemsDeleted,
                                 cancellationToken,
                                 ct);
                         }
