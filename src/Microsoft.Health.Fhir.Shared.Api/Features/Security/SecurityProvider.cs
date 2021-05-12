@@ -53,7 +53,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             {
                 builder.Apply(statement =>
                 {
-                    bool stu3 = _modelInfoProvider.Version.Equals(FhirSpecification.Stu3);
                     if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                     {
                         AddProxyOAuthSecurityService(statement, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
