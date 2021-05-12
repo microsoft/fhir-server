@@ -371,7 +371,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-
                 // for most cases if another process updates the job (such as a DELETE request)
                 // the _etag change will cause a JobConflict exception and this task will be aborted
                 // but here we add one more check before attempting to mark the job as complete,
