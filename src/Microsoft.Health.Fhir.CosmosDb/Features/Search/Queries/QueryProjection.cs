@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         Default,
 
         /// <summary>
-        /// Only the ID columns a selected (can be ID + Reference IDs)
+        /// Only the ID and Type columns are selected (can be ID + Reference IDs)
         /// </summary>
-        Id,
+        IdAndType,
 
         /// <summary>
         /// Only reference IDs are selected
