@@ -357,7 +357,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogInformation($"Reindex throttle delay: {throttleDelayTime}");
                 await Task.Delay(_reindexJobRecord.QueryDelayIntervalInMilliseconds + throttleDelayTime, _cancellationToken);
 
-                // Remove all finished tasks from the collections of tasks_
+                // Remove all finished tasks from the collections of tasks
                 // and cancellationTokens
                 if (queryTasks.Count >= _reindexJobRecord.MaximumConcurrency)
                 {
@@ -371,25 +371,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                    // Get the latest version of the reindex job in case another thread has updated it
-                    // for most cases if another process updates the job (such as a DELETE request)
-                    // the _etag change will cause a JobConflict exception and this task will be aborted
-                    // but here we add one more check before attempting to mark the job as complete,
-                    // or starting another iteration of the loop
-                    await jobSemaphore.WaitAsync();
-                    try
+                // Get the latest version of the reindex job in case another thread has updated it
+                await _jobSemaphore.WaitAsync();
+                try
+                {
+                    using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                     {
-                    using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory.Invoke())
-                        {
-                            var wrapper = await store.Value.GetReindexJobByIdAsync(_reindexJobRecord.Id, cancellationToken);
-                            _weakETag = wrapper.ETag;
-                            _reindexJobRecord = wrapper.JobRecord;
-                        }
+                        var wrapper = await store.Value.GetReindexJobByIdAsync(_reindexJobRecord.Id, _cancellationToken);
+                        _weakETag = wrapper.ETag;
+                        _reindexJobRecord = wrapper.JobRecord;
                     }
-                    finally
-                    {
-                        jobSemaphore.Release();
-                    }
+                }
+                finally
+                {
+                    _jobSemaphore.Release();
+                }
 
                 // if our received CancellationToken is cancelled, or the job has been marked canceled we should
                 // pass that cancellation request onto all the cancellationTokens
