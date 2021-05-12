@@ -294,7 +294,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             try
             {
                 EnsureArg.IsNotNull(grantType, nameof(grantType));
-                EnsureArg.IsNotNull(clientId, nameof(clientId));
             }
             catch (ArgumentNullException ex)
             {
@@ -303,6 +302,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 #pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
             var client = _httpClientFactory.CreateClient();
 #pragma warning restore CA2000
+
+            if (Request.Headers.TryGetValue("Authorization", out var authHeaderValues)
+                && string.IsNullOrEmpty(clientId))
+            {
+                var authHeader = authHeaderValues.ToString();
+                if (authHeader.Contains("Basic ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var basicTokenEncoded = authHeader.Remove(0, "Basic ".Length);
+                    var basicToken = Base64UrlEncoder.Decode(basicTokenEncoded);
+                    var basicTokenSplit = basicToken.Split(":");
+                    if (basicTokenSplit.Length == 2)
+                    {
+                        clientId = basicTokenSplit[0];
+                        clientSecret = basicTokenSplit[1];
+                    }
+                }
+            }
 
             // Azure AD supports client_credentials, etc.
             // These are used in tests and may have value even when SMART proxy is used.
@@ -356,7 +372,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
 
-            // TODO: Deal with client secret in basic auth header
+            try
+            {
+                EnsureArg.IsNotNull(clientId, nameof(clientId));
+                EnsureArg.IsNotNull(clientSecret, nameof(clientSecret));
+            }
+            catch (ArgumentNullException ex)
+            {
+                throw new AadSmartOnFhirProxyBadRequestException(string.Format(Resources.ValueCannotBeNull, ex.ParamName), ex);
+            }
+
             using var content = new FormUrlEncodedContent(
                  new[]
                  {
