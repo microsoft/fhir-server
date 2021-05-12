@@ -220,10 +220,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
                 // Parameters is a non-persisted resource used to pass information into and back from an operation.
-                // Unfortunetly STU3 has cardinality of 1..* for interactions, so we need to put something inside.
-                if (string.Equals(resource, KnownResourceTypes.Parameters, StringComparison.Ordinal)
-                    && _modelInfoProvider.Version != FhirSpecification.Stu3)
+                if (string.Equals(resource, KnownResourceTypes.Parameters, StringComparison.Ordinal))
                 {
+                    // Unfortunetly STU3 has cardinality of 1..* for interactions, so we need to put something inside.
+                    if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                    {
+                        AddResourceInteraction(resource, TypeRestfulInteraction.Delete);
+                    }
+
                     continue;
                 }
 

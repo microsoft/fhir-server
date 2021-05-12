@@ -88,6 +88,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             Assert.False(noDelete);
         }
 
+// STU3 doesn't allow empty interactions so we had have Parameters in capability statement.
+#if !Stu3
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenParameterTypeIsNotAdded()
         {
@@ -99,6 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             Assert.False(noParameters);
         }
+#endif
 
         [Fact]
         public void GivenAConformanceBuilder_WhenAddingGlobalSearchParam_ThenTypeSearchParamIsAdded()

@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(securityConfiguration, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(securityConfiguration.Value.Authentication.Authority, nameof(securityConfiguration.Value.Authentication.Authority));
             EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -55,20 +56,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                     bool stu3 = _modelInfoProvider.Version.Equals(FhirSpecification.Stu3);
                     if (_securityConfiguration.EnableAadSmartOnFhirProxy)
                     {
-                        AddProxyOAuthSecurityService(statement, _urlResolver, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken, stu3);
+                        AddProxyOAuthSecurityService(statement, RouteNames.AadSmartOnFhirProxyAuthorize, RouteNames.AadSmartOnFhirProxyToken);
                     }
                     else
                     {
-                        AddOAuthSecurityService(statement, _securityConfiguration.Authentication.Authority, _httpClientFactory, _logger, stu3);
+                        AddOAuthSecurityService(statement);
                     }
                 });
             }
         }
 
-        private static void AddProxyOAuthSecurityService(ListedCapabilityStatement statement, IUrlResolver urlResolver, string authorizeRouteName, string tokenRouteName, bool stu3Version)
+        private void AddProxyOAuthSecurityService(ListedCapabilityStatement statement, string authorizeRouteName, string tokenRouteName)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
-            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNullOrWhiteSpace(authorizeRouteName, nameof(authorizeRouteName));
             EnsureArg.IsNotNullOrWhiteSpace(tokenRouteName, nameof(tokenRouteName));
 
@@ -78,10 +78,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             var codableConceptInfo = new CodableConceptInfo();
             security.Service.Add(codableConceptInfo);
 
-            codableConceptInfo.Coding.Add(stu3Version ? Constants.RestfulSecurityServiceStu3OAuth : Constants.RestfulSecurityServiceOAuth);
+            codableConceptInfo.Coding.Add(_modelInfoProvider.Version == FhirSpecification.Stu3
+                ? Constants.RestfulSecurityServiceStu3OAuth
+                : Constants.RestfulSecurityServiceOAuth);
 
-            Uri tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
-            Uri authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
+            Uri tokenEndpoint = _urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
+            Uri authorizationEndpoint = _urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
 
             var smartExtension = new
             {
@@ -105,24 +107,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             restComponent.Security = security;
         }
 
-        private static void AddOAuthSecurityService(ListedCapabilityStatement statement, string authority, IHttpClientFactory httpClientFactory, ILogger logger, bool stu3Version)
+        private void AddOAuthSecurityService(ListedCapabilityStatement statement)
         {
-            EnsureArg.IsNotNull(statement, nameof(statement));
-            EnsureArg.IsNotNull(authority, nameof(authority));
-            EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
-
             ListedRestComponent restComponent = statement.Rest.Server();
             SecurityComponent security = restComponent.Security ?? new SecurityComponent();
 
             var codableConceptInfo = new CodableConceptInfo();
             security.Service.Add(codableConceptInfo);
 
-            codableConceptInfo.Coding.Add(stu3Version ? Constants.RestfulSecurityServiceStu3OAuth : Constants.RestfulSecurityServiceOAuth);
+            codableConceptInfo.Coding.Add(_modelInfoProvider.Version == FhirSpecification.Stu3
+                ? Constants.RestfulSecurityServiceStu3OAuth
+                : Constants.RestfulSecurityServiceOAuth);
 
-            var openIdConfigurationUrl = $"{authority}/.well-known/openid-configuration";
+            var openIdConfigurationUrl = $"{_securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;
-            using (HttpClient httpClient = httpClientFactory.CreateClient())
+            using (HttpClient httpClient = _httpClientFactory.CreateClient())
             {
                 try
                 {
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
+                    _logger.LogWarning(ex, "There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
                     throw new OpenIdConfigurationException();
                 }
             }
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "There was an exception while attempting to read the endpoints from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
+                    _logger.LogWarning(ex, "There was an exception while attempting to read the endpoints from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
                     throw new OpenIdConfigurationException();
                 }
 
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             }
             else
             {
-                logger.LogWarning("The OpenId Configuration request from \"{openIdConfigurationUrl}\" returned an {statusCode} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
+                _logger.LogWarning("The OpenId Configuration request from \"{openIdConfigurationUrl}\" returned an {statusCode} status code.", openIdConfigurationUrl, openIdConfigurationResponse.StatusCode);
                 throw new OpenIdConfigurationException();
             }
 
