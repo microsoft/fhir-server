@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         public static async Task<IReadOnlyCollection<SearchResultEntry>> ConditionalSearchAsync(this ISearchService searchService, string instanceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, CancellationToken cancellationToken)
         {
-            // Most "Conditional" logic needs only 0, 1 or >1 for its logic
+            // Most "Conditional" logic needs only 0, 1 or >1, so here we can limit to "2"
             (IReadOnlyCollection<SearchResultEntry> results, _) = await ConditionalSearchAsync(searchService, instanceType, conditionalParameters, 2, cancellationToken);
             return results;
         }

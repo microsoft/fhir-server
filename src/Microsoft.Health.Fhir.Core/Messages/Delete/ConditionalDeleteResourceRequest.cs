@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {
             yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{ResourceType}').conditionalDelete.exists()");
-            ////yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{ResourceType}').conditionalDelete != 'not-supported'");
+            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{ResourceType}').conditionalDelete != 'not-supported'");
         }
     }
 }

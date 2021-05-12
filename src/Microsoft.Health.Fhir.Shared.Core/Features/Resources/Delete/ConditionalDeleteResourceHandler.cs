@@ -60,7 +60,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 throw new UnauthorizedFhirActionException();
             }
 
-            (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, 2, cancellationToken);
+            if (request.DeleteMultiple)
+            {
+                return await DeleteMultiple(request, cancellationToken);
+            }
+
+            return await DeleteSingle(request, cancellationToken);
+        }
+
+        private async Task<DeleteResourceResponse> DeleteSingle(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        {
+            IReadOnlyCollection<SearchResultEntry> matchedResults = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, cancellationToken);
 
             int count = matchedResults.Count;
             if (count == 0)
@@ -73,42 +83,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
             else
             {
-                if (!request.DeleteMultiple || _conditionalDeleteMaxItems <= 0)
+                // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
+                throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
+            }
+        }
+
+        private async Task<DeleteResourceResponse> DeleteMultiple(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
+        {
+            (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, _conditionalDeleteMaxItems, cancellationToken);
+
+            int itemsDeleted = 0;
+
+            // Delete the matched results...
+            while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
+            {
+                foreach (IEnumerable<SearchResultEntry> batch in matchedResults.Take(_conditionalDeleteMaxItems - itemsDeleted).TakeBatch(10))
                 {
-                    // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
-                    throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
+                    DeleteResourceResponse[] results = await Task.WhenAll(batch.Select(result => _mediator.Send(new DeleteResourceRequest(request.ResourceType, result.Resource.ResourceId, request.HardDelete), cancellationToken)));
+                    itemsDeleted += results.Sum(x => x.ResourcesDeleted);
+                }
+
+                if (!string.IsNullOrEmpty(ct) && _conditionalDeleteMaxItems - itemsDeleted > 0)
+                {
+                    (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
+                        request.ResourceType,
+                        request.ConditionalParameters,
+                        _conditionalDeleteMaxItems - itemsDeleted,
+                        cancellationToken,
+                        ct);
                 }
                 else
                 {
-                    int itemsDeleted = 0;
-
-                    // Delete the matched results...
-                    while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
-                    {
-                        foreach (IEnumerable<SearchResultEntry> batch in matchedResults.Take(_conditionalDeleteMaxItems - itemsDeleted).TakeBatch(10))
-                        {
-                            DeleteResourceResponse[] results = await Task.WhenAll(batch.Select(result => _mediator.Send(new DeleteResourceRequest(request.ResourceType, result.Resource.ResourceId, request.HardDelete), cancellationToken)));
-                            itemsDeleted += results.Sum(x => x.ResourcesDeleted);
-                        }
-
-                        if (!string.IsNullOrEmpty(ct) && _conditionalDeleteMaxItems - itemsDeleted > 0)
-                        {
-                            (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
-                                request.ResourceType,
-                                request.ConditionalParameters,
-                                _conditionalDeleteMaxItems - itemsDeleted,
-                                cancellationToken,
-                                ct);
-                        }
-                        else
-                        {
-                            matchedResults = Array.Empty<SearchResultEntry>();
-                        }
-                    }
-
-                    return new DeleteResourceResponse(itemsDeleted);
+                    matchedResults = Array.Empty<SearchResultEntry>();
                 }
             }
+
+            return new DeleteResourceResponse(itemsDeleted);
         }
     }
 }
