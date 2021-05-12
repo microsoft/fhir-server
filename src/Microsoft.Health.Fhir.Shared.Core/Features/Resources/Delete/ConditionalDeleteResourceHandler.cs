@@ -10,9 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -27,7 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
     {
         private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
-        private readonly int _conditionalDeleteMaxItems;
 
         public ConditionalDeleteResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -36,17 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService,
-            IOptions<CoreFeatureConfiguration> featureConfiguration)
+            IAuthorizationService<DataActions> authorizationService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(searchService, nameof(searchService));
-            EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
 
             _searchService = searchService;
             _mediator = mediator;
-            _conditionalDeleteMaxItems = featureConfiguration.Value.ConditionalDeleteMaxItems;
         }
 
         public async Task<DeleteResourceResponse> Handle(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
@@ -60,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 throw new UnauthorizedFhirActionException();
             }
 
-            if (request.DeleteMultiple)
+            if (request.DeleteCount > 1)
             {
                 return await DeleteMultiple(request, cancellationToken);
             }
@@ -75,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             int count = matchedResults.Count;
             if (count == 0)
             {
-                return null;
+                return new DeleteResourceResponse(0);
             }
             else if (count == 1)
             {
@@ -90,25 +84,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
         private async Task<DeleteResourceResponse> DeleteMultiple(ConditionalDeleteResourceRequest request, CancellationToken cancellationToken)
         {
-            (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, _conditionalDeleteMaxItems, cancellationToken);
+            (IReadOnlyCollection<SearchResultEntry> matchedResults, string ct) = await _searchService.ConditionalSearchAsync(request.ResourceType, request.ConditionalParameters, request.DeleteCount, cancellationToken);
 
             int itemsDeleted = 0;
 
             // Delete the matched results...
             while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
             {
-                foreach (IEnumerable<SearchResultEntry> batch in matchedResults.Take(_conditionalDeleteMaxItems - itemsDeleted).TakeBatch(10))
+                foreach (IEnumerable<SearchResultEntry> batch in matchedResults.Take(request.DeleteCount - itemsDeleted).TakeBatch(10))
                 {
                     DeleteResourceResponse[] results = await Task.WhenAll(batch.Select(result => _mediator.Send(new DeleteResourceRequest(request.ResourceType, result.Resource.ResourceId, request.HardDelete), cancellationToken)));
                     itemsDeleted += results.Sum(x => x.ResourcesDeleted);
                 }
 
-                if (!string.IsNullOrEmpty(ct) && _conditionalDeleteMaxItems - itemsDeleted > 0)
+                if (!string.IsNullOrEmpty(ct) && request.DeleteCount - itemsDeleted > 0)
                 {
                     (matchedResults, ct) = await _searchService.ConditionalSearchAsync(
                         request.ResourceType,
                         request.ConditionalParameters,
-                        _conditionalDeleteMaxItems - itemsDeleted,
+                        request.DeleteCount - itemsDeleted,
                         cancellationToken,
                         ct);
                 }

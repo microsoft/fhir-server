@@ -8,22 +8,20 @@ using System.Collections.Generic;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
     public class ConditionalDeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability
     {
-        public ConditionalDeleteResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, bool hardDelete, bool deleteMultiple)
+        public ConditionalDeleteResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, bool hardDelete, int deleteCount)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
-            EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(resourceType), nameof(resourceType));
 
             ResourceType = resourceType;
             ConditionalParameters = conditionalParameters;
             HardDelete = hardDelete;
-            DeleteMultiple = deleteMultiple;
+            DeleteCount = deleteCount;
         }
 
         public string ResourceType { get; }
@@ -32,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 
         public bool HardDelete { get; }
 
-        public bool DeleteMultiple { get; }
+        public int DeleteCount { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

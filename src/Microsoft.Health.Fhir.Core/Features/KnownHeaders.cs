@@ -13,10 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string RetryAfter = "Retry-After";
         public const string ProvenanceHeader = "X-Provenance";
         public const string Prefer = "Prefer";
-        public const string ItemsDeleted = "Items-Deleted";
         public const string RequestId = "X-Request-Id";
         public const string CorrelationId = "X-Correlation-Id";
         public const string EnableChainSearch = "x-ms-enable-chained-search";
         public const string ProfileValidation = "x-ms-profile-validation";
+        public const string ItemsDeleted = "x-ms-items-deleted";
     }
 }

@@ -32,28 +32,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.TestFhirClient;
         }
 
-        [Fact]
+        [InlineData(1)]
+        [InlineData(100)]
+        [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenNoExistingResources_WhenDeletingConditionally_TheServerShouldReturnAccepted()
+        public async Task GivenNoExistingResources_WhenDeletingConditionally_TheServerShouldReturnAccepted(int deleteCount)
         {
             var identifier = Guid.NewGuid().ToString();
             await ValidateResults(identifier, 0);
 
-            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&_count={deleteCount}", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         }
 
-        [InlineData(true)]
-        [InlineData(false)]
+        [InlineData(true, 1)]
+        [InlineData(true, 100)]
+        [InlineData(false, 1)]
+        [InlineData(false, 100)]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenOneMatchingResource_WhenDeletingConditionally_TheServerShouldDeleteSuccessfully(bool hardDelete)
+        public async Task GivenOneMatchingResource_WhenDeletingConditionally_TheServerShouldDeleteSuccessfully(bool hardDelete, int deleteCount)
         {
             var identifier = Guid.NewGuid().ToString();
             await CreateWithIdentifier(identifier);
             await ValidateResults(identifier, 1);
 
-            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}&_count={deleteCount}", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
             await ValidateResults(identifier, 0);
@@ -61,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenMultipleMatchingResources_WhenDeletingConditionally_TheServerShouldReturnError()
+        public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyInSingleMode_TheServerShouldReturnError()
         {
             var identifier = Guid.NewGuid().ToString();
             await CreateWithIdentifier(identifier);
@@ -69,6 +73,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ValidateResults(identifier, 2);
 
             await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}", CancellationToken.None));
+        }
+
+        [InlineData(-1)]
+        [InlineData(0)]
+        [InlineData(int.MaxValue)]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRanceCount_TheServerShouldReturnError(int deleteCount)
+        {
+            var identifier = Guid.NewGuid().ToString();
+            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
         }
 
         [InlineData(true)]
@@ -83,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreateWithIdentifier(identifier);
             await ValidateResults(identifier, 3);
 
-            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}&multiple=true", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Equal(3, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
 
@@ -101,7 +116,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await ValidateResults(identifier, 50);
 
-            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}&multiple=true", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Equal(50, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));

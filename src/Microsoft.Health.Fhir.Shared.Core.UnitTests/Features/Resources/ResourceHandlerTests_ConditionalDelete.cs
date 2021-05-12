@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
 
-            ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams, false, false, mockResultEntry);
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams, false, 1, mockResultEntry);
 
             DeleteResourceResponse result = await _mediator.Send(message);
 
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             var mockResultEntry = new SearchResultEntry(CreateMockResourceWrapper(Samples.GetDefaultObservation().UpdateId(Guid.NewGuid().ToString()), false));
 
-            ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams, true, false, mockResultEntry);
+            ConditionalDeleteResourceRequest message = SetupConditionalDelete(KnownResourceTypes.Observation, DefaultSearchParams, true, 1, mockResultEntry);
 
             DeleteResourceResponse result = await _mediator.Send(message);
 
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 KnownResourceTypes.Observation,
                 DefaultSearchParams,
                 hardDelete: false,
-                multiple: false,
+                count: 1,
                 mockResultEntry1,
                 mockResultEntry2);
 
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 KnownResourceTypes.Observation,
                 DefaultSearchParams,
                 hardDelete: false,
-                multiple: true,
+                count: 100,
                 mockResultEntry1,
                 mockResultEntry2);
 
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             string resourceType,
             IReadOnlyList<Tuple<string, string>> list = null,
             bool hardDelete = false,
-            bool multiple = false,
+            int count = 1,
             params SearchResultEntry[] searchResults)
         {
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<CancellationToken>())
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Updated));
             }
 
-            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete, multiple);
+            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete, count);
 
             return message;
         }
