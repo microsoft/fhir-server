@@ -374,17 +374,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="hardDelete">A flag indicating whether to hard-delete the resource or not.</param>
-        /// <param name="deleteCount">Specifies the maximum number of resources that can be deleted.</param>
+        /// <param name="maxDeleteCount">Specifies the maximum number of resources that can be deleted.</param>
         [HttpDelete]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Delete)]
-        public async Task<IActionResult> ConditionalDelete(string typeParameter, [FromQuery] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.Count)] int? deleteCount)
+        public async Task<IActionResult> ConditionalDelete(string typeParameter, [FromQuery] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
-            DeleteResourceResponse response = await _mediator.Send(new ConditionalDeleteResourceRequest(typeParameter, conditionalParameters, hardDelete, deleteCount.GetValueOrDefault(1)), HttpContext.RequestAborted);
+            DeleteResourceResponse response = await _mediator.Send(new ConditionalDeleteResourceRequest(typeParameter, conditionalParameters, hardDelete, maxDeleteCount.GetValueOrDefault(1)), HttpContext.RequestAborted);
 
-            if (deleteCount.HasValue)
+            if (maxDeleteCount.HasValue)
             {
                 Response.Headers.Add(KnownHeaders.ItemsDeleted, (response?.ResourcesDeleted ?? 0).ToString(CultureInfo.InvariantCulture));
             }

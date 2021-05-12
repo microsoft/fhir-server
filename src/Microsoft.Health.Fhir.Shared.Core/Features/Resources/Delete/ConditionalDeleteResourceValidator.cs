@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
                 .NotEmpty()
                 .WithMessage(Core.Resources.ConditionalOperationNotSelectiveEnough);
 
-            RuleFor(x => x.DeleteCount)
+            RuleFor(x => x.MaxDeleteCount)
                 .InclusiveBetween(1, configuration.Value.ConditionalDeleteMaxItems)
                 .WithMessage(string.Format(CultureInfo.InvariantCulture, Core.Resources.ConditionalDeleteCountOutOfRange, 1, configuration.Value.ConditionalDeleteMaxItems));
         }

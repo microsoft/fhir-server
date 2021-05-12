@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             DeleteResourceResponse result = await _mediator.Send(message);
 
-            Assert.Null(result);
+            Assert.Equal(0, result.ResourcesDeleted);
         }
 
         [Fact]
