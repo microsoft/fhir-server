@@ -18,6 +18,7 @@ using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -340,6 +341,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 var reindexWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
                 Assert.Equal(OperationStatus.Canceled, reindexWrapper.JobRecord.Status);
+            }
+            catch (RequestNotValidException ex)
+            {
+                // Despite the settings above of the create reindex request which processes only one resource
+                // every 500ms, sometimes when the test runs the reindex job is completed before the
+                // the cancellation request is processed.  We will ignore this error
+                if (!ex.Message.Contains("in state Completed and cannot be cancelled", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw;
+                }
             }
             finally
             {
