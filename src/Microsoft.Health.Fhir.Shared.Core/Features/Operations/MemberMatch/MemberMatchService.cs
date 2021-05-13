@@ -173,6 +173,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
         }
 
         private static bool IgnoreInSearch(SearchIndexEntry searchEntry) =>
-         searchEntry.SearchParameter.Code == SearchParameterNames.Id || searchEntry.SearchParameter.Type == ValueSets.SearchParamType.Reference;
+         searchEntry.SearchParameter.Code == SearchParameterNames.Id
+            || searchEntry.SearchParameter.Type == ValueSets.SearchParamType.Reference
+            || !searchEntry.SearchParameter.IsSearchable;
     }
 }
