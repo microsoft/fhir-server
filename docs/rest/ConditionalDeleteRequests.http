@@ -141,7 +141,7 @@ content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Post One Patient above and Delete one resource conditionally 
-DELETE https://localhost:44348/Patient?identifier=1032704
+DELETE https://{{hostname}}/Patient?identifier=1032704
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
@@ -158,24 +158,24 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Delete multiple resources conditionally (no criteria = fails)
-DELETE https://localhost:44348/Patient?_count=100
+DELETE https://{{hostname}}/Patient?_count=100
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Delete multiple resources conditionally 
-DELETE https://localhost:44348/Patient?identifier=1032704&_count=100
+DELETE https://{{hostname}}/Patient?identifier=1032704&_count=100
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Delete multiple resources conditionally (out of range = fails)
-DELETE https://localhost:44348/Patient?identifier=1032704&_count=-1
+DELETE https://{{hostname}}/Patient?identifier=1032704&_count=-1
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Hard Delete multiple resources conditionally 
-DELETE https://localhost:44348/Patient?identifier=1032704&hardDelete=true&_count=100
+DELETE https://{{hostname}}/Patient?identifier=1032704&hardDelete=true&_count=100
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
