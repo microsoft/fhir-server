@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="value">The value.</param>
         /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
         /// <returns>A <see cref="StringExpression"/> that represents contains operation.</returns>
-        public static StringExpression LeftSideStartsWtih(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        public static StringExpression LeftSideStartsWith(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
         {
             return new StringExpression(StringOperator.LeftSideStartsWith, fieldName, componentIndex, value, ignoreCase);
         }
