@@ -95,5 +95,141 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAReplacePatch_ThenServerShouldPatchCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.Equal(AdministrativeGender.Male, response.Resource.Gender);
+            Assert.NotNull(response.Resource.Address);
+
+            string patchDocument =
+                "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}]";
+
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Equal(AdministrativeGender.Female, patch.Resource.Gender);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAddBirthdatePatch_ThenServerShouldPatchCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/birthDate\",\"value\":\"1970-12-25\"}]";
+
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Equal("1970-12-25", patch.Resource.BirthDate);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task
+            GivenAServerThatSupportsIt_WhenSubmittingReplaceBirthdatePatch_ThenServerShouldPatchCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.NotNull(response.Resource.Address);
+
+            string patchDocument =
+                "[{\"op\":\"replace\",\"path\":\"/birthDate\",\"value\":\"1974-12-25\"}]";
+
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Equal("1974-12-25", patch.Resource.BirthDate);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task
+            GivenAServerThatSupportsIt_WhenSubmittingRemovingBirthdatePatch_ThenServerShouldPatchCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            string patchDocument =
+                "[{\"op\":\"remove\",\"path\":\"/birthDate\"}]";
+
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Null(patch.Resource.BirthDate);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task
+            GivenAServerThatSupportsIt_WhenSubmittingAAddNestedPropertyPatch_ThenServerShouldPatchNewPropertyCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            poco.Address.Clear();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\": \"add\", \"path\": \"/communication\",\"value\": {\"language\": {\"coding\": [{\"system\": \"urn:ietf:bcp:47\",\"code\": \"nl-NL\",\"display\": \"Dutch\"}]},\"preferred\": true}}]";
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Single(patch.Resource.Communication);
+            Assert.Equal(true, patch.Resource.Communication[0].Preferred);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAddPhonePatch_ThenServerShouldPatchNewPropertyCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            poco.Address.Clear();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.Empty(response.Resource.Address);
+
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/telecom/0/value\",\"value\":\"31201234569\"}]";
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Equal("31201234569", patch.Resource.Telecom[0].Value);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingReplacePhonePatch_ThenServerShouldPatchNewPropertyCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            poco.Address.Clear();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.Empty(response.Resource.Address);
+
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/telecom/0/value\",\"value\":\"31201234569\"},{\"op\":\"replace\",\"path\":\"/telecom/0/value\",\"value\":\"31201234570\"}]";
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Equal("31201234570", patch.Resource.Telecom[0].Value);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingRemovePhonePatch_ThenServerShouldPatchNewPropertyCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            poco.Address.Clear();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.Empty(response.Resource.Address);
+
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/telecom/0/value\",\"value\":\"31201234569\"},{\"op\":\"remove\",\"path\":\"/telecom/0/value\"}]";
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Null(patch.Resource.Telecom[0].Value);
+        }
     }
 }
