@@ -152,7 +152,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Hard Delete one resource conditionally 
-DELETE https://localhost:44348/Patient?identifier=1032704&hardDelete=true
+DELETE https://{{hostname}}/Patient?identifier=1032704&hardDelete=true
 content-type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
