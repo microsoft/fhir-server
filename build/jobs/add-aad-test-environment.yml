@@ -12,26 +12,20 @@ steps:
     azurePowerShellVersion: latestVersion
     ScriptType: inlineScript
     Inline: |
-      Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
-      $tenantId = "$(tenant-id)"
-
-      # Get admin token
+      Install-Module AzureAD -Force
+      
       $username = "$(tenant-admin-user-name)"
-      $password_raw = "$(tenant-admin-user-password)"
-      $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
-      $adminCredential = New-Object PSCredential $username,$password
-
+      $clientId = "$(tenant-admin-service-principal-name)"
+      $clientSecret = "$(tenant-admin-service-principal-password)"
+      $tenantId = "$(tenant-id)"
       $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
       $resource = "https://graph.windows.net/"
-
       $body = @{
-          grant_type = "password"
-          username   = $username
-          password   = $password_raw
-          resource   = $resource 
-          client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
+          grant_type    = "client_credentials"
+          client_id     = $clientId
+          client_secret = $clientSecret
+          resource      = $resource
       }
-
       # If a deleted keyvault exists, remove it first
       $environmentName = "$(DeploymentEnvironmentName)" -replace "\.", "" 
       if (Get-AzKeyVault -VaultName "${environmentName}-ts" -Location "westus" -InRemovedState)
@@ -39,6 +33,9 @@ steps:
           Remove-AzKeyVault -VaultName "${environmentName}-ts" -InRemovedState -Location "westus" -Force
       }
 
+      $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+      Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
+      
       $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
       Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
 
