@@ -78,10 +78,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
-                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
+                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
 
-                var searchParameterUrl = searchParam.GetStringScalar("url");
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url });
             }
             catch (FhirException fex)
             {
