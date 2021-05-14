@@ -86,6 +86,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                                     nameof(searchParam.Url),
                                     string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
                         }
+                        else if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            CheckForConflictingCodeValue(searchParam, validationFailures);
+                        }
                     }
                     else
                     {
@@ -100,18 +104,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                                     string.Format(Resources.SearchParameterDefinitionNotFound, searchParam.Url)));
                         }
 
-                        // Ensure the new search parameter's code value does not already exist for its base type(s)
-                        foreach (ResourceType? baseType in searchParam.Base)
-                        {
-                            if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
-                            {
-                                // The new search parameter's code value conflicts with an existing one
-                                validationFailures.Add(
-                                    new ValidationFailure(
-                                        nameof(searchParam.Code),
-                                        string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
-                            }
-                        }
+                        CheckForConflictingCodeValue(searchParam, validationFailures);
                     }
                 }
                 catch (FormatException)
@@ -132,6 +125,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             if (validationFailures.Any())
             {
                 throw new ResourceNotValidException(validationFailures);
+            }
+        }
+
+        private void CheckForConflictingCodeValue(SearchParameter searchParam, List<ValidationFailure> validationFailures)
+        {
+            // Ensure the search parameter's code value does not already exist for its base type(s)
+            foreach (ResourceType? baseType in searchParam.Base)
+            {
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
+                {
+                    // The search parameter's code value conflicts with an existing one
+                    validationFailures.Add(
+                        new ValidationFailure(
+                            nameof(searchParam.Code),
+                            string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
+                }
             }
         }
     }

@@ -89,6 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             data.Add(new object[] { uniqueUrl, "PUT" });
             data.Add(new object[] { uniqueUrl, "DELETE" });
             data.Add(new object[] { duplicateCode, "POST" });
+            data.Add(new object[] { duplicateCode, "PUT" });
 
             return data;
         }
