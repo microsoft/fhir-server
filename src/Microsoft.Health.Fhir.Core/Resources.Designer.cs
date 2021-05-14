@@ -232,6 +232,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The operation was stopped due to the underlying request being too resource intensive. If possible, try narrowing or changing the criteria..
+        /// </summary>
+        internal static string ConditionalRequestTooCostly {
+            get {
+                return ResourceManager.GetString("ConditionalRequestTooCostly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Found result with Id &apos;{0}&apos;, which did not match the provided Id &apos;{1}&apos;..
         /// </summary>
         internal static string ConditionalUpdateMismatchedIds {

@@ -14,10 +14,9 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -44,7 +43,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly ILogger<FhirCosmosSearchService> _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
-        private const int _chainedSearchMaxSubqueryItemLimit = 100;
+        private const int _chainedSearchMaxSubqueryItemLimit = 1000;
 
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -254,14 +253,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             var chainedResults = new List<FhirCosmosResourceWrapper>();
 
-            if (!await ExecuteSubQuery(
-                chainedResults,
-                _queryBuilder.BuildSqlQuerySpec(chainedOptions, new QueryBuilderOptions(includeExpressions, projection: includeExpressions.Any() ? QueryProjection.ReferencesOnly : QueryProjection.IdAndType)),
-                _chainedSearchMaxSubqueryItemLimit,
-                chainedOptions,
-                cancellationToken))
+            try
             {
-                throw new InvalidSearchOperationException(string.Format(CultureInfo.InvariantCulture, Resources.ChainedExpressionSubqueryLimit, _chainedSearchMaxSubqueryItemLimit));
+                // Because ExecuteSubQueryAsync will continue to search until the result set is filled, set a time-limit for this part of the chained expression
+                using var queryTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                queryTimeout.CancelAfter(TimeSpan.FromSeconds(15));
+
+                if (!await ExecuteSubQueryAsync(
+                    chainedResults,
+                    _queryBuilder.BuildSqlQuerySpec(chainedOptions, new QueryBuilderOptions(includeExpressions, projection: includeExpressions.Any() ? QueryProjection.ReferencesOnly : QueryProjection.IdAndType)),
+                    _chainedSearchMaxSubqueryItemLimit,
+                    chainedOptions,
+                    queryTimeout.Token))
+                {
+                    throw new InvalidSearchOperationException(string.Format(CultureInfo.InvariantCulture, Resources.ChainedExpressionSubqueryLimit, _chainedSearchMaxSubqueryItemLimit));
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw new RequestTooCostlyException(Core.Resources.ConditionalRequestTooCostly);
             }
 
             if (!chainedResults.Any())
@@ -276,6 +286,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
 
                 IEnumerable<ResourceTypeAndId> resourceTypeAndIds = chainedResults.SelectMany(x => x.ReferencesToInclude.Select(y => y)).Distinct();
+
+                if (!resourceTypeAndIds.Any())
+                {
+                    return null;
+                }
 
                 IEnumerable<MultiaryExpression> typeAndResourceExpressions = resourceTypeAndIds
                     .GroupBy(x => x.ResourceTypeName)
@@ -587,7 +602,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions);
 
-                    includesTruncated = !await ExecuteSubQuery(includes, revIncludeQuery, maxIncludeCount, revIncludeSearchOptions, cancellationToken);
+                    includesTruncated = !await ExecuteSubQueryAsync(includes, revIncludeQuery, maxIncludeCount, revIncludeSearchOptions, cancellationToken);
                 }
             }
 
@@ -598,12 +613,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         /// Aggressively searches for results as part of server-side sub-queries
         /// </summary>
         /// <returns>True if results were within MaxCount. False if results were truncated</returns>
-        private async Task<bool> ExecuteSubQuery(List<FhirCosmosResourceWrapper> includes, QueryDefinition query, int maxCount, SearchOptions searchOptions, CancellationToken cancellationToken)
+        private async Task<bool> ExecuteSubQueryAsync(List<FhirCosmosResourceWrapper> includes, QueryDefinition query, int maxCount, SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken, int? maxConcurrency) includeResponse = default;
 
             for (int i = 0; i == 0 || !string.IsNullOrEmpty(includeResponse.continuationToken); i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // inflate the item count so that we we get at least maxIncludeCount - includes.Count results back
                 searchOptions.MaxItemCount = (int)((maxCount - includes.Count) / CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor);
 
