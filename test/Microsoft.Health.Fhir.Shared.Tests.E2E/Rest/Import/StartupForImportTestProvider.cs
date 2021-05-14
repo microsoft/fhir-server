@@ -5,9 +5,6 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Shared.Tests.E2E;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 
