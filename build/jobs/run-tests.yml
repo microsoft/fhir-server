@@ -207,18 +207,14 @@ jobs:
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
 
-        Write-Host "hello"
         $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
         $integrationStoreUri = $integrationStoreSettings[0].Value
         Write-Host "$integrationStoreUri"
         $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
-        Write-Host "$integrationStoreAccountName"
         $integrationStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$integrationStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
         
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey.Value)"
-
-        Write-Host "$integrationStoreKey.Value"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
