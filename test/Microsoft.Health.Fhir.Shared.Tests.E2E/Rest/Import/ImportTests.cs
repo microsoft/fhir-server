@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
-using Microsoft.Health.Fhir.Core.Rest.Import;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -43,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenImportOperationEnabled_WhenImportOperationTriggered_ThenDataShouldBeImported()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
-            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
             {
@@ -68,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithoutEtag_ThenDataShouldBeImported()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
-            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
             {
@@ -89,10 +88,45 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
+        public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithMultipleFiles_ThenDataShouldBeImported()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-SinglePatientTemplate");
+            string resourceId1 = Guid.NewGuid().ToString("N");
+            string patientNdJsonResource1 = patientNdJsonResource.Replace("##PatientID##", resourceId1);
+            string resourceId2 = Guid.NewGuid().ToString("N");
+            string patientNdJsonResource2 = patientNdJsonResource.Replace("##PatientID##", resourceId2);
+
+            (Uri location1, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource1, _fixture.CloudStorageAccount);
+            (Uri location2, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource2, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location1,
+                        Type = "Patient",
+                    },
+                    new InputResource()
+                    {
+                        Url = location2,
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            await ImportCheckAsync(request);
+        }
+
+        [Fact]
         public async Task GivenImportOperationEnabled_WhenImportInvalidResource_ThenErrorLogsShouldBeOutput()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
-            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
             {
@@ -125,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.NotEmpty(result.Request);
 
             string errorLoation = result.Error.ToArray()[0].Url;
-            string[] errorContents = (await ImportFileHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             Assert.Single(errorContents);
         }
 
@@ -135,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             string patientNdJsonResource = Samples.GetNdJson("Import-DupPatientTemplate");
             string resourceId = Guid.NewGuid().ToString("N");
             patientNdJsonResource = patientNdJsonResource.Replace("##PatientID##", resourceId);
-            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
             {
@@ -164,7 +198,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenImportOperationEnabled_WhenCancelImportTask_ThenTaskShouldBeCanceled()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
-            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
             {
@@ -223,7 +257,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenImportOperationEnabled_WhenImportInvalidETag_ThenBadRequestShouldBeReturned()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
-            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
             {

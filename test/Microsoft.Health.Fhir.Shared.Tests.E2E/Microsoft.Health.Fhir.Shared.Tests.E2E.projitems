@@ -30,8 +30,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTests.cs" />
-	<Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestFixture.cs" />
-	<Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportFileHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportBasicSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportBasicSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportBasicSearchTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />

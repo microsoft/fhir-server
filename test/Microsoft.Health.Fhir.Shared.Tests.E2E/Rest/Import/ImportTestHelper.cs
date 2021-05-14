@@ -5,14 +5,20 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Xunit;
+using Resource = Hl7.Fhir.Model.Resource;
+using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Core.Rest.Import
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
-    public static class ImportFileHelper
+    public static class ImportTestHelper
     {
         public static async Task<(Uri location, string etag)> UploadFileAsync(string content, CloudStorageAccount cloudAccount)
         {
@@ -41,6 +47,17 @@ namespace Microsoft.Health.Fhir.Core.Rest.Import
             stream.Position = 0;
             using StreamReader reader = new StreamReader(stream);
             return await reader.ReadToEndAsync();
+        }
+
+        public static async Task VerifySearchResultAsync(TestFhirClient client, string query, params Resource[] resources)
+        {
+            Bundle result = await client.SearchAsync(query);
+            Assert.Equal(resources.Length, result.Entry.Count);
+
+            foreach (Resource resultResource in result.Entry.Select(e => e.Resource))
+            {
+                Assert.Contains(resources, expectedResource => expectedResource.Id.Equals(resultResource.Id));
+            }
         }
     }
 }
