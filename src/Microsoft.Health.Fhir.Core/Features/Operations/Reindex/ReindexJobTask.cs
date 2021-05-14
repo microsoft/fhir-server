@@ -371,15 +371,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
                 }
 
-                // if our received CancellationToken is cancelled we should
+                // for most cases if another process updates the job (such as a DELETE request)
+                // the _etag change will cause a JobConflict exception and this task will be aborted
+                // but here we add one more check before attempting to mark the job as complete,
+                // or starting another iteration of the loop
+                await _jobSemaphore.WaitAsync();
+                try
+                {
+                    using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory.Invoke())
+                    {
+                        var wrapper = await store.Value.GetReindexJobByIdAsync(_reindexJobRecord.Id, _cancellationToken);
+                        _weakETag = wrapper.ETag;
+                        _reindexJobRecord = wrapper.JobRecord;
+                    }
+                }
+                finally
+                {
+                    _jobSemaphore.Release();
+                }
+
+                // if our received CancellationToken is cancelled, or the job has been marked canceled we should
                 // pass that cancellation request onto all the cancellationTokens
                 // for the currently executing threads
-                if (_cancellationToken.IsCancellationRequested)
+                if (_cancellationToken.IsCancellationRequested || _reindexJobRecord.Status == OperationStatus.Canceled)
                 {
                     foreach (var tokenSource in queryCancellationTokens.Values)
                     {
                         tokenSource.Cancel(false);
                     }
+
+                    _logger.LogInformation("Reindex Job canceled.");
+                    throw new OperationCanceledException("ReindexJob canceled.");
                 }
             }
 
