@@ -47,8 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task
-            GivenAServerThatSupportsIt_WhenSubmittingALevel2Patch_ThenServerShouldPatchNewPropertyCorrectly()
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingALevel2PropertyPatch_ThenServerShouldPatchCorrectly()
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             poco.Address.Clear();
@@ -62,10 +61,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
             Assert.Single(patch.Resource.Address);
         }
-        
+
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAServerThatSupportsIt_WhenSubmittingAnInvalidPatch_ThenAnErrorShouldBeReturned()
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAnInvalidPropertyPatch_ThenAnErrorShouldBeReturned()
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
@@ -84,11 +83,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("/resourceType", "DummyResource")]
         [InlineData("/text/div", "<div>dummy narrative</div>")]
         [InlineData("/text/status", "extensions")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAForbiddenPropertyPatch_ThenAnErrorShouldBeReturned(
+            string propertyName, string value)
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"replace\",\"path\":\"" + propertyName + "\",\"value\":\"" + value + "\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+                response.Resource,
+                patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
+        [Theory]
         [InlineData("/gender", "dummyGender")]
         [InlineData("/birthDate", "abc")]
         [InlineData("/address/0/use", "dummyAddress")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAServerThatSupportsIt_WhenSubmittingAForbiddenPropertyPatch_ThenAnErrorShouldBeReturned(
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAInvalidValuePatch_ThenAnErrorShouldBeReturned(
             string propertyName, string value)
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
