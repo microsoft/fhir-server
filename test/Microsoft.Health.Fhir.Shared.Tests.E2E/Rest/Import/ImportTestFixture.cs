@@ -20,16 +20,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             CloudStorageAccount storageAccount = null;
 
             string integrationStoreFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestIntegrationStoreUri");
-            if (!string.IsNullOrEmpty(integrationStoreFromEnvironmentVariable))
+            string integrationStoreKeyFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestIntegrationStoreKey");
+            if (!string.IsNullOrEmpty(integrationStoreFromEnvironmentVariable) && !string.IsNullOrEmpty(integrationStoreKeyFromEnvironmentVariable))
             {
                 Uri integrationStoreUri = new Uri(integrationStoreFromEnvironmentVariable);
                 string storageAccountName = integrationStoreUri.Host.Split('.')[0];
-                string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
-                if (!string.IsNullOrWhiteSpace(storageSecret))
-                {
-                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
-                    storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-                }
+                StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, integrationStoreKeyFromEnvironmentVariable);
+                storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
             }
             else
             {

@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
 using Microsoft.Health.TaskManagement;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
@@ -39,16 +40,43 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             _mediator = new Mediator(type => provider.GetService(type));
         }
 
-        [Fact(Skip = "not implemented")]
+        [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithCompletedStatus_ThenHttpResponseCodeShouldBeOk()
         {
-            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed);
+            ImportTaskResult expectedResult = new ImportTaskResult();
+            expectedResult.Request = "test";
+
+            TaskResultData taskResultData = new TaskResultData()
+            {
+                Result = TaskResult.Success,
+                ResultData = JsonConvert.SerializeObject(expectedResult),
+            };
+
+            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed, false, taskResultData);
 
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
             Assert.NotNull(result.TaskResult);
         }
 
-        [Fact(Skip = "not implemented")]
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGettingAnCompletedImportTaskWithFailure_ThenHttpResponseCodeShouldBeExpected()
+        {
+            ImportTaskErrorResult expectedResult = new ImportTaskErrorResult();
+            expectedResult.HttpStatusCode = HttpStatusCode.BadRequest;
+
+            TaskResultData taskResultData = new TaskResultData()
+            {
+                Result = TaskResult.Fail,
+                ResultData = JsonConvert.SerializeObject(expectedResult),
+            };
+
+            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Completed, false, taskResultData));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ofe.ResponseStatusCode);
+            Assert.NotNull(ofe.Message);
+        }
+
+        [Fact]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskThatWasCanceled_ThenOperationFailedExceptionIsThrownWithBadRequestHttpResponseCode()
         {
             OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Queued, true));
@@ -57,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(_failureStatusCode, ofe.ResponseStatusCode);
         }
 
-        [Theory(Skip = "not implemented")]
+        [Theory]
         [InlineData(TaskStatus.Running)]
         [InlineData(TaskStatus.Queued)]
         public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
@@ -68,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Null(result.TaskResult);
         }
 
-        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false)
+        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false, TaskResultData resultData = null)
         {
             // Result may be changed to real style result later
             var taskInfo = new TaskInfo
@@ -79,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
                 InputData = string.Empty,
                 IsCanceled = isCanceled,
-                Result = taskStatus.ToString(),
+                Result = resultData != null ? JsonConvert.SerializeObject(resultData) : string.Empty,
             };
 
             _taskManager.GetTaskAsync(taskInfo.TaskId, Arg.Any<CancellationToken>()).Returns(taskInfo);
