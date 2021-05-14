@@ -38,12 +38,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
 
             _patientEverythingService.SearchAsync(
-                request.ResourceType,
                 request.ResourceId,
                 request.Start,
                 request.End,
                 request.Since,
-                request.Type,
+                request.ResourceTypes,
                 request.Count,
                 request.ContinuationToken,
                 CancellationToken.None).Returns(searchResult);

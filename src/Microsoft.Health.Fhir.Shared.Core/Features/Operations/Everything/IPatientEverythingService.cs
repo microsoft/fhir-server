@@ -13,7 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     public interface IPatientEverythingService
     {
         Task<SearchResult> SearchAsync(
-            string resourceType,
             string resourceId,
             PartialDateTime start,
             PartialDateTime end,

@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         public int Phase { get; internal set; }
 
-        public string InternalContinuationToken { get; internal set; }
+        public string InternalContinuationToken { get; private set; }
 
         public static string ToString(int phase, string internalContinuationToken)
         {

@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -42,8 +44,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 throw new UnauthorizedFhirActionException();
             }
 
+            if (!string.Equals(request.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
+            {
+                throw new RequestNotValidException(string.Format(Core.Resources.UnsupportedResourceType, request.EverythingOperationType));
+            }
+
             SearchResult searchResult = await _patientEverythingService.SearchAsync(
-                request.ResourceType, request.ResourceId, request.Start, request.End, request.Since, request.Type, request.Count, request.ContinuationToken, cancellationToken);
+                request.ResourceId, request.Start, request.End, request.Since, request.ResourceTypes, request.Count, request.ContinuationToken, cancellationToken);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 

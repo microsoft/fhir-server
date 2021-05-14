@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddContainerRegistryTokenProvider()
                 .AddConvertData()
                 .AddMemberMatch()
-                .AddEverythingOperation();
+                .AddEverythingOperations();
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))

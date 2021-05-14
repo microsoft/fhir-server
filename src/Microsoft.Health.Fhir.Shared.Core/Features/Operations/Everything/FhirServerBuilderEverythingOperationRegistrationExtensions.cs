@@ -11,7 +11,7 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderEverythingOperationRegistrationExtensions
     {
-        public static IFhirServerBuilder AddEverythingOperation(this IFhirServerBuilder fhirServerBuilder)
+        public static IFhirServerBuilder AddEverythingOperations(this IFhirServerBuilder fhirServerBuilder)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             fhirServerBuilder.Services.AddSingleton<IPatientEverythingService, PatientEverythingService>();

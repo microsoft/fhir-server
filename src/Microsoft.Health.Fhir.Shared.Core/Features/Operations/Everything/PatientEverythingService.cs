@@ -9,7 +9,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -46,7 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         }
 
         public async Task<SearchResult> SearchAsync(
-            string resourceType,
             string resourceId,
             PartialDateTime start,
             PartialDateTime end,
@@ -68,18 +69,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 ? new EverythingOperationContinuationToken(0, null)
                 : EverythingOperationContinuationToken.FromString(DecodeContinuationTokenFromBase64String(continuationToken));
 
-            if (token == null)
+            if (token == null || token.Phase < 0 || token.Phase > 3)
             {
                 throw new BadRequestException(Core.Resources.InvalidContinuationToken);
             }
 
             SearchResult searchResult;
             string encodedInternalContinuationToken = EncodeContinuationToken(token.InternalContinuationToken);
+            IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
             switch (token.Phase)
             {
                 case 0:
-                    searchResult = await SearchIncludes(resourceType, resourceId, since, type, cancellationToken);
+                    searchResult = await SearchIncludes(resourceId, since, types, cancellationToken);
                     if (!searchResult.Results.Any())
                     {
                         token.Phase = 1;
@@ -95,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                         goto case 2;
                     }
 
-                    searchResult = await SearchCompartmentWithDate(resourceType, resourceId, start, end, since, type, encodedInternalContinuationToken, cancellationToken);
+                    searchResult = await SearchCompartmentWithDate(resourceId, start, end, since, types, encodedInternalContinuationToken, cancellationToken);
                     if (!searchResult.Results.Any())
                     {
                         token.Phase = 2;
@@ -105,8 +107,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     break;
                 case 2:
                     searchResult = start == null && end == null
-                        ? await SearchCompartment(resourceType, resourceId, since, type, encodedInternalContinuationToken, cancellationToken)
-                        : await SearchCompartmentWithoutDate(resourceType, resourceId, since, type, encodedInternalContinuationToken, cancellationToken);
+                        ? await SearchCompartment(resourceId, since, types, encodedInternalContinuationToken, cancellationToken)
+                        : await SearchCompartmentWithoutDate(resourceId, since, types, encodedInternalContinuationToken, cancellationToken);
 
                     if (!searchResult.Results.Any())
                     {
@@ -116,10 +118,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
                     break;
                 case 3:
-                    searchResult = await SearchRevinclude(resourceId, since, type, encodedInternalContinuationToken, cancellationToken);
+                    searchResult = await SearchRevinclude(resourceId, since, types, encodedInternalContinuationToken, cancellationToken);
                     break;
                 default:
-                    return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
+                    // This should never happen
+                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, token.Phase));
             }
 
             string newContinuationToken = null;
@@ -136,10 +139,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         }
 
         private async Task<SearchResult> SearchIncludes(
-            string resourceType,
             string resourceId,
             PartialDateTime since,
-            string type,
+            IReadOnlyList<string> types,
             CancellationToken cancellationToken)
         {
             using IScoped<ISearchService> search = _searchServiceFactory();
@@ -151,10 +153,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 Tuple.Create(SearchParameterNames.Id, resourceId),
             };
 
-            searchParameters.AddRange(_includes.Select(include => Tuple.Create(SearchParameterNames.Include, $"{resourceType}:{include}")));
+            searchParameters.AddRange(_includes.Select(include => Tuple.Create(SearchParameterNames.Include, $"{ResourceType.Patient}:{include}")));
 
             // Search
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, searchParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), searchParameters);
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
@@ -162,9 +164,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             searchResultEntries = searchResultEntries.Where(s => !s.Resource.IsDeleted).ToList();
 
             // Filter results by _type
-            if (!string.IsNullOrEmpty(type))
+            if (types.Any())
             {
-                IReadOnlyList<string> types = type.SplitByOrSeparator();
                 searchResultEntries = searchResultEntries.Where(s => types.Contains(s.Resource.ResourceTypeName)).ToList();
             }
 
@@ -188,11 +189,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private async Task<SearchResult> SearchRevinclude(
             string resourceId,
             PartialDateTime since,
-            string type,
+            IReadOnlyList<string> types,
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            if (!string.IsNullOrEmpty(type) && !type.SplitByOrSeparator().Contains(_revinclude.Item1))
+            if (types.Any() && !types.Contains(_revinclude.Item1))
             {
                 return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
             }
@@ -219,19 +220,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         }
 
         private async Task<SearchResult> SearchCompartmentWithDate(
-            string resourceType,
             string resourceId,
             PartialDateTime start,
             PartialDateTime end,
             PartialDateTime since,
-            string type,
+            IReadOnlyList<string> types,
             string continuationToken,
             CancellationToken cancellationToken)
         {
             SearchParameterInfo clinicalDateInfo = _searchParameterDefinitionManager.GetSearchParameter(SearchParameterNames.ClinicalDateUri);
-            List<string> dateResourceTypes = string.IsNullOrEmpty(type)
-                ? clinicalDateInfo.BaseResourceTypes.ToList()
-                : clinicalDateInfo.BaseResourceTypes.Intersect(type.SplitByOrSeparator()).ToList();
+            List<string> dateResourceTypes = types.Any()
+                ? clinicalDateInfo.BaseResourceTypes.Intersect(types).ToList()
+                : clinicalDateInfo.BaseResourceTypes.ToList();
 
             if (!dateResourceTypes.Any())
             {
@@ -264,15 +264,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, resourceId, null, searchParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 
         private async Task<SearchResult> SearchCompartmentWithoutDate(
-            string resourceType,
             string resourceId,
             PartialDateTime since,
-            string type,
+            IReadOnlyList<string> types,
             string continuationToken,
             CancellationToken cancellationToken)
         {
@@ -281,9 +280,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             if (_compartmentDefinitionManager.TryGetResourceTypes(CompartmentType.Patient, out HashSet<string> compartmentResourceTypes))
             {
-                nonDateResourceTypes = string.IsNullOrEmpty(type)
-                    ? compartmentResourceTypes.Except(clinicalDateInfo.BaseResourceTypes).ToList()
-                    : compartmentResourceTypes.Except(clinicalDateInfo.BaseResourceTypes).Intersect(type.SplitByOrSeparator()).ToList();
+                nonDateResourceTypes = types.Any()
+                    ? compartmentResourceTypes.Except(clinicalDateInfo.BaseResourceTypes).Intersect(types).ToList()
+                    : compartmentResourceTypes.Except(clinicalDateInfo.BaseResourceTypes).ToList();
             }
 
             if (!nonDateResourceTypes.Any())
@@ -307,15 +306,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, resourceId, null, searchParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 
         private async Task<SearchResult> SearchCompartment(
-            string resourceType,
             string resourceId,
             PartialDateTime since,
-            string type,
+            IReadOnlyList<string> types,
             string continuationToken,
             CancellationToken cancellationToken)
         {
@@ -326,15 +324,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 searchParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
             }
 
-            if (!string.IsNullOrEmpty(type) && _compartmentDefinitionManager.TryGetResourceTypes(CompartmentType.Patient, out HashSet<string> compartmentResourceTypes))
+            if (types.Any() && _compartmentDefinitionManager.TryGetResourceTypes(CompartmentType.Patient, out HashSet<string> compartmentResourceTypes))
             {
-                var types = compartmentResourceTypes.Intersect(type.SplitByOrSeparator()).ToList();
-                if (!types.Any())
+                var filteredTypes = compartmentResourceTypes.Intersect(types).ToList();
+                if (!filteredTypes.Any())
                 {
                     return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
                 }
 
-                searchParameters.Add(Tuple.Create(SearchParameterNames.ResourceType, string.Join(',', types)));
+                searchParameters.Add(Tuple.Create(SearchParameterNames.ResourceType, string.Join(',', filteredTypes)));
             }
 
             if (!string.IsNullOrEmpty(continuationToken))
@@ -343,7 +341,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, resourceId, null, searchParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 

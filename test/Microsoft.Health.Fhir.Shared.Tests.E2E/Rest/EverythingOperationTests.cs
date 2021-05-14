@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Search;
@@ -28,7 +29,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything";
 
-            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Observation, Fixture.Appointment, Fixture.Encounter);
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(firstBundle, Fixture.Patient, Fixture.Organization);
+
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter);
+
+            nextLink = secondBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
+            ValidateBundle(thirdBundle, Fixture.Device);
         }
 
         [Fact]
@@ -101,6 +111,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?_since=3000";
 
             await ExecuteAndValidateBundle(searchUrl);
+        }
+
+        [Theory]
+        [InlineData("abc")]
+        [InlineData("Zm9v")]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+        public async Task GivenContinuationTokenSpecified_WhenInvalid_ThenBadRequestShouldBeReturned(string continuationToken)
+        {
+            string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?ct={continuationToken}";
+
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
         [Fact]

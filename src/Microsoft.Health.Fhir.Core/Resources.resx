@@ -554,4 +554,11 @@
   <data name="MemberMatchNoMatchFound" xml:space="preserve">
     <value>No match found.</value>
   </data>
+  <data name="UnsupportedResourceType" xml:space="preserve">
+    <value>Requested operation does not support resource type: {0}.</value>
+    <comment>{0} is the resource type.</comment>
+  </data>
+  <data name="InvalidEverythingOperationPhase" xml:space="preserve">
+    <value>The phase '{0}' in $everything operation is invalid.</value>
+  </data>
 </root>

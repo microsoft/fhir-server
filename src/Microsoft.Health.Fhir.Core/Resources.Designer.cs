@@ -530,6 +530,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The phase &apos;{0}&apos; in $everything operation is invalid..
+        /// </summary>
+        internal static string InvalidEverythingOperationPhase {
+            get {
+                return ResourceManager.GetString("InvalidEverythingOperationPhase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;handling&apos; value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
         internal static string InvalidHandlingValue {
@@ -1183,6 +1192,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UnsupportedConfigurationMessage {
             get {
                 return ResourceManager.GetString("UnsupportedConfigurationMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Requested operation does not support resource type: {0}..
+        /// </summary>
+        internal static string UnsupportedResourceType {
+            get {
+                return ResourceManager.GetString("UnsupportedResourceType", resourceCulture);
             }
         }
         

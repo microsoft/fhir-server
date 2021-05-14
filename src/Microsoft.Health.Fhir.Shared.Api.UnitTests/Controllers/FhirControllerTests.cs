@@ -60,12 +60,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await _mediator.Received().Send(
                 Arg.Is<EverythingOperationRequest>(
-                    r => string.Equals(r.ResourceType, ResourceType.Patient.ToString(), StringComparison.Ordinal)
+                    r => string.Equals(r.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal)
                          && string.Equals(r.ResourceId.ToString(), "123", StringComparison.OrdinalIgnoreCase)
                          && string.Equals(r.Start.ToString(), "2019", StringComparison.Ordinal)
                          && string.Equals(r.End.ToString(), "2020", StringComparison.Ordinal)
                          && string.Equals(r.Since.ToString(), "2021", StringComparison.Ordinal)
-                         && string.Equals(r.Type, ResourceType.Observation.ToString(), StringComparison.Ordinal)
+                         && string.Equals(r.ResourceTypes, ResourceType.Observation.ToString(), StringComparison.Ordinal)
                          && r.Count == null
                          && r.ContinuationToken == null),
                 Arg.Any<CancellationToken>());
