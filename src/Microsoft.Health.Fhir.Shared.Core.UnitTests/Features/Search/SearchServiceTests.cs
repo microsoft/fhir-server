@@ -148,40 +148,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(countOnly, testOptions.CountOnly);
         }
 
-        [Fact]
-        public async Task GivenEverythingOperationSearching_WhenSearched_ThenCorrectOptionIsUsedAndCorrectSearchResultsReturned()
-        {
-            const string compartmentType = "Patient";
-            const string compartmentId = "123";
-
-            var expectedSearchOptions = new SearchOptions();
-
-            _searchOptionsFactory.Create(compartmentType, compartmentId, null, null, null, null, null, null).Returns(expectedSearchOptions);
-
-            var expectedSearchResult = SearchResult.Empty(_unsupportedQueryParameters);
-
-            _searchService.SearchImplementation = options =>
-            {
-                Assert.Same(expectedSearchOptions, options);
-                return expectedSearchResult;
-            };
-
-            SearchResult actual = await _searchService.SearchForEverythingOperationAsync(
-                resourceType: compartmentType,
-                resourceId: compartmentId,
-                start: null,
-                end: null,
-                since: null,
-                type: null,
-                count: null,
-                continuationToken: null,
-                includes: new List<string>(),
-                revincludes: new List<Tuple<string, string>>(),
-                cancellationToken: CancellationToken.None);
-
-            Assert.Same(expectedSearchResult, actual);
-        }
-
         private class TestSearchService : SearchService
         {
             public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
@@ -208,23 +174,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
             {
-                return Task.FromResult(SearchImplementation(searchOptions));
-            }
-
-            protected override Task<SearchResult> SearchForEverythingOperationInternalAsync(
-                string resourceType,
-                string resourceId,
-                PartialDateTime start,
-                PartialDateTime end,
-                PartialDateTime since,
-                string type,
-                int? count,
-                string continuationToken,
-                IReadOnlyList<string> includes,
-                IReadOnlyList<Tuple<string, string>> revincludes,
-                CancellationToken cancellationToken)
-            {
-                SearchOptions searchOptions = SearchOptionsFactory.Create(resourceType, resourceId, start, end, since, type, count, continuationToken);
                 return Task.FromResult(SearchImplementation(searchOptions));
             }
         }

@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -494,7 +493,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Returns resources defined in $everything operation
         /// </summary>
-        /// <param name="typeParameter">The resource type</param>
         /// <param name="idParameter">The resource ID</param>
         /// <param name="start">The start date relates to care dates</param>
         /// <param name="end">The end date relates to care dates</param>
@@ -503,10 +501,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="count">The number of resources returned in one page</param>
         /// <param name="ct">The continuation token</param>
         [HttpGet]
-        [Route(KnownRoutes.EverythingResourceTypeById, Name = RouteNames.EverythingOperationById)]
+        [Route(KnownRoutes.PatientEverythingById, Name = RouteNames.PatientEverythingById)]
         [AuditEventType(AuditEventSubType.Everything)]
-        public async Task<IActionResult> EverythingById(
-            string typeParameter,
+        public async Task<IActionResult> PatientEverythingById(
             string idParameter,
             [FromQuery(Name = KnownQueryParameterNames.Start)] PartialDateTime start,
             [FromQuery(Name = KnownQueryParameterNames.End)] PartialDateTime end,
@@ -515,13 +512,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            // $everything operation is currently supported only for Patient resource type
-            if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
-            {
-                throw new RequestNotValidException(string.Format(CultureInfo.InvariantCulture, Resources.UnsupportedResourceType, typeParameter));
-            }
-
-            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(typeParameter, idParameter, start, end, since, type, count, ct), HttpContext.RequestAborted);
+            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, count, ct), HttpContext.RequestAborted);
 
             return FhirResult.Create(result.Bundle);
         }

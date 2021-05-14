@@ -38,6 +38,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
             Assert.Equal(testCount, searchParams.Count);
         }
 
+        [Theory]
+        [InlineData(CompartmentType.Encounter)]
+        [InlineData(CompartmentType.Patient)]
+        public void GivenAValidCompartmentDefinitionBundle_WhenValidated_ThenValidResourceTypes(CompartmentType compartmentType)
+        {
+            Assert.True(_validBuiltCompartment.TryGetResourceTypes(compartmentType, out HashSet<string> resourceTypes));
+            Assert.True(resourceTypes.Count > 0);
+        }
+
         [Fact]
         public void GivenAnInvalidCompartmentDefinitionBundle_Issues_MustBeReturned()
         {

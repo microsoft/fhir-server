@@ -11,5 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public interface ICompartmentDefinitionManager
     {
         bool TryGetSearchParams(string resourceType, CompartmentType compartmentType, out HashSet<string> searchParams);
+
+        bool TryGetResourceTypes(CompartmentType compartmentType, out HashSet<string> resourceTypes);
     }
 }

@@ -70,15 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to $everything operation is not yet implemented in SQL Server..
-        /// </summary>
-        internal static string EverythingOperationNotSupported {
-            get {
-                return ResourceManager.GetString("EverythingOperationNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {

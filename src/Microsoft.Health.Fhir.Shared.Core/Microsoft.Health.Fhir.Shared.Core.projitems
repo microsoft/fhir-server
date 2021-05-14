@@ -15,7 +15,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationToken.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\FhirServerBuilderEverythingOperationRegistrationExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\IPatientEverythingService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\PatientEverythingService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\MemberMatch\FhirServerBuilderMemberMatchRegistrationExtensions.cs" />

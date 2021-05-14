@@ -28,7 +28,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public static readonly Uri ClinicalDateUri = new Uri("http://hl7.org/fhir/SearchParameter/clinical-date");
 
         public const string Include = "_include";
-
-        public const string Revinclude = "_revinclude";
     }
 }

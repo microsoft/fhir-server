@@ -44,7 +44,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
         private const int _chainedSearchMaxSubqueryItemLimit = 100;
-        private const int _everythingMaxSubqueryItemLimit = 100;
 
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -342,39 +341,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 cancellationToken);
 
             return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), continuationToken);
-        }
-
-        protected override async Task<SearchResult> SearchForEverythingOperationInternalAsync(
-            string resourceType,
-            string resourceId,
-            PartialDateTime start,
-            PartialDateTime end,
-            PartialDateTime since,
-            string type,
-            int? count,
-            string continuationToken,
-            IReadOnlyList<string> includes,
-            IReadOnlyList<Tuple<string, string>> revincludes,
-            CancellationToken cancellationToken)
-        {
-            // If continuation token provided, we are in second page or after, return compartment search results
-            SearchOptions searchOptions;
-            if (!string.IsNullOrEmpty(continuationToken))
-            {
-                searchOptions = SearchOptionsFactory.Create(resourceType, resourceId, start, end, since, type, count, continuationToken);
-                return await SearchAsync(searchOptions, cancellationToken);
-            }
-
-            // Otherwise we are in first page, return resource, include, revinclude and first compartment search result
-            var searchResultEntries = new List<SearchResultEntry>();
-            SearchResult searchResult = await SearchReferencesForEverythingOperation(resourceType, resourceId, since, type, includes, revincludes, cancellationToken);
-            searchResultEntries.AddRange(searchResult.Results);
-
-            searchOptions = SearchOptionsFactory.Create(resourceType, resourceId, start, end, since, type, 1, continuationToken);
-            searchResult = await SearchAsync(searchOptions, cancellationToken);
-            searchResultEntries.AddRange(searchResult.Results);
-
-            return new SearchResult(searchResultEntries, searchResult.ContinuationToken, null, new List<Tuple<string, string>>());
         }
 
         /// <summary>
@@ -747,73 +713,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     chainedExpressions = Array.Empty<ChainedExpression>();
                     return false;
             }
-        }
-
-        private async Task<SearchResult> SearchReferencesForEverythingOperation(
-            string resourceType,
-            string resourceId,
-            PartialDateTime since,
-            string type,
-            IReadOnlyList<string> includes,
-            IReadOnlyList<Tuple<string, string>> revincludes,
-            CancellationToken cancellationToken)
-        {
-            var searchResultEntries = new List<SearchResultEntry>();
-
-            // Build search parameters
-            var searchParameters = new List<Tuple<string, string>>
-            {
-                Tuple.Create(SearchParameterNames.Id, resourceId),
-            };
-
-            searchParameters.AddRange(includes.Select(include => Tuple.Create(SearchParameterNames.Include, $"{resourceType}:{include}")));
-
-            // Search with includes
-            SearchOptions searchOptions = SearchOptionsFactory.Create(resourceType, searchParameters);
-            SearchResult searchResult = await SearchAsync(searchOptions, cancellationToken);
-            searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
-
-            // Search with revincludes
-            // Currently we only have one revinclude resource. If we are going to pull more revinclude resources, we will need to refine this to get better performance.
-            // We do not use _revinclude here since _revinclude depends on the existence of the parent resource.
-            foreach (Tuple<string, string> revinclude in revincludes)
-            {
-                searchParameters = new List<Tuple<string, string>>
-                {
-                    Tuple.Create(revinclude.Item2, resourceId),
-                    Tuple.Create(KnownQueryParameterNames.Count, _everythingMaxSubqueryItemLimit.ToString()),
-                };
-
-                searchOptions = SearchOptionsFactory.Create(revinclude.Item1, searchParameters);
-                searchResult = await SearchAsync(searchOptions, cancellationToken);
-                searchResultEntries.AddRange(searchResult.Results);
-            }
-
-            // Filter results by IsDeleted
-            searchResultEntries = searchResultEntries.Where(e => !e.Resource.IsDeleted).ToList();
-
-            // Filter results by _type
-            if (!string.IsNullOrEmpty(type))
-            {
-                IReadOnlyList<string> types = type.SplitByOrSeparator();
-                searchResultEntries = searchResultEntries.Where(s => types.Contains(s.Resource.ResourceTypeName)).ToList();
-            }
-
-            // Filter results by _since
-            if (since != null)
-            {
-                var sinceDateTimeOffset = since.ToDateTimeOffset(
-                    defaultMonth: 1,
-                    defaultDaySelector: (year, month) => 1,
-                    defaultHour: 0,
-                    defaultMinute: 0,
-                    defaultSecond: 0,
-                    defaultFraction: 0.0000000m,
-                    defaultUtcOffset: TimeSpan.Zero);
-                searchResultEntries = searchResultEntries.Where(s => s.Resource.LastModified.CompareTo(sinceDateTimeOffset) >= 0).ToList();
-            }
-
-            return new SearchResult(searchResultEntries, searchResult.ContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
         }
     }
 }

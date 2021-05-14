@@ -20,7 +20,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -141,22 +140,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
             return await SearchImpl(searchOptions, SqlSearchType.History, null, cancellationToken);
-        }
-
-        protected override Task<SearchResult> SearchForEverythingOperationInternalAsync(
-            string resourceType,
-            string resourceId,
-            PartialDateTime start,
-            PartialDateTime end,
-            PartialDateTime since,
-            string type,
-            int? count,
-            string continuationToken,
-            IReadOnlyList<string> includes,
-            IReadOnlyList<Tuple<string, string>> revincludes,
-            CancellationToken cancellationToken)
-        {
-            throw new OperationNotImplementedException(Resources.EverythingOperationNotSupported);
         }
 
         private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)

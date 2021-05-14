@@ -80,18 +80,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string searchParameterHash,
             bool countOnly,
             CancellationToken cancellationToken);
-
-        Task<SearchResult> SearchForEverythingOperationAsync(
-            string resourceType,
-            string resourceId,
-            PartialDateTime start,
-            PartialDateTime end,
-            PartialDateTime since,
-            string type,
-            int? count,
-            string continuationToken,
-            IReadOnlyList<string> includes,
-            IReadOnlyList<Tuple<string, string>> revincludes,
-            CancellationToken cancellationToken);
     }
 }

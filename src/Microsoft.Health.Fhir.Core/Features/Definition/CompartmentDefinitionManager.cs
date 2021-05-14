@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         // This data structure stores the lookup of compartmentSearchParams (in the hash set) by ResourceType and CompartmentType.
         private Dictionary<string, Dictionary<CompartmentType, HashSet<string>>> _compartmentSearchParamsLookup;
+        private Dictionary<CompartmentType, HashSet<string>> _compartmentResourceTypesLookup;
 
         public CompartmentDefinitionManager(IModelInfoProvider modelInfoProvider)
         {
@@ -79,6 +80,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return false;
         }
 
+        public bool TryGetResourceTypes(CompartmentType compartmentType, out HashSet<string> resourceTypes)
+        {
+            if (_compartmentResourceTypesLookup.TryGetValue(compartmentType, out resourceTypes))
+            {
+                return true;
+            }
+
+            resourceTypes = null;
+            return false;
+        }
+
         public static string CompartmentTypeToResourceType(string compartmentType)
         {
             EnsureArg.IsTrue(Enum.IsDefined(typeof(CompartmentType), compartmentType), nameof(compartmentType));
@@ -89,6 +101,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             var compartmentLookup = ValidateAndGetCompartmentDict(bundle);
             _compartmentSearchParamsLookup = BuildResourceTypeLookup(compartmentLookup.Values);
+            _compartmentResourceTypesLookup = new Dictionary<CompartmentType, HashSet<string>>();
+            foreach ((CompartmentType key, (CompartmentType Code, Uri Url, IList<(string Resource, IList<string> Params)> Resources) value) in compartmentLookup)
+            {
+                _compartmentResourceTypesLookup[key] = value.Resources.Where(x => x.Params.Any()).Select(x => x.Resource).ToHashSet();
+            }
         }
 
         private static Dictionary<CompartmentType, (CompartmentType Code, Uri Url, IList<(string Resource, IList<string> Params)> Resources)> ValidateAndGetCompartmentDict(BundleWrapper bundle)

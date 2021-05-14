@@ -6,12 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
-using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
@@ -174,41 +172,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Equal(compartmentType, compartmentSearchExpression.CompartmentType);
             Assert.Equal(compartmentId, compartmentSearchExpression.CompartmentId);
-        }
-
-        public static void ValidateCompartmentSearchExpressionWithClinicalDate(
-            Expression expression,
-            string compartmentType,
-            string compartmentId,
-            DateTimeOffset startOffset,
-            DateTimeOffset endOffset)
-        {
-            MultiaryExpression rootExpression = Assert.IsType<MultiaryExpression>(expression);
-            Assert.Equal(MultiaryOperator.And, rootExpression.MultiaryOperation);
-            Assert.Equal(2, rootExpression.Expressions.Count);
-
-            // The first expression is a compartment search expression
-            ValidateCompartmentSearchExpression(rootExpression.Expressions[0], compartmentType, compartmentId);
-
-            // The second expression is a multiary expression made up of date and type constraints
-            MultiaryExpression dateExpression = Assert.IsType<MultiaryExpression>(rootExpression.Expressions[1]);
-            Assert.Equal(MultiaryOperator.Or, dateExpression.MultiaryOperation);
-            Assert.Equal(2, dateExpression.Expressions.Count);
-
-            // Resource types that have clinical date are constrained by start and end
-            MultiaryExpression clinicalDateExpression = Assert.IsType<MultiaryExpression>(dateExpression.Expressions[0]);
-            ValidateMultiaryExpression(
-                clinicalDateExpression,
-                MultiaryOperator.And,
-                e => ValidateResourceTypeSearchParameterExpression(e, ResourceType.Observation.ToString()),
-                e => ValidateSearchParameterExpression(e, SearchParameterNames.Date, binaryExpression =>
-                    ValidateDateTimeBinaryOperatorExpression(binaryExpression, FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, startOffset)),
-                e => ValidateSearchParameterExpression(e, SearchParameterNames.Date, binaryExpression =>
-                    ValidateDateTimeBinaryOperatorExpression(binaryExpression, FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, endOffset)));
-
-            // Resource types that do not have clinical date are not constrained by start and end
-            SearchParameterExpression nonClinicalDateExpression = Assert.IsType<SearchParameterExpression>(dateExpression.Expressions[1]);
-            ValidateResourceTypeSearchParameterExpression(nonClinicalDateExpression, ResourceType.Account.ToString());
         }
 
         public static IEnumerable<object[]> GetEnumAsMemberData<TEnum>(Predicate<TEnum> predicate = null)

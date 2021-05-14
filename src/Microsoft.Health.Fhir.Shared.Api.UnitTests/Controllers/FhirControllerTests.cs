@@ -16,7 +16,6 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -50,8 +49,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             _mediator.Send(Arg.Any<EverythingOperationRequest>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
 
-            IActionResult result = await _fhirController.EverythingById(
-                typeParameter: ResourceType.Patient.ToString(),
+            IActionResult result = await _fhirController.PatientEverythingById(
                 idParameter: "123",
                 start: PartialDateTime.Parse("2019"),
                 end: PartialDateTime.Parse("2020"),
@@ -76,20 +74,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var bundleResource = (((FhirResult)result).Result as ResourceElement)?.ResourceInstance as Bundle;
             Assert.Equal(Bundle.BundleType.Searchset, bundleResource?.Type);
-        }
-
-        [Fact]
-        public async Task GivenAnEverythingOperationRequest_WhenResourceTypeIsNotPatient_ThenRequestNotValidExceptionShouldBeThrown()
-        {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _fhirController.EverythingById(
-                type: ResourceType.Observation.ToString(),
-                idParameter: null,
-                typeParameter: null,
-                start: null,
-                end: null,
-                since: null,
-                count: null,
-                ct: null));
         }
 
         private FhirController GetController()
