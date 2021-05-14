@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 {
                     new InputResource()
                     {
-                        Url = new Uri("http://invalid.com"),
+                        Url = new Uri("http://fhirtest-invalid.com"),
                         Type = "Patient",
                     },
                 },
