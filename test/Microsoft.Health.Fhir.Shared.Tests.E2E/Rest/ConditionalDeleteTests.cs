@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class ConditionalDeleteTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
+        private const string _resourceType = KnownResourceTypes.Encounter;
         private readonly TestFhirClient _client;
 
         public ConditionalDeleteTests(HttpIntegrationTestFixture<Startup> fixture)
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var identifier = Guid.NewGuid().ToString();
             await ValidateResults(identifier, 0);
 
-            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&_count={deleteCount}", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         }
 
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreateWithIdentifier(identifier);
             await ValidateResults(identifier, 1);
 
-            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}&_count={deleteCount}", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count={deleteCount}", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
             await ValidateResults(identifier, 0);
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreateWithIdentifier(identifier);
             await ValidateResults(identifier, 2);
 
-            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}", CancellationToken.None));
+            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}", CancellationToken.None));
         }
 
         [InlineData(-1)]
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenMultipleMatchingResources_WhenDeletingConditionallyWithOutOfRanceCount_TheServerShouldReturnError(int deleteCount)
         {
             var identifier = Guid.NewGuid().ToString();
-            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
+            await Assert.ThrowsAsync<FhirException>(() => _client.DeleteAsync($"{_resourceType}?identifier={identifier}&_count={deleteCount}", CancellationToken.None));
         }
 
         [InlineData(true)]
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await CreateWithIdentifier(identifier);
             await ValidateResults(identifier, 3);
 
-            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Equal(3, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
 
@@ -116,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             await ValidateResults(identifier, 50);
 
-            FhirResponse response = await _client.DeleteAsync($"{KnownResourceTypes.Observation}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Equal(50, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
@@ -126,17 +127,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task CreateWithIdentifier(string identifier)
         {
-            Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            Encounter observation = Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco<Encounter>();
 
             observation.Identifier.Add(new Identifier("http://e2etests", identifier));
-            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
+            using FhirResponse<Encounter> response = await _client.CreateAsync(observation);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }
 
         private async Task ValidateResults(string identifier, int expected)
         {
-            FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Observation, $"identifier={identifier}&_total=accurate");
+            FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_total=accurate");
             Assert.Equal(expected, result.Resource.Total);
         }
     }
