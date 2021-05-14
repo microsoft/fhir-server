@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 result.ErrorLogLocation = importErrorStore.ErrorFileLocation;
 
                 // Load and parse resource from bulk resource
-                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importProgress.CurrentIndex, sequenceIdGenerator, cancellationToken);
+                (Channel<ImportResource> importResourceChannel, Task loadTask) = _importResourceLoader.LoadResources(_inputData.ResourceLocation, _importProgress.CurrentIndex, _inputData.ResourceType, sequenceIdGenerator, cancellationToken);
 
                 // Import to data store
                 (Channel<ImportProcessingProgress> progressChannel, Task importTask) = _resourceBulkImporter.Import(importResourceChannel, importErrorStore, cancellationToken);
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
-                await _fhirDataBulkImportOperation.CleanBatchResourceAsync(startId + endIndex, endId, cancellationToken);
+                await _fhirDataBulkImportOperation.CleanBatchResourceAsync(_inputData.ResourceType, startId + endIndex, endId, cancellationToken);
             }
             catch (OperationCanceledException)
             {

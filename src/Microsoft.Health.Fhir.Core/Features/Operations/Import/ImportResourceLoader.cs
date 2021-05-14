@@ -46,18 +46,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public int ChannelMaxCapacity { get; set; } = DefaultChannelMaxCapacity;
 
-        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotEmptyOrWhiteSpace(resourceLocation, nameof(resourceLocation));
 
             Channel<ImportResource> outputChannel = Channel.CreateBounded<ImportResource>(ChannelMaxCapacity);
 
-            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, sequenceIdGenerator, cancellationToken), cancellationToken);
+            Task loadTask = Task.Run(async () => await LoadResourcesInternalAsync(outputChannel, resourceLocation, startIndex, resourceType, sequenceIdGenerator, cancellationToken), cancellationToken);
 
             return (outputChannel, loadTask);
         }
 
-        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long startIndex, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
+        private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
         {
             try
             {
@@ -107,11 +107,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         }
                     }
 
-                    processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), sequenceIdGenerator));
+                    processingTasks.Enqueue(ParseImportRawContentAsync(resourceType, buffer.ToArray(), sequenceIdGenerator));
                     buffer.Clear();
                 }
 
-                processingTasks.Enqueue(ParseImportRawContentAsync(buffer.ToArray(), sequenceIdGenerator));
+                processingTasks.Enqueue(ParseImportRawContentAsync(resourceType, buffer.ToArray(), sequenceIdGenerator));
                 while (processingTasks.Count > 0)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync((string content, long index)[] rawContents, Func<long, long> idGenerator)
+        private async Task<IEnumerable<ImportResource>> ParseImportRawContentAsync(string resourceType, (string content, long index)[] rawContents, Func<long, long> idGenerator)
         {
             return await Task.Run(() =>
             {
@@ -150,6 +150,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         ImportResource importResource = _importResourceParser.Parse(content);
                         importResource.Index = index;
                         importResource.Id = id;
+
+                        if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.Resource?.ResourceTypeName, StringComparison.Ordinal))
+                        {
+                            throw new FormatException("Resource type not match.");
+                        }
 
                         result.Add(importResource);
                     }

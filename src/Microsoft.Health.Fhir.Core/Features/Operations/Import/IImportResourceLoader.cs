@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public interface IImportResourceLoader
     {
-        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken);
+        public (Channel<ImportResource> resourceChannel, Task loadTask) LoadResources(string resourceLocation, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken);
     }
 }

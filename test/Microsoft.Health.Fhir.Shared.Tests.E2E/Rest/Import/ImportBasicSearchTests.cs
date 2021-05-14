@@ -36,5 +36,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, query, patientAddressCityAndFamily);
         }
+
+        [Fact]
+        public async Task GivenImportedResourceWithVariousValues_WhenSearchedWithCityParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
+        {
+            string query = string.Format("Patient?address-city={0}", _fixture.PatientWithSameCity1.Address[0].City);
+
+            await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, query, _fixture.PatientWithSameCity1, _fixture.PatientWithSameCity2);
+        }
+
+        [Fact]
+        public async Task GivenImportedResourceWithVariousValues_WhenSearchedWithTheMissingModifer_ThenOnlyTheResourcesWithMissingOrPresentParametersAreReturned()
+        {
+            string queryMissingFalse = string.Format("Patient?gender:missing=false", _fixture.PatientWithSameCity1.Address[0].City);
+            await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, queryMissingFalse, _fixture.PatientWithGender);
+
+            string queryMissing = string.Format("Patient?gender:missing=true", _fixture.PatientWithSameCity1.Address[0].City);
+            await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, queryMissing, _fixture.PatientAddressCityAndFamily, _fixture.PatientWithSameCity1, _fixture.PatientWithSameCity2);
+        }
     }
 }

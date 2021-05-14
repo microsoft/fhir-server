@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public interface IFhirDataBulkImportOperation
     {
-        public Task CleanBatchResourceAsync(long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken);
+        public Task CleanBatchResourceAsync(string resourceType, long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken);
 
         public Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken);
 

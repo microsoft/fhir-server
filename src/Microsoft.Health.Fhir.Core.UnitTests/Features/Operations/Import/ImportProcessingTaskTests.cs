@@ -58,11 +58,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     long startIndex = (long)callInfo[1];
-                    Func<long, long> idGenerator = (Func<long, long>)callInfo[2];
+                    Func<long, long> idGenerator = (Func<long, long>)callInfo[3];
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
                     resourceChannel.Writer.Complete();
 
@@ -134,11 +134,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     long startIndex = (long)callInfo[1];
-                    Func<long, long> idGenerator = (Func<long, long>)callInfo[2];
+                    Func<long, long> idGenerator = (Func<long, long>)callInfo[3];
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
 
                     Task loadTask = Task.Run(() =>
@@ -216,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            bulkOperation.CleanBatchResourceAsync(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            bulkOperation.CleanBatchResourceAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     throw new InvalidOperationException();
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            bulkOperation.CleanBatchResourceAsync(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            bulkOperation.CleanBatchResourceAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     throw new OperationCanceledException();
@@ -289,20 +289,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             long cleanStart = -1;
             long cleanEnd = -1;
-            bulkOperation.CleanBatchResourceAsync(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            bulkOperation.CleanBatchResourceAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    cleanStart = (long)callInfo[0];
-                    cleanEnd = (long)callInfo[1];
+                    cleanStart = (long)callInfo[1];
+                    cleanEnd = (long)callInfo[2];
 
                     return Task.CompletedTask;
                 });
 
-            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
+            loader.LoadResources(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<string>(), Arg.Any<Func<long, long>>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     long startIndex = (long)callInfo[1];
-                    Func<long, long> idGenerator = (Func<long, long>)callInfo[2];
+                    Func<long, long> idGenerator = (Func<long, long>)callInfo[3];
                     Channel<ImportResource> resourceChannel = Channel.CreateUnbounded<ImportResource>();
 
                     Task loadTask = Task.Run(async () =>
