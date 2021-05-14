@@ -59,6 +59,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // enable reindex for testing
             configuration["FhirServer:Operations:Reindex:Enabled"] = "true";
 
+            // enable import for testing
+            configuration["FhirServer:Operations:Import:Enabled"] = "true";
+            configuration["FhirServer:Operations:IntegrationDataStore:StorageAccountConnection"] = "UseDevelopmentStorage=true";
+
             if (startupType.IsDefined(typeof(RequiresIsolatedDatabaseAttribute)))
             {
                 // Alter the configuration so that the server will create a new, isolated database/container.
@@ -69,6 +73,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     var connectionStringBuilder = new SqlConnectionStringBuilder(configuration["SqlServer:ConnectionString"]);
                     var databaseName = connectionStringBuilder.InitialCatalog += "_" + startupType.Name;
                     configuration["SqlServer:ConnectionString"] = connectionStringBuilder.ToString();
+                    configuration["TaskHosting:Enabled"] = "true";
+                    configuration["TaskHosting:MaxRunningTaskCount"] = "2";
 
                     _cleanupDatabase = async () =>
                     {

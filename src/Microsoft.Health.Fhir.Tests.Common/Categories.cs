@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Export = "Export";
 
-        public const string BulkImport = "BulkImport";
+        public const string Import = "Import";
 
         public const string ExportDataValidation = "ExportDataValidation";
 

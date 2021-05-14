@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     {
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
-        private const string ContentTypeHeaderExpectedValue = "application/json";
+        private const string ContentTypeHeaderExpectedValue = "application/fhir+json";
 
         public ValidateImportRequestFilterAttribute()
         {

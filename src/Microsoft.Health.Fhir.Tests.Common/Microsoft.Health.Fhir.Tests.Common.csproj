@@ -41,6 +41,8 @@
     <None Remove="TestFiles\Normative\CarePlan.json" />
     <None Remove="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <None Remove="TestFiles\Normative\Coverage.json" />
+    <None Remove="TestFiles\Normative\Import-InvalidPatient.ndjson" />
+    <None Remove="TestFiles\Normative\Import-Patient.ndjson" />
     <None Remove="TestFiles\Normative\MoneyWithWrongDecimal.json" />
     <None Remove="TestFiles\Normative\Profile-CarePlan-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
@@ -247,6 +249,8 @@
     <EmbeddedResource Include="TestFiles\Normative\BulkImportRequest.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />

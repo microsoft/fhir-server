@@ -10,7 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\BulkImportTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
@@ -29,6 +28,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportLongRunningTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportTestProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTests.cs" />
+	<Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestFixture.cs" />
+	<Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportFileHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />

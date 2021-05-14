@@ -8,7 +8,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -16,7 +15,6 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
@@ -368,12 +366,12 @@ namespace Microsoft.Health.Fhir.Client
             return await response.Content.ReadAsStringAsync(cancellationToken);
         }
 
-        public async Task<Uri> BulkImportAsync(ImportRequest requestConfig, CancellationToken cancellationToken = default)
+        public async Task<Uri> ImportAsync(Parameters parameters, CancellationToken cancellationToken = default)
         {
             string requestPath = "$import";
             using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
             {
-                Content = new StringContent(JsonSerializer.Serialize(requestConfig), Encoding.UTF8, "application/json"),
+                Content = CreateStringContent(parameters),
             };
 
             message.Headers.Add("Accept", "application/fhir+json");
@@ -386,13 +384,13 @@ namespace Microsoft.Health.Fhir.Client
             return response.Content.Headers.ContentLocation;
         }
 
-        public async Task CancelBulkImport(Uri contentLocation, CancellationToken cancellationToken = default)
+        public async Task CancelImport(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
             await HttpClient.SendAsync(message, cancellationToken);
         }
 
-        public async Task<HttpResponseMessage> CheckBulkImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
             message.Headers.Add("Accept", "application/fhir+json");
