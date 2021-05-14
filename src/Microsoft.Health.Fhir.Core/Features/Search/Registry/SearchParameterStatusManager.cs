@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 var searchParamUri = new Uri(uri);
 
-                var paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
+                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
                 updated.Add(paramInfo);
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                 paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;

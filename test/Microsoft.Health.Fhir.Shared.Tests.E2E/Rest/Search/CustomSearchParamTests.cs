@@ -96,8 +96,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.True(resourcesReindexed > 0.0);
 
                 // When job complete, search for resources using new parameter
-                await ExecuteAndValidateBundle(
-                    $"Appointment?{searchParam.Code}={Appointment.AppointmentStatus.Noshow.ToString().ToLower()}&_tag={tag.Code}", expectedAppointment.Resource);
+                // When there are multiple instances of the fhir-server running, it could take some time
+                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // adding some retries below to account for that delay.
+                int retryCount = 0;
+                bool success = true;
+                do
+                {
+                    success = true;
+                    retryCount++;
+                    try
+                    {
+                        await ExecuteAndValidateBundle(
+                            $"Appointment?{searchParam.Code}={Appointment.AppointmentStatus.Noshow.ToString().ToLower()}&_tag={tag.Code}",
+                            expectedAppointment.Resource);
+                    }
+                    catch (Exception ex)
+                    {
+                        _output.WriteLine($"Failed to validate bundle: {ex}");
+                        success = false;
+                        await Task.Delay(10000);
+                    }
+                }
+                while (!success && retryCount < 3);
+
+                Assert.True(success);
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
@@ -160,7 +183,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Equal(randomName, param.Value.ToString());
 
                 // When job complete, search for resources using new parameter
-                await ExecuteAndValidateBundle($"Patient?{searchParamPosted.Resource.Code}:exact={randomName}", Tuple.Create("x-ms-use-partial-indices", "true"), expectedPatient.Resource);
+                await ExecuteAndValidateBundle(
+                            $"Patient?{searchParamPosted.Resource.Code}:exact={randomName}",
+                            Tuple.Create("x-ms-use-partial-indices", "true"),
+                            expectedPatient.Resource);
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
