@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
@@ -26,6 +28,19 @@ namespace Microsoft.Health.Fhir.Core.Rest.Import
 
             CloudBlob cloudBlob = container.GetBlobReference(blobName);
             return (cloudBlob.Uri, cloudBlob.Properties.ETag);
+        }
+
+        public static async Task<string> DownloadFileAsync(string location, CloudStorageAccount cloudAccount)
+        {
+            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
+            ICloudBlob container = blobClient.GetBlobReferenceFromServer(new Uri(location));
+
+            using MemoryStream stream = new MemoryStream();
+            await container.DownloadToStreamAsync(stream, CancellationToken.None);
+
+            stream.Position = 0;
+            using StreamReader reader = new StreamReader(stream);
+            return await reader.ReadToEndAsync();
         }
     }
 }

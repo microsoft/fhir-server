@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -69,6 +70,47 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.NotEmpty(result.Output);
             Assert.Empty(result.Error);
             Assert.NotEmpty(result.Request);
+        }
+
+        [Fact]
+        public async Task GivenImportOperationEnabled_WhenImportInvalidResource_ThanErrorLogsShouldBeOutput()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-PatientInvalid");
+            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = etag,
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+
+            HttpResponseMessage response;
+            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(await response.Content.ReadAsStringAsync());
+            Assert.NotEmpty(result.Output);
+            Assert.Equal(1, result.Error.Count);
+            Assert.NotEmpty(result.Request);
+
+            string errorLoation = result.Error.ToArray()[0].Url;
+            string[] errorContents = (await ImportFileHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n");
+            Assert.Single(errorContents);
         }
     }
 }

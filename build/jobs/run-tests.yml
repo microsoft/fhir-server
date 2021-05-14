@@ -207,9 +207,11 @@ jobs:
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
 
+        Write-Host "hello"
         $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
-        $integrationStoreUri = $acrSettings[0].Value
+        $integrationStoreUri = $integrationStoreSettings[0].Value
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
+        Write-Host "$integrationStoreUri"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
@@ -246,6 +248,7 @@ jobs:
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestContainerRegistryServer': $(TestContainerRegistryServer)
       'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
+      'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
