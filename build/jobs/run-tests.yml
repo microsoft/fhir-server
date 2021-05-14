@@ -256,6 +256,7 @@ jobs:
       'TestContainerRegistryServer': $(TestContainerRegistryServer)
       'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
       'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'TestIntegrationStoreKey': $(TestIntegrationStoreKey)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
