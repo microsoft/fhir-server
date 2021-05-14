@@ -17,5 +17,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         NotEndsWith,
         NotStartsWith,
         StartsWith,
+        LeftSideStartsWith,
     }
 }
