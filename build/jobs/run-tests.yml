@@ -210,11 +210,14 @@ jobs:
         Write-Host "hello"
         $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
         $integrationStoreUri = $integrationStoreSettings[0].Value
-        $integrationStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name [System.Uri]::new($integrationStoreUri).Host.Split('.')[0] | Where-Object {$_.KeyName -eq "key1"}
+        Write-Host "$integrationStoreUri"
+        $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
+        Write-Host "$integrationStoreAccountName"
+        $integrationStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$integrationStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
         
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey)"
-        Write-Host "$integrationStoreUri"
+
         Write-Host "$integrationStoreKey"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"

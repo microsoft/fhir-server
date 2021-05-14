@@ -6,10 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Rest.Import;
@@ -19,6 +22,7 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
@@ -36,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportOperationTriggered_ThanDataShouldBeImported()
+        public async Task GivenImportOperationEnabled_WhenImportOperationTriggered_ThenDataShouldBeImported()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
@@ -57,23 +61,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
-
-            HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(5));
-            }
-
-            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
-            ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(await response.Content.ReadAsStringAsync());
-            Assert.NotEmpty(result.Output);
-            Assert.Empty(result.Error);
-            Assert.NotEmpty(result.Request);
+            await ImportCheckAsync(request);
         }
 
         [Fact]
-        public async Task GivenImportOperationEnabled_WhenImportInvalidResource_ThanErrorLogsShouldBeOutput()
+        public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithoutEtag_ThenDataShouldBeImported()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            await ImportCheckAsync(request);
+        }
+
+        [Fact]
+        public async Task GivenImportOperationEnabled_WhenImportInvalidResource_ThenErrorLogsShouldBeOutput()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
             (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
@@ -111,6 +127,150 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             string errorLoation = result.Error.ToArray()[0].Url;
             string[] errorContents = (await ImportFileHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             Assert.Single(errorContents);
+        }
+
+        [Fact]
+        public async Task GivenImportOperationEnabled_WhenImportDuplicatedResource_ThenDupResourceShouldBeCleaned()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-DupPatientTemplate");
+            string resourceId = Guid.NewGuid().ToString("N");
+            patientNdJsonResource = patientNdJsonResource.Replace("##PatientID##", resourceId);
+            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = etag,
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            await ImportCheckAsync(request);
+            await ImportCheckAsync(request);
+
+            Patient patient = await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
+            Assert.Equal(resourceId, patient.Id);
+        }
+
+        [Fact]
+        public async Task GivenImportOperationEnabled_WhenCancelImportTask_ThenTaskShouldBeCanceled()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = etag,
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+            await _client.CancelImport(checkLocation);
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.CheckImportAsync(checkLocation));
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenImportOperationEnabled_WhenImportInvalidResourceUrl_ThenBadRequestShouldBeReturned()
+        {
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = new Uri("http://invalid.com"),
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(
+                async () =>
+                {
+                    HttpResponseMessage response;
+                    while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                    }
+                });
+        }
+
+        [Fact]
+        public async Task GivenImportOperationEnabled_WhenImportInvalidETag_ThenBadRequestShouldBeReturned()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Etag = "invalid",
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(
+                async () =>
+                {
+                    HttpResponseMessage response;
+                    while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                    }
+                });
+        }
+
+        private async Task<Uri> ImportCheckAsync(ImportRequest request)
+        {
+            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+
+            HttpResponseMessage response;
+            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+
+            Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+            ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(await response.Content.ReadAsStringAsync());
+            Assert.NotEmpty(result.Output);
+            Assert.Empty(result.Error);
+            Assert.NotEmpty(result.Request);
+
+            return checkLocation;
         }
     }
 }
