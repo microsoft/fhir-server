@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Fact]
         public async Task GivenImportOperationEnabled_WhenImportInvalidResource_ThanErrorLogsShouldBeOutput()
         {
-            string patientNdJsonResource = Samples.GetNdJson("Import-PatientInvalid");
+            string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
             (Uri location, string etag) = await ImportFileHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.NotEmpty(result.Request);
 
             string errorLoation = result.Error.ToArray()[0].Url;
-            string[] errorContents = (await ImportFileHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n");
+            string[] errorContents = (await ImportFileHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             Assert.Single(errorContents);
         }
     }
