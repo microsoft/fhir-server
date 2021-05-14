@@ -216,9 +216,9 @@ jobs:
         $integrationStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$integrationStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
         
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
-        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey)"
+        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey.Value)"
 
-        Write-Host "$integrationStoreKey"
+        Write-Host "$integrationStoreKey.Value"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         

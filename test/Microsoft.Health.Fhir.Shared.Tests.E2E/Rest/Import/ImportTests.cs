@@ -28,12 +28,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
     [Trait(Traits.Category, Categories.Import)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
-    public class ImportTests : IClassFixture<ImportTestFixture>
+    public class ImportTests : IClassFixture<ImportTestFixture<StartupForImportTestProvider>>
     {
         private readonly TestFhirClient _client;
-        private readonly ImportTestFixture _fixture;
+        private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
 
-        public ImportTests(ImportTestFixture fixture)
+        public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
             _client = fixture.TestFhirClient;
             _fixture = fixture;
