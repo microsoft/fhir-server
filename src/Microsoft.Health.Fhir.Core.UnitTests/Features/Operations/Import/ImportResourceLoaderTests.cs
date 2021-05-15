@@ -21,31 +21,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
     public class ImportResourceLoaderTests
     {
         [Fact]
-        public async Task GivenResourceLoader_WhenLoadResources_AllResoruceShouldBeLoad()
+        public async Task GivenResourceLoader_WhenLoadResources_ThenAllResoruceShouldBeLoad()
         {
             await VerifyResourceLoaderAsync(1234, 21, 0);
         }
 
         [Fact]
-        public async Task GivenResourceLoader_WhenLoadResourcesFromMiddle_AllResoruceShouldBeLoad()
+        public async Task GivenResourceLoader_WhenLoadResourcesFromMiddle_ThenAllResoruceShouldBeLoad()
         {
             await VerifyResourceLoaderAsync(1234, 21, 20);
         }
 
         [Fact]
-        public async Task GivenResourceLoader_WhenLoadResourcesCountEqualsBatchSize_AllResoruceShouldBeLoad()
+        public async Task GivenResourceLoader_WhenLoadResourcesCountEqualsBatchSize_ThenAllResoruceShouldBeLoad()
         {
             await VerifyResourceLoaderAsync(21, 21, 0);
         }
 
         [Fact]
-        public async Task GivenResourceLoader_WhenLoadResourcesCountLessThanBatchSize_AllResoruceShouldBeLoad()
+        public async Task GivenResourceLoader_WhenLoadResourcesCountLessThanBatchSize_ThenAllResoruceShouldBeLoad()
         {
             await VerifyResourceLoaderAsync(1, 21, 0);
         }
 
         [Fact]
-        public async Task GivenResourceLoader_WhenLoadResourcesWithParseException_AllResoruceShouldBeLoadAndErroShouldBeReturned()
+        public async Task GivenResourceLoader_WhenLoadResourcesWithParseException_ThenAllResoruceShouldBeLoadAndErroShouldBeReturned()
         {
             string errorMessage = "error";
             using MemoryStream stream = new MemoryStream();
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenResourceLoader_WhenCancelLoadTask_DataLoadTaskShouldBeCanceled()
+        public async Task GivenResourceLoader_WhenCancelLoadTask_ThenDataLoadTaskShouldBeCanceled()
         {
             string errorMessage = "error";
             using MemoryStream stream = new MemoryStream();
