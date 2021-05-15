@@ -12,9 +12,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
-    public class ImportDateSearchTestFixture : ImportTestFixture<StartupForImportDateSearchTestProvider>
+    public class ImportDateQuantityTestFixture : ImportTestFixture<StartupForImportDateSearchTestProvider>
     {
-        public ImportDateSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+        public ImportDateQuantityTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
         }
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         protected override async Task OnInitializedAsync()
         {
-            await TestFhirClient.DeleteAllResources(ResourceType.Patient);
+            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
 
             // Creates a unique code for searches
             Coding = new Coding
