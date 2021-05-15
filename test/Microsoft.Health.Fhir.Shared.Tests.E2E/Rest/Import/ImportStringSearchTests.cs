@@ -54,9 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (shouldMatch)
             {
                 Assert.NotEmpty(bundle.Entry);
-                Assert.Collection(
-                    bundle.Entry,
-                    e => Assert.True(expectedPatient.IsExactly(e.Resource)));
+                ImportTestHelper.VerifyBundle(bundle, expectedPatient);
             }
             else
             {
@@ -89,9 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             if (shouldMatch)
             {
                 Assert.NotEmpty(bundle.Entry);
-                Assert.Collection(
-                    bundle.Entry,
-                    e => Assert.True(expectedPatient.IsExactly(e.Resource)));
+                ImportTestHelper.VerifyBundle(bundle, expectedPatient);
             }
             else
             {
