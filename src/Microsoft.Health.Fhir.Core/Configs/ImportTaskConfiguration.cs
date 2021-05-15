@@ -15,13 +15,19 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public bool Enabled { get; set; }
 
+        /// <summary>
+        /// Queue id for data processing task. it might be different from orchestraotr task for standalone runtime environment.
+        /// </summary>
         public string ProcessingTaskQueueId { get; set; }
 
         /// <summary>
-        /// Controls how many resources will be returned for each search query while importing the data.
+        /// Controls how many data processing task would run at the same time.
         /// </summary>
         public int MaximumConcurrency { get; set; } = DefaultMaximumConcurrency;
 
+        /// <summary>
+        /// For bulk import operation, we need to rebuild index after data imported. This setting is to control the rebuild index operation concurrent.
+        /// </summary>
         public int MaximumConcurrentRebuildOperationCount { get; set; } = DefaultMaximumConcurrentRebuildOperationCount;
     }
 }
