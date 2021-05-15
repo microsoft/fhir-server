@@ -11,9 +11,9 @@ using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
     [RequiresIsolatedDatabase]
-    public class StartupForImportStringSearchTestProvider : StartupBaseForCustomProviders
+    public class StartupForImportReferenceSearchTestProvider : StartupBaseForCustomProviders
     {
-        public StartupForImportStringSearchTestProvider(IConfiguration configuration)
+        public StartupForImportReferenceSearchTestProvider(IConfiguration configuration)
             : base(configuration)
         {
         }

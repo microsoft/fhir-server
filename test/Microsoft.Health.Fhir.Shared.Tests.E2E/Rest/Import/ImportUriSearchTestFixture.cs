@@ -25,25 +25,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         protected override async Task OnInitializedAsync()
         {
-            // Prepare the resources used for URI search tests.
-            FixtureTag = Guid.NewGuid().ToString();
-
-            ValueSets = await TestFhirClient.CreateResourcesAsync<ValueSet>(
-                vs => AddValueSet(vs, "http://somewhere.com/test/system"),
-                vs => AddValueSet(vs, "urn://localhost/test"),
-                vs => AddValueSet(vs, "http://example.org/rdf#54135-9"));
-
-            void AddValueSet(ValueSet vs, string url)
-            {
-                vs.Status = PublicationStatus.Active;
-                vs.Url = url;
-                vs.Meta = new Meta();
-                vs.Meta.Tag.Add(new Coding(null, FixtureTag));
-            }
-        }
-
-        protected override async Task OnInitializedAsync()
-        {
             await TestFhirClient.DeleteAllResources(ResourceType.ValueSet);
 
             FixtureTag = Guid.NewGuid().ToString();

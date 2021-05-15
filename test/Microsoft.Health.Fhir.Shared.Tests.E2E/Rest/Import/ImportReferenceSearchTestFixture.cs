@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -12,9 +11,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
-    public class ImportStringSearchTestFixture : ImportTestFixture<StartupForImportStringSearchTestProvider>
+    public class ImportReferenceSearchTestFixture : ImportTestFixture<StartupForImportReferenceSearchTestProvider>
     {
-        public ImportStringSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+        public ImportReferenceSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
         }
