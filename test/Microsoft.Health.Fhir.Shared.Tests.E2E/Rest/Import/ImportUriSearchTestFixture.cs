@@ -34,7 +34,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 CloudStorageAccount,
                 vs => AddValueSet(vs, "http://somewhere.com/test/system"),
                 vs => AddValueSet(vs, "urn://localhost/test"),
-                vs => AddValueSet(vs, "http://example.org/rdf#54135-9"));
+                vs => AddValueSet(vs, "http://example.org/rdf#54135-9"),
+                vs => AddValueSet(vs, "http://example.org/rdf#54135-9-9"));
 
             void AddValueSet(ValueSet vs, string url)
             {
