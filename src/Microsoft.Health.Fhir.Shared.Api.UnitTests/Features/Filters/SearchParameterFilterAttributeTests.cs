@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
 
-            await _searchParameterValidator.DidNotReceive().ValidateSearchParamterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+            await _searchParameterValidator.DidNotReceive().ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
 
-            await _searchParameterValidator.Received().ValidateSearchParamterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+            await _searchParameterValidator.Received().ValidateSearchParameterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
         private static ActionExecutingContext CreateContext(Base type)

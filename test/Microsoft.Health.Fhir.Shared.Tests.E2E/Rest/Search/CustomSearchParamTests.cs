@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Theory]
-        [InlineData("SearchParameterBadSyntax", "Parsing failure")]
+        [InlineData("SearchParameterBadSyntax", "A search parameter with the same code value 'diagnosis' already exists for base type 'Encounter'")]
         [InlineData("SearchParameterExpressionWrongProperty", "not supported")]
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
         [InlineData("SearchParameterInvalidType", "Literal 'foo' is not a valid value for enumeration 'SearchParamType'")]
@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirException ex)
             {
-                Assert.True(ex.OperationOutcome.Issue.Where(i => i.Diagnostics.Contains(errorMessage)).Any());
+                Assert.Contains(ex.OperationOutcome.Issue, i => i.Diagnostics.Contains(errorMessage));
             }
         }
 
