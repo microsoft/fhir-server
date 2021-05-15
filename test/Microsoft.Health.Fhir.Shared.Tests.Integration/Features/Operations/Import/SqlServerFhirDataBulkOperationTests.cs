@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -120,6 +121,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             foreach (string tableName in tableNames)
             {
+                if (VLatest.ResourceWriteClaim.TableName.Equals(tableName))
+                {
+                    // ResourceWriteClaim do not have resource type.
+                    continue;
+                }
+
                 int rCount = await GetResourceCountAsync(tableName, startSurrogateId, startSurrogateId + count);
                 Assert.Equal(count, rCount);
             }

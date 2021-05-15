@@ -5,17 +5,17 @@
 
 using System.Collections.Generic;
 using System.Data;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
     internal class UriSearchParamsTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
     {
-        private ITableValuedParameterRowGenerator<ResourceMetadata, UriSearchParamTableTypeV1Row> _searchParamGenerator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkUriSearchParamTableTypeV1Row> _searchParamGenerator;
 
-        public UriSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<ResourceMetadata, UriSearchParamTableTypeV1Row> searchParamGenerator)
+        public UriSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkUriSearchParamTableTypeV1Row> searchParamGenerator)
         {
             _searchParamGenerator = searchParamGenerator;
         }
@@ -30,15 +30,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {
-            IEnumerable<UriSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(input.Metadata);
+            IEnumerable<BulkUriSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (UriSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkUriSearchParamTableTypeV1Row searchParam in searchParams)
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
         }
 
-        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, UriSearchParamTableTypeV1Row searchParam)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkUriSearchParamTableTypeV1Row searchParam)
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
             FillColumn(newRow, VLatest.UriSearchParam.Uri.Metadata.Name, searchParam.Uri);

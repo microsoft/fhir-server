@@ -59,6 +59,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public static async Task VerifySearchResultAsync(TestFhirClient client, string query, params Resource[] resources)
         {
             Bundle result = await client.SearchAsync(query);
+            VerifyBundle(result, resources);
+        }
+
+        public static void VerifyBundle(Bundle result, params Resource[] resources)
+        {
             Assert.Equal(resources.Length, result.Entry.Count);
 
             foreach (Resource resultResource in result.Entry.Select(e => e.Resource))

@@ -3,18 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Data;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
     internal class CompartmentAssignmentTableBulkCopyDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>
     {
-        private ITableValuedParameterRowGenerator<ResourceMetadata, CompartmentAssignmentTableTypeV1Row> _generator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkCompartmentAssignmentTableTypeV1Row> _generator;
 
-        public CompartmentAssignmentTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<ResourceMetadata, CompartmentAssignmentTableTypeV1Row> generator)
+        public CompartmentAssignmentTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkCompartmentAssignmentTableTypeV1Row> generator)
         {
             _generator = generator;
         }
@@ -23,13 +24,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {
-            foreach (var rowData in _generator.GenerateRows(input.Metadata))
+            foreach (var rowData in _generator.GenerateRows(new ResourceWrapper[] { input.Resource }))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, rowData);
             }
         }
 
-        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, CompartmentAssignmentTableTypeV1Row rowData)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkCompartmentAssignmentTableTypeV1Row rowData)
         {
             DataRow newRow = table.NewRow();
 
