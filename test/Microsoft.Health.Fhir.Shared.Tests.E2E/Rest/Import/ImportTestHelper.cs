@@ -72,6 +72,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
         }
 
+        public static async Task<TResource[]> ImportToServerAsync<TResource>(TestFhirClient testFhirClient, CloudStorageAccount cloudStorageAccount, params Action<TResource>[] resourceCustomizer)
+            where TResource : Resource, new()
+        {
+            TResource[] resources = new TResource[resourceCustomizer.Length];
+
+            for (int i = 0; i < resources.Length; i++)
+            {
+                TResource resource = new TResource();
+
+                resourceCustomizer[i](resource);
+            }
+
+            await ImportToServerAsync(testFhirClient, cloudStorageAccount, resources);
+
+            return resources;
+        }
+
         public static async Task ImportToServerAsync(TestFhirClient testFhirClient, CloudStorageAccount cloudStorageAccount, params Resource[] resources)
         {
             Dictionary<string, StringBuilder> contentBuilders = new Dictionary<string, StringBuilder>();

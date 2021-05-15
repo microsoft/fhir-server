@@ -35,9 +35,15 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportBasicSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportBasicSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportBasicSearchTestProvider.cs" />
-	<Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportCompositeSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportCompositeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportCompositeSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportCompositeSearchTestProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportDateSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportDateSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportDateSearchTestProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportNumberSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportNumberSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportNumberSearchTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />
