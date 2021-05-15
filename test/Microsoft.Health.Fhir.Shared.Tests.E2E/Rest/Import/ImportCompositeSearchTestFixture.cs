@@ -63,6 +63,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 resources.ToArray());
         }
 
+        protected override async Task OnDisposedAsync()
+        {
+            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
+            await TestFhirClient.DeleteAllResources(ResourceType.DocumentReference);
+        }
+
         private Dictionary<string, T> CreateResultDictionary<T>(string[] files)
             where T : Resource
         {

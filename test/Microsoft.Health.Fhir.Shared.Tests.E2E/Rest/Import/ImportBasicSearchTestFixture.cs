@@ -57,5 +57,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 PatientWithSameCity2,
                 PatientWithGender);
         }
+
+        protected override async Task OnDisposedAsync()
+        {
+            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
+            await TestFhirClient.DeleteAllResources(ResourceType.DocumentReference);
+        }
     }
 }
