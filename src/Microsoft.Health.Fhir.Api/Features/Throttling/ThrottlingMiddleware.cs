@@ -263,11 +263,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     }
                 }
 
-                if (completionSource != null)
-                {
-                    // complete the task to let the request proceed.
-                    completionSource.SetResult(true);
-                }
+                // complete the task to let the request proceed.
+                completionSource?.SetResult(true);
             }
         }
 
