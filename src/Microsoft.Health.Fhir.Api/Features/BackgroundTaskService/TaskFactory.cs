@@ -19,16 +19,17 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
     /// </summary>
     public class TaskFactory : ITaskFactory
     {
-        private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
-        private IImportResourceLoader _importResourceLoader;
-        private IResourceBulkImporter _resourceBulkImporter;
-        private IImportErrorStoreFactory _importErrorStoreFactory;
-        private ISequenceIdGenerator<long> _sequenceIdGenerator;
-        private IIntegrationDataStoreClient _integrationDataStoreClient;
-        private ITaskManager _taskmanager;
-        private IContextUpdaterFactory _contextUpdaterFactory;
-        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private ILoggerFactory _loggerFactory;
+        private readonly IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
+        private readonly IImportResourceLoader _importResourceLoader;
+        private readonly IResourceBulkImporter _resourceBulkImporter;
+        private readonly IImportErrorStoreFactory _importErrorStoreFactory;
+        private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
+        private readonly IIntegrationDataStoreClient _integrationDataStoreClient;
+        private readonly ITaskManager _taskmanager;
+        private readonly IContextUpdaterFactory _contextUpdaterFactory;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly ILoggerFactory _loggerFactory;
+        private readonly ILogger<TaskFactory> _logger;
 
         public TaskFactory(
             IFhirDataBulkImportOperation fhirDataBulkImportOperation,
@@ -40,7 +41,8 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IIntegrationDataStoreClient integrationDataStoreClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ILoggerFactory loggerFactory)
+            ILoggerFactory loggerFactory,
+            ILogger<TaskFactory> logger)
         {
             EnsureArg.IsNotNull(fhirDataBulkImportOperation, nameof(fhirDataBulkImportOperation));
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
@@ -52,6 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataBulkImportOperation = fhirDataBulkImportOperation;
             _importResourceLoader = importResourceLoader;
@@ -63,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _contextUpdaterFactory = contextUpdaterFactory;
             _contextAccessor = contextAccessor;
             _loggerFactory = loggerFactory;
+            _logger = logger;
         }
 
         public ITask Create(TaskInfo taskInfo)
@@ -104,6 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     _loggerFactory);
             }
 
+            _logger.LogWarning("Can not create task for type {taskType}", taskInfo.TaskTypeId);
             return null;
         }
     }

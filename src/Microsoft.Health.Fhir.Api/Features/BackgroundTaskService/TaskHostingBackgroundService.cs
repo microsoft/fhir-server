@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -22,30 +23,50 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
     {
         private readonly Func<IScoped<TaskHosting>> _taskHostingFactory;
         private readonly TaskHostingConfiguration _taskHostingConfiguration;
+        private readonly ILogger<TaskHostingBackgroundService> _logger;
 
-        public TaskHostingBackgroundService(Func<IScoped<TaskHosting>> taskHostingFactory, IOptions<TaskHostingConfiguration> taskHostingConfiguration)
+        public TaskHostingBackgroundService(
+            Func<IScoped<TaskHosting>> taskHostingFactory,
+            IOptions<TaskHostingConfiguration> taskHostingConfiguration,
+            ILogger<TaskHostingBackgroundService> logger)
         {
             EnsureArg.IsNotNull(taskHostingFactory, nameof(taskHostingFactory));
+            EnsureArg.IsNotNull(taskHostingConfiguration?.Value, nameof(taskHostingConfiguration));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _taskHostingFactory = taskHostingFactory;
             _taskHostingConfiguration = taskHostingConfiguration.Value;
+            _logger = logger;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            using (IScoped<TaskHosting> taskHosting = _taskHostingFactory())
-            {
-                var taskHostingValue = taskHosting.Value;
-                if (_taskHostingConfiguration != null)
-                {
-                    taskHostingValue.PollingFrequencyInSeconds = _taskHostingConfiguration.PollingFrequencyInSeconds ?? taskHostingValue.PollingFrequencyInSeconds;
-                    taskHostingValue.MaxRunningTaskCount = _taskHostingConfiguration.MaxRunningTaskCount ?? taskHostingValue.MaxRunningTaskCount;
-                    taskHostingValue.TaskHeartbeatIntervalInSeconds = _taskHostingConfiguration.TaskHeartbeatIntervalInSeconds ?? taskHostingValue.TaskHeartbeatIntervalInSeconds;
-                    taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds = _taskHostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds;
-                }
+            _logger.LogInformation("TaskHostingBackgroundService begin.");
 
-                using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                await taskHostingValue.StartAsync(cancellationTokenSource);
+            try
+            {
+                using (IScoped<TaskHosting> taskHosting = _taskHostingFactory())
+                {
+                    var taskHostingValue = taskHosting.Value;
+                    if (_taskHostingConfiguration != null)
+                    {
+                        taskHostingValue.PollingFrequencyInSeconds = _taskHostingConfiguration.PollingFrequencyInSeconds ?? taskHostingValue.PollingFrequencyInSeconds;
+                        taskHostingValue.MaxRunningTaskCount = _taskHostingConfiguration.MaxRunningTaskCount ?? taskHostingValue.MaxRunningTaskCount;
+                        taskHostingValue.TaskHeartbeatIntervalInSeconds = _taskHostingConfiguration.TaskHeartbeatIntervalInSeconds ?? taskHostingValue.TaskHeartbeatIntervalInSeconds;
+                        taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds = _taskHostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds;
+                    }
+
+                    using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    await taskHostingValue.StartAsync(cancellationTokenSource);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "TaskHostingBackgroundService crash.");
+            }
+            finally
+            {
+                _logger.LogInformation("TaskHostingBackgroundService end.");
             }
         }
     }

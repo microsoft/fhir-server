@@ -7,11 +7,6 @@
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Features\Operations\Import\**" />
-    <EmbeddedResource Remove="Features\Operations\Import\**" />
-    <None Remove="Features\Operations\Import\**" />
-  </ItemGroup>
-  <ItemGroup>
     <EmbeddedResource Include="Views\Shared\ViewJson.cshtml" />
     <EmbeddedResource Include="Views\Shared\_Layout.cshtml" />
     <EmbeddedResource Include="Views\_ViewImports.cshtml" />

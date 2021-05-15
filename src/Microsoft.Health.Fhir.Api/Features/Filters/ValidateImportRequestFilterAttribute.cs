@@ -13,7 +13,7 @@ using Microsoft.Net.Http.Headers;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     /// <summary>
-    /// A filter that validates the headers present in the export request.
+    /// A filter that validates the headers present in the import request.
     /// Short-circuits the pipeline if they are invalid.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
