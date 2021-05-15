@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public Patient PatientWithGender { get; set; } = new Patient() { Id = Guid.NewGuid().ToString("N"), Gender = AdministrativeGender.Male };
 
-        public async Task InitailizeAsync()
+        protected override async Task OnInitializedAsync()
         {
             await TestFhirClient.DeleteAllResources(ResourceType.Patient);
 

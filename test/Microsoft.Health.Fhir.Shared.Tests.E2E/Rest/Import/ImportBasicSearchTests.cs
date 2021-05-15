@@ -24,8 +24,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             _client = fixture.TestFhirClient;
             _fixture = fixture;
-
-            _fixture.InitailizeAsync().Wait();
         }
 
         [Fact]

@@ -90,6 +90,42 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
+        public async Task GivenImportedBatchResources_WhenCleanDataWithWrongType_RecordsShouldNotBeDeleted()
+        {
+            SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
+            long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
+            int count = 1001;
+
+            List<string> tableNames = new List<string>();
+
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateResourceTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateNumberSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateStringSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateTokenSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateUriSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
+            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, TestBulkDataProvider.GenerateResourceWriteClaimTable));
+
+            await sqlServerFhirDataBulkOperation.CleanBatchResourceAsync("Observation", startSurrogateId, startSurrogateId + count - 1, CancellationToken.None);
+
+            foreach (string tableName in tableNames)
+            {
+                int rCount = await GetResourceCountAsync(tableName, startSurrogateId, startSurrogateId + count);
+                Assert.Equal(count, rCount);
+            }
+        }
+
+        [Fact]
         public async Task GivenBatchInValidResources_WhenBulkCopy_ExceptionShouldBeThrow()
         {
             SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
