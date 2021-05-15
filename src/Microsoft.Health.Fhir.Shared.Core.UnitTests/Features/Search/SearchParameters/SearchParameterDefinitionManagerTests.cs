@@ -411,7 +411,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var searchService = Substitute.For<ISearchService>();
 
-            searchService.SearchAsync("SearchParameter", Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Count() == 0), Arg.Any<CancellationToken>())
+            searchService.SearchAsync("SearchParameter", Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => !l.Any()), Arg.Any<CancellationToken>())
                 .Returns(result);
             searchService.SearchAsync(
                 "SearchParameter",
