@@ -83,6 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
                 resourceCustomizer[i](resource);
                 resources[i] = resource;
+                resources[i].Id = Guid.NewGuid().ToString("N");
             }
 
             await ImportToServerAsync(testFhirClient, cloudStorageAccount, resources);
