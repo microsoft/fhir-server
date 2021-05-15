@@ -36,11 +36,11 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             _logger = logger;
         }
 
-        public Stream DownloadResource(Uri blobUri, long startOffset, CancellationToken cancellationToken)
+        public Stream DownloadResource(Uri resourceUri, long startOffset, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            return new AzureBlobSourceStream(async () => await GetCloudBlobClientFromServerAsync(blobUri, cancellationToken), startOffset, _logger);
+            return new AzureBlobSourceStream(async () => await GetCloudBlobClientFromServerAsync(resourceUri, cancellationToken), startOffset, _logger);
         }
 
         public async Task<Uri> PrepareResourceAsync(string containerId, string fileName, CancellationToken cancellationToken)
@@ -153,9 +153,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
         }
 
-        public async Task<Dictionary<string, object>> GetPropertiesAsync(Uri blobUri, CancellationToken cancellationToken)
+        public async Task<Dictionary<string, object>> GetPropertiesAsync(Uri resourceUri, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+            EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
             try
             {
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                     .ExecuteAsync(async () =>
                     {
                         CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-                        ICloudBlob blob = await cloudBlobClient.GetBlobReferenceFromServerAsync(blobUri);
+                        ICloudBlob blob = await cloudBlobClient.GetBlobReferenceFromServerAsync(resourceUri);
 
                         Dictionary<string, object> result = new Dictionary<string, object>();
                         result[IntegrationDataStoreClientConstants.BlobPropertyETag] = blob.Properties.ETag;
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, "Failed to get properties of blob {0}", blobUri);
+                _logger.LogError(storageEx, "Failed to get properties of blob {0}", resourceUri);
 
                 HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
                 throw new IntegrationDataStoreException(storageEx.Message, statusCode);
