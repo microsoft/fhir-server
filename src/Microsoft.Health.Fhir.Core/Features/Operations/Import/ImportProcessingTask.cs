@@ -210,13 +210,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task CleanDataAsync(CancellationToken cancellationToken)
         {
-            long startId = _inputData.BeginSequenceId;
-            long endId = _inputData.EndSequenceId;
+            long beginSequenceId = _inputData.BeginSequenceId;
+            long endSequenceId = _inputData.EndSequenceId;
             long endIndex = _importProgress.CurrentIndex;
 
             try
             {
-                await _fhirDataBulkImportOperation.CleanBatchResourceAsync(_inputData.ResourceType, startId + endIndex, endId, cancellationToken);
+                await _fhirDataBulkImportOperation.CleanBatchResourceAsync(_inputData.ResourceType, beginSequenceId + endIndex, endSequenceId, cancellationToken);
             }
             catch (OperationCanceledException)
             {

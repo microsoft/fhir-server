@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task CleanBatchResourceAsync(string resourceType, long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken)
+        public async Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     short resourceTypeId = _model.GetResourceTypeId(resourceType);
 
-                    VLatest.DeleteBatchResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, startSurrogateId, endSurrogateId);
+                    VLatest.DeleteBatchResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                 }
                 catch (SqlException sqlEx)

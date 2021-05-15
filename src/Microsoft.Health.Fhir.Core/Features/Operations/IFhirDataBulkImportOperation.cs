@@ -9,16 +9,44 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
+    /// <summary>
+    /// Bulk import related store operations
+    /// </summary>
     public interface IFhirDataBulkImportOperation
     {
-        public Task CleanBatchResourceAsync(string resourceType, long startSurrogateId, long endSurrogateId, CancellationToken cancellationToken);
+        /// <summary>
+        /// Clean resources and params by resource type and sequence id range.
+        /// </summary>
+        /// <param name="resourceType">FHIR Resource Type</param>
+        /// <param name="beginSequenceId">Begin sequence id. </param>
+        /// <param name="endSequenceId">End sequence id. </param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        public Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Copy table to data store.
+        /// </summary>
+        /// <param name="dataTable">Input data table.</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
         public Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// To disable necessary indexes for the data store.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation Token</param>
         public Task DisableIndexesAsync(CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Rebuild Indexes for the data store
+        /// </summary>
+        /// <param name="concurrentCount">Rebuild operation concurrent count. </param>
+        /// <param name="cancellationToken">Cancellation Token</param>
         public Task RebuildIndexesAsync(int concurrentCount, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// Remove duplicated resoruces in data store.
+        /// </summary>
+        /// /// <param name="cancellationToken">Cancellation Token</param>
         public Task DeleteDuplicatedResourcesAsync(CancellationToken cancellationToken);
     }
 }
