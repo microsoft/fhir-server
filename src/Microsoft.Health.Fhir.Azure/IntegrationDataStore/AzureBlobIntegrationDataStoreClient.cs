@@ -38,11 +38,16 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         public Stream DownloadResource(Uri blobUri, long startOffset, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+
             return new AzureBlobSourceStream(async () => await GetCloudBlobClientFromServerAsync(blobUri, cancellationToken), startOffset, _logger);
         }
 
         public async Task<Uri> PrepareResourceAsync(string containerId, string fileName, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNullOrEmpty(containerId, nameof(containerId));
+            EnsureArg.IsNotNullOrEmpty(fileName, nameof(fileName));
+
             try
             {
                 return await Policy.Handle<StorageException>()
@@ -71,6 +76,10 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         public async Task UploadBlockAsync(Uri resourceUri, Stream stream, string blockId, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
+            EnsureArg.IsNotNull(stream, nameof(stream));
+            EnsureArg.IsNotNullOrEmpty(blockId, nameof(blockId));
+
             try
             {
                 await Policy.Handle<StorageException>()
@@ -94,6 +103,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         public async Task CommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
+            EnsureArg.IsNotNull(blockIds, nameof(blockIds));
+
             try
             {
                 await Policy.Handle<StorageException>()
@@ -117,6 +129,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         public async Task AppendCommitAsync(Uri resourceUri, string[] blockIds, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
+            EnsureArg.IsNotNull(blockIds, nameof(blockIds));
+
             try
             {
                 await Policy.Handle<StorageException>()
@@ -140,6 +155,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         public async Task<Dictionary<string, object>> GetPropertiesAsync(Uri blobUri, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(blobUri, nameof(blobUri));
+
             try
             {
                 return await Policy.Handle<StorageException>()

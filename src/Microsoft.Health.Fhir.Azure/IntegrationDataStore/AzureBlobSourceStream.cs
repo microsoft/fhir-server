@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
@@ -29,6 +30,9 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         public AzureBlobSourceStream(Func<Task<ICloudBlob>> blobClientFactory, long? startOffset, ILogger logger)
         {
+            EnsureArg.IsNotNull(blobClientFactory, nameof(blobClientFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _blobClientFactory = blobClientFactory;
             _startOffset = startOffset ?? 0;
             _position = _startOffset;
