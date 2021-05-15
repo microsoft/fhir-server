@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     throw;
                 }
 
-                if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
+                if (weakETag?.VersionId != existingItemResource.Version)
                 {
                     throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                 }
