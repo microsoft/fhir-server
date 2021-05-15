@@ -393,6 +393,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
+            int totalDesiredCount = 0;
+
+            if (feedOptions.MaxItemCount.HasValue)
+            {
+                totalDesiredCount = feedOptions.MaxItemCount.Value;
+            }
+
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
             ICosmosQuery<T> cosmosQuery = null;
             var startTime = Clock.UtcNow;
@@ -414,8 +421,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 singlePageResults.AddRange(page);
                 return (singlePageResults, page.ContinuationToken);
             }
-
-            int totalDesiredCount = feedOptions.MaxItemCount.Value;
 
             // try to obtain at least half of the requested results
 
@@ -457,18 +462,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 try
                 {
+                    var prevPage = page;
                     page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
-                    if (page.Count > 0)
+
+                    if (mustNotExceedMaxItemCount && (page.Count + results.Count > totalDesiredCount))
+                    {
+                        // page.Count + results.Count should only be larger than our totalDesired
+                        // when executingWithMaxParallelism because we have left the feedOption.MaxItemCount
+                        // large in order to preserve the pre-fetched resources in a parallel query
+                        // This may result in one or more pages of results being thrown away
+                        // and a result that is smaller than the totalDesiredCount
+                        // TODO: analyze the current result count to determine if is is too few
+                        // and possibly start a new query to fill in more results
+
+                        _logger.LogInformation("Returning results with fewer than desired total, {count} out of {totalDesired}.", results.Count, totalDesiredCount);
+                        return (results, prevPage.ContinuationToken);
+                    }
+                    else
                     {
                         results.AddRange(page);
-                        if (mustNotExceedMaxItemCount && results.Count > feedOptions.MaxItemCount)
-                        {
-                            // we might get here if executingWithParallelism == true
-
-                            int toRemove = results.Count - feedOptions.MaxItemCount.Value;
-                            results.RemoveRange(results.Count - toRemove, toRemove);
-                            break;
-                        }
                     }
                 }
                 catch (CosmosException e) when (e.IsRequestRateExceeded())

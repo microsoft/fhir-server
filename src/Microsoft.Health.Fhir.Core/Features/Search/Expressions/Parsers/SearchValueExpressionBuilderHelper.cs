@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     break;
                 case SearchModifierCode.Above:
                     _outputExpression = Expression.And(
-                        Expression.EndsWith(FieldName.Uri, _componentIndex, uri.Uri, false),
+                        Expression.LeftSideStartsWith(FieldName.Uri, _componentIndex, uri.Uri, false),
                         Expression.NotStartsWith(FieldName.Uri, _componentIndex, KnownUriSchemes.Urn, false));
                     break;
                 case SearchModifierCode.Below:

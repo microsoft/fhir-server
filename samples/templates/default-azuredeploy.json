@@ -42,6 +42,13 @@
             ],
             "defaultValue": "S1"
         },
+        "numberOfInstances" : {
+            "type": "int",
+            "defaultValue": 1,
+            "metadata": {
+                "description": "Sets the number of instances to deploy for the app service."
+            }
+        },
         "securityAuthenticationAuthority": {
             "type": "string",
             "defaultValue": "",
@@ -270,7 +277,8 @@
                 "name": "[parameters('appServicePlanSku')]"
             },
             "properties": {
-                "name": "[variables('appServicePlanName')]"
+                "name": "[variables('appServicePlanName')]",
+                "numberOfWorkers": "[parameters('numberOfInstances')]"
             }
         },
         {
@@ -287,7 +295,7 @@
             "properties": {
                 "clientAffinityEnabled": false,
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-				"siteConfig": {
+                "siteConfig": {
                    "AlwaysOn": true
                }
             },
@@ -325,7 +333,7 @@
                     "apiVersion": "2018-11-01",
                     "location": "[resourceGroup().location]",
                     "properties": {
-                        "version": "5.0.3"
+                        "version": "5.0.5"
                     },
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
