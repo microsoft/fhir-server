@@ -118,13 +118,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)StartupBaseForCustomProviders.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)TaskHostingBackgroundService\MockFailueTask.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)TaskHostingBackgroundService\MockLoopTask.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)TaskHostingBackgroundService\MockSuccessTask.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)TaskHostingBackgroundService\MockTaskFactory.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)TaskHostingBackgroundService\StartupForTaskHostingTestProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)TaskHostingBackgroundService\TaskHostingBackGroundServiceTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)TaskHostingBackgroundService\TaskHostingTestFixture.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)runtimeconfig.template.json" />
