@@ -101,6 +101,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.InputResourcesValidated;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
+
+                    _logger.LogInformation("Input Resources Validated");
                 }
 
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.InputResourcesValidated)
@@ -109,6 +111,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.PreprocessCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
+
+                    _logger.LogInformation("Preprocess Completed");
                 }
 
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.PreprocessCompleted)
@@ -116,6 +120,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     _orchestratorTaskContext.DataProcessingTasks = await GenerateSubTaskRecordsAsync(cancellationToken);
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.SubTaskRecordsGenerated;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
+
+                    _logger.LogInformation("SubTask Records Generated");
                 }
 
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.SubTaskRecordsGenerated)
@@ -124,6 +130,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.SubTasksCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
+
+                    _logger.LogInformation("SubTasks Completed");
                 }
 
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.SubTasksCompleted)
@@ -133,6 +141,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.PostprocessCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
+
+                    _logger.LogInformation("Postprocess Completed");
                 }
             }
             catch (TaskCanceledException taskCanceledEx)
