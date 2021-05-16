@@ -5,8 +5,16 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
+    /// <summary>
+    /// Parser for raw data into ImportResource.
+    /// </summary>
     public interface IImportResourceParser
     {
+        /// <summary>
+        /// Parse raw resource data.
+        /// </summary>
+        /// <param name="rawContent">raw content in string format.</param>
+        /// <returns>ImportResource</returns>
         public ImportResource Parse(string rawContent);
     }
 }

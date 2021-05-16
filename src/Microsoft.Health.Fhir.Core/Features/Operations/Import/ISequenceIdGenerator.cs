@@ -5,8 +5,16 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
+    /// <summary>
+    /// Generator for sequence id.
+    /// </summary>
+    /// <typeparam name="T">Sequence id for type T.</typeparam>
     public interface ISequenceIdGenerator<T>
     {
+        /// <summary>
+        /// Get current sequence id.
+        /// </summary>
+        /// <returns>Sequence id for type T.</returns>
         T GetCurrentSequenceId();
     }
 }
