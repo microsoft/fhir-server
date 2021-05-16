@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
@@ -19,6 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public ImportErrorStore(IIntegrationDataStoreClient integrationDataStoreClient, Uri fileUri)
         {
+            EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
+            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
+
             _integrationDataStoreClient = integrationDataStoreClient;
             _fileUri = fileUri;
 

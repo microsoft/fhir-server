@@ -25,6 +25,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task<IImportErrorStore> InitializeAsync(string fileName, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNullOrEmpty(fileName, nameof(fileName));
+
             Uri fileUri = await _integrationDataStoreClient.PrepareResourceAsync(LogContainerName, fileName, cancellationToken);
             return new ImportErrorStore(_integrationDataStoreClient, fileUri);
         }

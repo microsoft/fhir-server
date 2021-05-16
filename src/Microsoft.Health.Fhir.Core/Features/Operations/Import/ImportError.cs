@@ -16,10 +16,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             Exception = exception;
         }
 
+        /// <summary>
+        /// Sequence ID for resource
+        /// </summary>
         public long Id { get; set; }
 
+        /// <summary>
+        /// Index in the resource file.
+        /// </summary>
         public long Index { get; set; }
 
+        /// <summary>
+        /// Exception during processing data.
+        /// </summary>
         public Exception Exception { get; set; }
     }
 }
