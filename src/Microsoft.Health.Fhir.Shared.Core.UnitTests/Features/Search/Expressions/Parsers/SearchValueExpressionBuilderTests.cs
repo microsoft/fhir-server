@@ -896,7 +896,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateMultiaryExpression(
                     e,
                     MultiaryOperator.And,
-                    e1 => ValidateStringExpression(e1, FieldName.Uri, StringOperator.EndsWith, input, false),
+                    e1 => ValidateStringExpression(e1, FieldName.Uri, StringOperator.LeftSideStartsWith, input, false),
                     e2 => ValidateStringExpression(e2, FieldName.Uri, StringOperator.NotStartsWith, "urn:", false)));
         }
 

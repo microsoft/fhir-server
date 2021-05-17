@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 foreach (Bundle.EntryComponent entry in searchResults.Entry)
                 {
-                    resourceIdToResourceMapping.TryAdd((entry.Resource.ResourceType.ToString(), entry.Resource.Id), entry.Resource);
+                    resourceIdToResourceMapping.TryAdd((entry.Resource.TypeName, entry.Resource.Id), entry.Resource);
                 }
 
                 // Look at whether a continuation token has been returned.
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                     // Ideally this should just be Add, but until we prevent duplicates from being added to the server
                     // there is a chance the same resource being added multiple times resulting in a key conflict.
-                    resourceIdToResourceMapping.TryAdd((resource.ResourceType.ToString(), resource.Id), resource);
+                    resourceIdToResourceMapping.TryAdd((resource.TypeName, resource.Id), resource);
                 }
             }
 

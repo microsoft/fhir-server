@@ -38,10 +38,10 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
-          $cors = (ConvertFrom-Json (Get-Content -Raw "*/**/corstestconfiguration.json"))
-          $flattenedCors = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
+          $testConfig = (ConvertFrom-Json (Get-Content -Raw "*/**/testconfiguration.json"))
+          $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
       
-          $additionalProperties = $flattenedCors
+          $additionalProperties = $flattenedTestConfig
       
           $additionalProperties["SqlServer:DeleteAllDataOnStartup"] = "true"
 

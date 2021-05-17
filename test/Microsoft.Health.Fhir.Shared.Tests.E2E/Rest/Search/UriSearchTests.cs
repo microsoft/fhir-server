@@ -25,10 +25,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("", "http://somewhere.COM/test/system")]
         [InlineData("", "http://example.org/rdf#54135-9", 2)]
         [InlineData("", "urn://localhost/test", 1)]
-        [InlineData(":above", "system", 0)]
+        [InlineData(":above", "http://somewhere.com/test/system/123", 0)]
         [InlineData(":above", "test")]
         [InlineData(":above", "urn://localhost/test")]
-        [InlineData(":below", "http", 0, 2)]
+        [InlineData(":above", "http://example.org/rdf#54135-9-9-10", 2, 3)]
+        [InlineData(":below", "http", 0, 2, 3)]
         [InlineData(":below", "test")]
         [InlineData(":below", "urn")]
         public async Task GivenAUriSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string queryValue, params int[] expectedIndices)

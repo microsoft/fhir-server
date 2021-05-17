@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         private readonly ICodeSystemResolver _codeSystemResolver;
 
         public CodeToTokenSearchValueConverter(ICodeSystemResolver codeSystemResolver)
-            : base("code", "codeOfT")
+            : base("code", "codeOfT", "System.Code")
         {
             EnsureArg.IsNotNull(codeSystemResolver, nameof(codeSystemResolver));
 

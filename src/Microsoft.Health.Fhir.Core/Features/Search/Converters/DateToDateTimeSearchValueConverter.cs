@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public class DateToDateTimeSearchValueConverter : FhirTypedElementToSearchValueConverter<DateTimeSearchValue>
     {
         public DateToDateTimeSearchValueConverter()
-            : base("date", "dateTime")
+            : base("date", "dateTime", "System.DateTime", "System.Date")
         {
         }
 

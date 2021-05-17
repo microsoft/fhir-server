@@ -28,8 +28,8 @@
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.5</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>2.1.15</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
-   </PropertyGroup>
+    <Hl7FhirVersion>3.0.0</Hl7FhirVersion>
+  </PropertyGroup>
 
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test'))">

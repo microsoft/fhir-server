@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             : base(new Uri("http://localhost/"))
         {
             var projectDir = GetProjectPath("src", startupType);
-            var corsPath = Path.GetFullPath("corstestconfiguration.json");
+            var testConfigPath = Path.GetFullPath("testconfiguration.json");
 
             var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .ConfigureAppConfiguration(configurationBuilder =>
                 {
                     configurationBuilder.AddDevelopmentAuthEnvironmentIfConfigured(new ConfigurationBuilder().AddInMemoryCollection(configuration).Build());
-                    configurationBuilder.AddJsonFile(corsPath);
+                    configurationBuilder.AddJsonFile(testConfigPath);
                     configurationBuilder.AddInMemoryCollection(configuration);
                 })
                 .UseStartup(startupType)

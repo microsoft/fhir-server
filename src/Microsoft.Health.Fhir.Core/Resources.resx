@@ -557,4 +557,7 @@
   <data name="ConditionalDeleteCountOutOfRange" xml:space="preserve">
     <value>The _count parameter must be between {0} and {1}.</value>
   </data>
+  <data name="SearchParameterDefinitionConflictingCodeValue" xml:space="preserve">
+    <value>A search parameter with the same code value '{0}' already exists for base type '{1}'.</value>
+  </data>
 </root>

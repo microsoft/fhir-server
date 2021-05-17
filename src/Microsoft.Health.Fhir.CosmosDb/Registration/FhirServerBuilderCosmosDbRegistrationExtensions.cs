@@ -243,7 +243,7 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IFhirServerBuilder AddCosmosDbHealthCheck(this IFhirServerBuilder fhirServerBuilder)
         {
             fhirServerBuilder.Services.AddHealthChecks()
-                .AddCheck<CosmosHealthCheck>(name: nameof(CosmosHealthCheck));
+                .AddCheck<CosmosHealthCheck>(name: "DataStoreHealthCheck");
 
             return fhirServerBuilder;
         }

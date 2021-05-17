@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 {
     public interface ISearchParameterValidator
     {
-        System.Threading.Tasks.Task ValidateSearchParamterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken);
+        System.Threading.Tasks.Task ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken);
     }
 }

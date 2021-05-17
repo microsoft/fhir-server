@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public class StringToStringSearchValueConverter : FhirTypedElementToSearchValueConverter<StringSearchValue>
     {
         public StringToStringSearchValueConverter()
-            : base("string")
+            : base("string", "System.String")
         {
         }
 
