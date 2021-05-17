@@ -16,6 +16,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
     {
         private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkQuantitySearchParamTableTypeV1Row> _searchParamGenerator;
 
+        internal QuantitySearchParamsTableBulkCopyDataGenerator()
+        {
+        }
+
         public QuantitySearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkQuantitySearchParamTableTypeV1Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));

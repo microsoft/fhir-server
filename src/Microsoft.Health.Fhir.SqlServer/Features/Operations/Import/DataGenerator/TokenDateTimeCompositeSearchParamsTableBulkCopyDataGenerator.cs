@@ -16,6 +16,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
     {
         private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> _searchParamGenerator;
 
+        internal TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator()
+        {
+        }
+
         public TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));

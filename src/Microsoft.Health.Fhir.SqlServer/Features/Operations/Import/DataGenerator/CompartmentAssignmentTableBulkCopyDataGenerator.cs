@@ -16,6 +16,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
     {
         private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkCompartmentAssignmentTableTypeV1Row> _generator;
 
+        internal CompartmentAssignmentTableBulkCopyDataGenerator()
+        {
+        }
+
         public CompartmentAssignmentTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkCompartmentAssignmentTableTypeV1Row> generator)
         {
             EnsureArg.IsNotNull(generator, nameof(generator));

@@ -16,6 +16,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
     {
         private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkResourceWriteClaimTableTypeV1Row> _generator;
 
+        internal ResourceWriteClaimTableBulkCopyDataGenerator()
+        {
+        }
+
         public ResourceWriteClaimTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkResourceWriteClaimTableTypeV1Row> generator)
         {
             EnsureArg.IsNotNull(generator, nameof(generator));

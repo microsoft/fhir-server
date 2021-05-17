@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
-    public class SqlBulkCopyDataWrapperFactory : ISqlBulkCopyDataWrapperFactory
+    internal class SqlBulkCopyDataWrapperFactory : ISqlBulkCopyDataWrapperFactory
     {
         private SqlServerFhirModel _model;
         private SearchParameterToSearchValueTypeMap _searchParameterTypeMap;

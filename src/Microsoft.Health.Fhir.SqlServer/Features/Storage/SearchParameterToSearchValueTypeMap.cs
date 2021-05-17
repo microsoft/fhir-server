@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// either one that implements ISearchValue, or for composites, a ValueTuple with the component types as type arguments,
     /// for example: <see cref="ValueTuple{UriSearchValue}"/>
     /// </summary>
-    public class SearchParameterToSearchValueTypeMap
+    internal class SearchParameterToSearchValueTypeMap
     {
         private readonly ConcurrentDictionary<SearchParameterInfo, Type> _compositeMap = new ConcurrentDictionary<SearchParameterInfo, Type>();
 
