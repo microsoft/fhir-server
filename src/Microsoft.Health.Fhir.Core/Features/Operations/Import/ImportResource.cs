@@ -29,16 +29,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             ImportError = importError;
         }
 
+        /// <summary>
+        /// Resource index in the resource file
+        /// </summary>
         public long Index { get; set; }
 
+        /// <summary>
+        /// Resource sequence id
+        /// </summary>
         public long Id { get; set; }
 
+        /// <summary>
+        /// Resource wrapper from raw content
+        /// </summary>
         public ResourceWrapper Resource { get; set; }
 
+        /// <summary>
+        /// Compressed fhir data
+        /// </summary>
 #pragma warning disable CA1819
         public byte[] CompressedRawData { get; set; }
 #pragma warning restore CA1819
 
+        /// <summary>
+        /// Processing error
+        /// </summary>
         public string ImportError { get; set; }
     }
 }

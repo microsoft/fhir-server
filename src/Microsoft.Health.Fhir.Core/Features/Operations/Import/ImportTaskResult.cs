@@ -11,16 +11,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportTaskResult
     {
+        /// <summary>
+        /// Transaction time for import task created
+        /// </summary>
         [JsonProperty("transactionTime")]
         public DateTimeOffset TransactionTime { get; set; }
 
+        /// <summary>
+        /// Request Uri for the import opearion
+        /// </summary>
         [JsonProperty("request")]
         public string Request { get; set; }
 
+        /// <summary>
+        /// Operation output for the success imported resources
+        /// </summary>
         [JsonProperty("output")]
         public IReadOnlyCollection<ImportOperationOutcome> Output { get; set; }
 
+        /// <summary>
+        /// Operation output for the failed imported resources
+        /// </summary>
         [JsonProperty("error")]
-        public IReadOnlyCollection<ImportOperationOutcome> Error { get; set; }
+        public IReadOnlyCollection<ImportFailedOperationOutcome> Error { get; set; }
     }
 }

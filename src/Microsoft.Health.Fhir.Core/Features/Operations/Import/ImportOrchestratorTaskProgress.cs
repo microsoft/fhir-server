@@ -5,6 +5,9 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
+    /// <summary>
+    /// Import orchestrator task progress enums.
+    /// </summary>
     public enum ImportOrchestratorTaskProgress
     {
         Initalized,

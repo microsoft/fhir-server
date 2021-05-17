@@ -9,8 +9,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportTaskErrorResult
     {
+        /// <summary>
+        /// Err http status code
+        /// </summary>
         public HttpStatusCode HttpStatusCode { get; set; }
 
+        /// <summary>
+        /// Details error message
+        /// </summary>
         public string ErrorMessage { get; set; }
     }
 }

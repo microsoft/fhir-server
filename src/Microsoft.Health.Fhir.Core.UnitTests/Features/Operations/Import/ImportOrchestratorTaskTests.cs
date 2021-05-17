@@ -544,7 +544,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             }
 
             Assert.Equal(inputFileCount, resultDetails.Error.Count);
-            foreach (ImportOperationOutcome outcome in resultDetails.Error)
+            foreach (ImportFailedOperationOutcome outcome in resultDetails.Error)
             {
                 Assert.Equal(1, outcome.Count);
                 Assert.NotNull(outcome.InputUrl);

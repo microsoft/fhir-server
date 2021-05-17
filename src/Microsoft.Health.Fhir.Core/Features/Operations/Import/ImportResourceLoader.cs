@@ -160,6 +160,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
                     catch (Exception ex)
                     {
+                        // May contains customer's data, no error logs here.
                         result.Add(new ImportResource(id, index, _importErrorSerializer.Serialize(index, ex)));
                     }
                 }

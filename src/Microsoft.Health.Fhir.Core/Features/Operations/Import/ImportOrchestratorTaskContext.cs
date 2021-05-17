@@ -11,10 +11,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportOrchestratorTaskContext
     {
-#pragma warning disable CA2227 // Collection properties should be read only
+        /// <summary>
+        /// Data processing task records.
+        /// </summary>
+#pragma warning disable CA2227 // Need to update status during execution.
         public IDictionary<Uri, TaskInfo> DataProcessingTasks { get; set; } = new Dictionary<Uri, TaskInfo>();
-#pragma warning restore CA2227 // Collection properties should be read only
+#pragma warning restore CA2227
 
+        /// <summary>
+        /// Orchestrator task progress.
+        /// </summary>
         public ImportOrchestratorTaskProgress Progress { get; set; }
     }
 }

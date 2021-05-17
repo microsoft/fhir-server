@@ -7,10 +7,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportProcessingProgress
     {
+        /// <summary>
+        /// Succeed import resource count
+        /// </summary>
         public long SucceedImportCount { get; set; }
 
+        /// <summary>
+        /// Failed processing resource count
+        /// </summary>
         public long FailedImportCount { get; set; }
 
+        /// <summary>
+        /// Current index for last checkpoint
+        /// </summary>
         public long CurrentIndex { get; set; }
     }
 }

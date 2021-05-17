@@ -264,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private async Task<ImportTaskResult> ExecuteDataProcessingTasksAsync(CancellationToken cancellationToken)
         {
             List<ImportOperationOutcome> completedOperationOutcome = new List<ImportOperationOutcome>();
-            List<ImportOperationOutcome> failedOperationOutcome = new List<ImportOperationOutcome>();
+            List<ImportFailedOperationOutcome> failedOperationOutcome = new List<ImportFailedOperationOutcome>();
 
             foreach ((Uri resourceUri, TaskInfo taskInfo) in _orchestratorTaskContext.DataProcessingTasks.ToArray())
             {
@@ -329,7 +329,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             };
         }
 
-        private void AddToResult(List<ImportOperationOutcome> completedOperationOutcome, List<ImportOperationOutcome> failedOperationOutcome, List<Uri> completedTaskResourceUris)
+        private void AddToResult(List<ImportOperationOutcome> completedOperationOutcome, List<ImportFailedOperationOutcome> failedOperationOutcome, List<Uri> completedTaskResourceUris)
         {
             foreach (Uri completedResourceUri in completedTaskResourceUris)
             {
@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     completedOperationOutcome.Add(new ImportOperationOutcome() { Type = procesingTaskResult.ResourceType, Count = procesingTaskResult.SucceedCount, InputUrl = completedResourceUri });
                     if (procesingTaskResult.FailedCount > 0)
                     {
-                        failedOperationOutcome.Add(new ImportOperationOutcome() { Type = procesingTaskResult.ResourceType, Count = procesingTaskResult.FailedCount, InputUrl = completedResourceUri, Url = procesingTaskResult.ErrorLogLocation });
+                        failedOperationOutcome.Add(new ImportFailedOperationOutcome() { Type = procesingTaskResult.ResourceType, Count = procesingTaskResult.FailedCount, InputUrl = completedResourceUri, Url = procesingTaskResult.ErrorLogLocation });
                     }
                 }
                 else if (taskResultData.Result == TaskResult.Fail)

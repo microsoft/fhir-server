@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportOperationOutcome
+    public class ImportFailedOperationOutcome
     {
         /// <summary>
         /// Resource Type
@@ -27,5 +27,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         [JsonProperty("inputUrl")]
         public Uri InputUrl { get; set; }
+
+        /// <summary>
+        /// Extension detail file.
+        /// </summary>
+#pragma warning disable CA1056 // URI-like properties should not be strings
+        [JsonProperty("url")]
+        public string Url { get; set; }
+#pragma warning restore CA1056 // URI-like properties should not be strings
     }
 }
