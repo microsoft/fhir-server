@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public class DecimalToNumberSearchValueConverter : FhirTypedElementToSearchValueConverter<NumberSearchValue>
     {
         public DecimalToNumberSearchValueConverter()
-            : base("decimal")
+            : base("decimal", "System.Decimal")
         {
         }
 

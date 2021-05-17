@@ -5,7 +5,6 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model.Primitives;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
@@ -17,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public class QuantityToQuantitySearchValueConverter : FhirTypedElementToSearchValueConverter<QuantitySearchValue>
     {
         public QuantityToQuantitySearchValueConverter()
-            : base("Quantity")
+            : base("Quantity", "System.Quantity")
         {
         }
 

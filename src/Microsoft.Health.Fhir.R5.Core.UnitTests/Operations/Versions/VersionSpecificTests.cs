@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.R5.Core.UnitTests.Operations.Versions
         {
             var version = _provider.SupportedVersion.ToString();
 
-            Assert.Equal("4.4.0", version);
+            Assert.Equal("4.5.0", version);
         }
     }
 }
