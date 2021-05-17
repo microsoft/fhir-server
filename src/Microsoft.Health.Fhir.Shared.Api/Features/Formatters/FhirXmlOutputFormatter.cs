@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -26,14 +27,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     {
         private readonly FhirXmlSerializer _fhirXmlSerializer;
         private readonly ResourceDeserializer _deserializer;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
-        public FhirXmlOutputFormatter(FhirXmlSerializer fhirXmlSerializer, ResourceDeserializer deserializer)
+        public FhirXmlOutputFormatter(FhirXmlSerializer fhirXmlSerializer, ResourceDeserializer deserializer, IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(fhirXmlSerializer, nameof(fhirXmlSerializer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _fhirXmlSerializer = fhirXmlSerializer;
             _deserializer = deserializer;
+            _modelInfoProvider = modelInfoProvider;
 
             SupportedEncodings.Add(Encoding.UTF8);
             SupportedEncodings.Add(Encoding.Unicode);
@@ -60,16 +64,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             var elementsSearchParameter = context.HttpContext.GetElementsOrDefault();
             var hasElements = elementsSearchParameter?.Any() == true;
-            if (hasElements && !elementsSearchParameter.Contains("meta"))
-            {
-                Array.Resize(ref elementsSearchParameter, elementsSearchParameter.Length + 1);
-                elementsSearchParameter[elementsSearchParameter.Length - 1] = "meta";
-            }
+            var summaryProvider = _modelInfoProvider.StructureDefinitionSummaryProvider;
+            var additionalElements = new HashSet<string>();
 
             Resource resourceObject = null;
             if (typeof(RawResourceElement).IsAssignableFrom(context.ObjectType))
             {
                 resourceObject = _deserializer.Deserialize(context.Object as RawResourceElement).ToPoco<Resource>();
+                if (hasElements)
+                {
+                    var typeinfo = summaryProvider.Provide(resourceObject.TypeName);
+                    var required = typeinfo.GetElements().Where(e => e.IsRequired).ToList();
+                    additionalElements.UnionWith(required.Select(x => x.ElementName));
+                }
             }
             else if (typeof(Hl7.Fhir.Model.Bundle).IsAssignableFrom(context.ObjectType))
             {
@@ -80,6 +87,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 {
                     var rawResource = entry as RawBundleEntryComponent;
                     entry.Resource = _deserializer.Deserialize(rawResource.ResourceElement).ToPoco<Resource>();
+                    if (hasElements)
+                    {
+                        var typeinfo = summaryProvider.Provide(entry.Resource.TypeName);
+                        var required = typeinfo.GetElements().Where(e => e.IsRequired).ToList();
+                        additionalElements.UnionWith(required.Select(x => x.ElementName));
+                    }
                 }
 
                 resourceObject = bundle;
@@ -87,6 +100,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             else
             {
                 resourceObject = (Resource)context.Object;
+                if (hasElements)
+                {
+                    var typeinfo = summaryProvider.Provide(resourceObject.TypeName);
+                    var required = typeinfo.GetElements().Where(e => e.IsRequired).ToList();
+                    additionalElements.UnionWith(required.Select(x => x.ElementName));
+                }
+            }
+
+            if (hasElements)
+            {
+                additionalElements.UnionWith(elementsSearchParameter);
+                additionalElements.Add("meta");
             }
 
             HttpResponse response = context.HttpContext.Response;
@@ -98,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     writer.Formatting = Formatting.Indented;
                 }
 
-                _fhirXmlSerializer.Serialize(resourceObject, writer, context.HttpContext.GetSummaryTypeOrDefault(), elements: elementsSearchParameter);
+                _fhirXmlSerializer.Serialize(resourceObject, writer, context.HttpContext.GetSummaryTypeOrDefault(), elements: hasElements ? additionalElements.ToArray() : null);
             }
 
             return Task.CompletedTask;

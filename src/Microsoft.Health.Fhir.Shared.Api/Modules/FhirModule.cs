@@ -45,13 +45,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
-            var serializeSettings = new SerializerSettings() { IncludeMandatoryInElementsSummary = true };
 
             var jsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
-            var jsonSerializer = new FhirJsonSerializer(serializeSettings);
+            var jsonSerializer = new FhirJsonSerializer();
 
             var xmlParser = new FhirXmlParser();
-            var xmlSerializer = new FhirXmlSerializer(serializeSettings);
+            var xmlSerializer = new FhirXmlSerializer();
 
             services.AddSingleton(jsonParser);
             services.AddSingleton(jsonSerializer);
