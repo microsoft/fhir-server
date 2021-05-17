@@ -373,6 +373,87 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
+        public async Task GivenAnOrchestratorTask_WhenSubTaskFailed_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated()
+        {
+            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
+            RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            ILoggerFactory loggerFactory = new NullLoggerFactory();
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
+            ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
+            List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
+            TestTaskManager taskManager = new TestTaskManager(t =>
+            {
+                if (t == null)
+                {
+                    return null;
+                }
+
+                TaskResultData resultData = new TaskResultData();
+                resultData.Result = TaskResult.Fail;
+                resultData.ResultData = "error";
+
+                t.Result = JsonConvert.SerializeObject(resultData);
+                t.Status = TaskManagement.TaskStatus.Completed;
+
+                return t;
+            });
+
+            importOrchestratorTaskInputData.TaskId = Guid.NewGuid().ToString("N");
+            importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
+            importOrchestratorTaskInputData.BaseUri = new Uri("http://dummy");
+            var inputs = new List<InputResource>();
+            inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy") });
+
+            importOrchestratorTaskInputData.Input = inputs;
+            importOrchestratorTaskInputData.InputFormat = "ndjson";
+            importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
+            importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
+            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
+            importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
+            importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
+
+            integrationDataStoreClient.GetPropertiesAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    Dictionary<string, object> properties = new Dictionary<string, object>();
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyETag] = "test";
+                    properties[IntegrationDataStoreClientConstants.BlobPropertyLength] = 1000L;
+                    return properties;
+                });
+
+            string latestContext = null;
+            contextUpdater.UpdateContextAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    latestContext = (string)callInfo[0];
+                    return Task.CompletedTask;
+                });
+
+            sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
+
+            ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                importOrchestratorTaskInputData,
+                importOrchestratorTaskContext,
+                taskManager,
+                sequenceIdGenerator,
+                contextUpdater,
+                contextAccessor,
+                fhirDataBulkImportOperation,
+                integrationDataStoreClient,
+                loggerFactory);
+            orchestratorTask.PollingFrequencyInSeconds = 0;
+
+            TaskResultData taskResultData = await orchestratorTask.ExecuteAsync();
+            Assert.Equal(TaskResult.Fail, taskResultData.Result);
+
+            ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
+            Assert.Equal(ImportOrchestratorTaskProgress.SubTaskRecordsGenerated, context.Progress);
+        }
+
+        [Fact]
         public async Task GivenAnOrchestratorTask_WhenFailedAtPostProcessStep_ThenRetrableExceptionShouldBeThrowAndContextUpdated()
         {
             IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
