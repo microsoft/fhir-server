@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Data;
+using EnsureThat;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -17,6 +18,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         public ResourceWriteClaimTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<ResourceMetadata, ResourceWriteClaimTableTypeV1Row> generator)
         {
+            EnsureArg.IsNotNull(generator, nameof(generator));
+
             _generator = generator;
         }
 
