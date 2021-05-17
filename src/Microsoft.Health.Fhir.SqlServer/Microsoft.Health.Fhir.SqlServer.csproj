@@ -81,7 +81,7 @@
       <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.cs">
         <Generator>MutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(ImmutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+        <Args>@(MutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
       </Generated>
     </ItemGroup>
   </Target>
