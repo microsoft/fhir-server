@@ -10,14 +10,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     public class SqlBulkCopyDataWrapper
     {
+        /// <summary>
+        /// FHIR resource metadata for SQL
+        /// </summary>
         internal ResourceMetadata Metadata { get; set; }
 
+        /// <summary>
+        /// Resource type id for sql mapping
+        /// </summary>
         public short ResourceTypeId { get; set; }
 
+        /// <summary>
+        /// Assigned resource surrogate id
+        /// </summary>
         public long ResourceSurrogateId { get; set; }
 
+        /// <summary>
+        /// Extracted resource wrapper
+        /// </summary>
         public ResourceWrapper Resource { get; set; }
 
+        /// <summary>
+        /// Compressed FHIR raw data
+        /// </summary>
 #pragma warning disable CA1819
         public byte[] CompressedRawData { get; set; }
 #pragma warning restore CA1819

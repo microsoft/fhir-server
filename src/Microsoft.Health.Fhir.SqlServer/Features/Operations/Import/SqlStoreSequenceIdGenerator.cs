@@ -11,6 +11,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     public class SqlStoreSequenceIdGenerator : ISequenceIdGenerator<long>
     {
+        /// <summary>
+        /// Get current surrogateId from datetime
+        /// </summary>
+        /// <returns>Current surrogated id.</returns>
         public long GetCurrentSequenceId()
         {
             return ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.UtcNow);

@@ -246,9 +246,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
         }
 
-        private static async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeedCount, long failedCount, string[] importErrors, long lastIndex, CancellationToken cancellationToken)
+        private async Task<ImportProcessingProgress> UploadImportErrorsAsync(IImportErrorStore importErrorStore, long succeedCount, long failedCount, string[] importErrors, long lastIndex, CancellationToken cancellationToken)
         {
-            await importErrorStore.UploadErrorsAsync(importErrors, cancellationToken);
+            try
+            {
+                await importErrorStore.UploadErrorsAsync(importErrors, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to upload error logs.");
+                throw;
+            }
+
             ImportProcessingProgress progress = new ImportProcessingProgress();
             progress.SucceedImportCount = succeedCount;
             progress.FailedImportCount = failedCount;

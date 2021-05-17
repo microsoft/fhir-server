@@ -11,6 +11,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     public static class SqlDbTypeExtensions
     {
+        /// <summary>
+        /// Mapping between sql db type to c# paramitive type
+        /// </summary>
         internal static readonly Dictionary<SqlDbType, Type> EquivalentSystemType = new Dictionary<SqlDbType, Type>
         {
             { SqlDbType.BigInt, typeof(long) },
