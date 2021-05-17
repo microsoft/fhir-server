@@ -91,10 +91,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             // Delete the matched results...
             while (matchedResults.Any() || !string.IsNullOrEmpty(ct))
             {
-                foreach (IEnumerable<SearchResultEntry> batch in matchedResults.Take(request.MaxDeleteCount - itemsDeleted).TakeBatch(10))
+                foreach (SearchResultEntry item in matchedResults.Take(request.MaxDeleteCount - itemsDeleted))
                 {
-                    DeleteResourceResponse[] results = await Task.WhenAll(batch.Select(result => _mediator.Send(new DeleteResourceRequest(request.ResourceType, result.Resource.ResourceId, request.HardDelete), cancellationToken)));
-                    itemsDeleted += results.Sum(x => x.ResourcesDeleted);
+                    DeleteResourceResponse result = await _mediator.Send(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.HardDelete), cancellationToken);
+                    itemsDeleted += result.ResourcesDeleted;
                 }
 
                 if (!string.IsNullOrEmpty(ct) && request.MaxDeleteCount - itemsDeleted > 0)

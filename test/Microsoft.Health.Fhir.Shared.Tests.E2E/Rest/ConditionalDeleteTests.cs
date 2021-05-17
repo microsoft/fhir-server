@@ -114,7 +114,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var identifier = Guid.NewGuid().ToString();
 
             await Task.WhenAll(Enumerable.Range(1, 50).Select(_ => CreateWithIdentifier(identifier)));
-
             await ValidateResults(identifier, 50);
 
             FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
