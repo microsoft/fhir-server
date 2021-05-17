@@ -22,8 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     internal class SqlResourceBulkImporter : IResourceBulkImporter
     {
-        private const int DefaultCheckpointBatchResourceCount = 10000;
-        private const int DefaultMaxResourceCountInBatch = 2000;
+        private const int DefaultCheckpointBatchResourceCount = 5000;
+        private const int DefaultMaxResourceCountInBatch = 1000;
         private const int DefaultMaxConcurrentCount = 3;
 
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
