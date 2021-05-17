@@ -17,119 +17,119 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     public class DataGeneratorsTests
     {
         [Fact]
-        public void GivenResourceRecord_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenResourceRecord_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateResourceTable(1, 1000, 103);
             ValidataDataTable(VLatest.Resource, table);
         }
 
         [Fact]
-        public void GivenDateTimeSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenDateTimeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateDateTimeSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.DateTimeSearchParam, table);
         }
 
         [Fact]
-        public void GivenNumberSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenNumberSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateNumberSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.NumberSearchParam, table);
         }
 
         [Fact]
-        public void GivenQuantitySearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenQuantitySearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateQuantitySearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.QuantitySearchParam, table);
         }
 
         [Fact]
-        public void GivenReferenceSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenReferenceSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateReferenceSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.ReferenceSearchParam, table);
         }
 
         [Fact]
-        public void GivenReferenceTokenCompositeSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenReferenceTokenCompositeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.ReferenceTokenCompositeSearchParam, table);
         }
 
         [Fact]
-        public void GivenStringSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenStringSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateStringSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.StringSearchParam, table);
         }
 
         [Fact]
-        public void GivenTokenDateTimeCompositeSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenTokenDateTimeCompositeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.TokenDateTimeCompositeSearchParam, table);
         }
 
         [Fact]
-        public void GivenTokenNumberNumberCompositeSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenTokenNumberNumberCompositeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.TokenNumberNumberCompositeSearchParam, table);
         }
 
         [Fact]
-        public void GivenTokenQuantityCompositeSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenTokenQuantityCompositeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.TokenQuantityCompositeSearchParam, table);
         }
 
         [Fact]
-        public void GivenTokenSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenTokenSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.TokenSearchParam, table);
         }
 
         [Fact]
-        public void GivenTokenStringCompositeSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenTokenStringCompositeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.TokenStringCompositeSearchParam, table);
         }
 
         [Fact]
-        public void GivenTokenTextSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenTokenTextSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenTextSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.TokenText, table);
         }
 
         [Fact]
-        public void GivenTokenTokenCompositeSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenTokenTokenCompositeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.TokenTokenCompositeSearchParam, table);
         }
 
         [Fact]
-        public void GivenUriSearchParamsRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenUriSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateUriSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.UriSearchParam, table);
         }
 
         [Fact]
-        public void GivenCompartmentAssignmentRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenCompartmentAssignmentRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateCompartmentAssignmentTable(1, 1000, 103);
             ValidataDataTable(VLatest.CompartmentAssignment, table);
         }
 
         [Fact]
-        public void GivenResourceWriteClaimRecords_WhenGeneratorData_ValidDataTableShouldBeReturned()
+        public void GivenResourceWriteClaimRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateResourceWriteClaimTable(1, 1000, 103);
             ValidataDataTable(VLatest.ResourceWriteClaim, table);

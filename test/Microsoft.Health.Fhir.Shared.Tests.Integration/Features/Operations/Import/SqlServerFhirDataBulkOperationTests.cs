@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenBatchResources_WhenBulkCopy_RecordsShouldBeAdded()
+        public async Task GivenBatchResources_WhenBulkCopy_ThenRecordsShouldBeAdded()
         {
             SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenImportedBatchResources_WhenCleanData_RecordsShouldBeDeleted()
+        public async Task GivenImportedBatchResources_WhenCleanData_ThenRecordsShouldBeDeleted()
         {
             SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenImportedBatchResources_WhenCleanDataWithWrongType_RecordsShouldNotBeDeleted()
+        public async Task GivenImportedBatchResources_WhenCleanDataWithWrongType_ThenRecordsShouldNotBeDeleted()
         {
             SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenBatchInValidResources_WhenBulkCopy_ExceptionShouldBeThrow()
+        public async Task GivenBatchInValidResources_WhenBulkCopy_ThenExceptionShouldBeThrow()
         {
             SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);

@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     public class SqlBulkImporterTests
     {
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportData_AllDataShouldBeImported()
+        public async Task GivenSqlBulkImporter_WhenImportData_ThenAllDataShouldBeImported()
         {
             long expectedSucceedCount = 4321;
             long expectedFailedCount = 0;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataWithError_AllDataAndErrorShouldBeImported()
+        public async Task GivenSqlBulkImporter_WhenImportDataWithError_ThenAllDataAndErrorShouldBeImported()
         {
             long expectedSucceedCount = 2000;
             long expectedFailedCount = 123;
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataWithAllFailed_AllErrorShouldBeImported()
+        public async Task GivenSqlBulkImporter_WhenImportDataWithAllFailed_ThenAllErrorShouldBeImported()
         {
             long expectedSucceedCount = 0;
             long expectedFailedCount = 1234;
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataEqualsBatchCount_AllDataAndErrorShouldBeImported()
+        public async Task GivenSqlBulkImporter_WhenImportDataEqualsBatchCount_ThenAllDataAndErrorShouldBeImported()
         {
             long expectedSucceedCount = 10;
             long expectedFailedCount = 1;
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataLessThanBatchCount_AllDataAndErrorShouldBeImported()
+        public async Task GivenSqlBulkImporter_WhenImportDataLessThanBatchCount_ThenAllDataAndErrorShouldBeImported()
         {
             long expectedSucceedCount = 10;
             long expectedFailedCount = 1;
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataFromMiddle_AllDataAndErrorShouldBeImported()
+        public async Task GivenSqlBulkImporter_WhenImportDataFromMiddle_ThenAllDataAndErrorShouldBeImported()
         {
             long expectedSucceedCount = 10;
             long expectedFailedCount = 1;
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportData_ProgressUpdateShouldInSequence()
+        public async Task GivenSqlBulkImporter_WhenImportData_ThenProgressUpdateShouldInSequence()
         {
             long expectedSucceedCount = 1000;
             long expectedFailedCount = 100;
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInBulkOpertation_ChannelShouldBeCompleteAndExceptionShouldThrow()
+        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInBulkOpertation_ThenChannelShouldBeCompleteAndExceptionShouldThrow()
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
             await inputs.Writer.WriteAsync(new ImportResource(0, 0, null, null));
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInErrorLogUpload_ChannelShouldBeCompleteAndExceptionShouldThrow()
+        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInErrorLogUpload_ThenChannelShouldBeCompleteAndExceptionShouldThrow()
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
             await inputs.Writer.WriteAsync(new ImportResource(0, 0, "Error message"));
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInProcessResource_ChannelShouldBeCompleteAndExceptionShouldThrow()
+        public async Task GivenSqlBulkImporter_WhenImportDataWithUnExceptedExceptionInProcessResource_ThenChannelShouldBeCompleteAndExceptionShouldThrow()
         {
             Channel<ImportResource> inputs = Channel.CreateUnbounded<ImportResource>();
             await inputs.Writer.WriteAsync(new ImportResource(0, 0, null, null));
