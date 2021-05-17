@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.TaskManagement;
@@ -18,6 +19,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILoggerFactory loggerFactory)
         {
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
+
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _loggerFactory = loggerFactory;
         }

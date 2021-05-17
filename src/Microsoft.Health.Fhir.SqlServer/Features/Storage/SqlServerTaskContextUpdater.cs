@@ -5,6 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -28,9 +29,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerTaskContextUpdater> logger)
         {
+            EnsureArg.IsNotNullOrEmpty(taskId, nameof(taskId));
+            EnsureArg.IsNotNullOrEmpty(runId, nameof(runId));
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _taskId = taskId;
             _runId = runId;
-
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
         }
