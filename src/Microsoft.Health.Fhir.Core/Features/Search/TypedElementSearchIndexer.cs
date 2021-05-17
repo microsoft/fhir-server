@@ -222,8 +222,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     if (ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
                     {
-                        var rr = ev.Scalar("reference") as string;
-                        return rr != null && targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
+                        return ev.Scalar("reference") is string rr && targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
                     }
 
                     return true;
