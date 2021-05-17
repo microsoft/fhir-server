@@ -6,6 +6,7 @@
 using System;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
         protected Resource ParseResource(Resource resource)
         {
-            if (_allowParametersResource && resource.ResourceType == ResourceType.Parameters)
+            if (_allowParametersResource && resource.TypeName == KnownResourceTypes.Parameters)
             {
                 resource = ((Parameters)resource).Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)).Resource;
             }

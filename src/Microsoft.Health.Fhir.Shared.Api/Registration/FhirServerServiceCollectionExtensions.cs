@@ -6,13 +6,13 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Api.Features.Headers;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -27,6 +27,7 @@ using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
+using Polly;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -80,7 +81,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddFhirServerBase(fhirServerConfiguration);
 
-            services.AddHttpClient();
+            services.AddHttpClient(Options.Options.DefaultName)
+                .AddTransientHttpErrorPolicy(builder =>
+                    builder.OrResult(m => m.StatusCode == HttpStatusCode.TooManyRequests)
+                        .WaitAndRetryAsync(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
 
             var multipleRegisteredServices = services
                 .GroupBy(x => (x.ServiceType, x.ImplementationType, x.ImplementationInstance, x.ImplementationFactory))

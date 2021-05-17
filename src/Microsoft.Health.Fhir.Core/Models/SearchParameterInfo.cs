@@ -13,7 +13,6 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -121,11 +120,6 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// The component definitions if this is a composite search parameter (<see cref="Type"/> is <see cref="SearchParamType.Composite"/>)
         /// </summary>
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
-
-        /// <summary>
-        /// The resolved <see cref="SearchParameterInfo"/>s for each component if this is a composite search parameter (<see cref="Type"/> is <see cref="SearchParamType.Composite"/>)
-        /// </summary>
-        public IReadOnlyList<SearchParameterInfo> ResolvedComponents { get; set; } = Array.Empty<SearchParameterInfo>();
 
         public bool Equals([AllowNull] SearchParameterInfo other)
         {

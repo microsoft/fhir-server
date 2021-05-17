@@ -214,6 +214,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The input data type &apos;{0}&apos; and default template collection &apos;{1}&apos; are inconsistent..
+        /// </summary>
+        public static string InputDataTypeAndDefaultTemplateCollectionInconsistent {
+            get {
+                return ResourceManager.GetString("InputDataTypeAndDefaultTemplateCollectionInconsistent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is not supported using {1}..
         /// </summary>
         public static string InvalidBundleEntry {
@@ -318,6 +327,33 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InvalidTemplateCollectionReference {
             get {
                 return ResourceManager.GetString("InvalidTemplateCollectionReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to $member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid..
+        /// </summary>
+        public static string MemberMatchInvalidParameter {
+            get {
+                return ResourceManager.GetString("MemberMatchInvalidParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;MemberPatient&apos; can&apos;t be found in submitted parameters..
+        /// </summary>
+        public static string MemberMatchMemberPatientNotFound {
+            get {
+                return ResourceManager.GetString("MemberMatchMemberPatientNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to &apos;OldCoverage&apos; can&apos;t be found in submitted parameters. .
+        /// </summary>
+        public static string MemberMatchOldCoverageNotFound {
+            get {
+                return ResourceManager.GetString("MemberMatchOldCoverageNotFound", resourceCulture);
             }
         }
         

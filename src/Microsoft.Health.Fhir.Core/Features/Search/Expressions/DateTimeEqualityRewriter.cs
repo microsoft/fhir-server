@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
             if (expression.Parameter.Type == SearchParamType.Date ||
-                (expression.Parameter.Type == SearchParamType.Composite && expression.Parameter.ResolvedComponents.Any(c => c.Type == SearchParamType.Date)))
+                (expression.Parameter.Type == SearchParamType.Composite && expression.Parameter.Component.Any(c => c.ResolvedSearchParameter.Type == SearchParamType.Date)))
             {
                 return base.VisitSearchParameter(expression, context);
             }

@@ -10,14 +10,13 @@ using System.Threading;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Task = System.Threading.Tasks.Task;
 
@@ -26,7 +25,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
     public class SearchParameterValidator : ISearchParameterValidator
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private const string HttpPostName = "POST";
@@ -35,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
         public SearchParameterValidator(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
-            IFhirAuthorizationService authorizationService,
+            IAuthorizationService<DataActions> authorizationService,
             ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -47,9 +46,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        public async Task ValidateSearchParamterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
+        public async Task ValidateSearchParameterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
         {
-            if (await _authorizationService.CheckAccess(DataActions.Reindex) != DataActions.Reindex)
+            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
             }
@@ -75,18 +74,37 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             {
                 try
                 {
-                    _searchParameterDefinitionManager.GetSearchParameter(new Uri(searchParam.Url));
-
-                    // If a post, then it is a creation of a new search parameter
-                    // only allow this if no other parameters exist with the same Uri
-                    if (method.Equals(HttpPostName, StringComparison.OrdinalIgnoreCase))
+                    // If a search parameter with the same uri exists already
+                    if (_searchParameterDefinitionManager.TryGetSearchParameter(new Uri(searchParam.Url), out _))
                     {
-                        // if no exception is thrown, then the search parameter with the same Uri was found
-                        // and this is a conflict
-                        validationFailures.Add(
-                            new ValidationFailure(
-                                nameof(searchParam.Url),
-                                string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
+                        // And if this is a request to create a new search parameter
+                        if (method.Equals(HttpPostName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // We have a conflict
+                            validationFailures.Add(
+                                new ValidationFailure(
+                                    nameof(searchParam.Url),
+                                    string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
+                        }
+                        else if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            CheckForConflictingCodeValue(searchParam, validationFailures);
+                        }
+                    }
+                    else
+                    {
+                        // Otherwise, no search parameters with a matching uri exist
+                        // Ensure this isn't a request to modify an existing parameter
+                        if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase) ||
+                            method.Equals(HttpDeleteName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            validationFailures.Add(
+                                new ValidationFailure(
+                                    nameof(searchParam.Url),
+                                    string.Format(Resources.SearchParameterDefinitionNotFound, searchParam.Url)));
+                        }
+
+                        CheckForConflictingCodeValue(searchParam, validationFailures);
                     }
                 }
                 catch (FormatException)
@@ -95,21 +113,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                           new ValidationFailure(
                               nameof(searchParam.Url),
                               string.Format(Resources.SearchParameterDefinitionInvalidDefinitionUri, searchParam.Url)));
-                }
-                catch (SearchParameterNotSupportedException)
-                {
-                    // if thrown, then the search parameter is not found
-                    // if a PUT, then we should be updating an exsting paramter, but it was not found
-                    if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase) ||
-                        method.Equals(HttpDeleteName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        // if an exception above was thrown, then the search parameter with the same Uri was not found
-                        // and DELETE or PUT can only run on existing parameter
-                        validationFailures.Add(
-                            new ValidationFailure(
-                                nameof(searchParam.Url),
-                                string.Format(Resources.SearchParameterDefinitionNotFound, searchParam.Url)));
-                    }
                 }
             }
 
@@ -122,6 +125,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             if (validationFailures.Any())
             {
                 throw new ResourceNotValidException(validationFailures);
+            }
+        }
+
+        private void CheckForConflictingCodeValue(SearchParameter searchParam, List<ValidationFailure> validationFailures)
+        {
+            // Ensure the search parameter's code value does not already exist for its base type(s)
+            foreach (ResourceType? baseType in searchParam.Base)
+            {
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
+                {
+                    // The search parameter's code value conflicts with an existing one
+                    validationFailures.Add(
+                        new ValidationFailure(
+                            nameof(searchParam.Code),
+                            string.Format(Resources.SearchParameterDefinitionConflictingCodeValue, searchParam.Code, baseType.ToString())));
+                }
             }
         }
     }

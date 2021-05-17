@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         private const string ContinuationTokenQueryParamName = "ct";
         private const string DefaultRouteName = "Route";
 
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IUrlHelperFactory _urlHelperFactory = Substitute.For<IUrlHelperFactory>();
         private readonly IHttpContextAccessor _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
         private readonly IActionContextAccessor _actionContextAccessor = Substitute.For<IActionContextAccessor>();
@@ -55,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 _actionContextAccessor,
                 _bundleHttpContextAccessor);
 
-            _fhirRequestContextAccessor.FhirRequestContext.RouteName = DefaultRouteName;
+            _fhirRequestContextAccessor.RequestContext.RouteName = DefaultRouteName;
 
             _httpContextAccessor.HttpContext.Returns(_httpContext);
 
@@ -256,7 +257,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 new[] { (new SearchParameterInfo("a", "a"), SortOrder.Ascending), (new SearchParameterInfo("b", "b"), SortOrder.Descending) },
                 null,
                 null,
-                new Dictionary<string, object> { { KnownQueryParameterNames.Sort, new StringValues(new[] { "a", "-b" }) } });
+                new Dictionary<string, object> { { KnownQueryParameterNames.Sort, "a,-b" } });
         }
 
         [Fact]

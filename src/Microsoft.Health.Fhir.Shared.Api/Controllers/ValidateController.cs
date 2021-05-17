@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static void ProcessResource(ref Resource resource, ref string profile)
         {
-            if (resource.ResourceType == ResourceType.Parameters)
+            if (resource.TypeName == KnownResourceTypes.Parameters)
             {
                 var parameterResource = (Parameters)resource;
                 var profileFromParameters = parameterResource.Parameter.Find(param => param.Name.Equals("profile", StringComparison.OrdinalIgnoreCase));

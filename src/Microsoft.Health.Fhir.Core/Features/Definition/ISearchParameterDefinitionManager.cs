@@ -38,21 +38,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType);
 
         /// <summary>
-        /// Retrieves the search parameter with <paramref name="name"/> associated with <paramref name="resourceType"/>.
+        /// Retrieves the search parameter with <paramref name="code"/> associated with <paramref name="resourceType"/>.
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
-        /// <param name="name">The name of the search parameter.</param>
-        /// <param name="searchParameter">When this method returns, the search parameter with the given <paramref name="name"/> associated with the <paramref name="resourceType"/> if it exists; otherwise, the default value.</param>
+        /// <param name="code">The code of the search parameter.</param>
+        /// <param name="searchParameter">When this method returns, the search parameter with the given <paramref name="code"/> associated with the <paramref name="resourceType"/> if it exists; otherwise, the default value.</param>
         /// <returns><c>true</c> if the search parameter exists; otherwise, <c>false</c>.</returns>
-        bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter);
+        bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter);
 
         /// <summary>
-        /// Retrieves the search parameter with <paramref name="name"/> associated with <paramref name="resourceType"/>.
+        /// Retrieves the search parameter with <paramref name="code"/> associated with <paramref name="resourceType"/>.
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
-        /// <param name="name">The name of the search parameter.</param>
-        /// <returns>The search parameter with the given <paramref name="name"/> associated with the <paramref name="resourceType"/>.</returns>
-        SearchParameterInfo GetSearchParameter(string resourceType, string name);
+        /// <param name="code">The code of the search parameter.</param>
+        /// <returns>The search parameter with the given <paramref name="code"/> associated with the <paramref name="resourceType"/>.</returns>
+        SearchParameterInfo GetSearchParameter(string resourceType, string code);
+
+        /// <summary>
+        /// Retrieves the search parameter with <paramref name="definitionUri"/>.
+        /// </summary>
+        /// <param name="definitionUri">The search parameter definition URL.</param>
+        /// <param name="value">The SearchParameterInfo pertaining to the specified <paramref name="definitionUri"/></param>
+        /// <returns>True if the search parameter is found <paramref name="definitionUri"/>.</returns>
+        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value);
 
         /// <summary>
         /// Retrieves the search parameter with <paramref name="definitionUri"/>.
@@ -78,12 +86,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// Allows addition of a new search parameters at runtime.
         /// </summary>
         /// <param name="searchParameters">An collection containing SearchParameter resources.</param>
-        void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters);
+        /// <param name="calculateHash">Indicates whether the search parameter hash should be recalculated</param>
+        void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true);
 
         /// <summary>
         /// Allows removal of a custom search parameter.
         /// </summary>
         /// <param name="searchParam">The custom search parameter to remove.</param>
         void DeleteSearchParameter(ITypedElement searchParam);
+
+        /// <summary>
+        /// Allows removal of a custom search parameter.
+        /// </summary>
+        /// <param name="url">The url identifying the custom search parameter to remove.</param>
+        /// <param name="calculateHash">Indicated whether the search parameter hash values should be recalulated after this delete.</param>
+        void DeleteSearchParameter(string url, bool calculateHash = true);
     }
 }

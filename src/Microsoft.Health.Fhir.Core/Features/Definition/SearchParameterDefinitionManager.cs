@@ -14,8 +14,10 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -27,13 +29,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService, INotificationHandler<SearchParametersUpdated>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
+        private readonly IMediator _mediator;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
 
-        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
+        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             _modelInfoProvider = modelInfoProvider;
+            _mediator = mediator;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
             UrlLookup = new ConcurrentDictionary<Uri, SearchParameterInfo>();
@@ -107,6 +112,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
+        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value)
+        {
+            return UrlLookup.TryGetValue(definitionUri, out value);
+        }
+
         public string GetSearchParameterHashForResourceType(string resourceType)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
@@ -132,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters, bool calculateHash = true)
         {
             SearchParameterDefinitionBuilder.Build(
                 searchParameters,
@@ -140,7 +150,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 TypeLookup,
                 _modelInfoProvider);
 
-            CalculateSearchParameterHash();
+            if (calculateHash)
+            {
+                CalculateSearchParameterHash();
+            }
         }
 
         private void CalculateSearchParameterHash()
@@ -158,11 +171,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public void DeleteSearchParameter(ITypedElement searchParam)
         {
             var searchParamWrapper = new SearchParameterWrapper(searchParam);
+            DeleteSearchParameter(searchParamWrapper.Url);
+        }
+
+        public void DeleteSearchParameter(string url, bool calculateHash = true)
+        {
             SearchParameterInfo searchParameterInfo = null;
 
-            if (!UrlLookup.TryRemove(new Uri(searchParamWrapper.Url), out searchParameterInfo))
+            if (!UrlLookup.TryRemove(new Uri(url), out searchParameterInfo))
             {
-                throw new Exception(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
+                throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, url));
             }
 
             var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
@@ -171,14 +189,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
             }
 
-            CalculateSearchParameterHash();
+            if (calculateHash)
+            {
+                CalculateSearchParameterHash();
+            }
         }
 
-        public Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
+        public async Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
         {
             CalculateSearchParameterHash();
-
-            return Task.CompletedTask;
+            await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
         }
     }
 }

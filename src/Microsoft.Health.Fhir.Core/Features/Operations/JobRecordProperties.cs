@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Sequence = "sequence";
 
+        public const string ResourceCounts = "resourceCounts";
+
         public const string Count = "count";
 
         public const string CommitedBytes = "committedBytes";
@@ -116,5 +118,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TotalResourcesToReindex = "totalResourcesToReindex";
 
         public const string ResourcesSuccessfullyReindexed = "resourcesSuccessfullyReindexed";
+
+        public const string QueryDelayIntervalInMilliseconds = "queryDelayIntervalInMilliseconds";
+
+        public const string TargetDataStoreUsagePercentage = "targetDataStoreUsagePercentage";
     }
 }

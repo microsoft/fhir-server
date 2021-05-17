@@ -12,7 +12,8 @@
                 "export",
                 "resourceValidate",
                 "reindex",
-                "convertData"
+                "convertData",
+                "editProfileDefinitions"
             ]
         }
     },

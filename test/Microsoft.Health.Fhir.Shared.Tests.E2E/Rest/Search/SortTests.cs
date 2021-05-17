@@ -45,22 +45,58 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
         }
 
-        [Fact]
-        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder()
+        [SkippableTheory]
+        [InlineData("birthdate")]
+        [InlineData("_lastUpdated")]
+        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}", false, patients.Cast<Resource>().ToArray());
         }
 
-        [Fact]
-        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
+        [SkippableTheory]
+        [InlineData("birthdate")]
+        [InlineData("_lastUpdated")]
+        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder(string sortParameterName)
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePaginatedPatients(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-{sortParameterName}", false, patients.Reverse().Cast<Resource>().ToArray());
+        }
+
+        [Theory]
+        [InlineData("birthdate")]
+        [InlineData("-birthdate")]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInCorrectOrder(string sortParameterName)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithSameBirthdate(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
+        }
+
+        [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdate_ThenPatientsAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithSameBirthdate(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=birthdate&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
+        }
+
+        [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithSameBirthdateAndMultiplePages_WhenSortedByBirthdateWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithSameBirthdate(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate&_count=3", false, pageSize: 3, patients.Reverse().Cast<Resource>().ToArray());
         }
 
         // uncomment only when db cleanup happens on each run, otherwise the paging might cause expected resources to not arrive
@@ -216,13 +252,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
 
+            resources.AddRange(patients);
+
             foreach (Patient p in patients)
             {
                 var obs = await AddObservationToPatient(p, "1990-01-01", tag);
                 resources.AddRange(obs);
             }
-
-            resources.AddRange(patients);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
@@ -273,9 +309,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
+            resources.AddRange(patients.Reverse());
             observations.Reverse();
             resources.AddRange(observations);
-            resources.AddRange(patients.Reverse());
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
@@ -327,8 +363,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 observations.Add(obs.First());
             }
 
-            resources.AddRange(patients);
             resources.AddRange(observations);
+            resources.AddRange(patients);
 
             // Ask to get all patient with specific tag order by birthdate (timestamp)
             // filter and sort are different based on different types
@@ -418,6 +454,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=date&subject:missing=true", false, expected_resources.ToArray());
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenQueryWithObservation_WhenSearchedForItemsWithNoSubjectAndLastUpdatedSort_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            var expected_resources = new List<Resource>();
+
+            // create the resources which will have an timestamp bigger than the 'now' var
+            var patients = await CreatePatients(tag);
+
+            var dates = new string[] { "1990-01-01", "1991-01-01", "1992-01-01", "1993-01-01" };
+            var observations = new List<Observation>();
+            for (int i = 0; i < patients.Length; i++)
+            {
+                var obs = await AddObservationToPatient(patients[i], dates[i], tag);
+                observations.Add(obs.First());
+            }
+
+            // Add observation with no patient-> no subject, and we keep it alone in the expected result set.
+            expected_resources.Add(AddObservationToPatient(null, dates[0], tag).Result.First());
+
+            // Get observations
+            await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true", false, expected_resources.ToArray());
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -434,18 +496,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "Seattle", "Robinson", tag, new DateTime(1940, 01, 15)),
+                p => SetPatientInfo(p, "Portland", "Williamas", tag, new DateTime(1942, 01, 15)),
+                p => SetPatientInfo(p, "Portland", "James", tag, new DateTime(1943, 10, 23)),
+                p => SetPatientInfo(p, "Seatt;e", "Alex", tag, new DateTime(1943, 11, 23)),
+                p => SetPatientInfo(p, "Portland", "Rock", tag, new DateTime(1944, 06, 24)),
+                p => SetPatientInfo(p, "Seattle", "Mike", tag, new DateTime(1946, 02, 24)),
+                p => SetPatientInfo(p, "Portland", "Christie", tag, new DateTime(1947, 02, 24)),
+                p => SetPatientInfo(p, "Portland", "Lone", tag, new DateTime(1950, 05, 12)),
+                p => SetPatientInfo(p, "Seattle", "Sophie", tag, new DateTime(1953, 05, 12)),
+                p => SetPatientInfo(p, "Portland", "Peter", tag, new DateTime(1956, 06, 12)),
+                p => SetPatientInfo(p, "Portland", "Cathy", tag, new DateTime(1960, 09, 22)),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag, new DateTime(1970, 05, 13)));
+
+            return patients;
+        }
+
+        private async Task<Patient[]> CreatePatientsWithSameBirthdate(string tag)
+        {
+            // Create various resources.
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag),
-                p => SetPatientInfo(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "Portland", "Williams", tag),
                 p => SetPatientInfo(p, "Portland", "James", tag),
-                p => SetPatientInfo(p, "Seatt;e", "Alex", tag),
-                p => SetPatientInfo(p, "Portland", "Rock", tag),
-                p => SetPatientInfo(p, "Seattle", "Mike", tag),
-                p => SetPatientInfo(p, "Portland", "Christie", tag),
-                p => SetPatientInfo(p, "Portland", "Lone", tag),
-                p => SetPatientInfo(p, "Seattle", "Sophie", tag),
-                p => SetPatientInfo(p, "Portland", "Peter", tag),
-                p => SetPatientInfo(p, "Portland", "Cathy", tag),
-                p => SetPatientInfo(p, "Seattle", "Jones", tag));
+                p => SetPatientInfo(p, "Seattle", "Alex", tag),
+                p => SetPatientInfo(p, "Portland", "Rock", tag));
 
             return patients;
         }
@@ -475,16 +550,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             patient.Name = new List<HumanName> { new HumanName { Family = family }, };
             patient.BirthDate = birthDate;
-        }
-
-        private async Task<Observation[]> CreateObservations(string tag)
-        {
-            Observation[] observations = await Client.CreateResourcesAsync<Observation>(
-                o => SetObservationInfo(o, "1979-12-31", tag),
-                o => SetObservationInfo(o, "1989-12-31", tag),
-                o => SetObservationInfo(o, "1999-12-31", tag));
-
-            return observations;
         }
 
         private void SetObservationInfo(Observation observation, string date, string tag, Patient patient = null)

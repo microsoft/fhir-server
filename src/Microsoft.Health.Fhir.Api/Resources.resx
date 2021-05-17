@@ -330,7 +330,7 @@
   </data>
   <data name="ConfigLocationRequiredForAnonymizedExport" xml:space="preserve">
     <value>Missing '_anonymizationConfig' for anonymized export</value>
-     <comment>{NumberedPlaceHolder="_anonymizationConfig"}</comment>
+    <comment>{NumberedPlaceHolder="_anonymizationConfig"}</comment>
   </data>
   <data name="ProfileIsInvalid" xml:space="preserve">
     <value>Provided value for `profile` parameter `{0}` is invalid </value>
@@ -343,5 +343,18 @@
   <data name="InvalidElementsParameter" xml:space="preserve">
     <value>The requested "_elements" parameter '{0}' is invalid.</value>
     <comment>{NumberedPlaceHolder=”_elements”} {0} is parameter's value.</comment>
+  </data>
+  <data name="InputDataTypeAndDefaultTemplateCollectionInconsistent" xml:space="preserve">
+    <value>The input data type '{0}' and default template collection '{1}' are inconsistent.</value>
+    <comment>{0} is the input data type and {1} is the default template collection.</comment>
+  </data>
+  <data name="MemberMatchMemberPatientNotFound" xml:space="preserve">
+    <value>'MemberPatient' can't be found in submitted parameters.</value>
+  </data>
+  <data name="MemberMatchOldCoverageNotFound" xml:space="preserve">
+    <value>'OldCoverage' can't be found in submitted parameters. </value>
+  </data>
+  <data name="MemberMatchInvalidParameter" xml:space="preserve">
+    <value>$member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
   </data>
 </root>

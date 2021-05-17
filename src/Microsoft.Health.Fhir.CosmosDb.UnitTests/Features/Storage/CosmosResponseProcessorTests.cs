@@ -13,9 +13,11 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
+using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using NSubstitute;
 using Xunit;
@@ -28,33 +30,47 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly Dictionary<string, StringValues> _responseHeaders = new Dictionary<string, StringValues>();
         private readonly CosmosResponseProcessor _cosmosResponseProcessor;
         private readonly IMediator _mediator;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
 
         public CosmosResponseProcessorTests()
         {
-            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            _fhirRequestContextAccessor.FhirRequestContext.RequestHeaders.Returns(_requestHeaders);
-            _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders.Returns(_responseHeaders);
-            _fhirRequestContextAccessor.FhirRequestContext.ResourceType.Returns("resource");
-            _fhirRequestContextAccessor.FhirRequestContext.AuditEventType.Returns("operation");
+            _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            _fhirRequestContextAccessor.RequestContext.RequestHeaders.Returns(_requestHeaders);
+            _fhirRequestContextAccessor.RequestContext.ResponseHeaders.Returns(_responseHeaders);
+            _fhirRequestContextAccessor.RequestContext.ResourceType.Returns("resource");
+            _fhirRequestContextAccessor.RequestContext.AuditEventType.Returns("operation");
 
             _mediator = Substitute.For<IMediator>();
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;
 
-            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, nullLogger);
+            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), nullLogger);
         }
 
         [Fact]
         public async Task GivenAResourceResponse_WhenProcessResponseCalled_ThenHeadersShouldBeSetAndMetricNotificationShouldHappen()
         {
-            await _cosmosResponseProcessor.ProcessResponse("2", 37.37, HttpStatusCode.OK);
+            Headers headers = Substitute.ForPartsOf<Headers>();
+            headers.Session.Returns("2");
+            headers.RequestCharge.Returns(37.37);
+
+            ResponseMessage responseMessage = Substitute.ForPartsOf<ResponseMessage>(HttpStatusCode.OK, null, null);
+            responseMessage.Headers.Returns(headers);
+
+            await _cosmosResponseProcessor.ProcessResponse(responseMessage);
             ValidateExecution("2", 37.37, false);
         }
 
         [Fact]
         public async Task GivenAResourceResponseWith429Status_WhenProcessResponseCalled_ThenThrottledCountShouldBeSet()
         {
-            await _cosmosResponseProcessor.ProcessResponse("2", 37.37, HttpStatusCode.TooManyRequests);
+            Headers headers = Substitute.ForPartsOf<Headers>();
+            headers.Session.Returns("2");
+            headers.RequestCharge.Returns(37.37);
+
+            ResponseMessage responseMessage = Substitute.ForPartsOf<ResponseMessage>(HttpStatusCode.TooManyRequests, null, null);
+            responseMessage.Headers.Returns(headers);
+
+            await _cosmosResponseProcessor.ProcessResponse(responseMessage);
             ValidateExecution("2", 37.37, true);
         }
 

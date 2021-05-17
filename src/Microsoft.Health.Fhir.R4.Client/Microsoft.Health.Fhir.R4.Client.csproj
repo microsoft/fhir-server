@@ -5,12 +5,12 @@
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Ensure.That" Version="10.0.0" />
+    <PackageReference Include="Ensure.That" Version="10.1.0" />
     <PackageReference Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.1" />
     <PackageReference Include="Microsoft.Health.Client" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="6.8.0" />
-    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="6.8.0" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="$(IdentityModelVersion)" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="$(IdentityModelVersion)" />
   </ItemGroup>
   <Import Project="..\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems" Label="Shared" />
 </Project>

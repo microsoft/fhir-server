@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             : base(new Uri("http://localhost/"))
         {
             var projectDir = GetProjectPath("src", startupType);
-            var corsPath = Path.GetFullPath("corstestconfiguration.json");
+            var testConfigPath = Path.GetFullPath("testconfiguration.json");
 
             var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
@@ -49,7 +49,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
             configuration["FhirServer:Security:Enabled"] = "true";
-            configuration["FhirServer:Security:Authentication:Authority"] = "https://inprochost";
+
+            string inProcEndpoint = "https://inprochost";
+            configuration["FhirServer:Security:Authentication:Authority"] = inProcEndpoint;
 
             // For local development we will use the Azure Storage Emulator for export.
             configuration["FhirServer:Operations:Export:StorageAccountConnection"] = "UseDevelopmentStorage=true";
@@ -110,7 +112,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .ConfigureAppConfiguration(configurationBuilder =>
                 {
                     configurationBuilder.AddDevelopmentAuthEnvironmentIfConfigured(new ConfigurationBuilder().AddInMemoryCollection(configuration).Build());
-                    configurationBuilder.AddJsonFile(corsPath);
+                    configurationBuilder.AddJsonFile(testConfigPath);
                     configurationBuilder.AddInMemoryCollection(configuration);
                 })
                 .UseStartup(startupType)
@@ -120,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     // use a message handler for the test server
                     serviceCollection
                         .AddHttpClient(Options.DefaultName)
-                        .ConfigurePrimaryHttpMessageHandler(() => Server.CreateHandler())
+                        .ConfigurePrimaryHttpMessageHandler(() => new DispatchingHandler(Server.CreateHandler(), inProcEndpoint))
                         .SetHandlerLifetime(Timeout.InfiniteTimeSpan); // So that it is not disposed after 2 minutes;
 
                     serviceCollection.PostConfigure<JwtBearerOptions>(
@@ -192,6 +194,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             throw new InvalidOperationException($"Project root could not be located for startup type {startupType.FullName}");
+        }
+
+        private class DispatchingHandler : DelegatingHandler
+        {
+            private readonly HttpMessageHandler _testServerHandler;
+            private readonly string _inProcEndpointPrefix;
+            private readonly ExternalHandler _externalHandler;
+
+            public DispatchingHandler(HttpMessageHandler testServerHandler, string inProcEndpointPrefix)
+                : base(testServerHandler)
+            {
+                _testServerHandler = testServerHandler;
+                _inProcEndpointPrefix = inProcEndpointPrefix;
+                _externalHandler = new ExternalHandler();
+            }
+
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                if (request.RequestUri.ToString().StartsWith(_inProcEndpointPrefix))
+                {
+                    return await base.SendAsync(request, cancellationToken);
+                }
+
+                return await _externalHandler.SendPublicAsync(request, cancellationToken);
+            }
+
+            public class ExternalHandler : HttpClientHandler
+            {
+                public async Task<HttpResponseMessage> SendPublicAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+                {
+                    return await SendAsync(request, cancellationToken);
+                }
+            }
         }
     }
 }

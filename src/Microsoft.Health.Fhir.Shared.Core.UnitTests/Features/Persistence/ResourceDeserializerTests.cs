@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core;
@@ -51,6 +52,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             Assert.Equal(observation.Id, newObject.Id);
             Assert.Equal(observation.VersionId, newObject.VersionId);
+        }
+
+        [Fact]
+        public void GivenARawResourceFromFhirNet1_WhenDeserializingFromJson_ThenTheObjectIsReturned()
+        {
+            var oldValidResource = @"{
+  ""resourceType"": ""Patient"",
+  ""birthDate"": ""1991-02-03T11:22:33Z""
+    }";
+
+            var observation = Samples.GetDefaultPatient();
+
+            var wrapper = new ResourceWrapper(observation, new RawResource(oldValidResource, FhirResourceFormat.Json, false), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+
+            var newObject = Deserializers.ResourceDeserializer.Deserialize(wrapper);
+        }
+
+        [Fact]
+        public void GivenARawResourceFromFhirNet1WithMultipleDate_WhenDeserializingFromJson_ThenTheObjectIsReturned()
+        {
+            var oldValidResource = @"{
+    ""resourceType"": ""Goal"",
+    ""startDate"": ""1991-02-03T11:22:33Z"",
+    ""target"": {
+            ""dueDate"":""2002-01-03T02:00""
+            }
+    }";
+
+            var observation = Samples.GetDefaultPatient();
+
+            var wrapper = new ResourceWrapper(observation, new RawResource(oldValidResource, FhirResourceFormat.Json, false), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+
+            var newObject = Deserializers.ResourceDeserializer.Deserialize(wrapper);
+        }
+
+        [Fact]
+        public void GivenABadResource_WhenDeserializingFromJson_ThenExceptionThrown()
+        {
+            var oldValidResource = @"{
+  ""resourceType"": ""Patient"",
+  ""birthDate"": ""1991-02-03"",
+  ""mutlipleBirthBoolean"":""cat""
+    }";
+
+            var observation = Samples.GetDefaultPatient();
+
+            var wrapper = new ResourceWrapper(observation, new RawResource(oldValidResource, FhirResourceFormat.Json, false), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+
+            Assert.Throws<StructuralTypeException>(() => Deserializers.ResourceDeserializer.Deserialize(wrapper));
         }
 
         [Fact]

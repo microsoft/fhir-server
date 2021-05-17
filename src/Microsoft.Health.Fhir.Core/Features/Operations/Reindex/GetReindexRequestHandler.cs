@@ -9,11 +9,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
@@ -21,9 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     public class GetReindexRequestHandler : IRequestHandler<GetReindexRequest, GetReindexResponse>
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
 
-        public GetReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService)
+        public GetReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Reindex) != DataActions.Reindex)
+            if (await _authorizationService.CheckAccess(DataActions.Reindex, cancellationToken) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
             }
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private Task<GetReindexResponse> GetListOfReindexJobs()
+        private static Task<GetReindexResponse> GetListOfReindexJobs()
         {
             // TODO: build list of reindex jobs
             throw new OperationNotImplementedException("Get list of Reindex jobs not yet implemented.");

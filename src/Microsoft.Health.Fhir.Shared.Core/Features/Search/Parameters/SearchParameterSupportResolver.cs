@@ -7,9 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Introspection;
 using Hl7.FhirPath;
 using Hl7.FhirPath.Expressions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -18,19 +18,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public class SearchParameterSupportResolver : ISearchParameterSupportResolver
     {
-        private readonly ISearchParameterDefinitionManager _definitionManager;
-        private readonly IFhirNodeToSearchValueTypeConverterManager _searchValueTypeConverterManager;
+        private readonly ITypedElementToSearchValueConverterManager _searchValueConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
+        private const string _codeOfTName = "codeOfT";
 
-        public SearchParameterSupportResolver(
-            ISearchParameterDefinitionManager definitionManager,
-            IFhirNodeToSearchValueTypeConverterManager searchValueTypeConverterManager)
+        public SearchParameterSupportResolver(ITypedElementToSearchValueConverterManager searchValueConverterManager)
         {
-            EnsureArg.IsNotNull(definitionManager, nameof(definitionManager));
-            EnsureArg.IsNotNull(searchValueTypeConverterManager, nameof(searchValueTypeConverterManager));
+            EnsureArg.IsNotNull(searchValueConverterManager, nameof(searchValueConverterManager));
 
-            _definitionManager = definitionManager;
-            _searchValueTypeConverterManager = searchValueTypeConverterManager;
+            _searchValueConverterManager = searchValueConverterManager;
         }
 
         public (bool Supported, bool IsPartiallySupported) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
@@ -67,10 +63,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var converters = results
                     .Select(result => (
                         result,
-                        hasConverter: _searchValueTypeConverterManager.TryGetConverter(
-                            result.ClassMapping.Name,
-                            SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                            out IFhirNodeToSearchValueTypeConverter converter),
+                        hasConverter: _searchValueConverterManager.TryGetConverter(
+                            GetBaseType(result.ClassMapping),
+                            TypedElementSearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
+                            out ITypedElementToSearchValueConverter converter),
                         converter))
                     .ToArray();
 
@@ -84,6 +80,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     bool partialSupport = converters.Any(x => x.hasConverter);
                     return (partialSupport, partialSupport);
                 }
+            }
+
+            string GetBaseType(ClassMapping classMapping)
+            {
+                return classMapping.IsCodeOfT ? _codeOfTName : classMapping.Name;
             }
 
             return (true, false);

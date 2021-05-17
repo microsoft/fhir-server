@@ -11,7 +11,7 @@ steps:
     useGlobalJson: true
     
 - powershell: |
-    dotnet tool install --global GitVersion.Tool --version 5.5.1
+    dotnet tool install --global GitVersion.Tool
 
     $gitVersionJson = & 'dotnet-gitversion'  | ConvertFrom-Json
 

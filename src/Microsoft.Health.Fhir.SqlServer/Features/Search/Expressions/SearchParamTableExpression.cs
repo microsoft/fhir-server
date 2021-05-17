@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
@@ -61,6 +62,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         public override string ToString()
         {
             return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{QueryGenerator?.Table} Predicate:{Predicate})";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(SearchParamTableExpression));
+            hashCode.Add(Kind);
+            hashCode.Add(ChainLevel);
+            hashCode.Add(QueryGenerator);
+            Predicate?.AddValueInsensitiveHashCode(ref hashCode);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            return other is SearchParamTableExpression tableExpression &&
+                   tableExpression.Kind == Kind &&
+                   tableExpression.ChainLevel == ChainLevel &&
+                   tableExpression.QueryGenerator.Equals(QueryGenerator) &&
+                   (tableExpression.Predicate?.ValueInsensitiveEquals(Predicate) ?? Predicate == null);
         }
     }
 }

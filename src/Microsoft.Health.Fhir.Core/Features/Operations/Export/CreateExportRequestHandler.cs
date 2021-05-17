@@ -13,12 +13,12 @@ using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Newtonsoft.Json;
 
@@ -31,13 +31,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     {
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly ExportJobConfiguration _exportJobConfiguration;
 
         public CreateExportRequestHandler(
             IClaimsExtractor claimsExtractor,
             IFhirOperationDataStore fhirOperationDataStore,
-            IFhirAuthorizationService authorizationService,
+            IAuthorizationService<DataActions> authorizationService,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Export) != DataActions.Export)
+            if (await _authorizationService.CheckAccess(DataActions.Export, cancellationToken) != DataActions.Export)
             {
                 throw new UnauthorizedFhirActionException();
             }
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// </summary>
         /// <param name="filterString">The _typeFilter parameter input.</param>
         /// <returns>A list of <see cref="ExportJobFilter"/></returns>
-        private IList<ExportJobFilter> ParseFilter(string filterString)
+        private static IList<ExportJobFilter> ParseFilter(string filterString)
         {
             var filters = new List<ExportJobFilter>();
 
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     {
                         var keyValue = parameter.Split("=");
 
-                        if (keyValue.Count() != 2)
+                        if (keyValue.Length != 2)
                         {
                             throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
                         }

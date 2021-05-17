@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
+using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
@@ -202,6 +203,20 @@ namespace Microsoft.Extensions.DependencyInjection
             // FhirCosmosClientInitializer is Singleton, so provide a factory that can resolve new RequestHandlers
             services.AddFactory<IEnumerable<RequestHandler>>();
 
+            services.Add<ReindexJobCosmosThrottleController>()
+                .Transient()
+                .AsImplementedInterfaces();
+
+            services.Add<CosmosDbCollectionPhysicalPartitionInfo>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<QueryPartitionStatisticsCache>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 
@@ -228,7 +243,7 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IFhirServerBuilder AddCosmosDbHealthCheck(this IFhirServerBuilder fhirServerBuilder)
         {
             fhirServerBuilder.Services.AddHealthChecks()
-                .AddCheck<CosmosHealthCheck>(name: nameof(CosmosHealthCheck));
+                .AddCheck<CosmosHealthCheck>(name: "DataStoreHealthCheck");
 
             return fhirServerBuilder;
         }

@@ -53,7 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             var jsonSerializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = { new StringEnumConverter(new CamelCaseNamingStrategy()) } });
 
             using var schemaReader = new JsonTextReader(new StreamReader(schemaContents));
-            using var validatingReader = new JSchemaValidatingReader(new JsonTextReader(new StreamReader(rolesContents)))
+            using var jsonReader = new JsonTextReader(new StreamReader(rolesContents));
+            using var validatingReader = new JSchemaValidatingReader(jsonReader)
             {
                 Schema = JSchema.Load(schemaReader),
             };

@@ -120,22 +120,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             }
         }
 
-        [Fact]
-        public async Task GivenAResourceWithBadDecimal_WhenParsing_ThenAnErrorShouldBeAddedToModelState()
-        {
-            var modelStateDictionary = new ModelStateDictionary();
-            var result = await ReadRequestBody(Samples.GetJson("MoneyWithWrongDecimal"), modelStateDictionary);
-
-            Assert.False(result.IsModelSet);
-            Assert.Equal(1, modelStateDictionary.ErrorCount);
-
-            (_, ModelStateEntry entry) = modelStateDictionary.First();
-
-            Assert.Single(entry.Errors);
-
-            Assert.Contains("00", entry.Errors.First().ErrorMessage);
-        }
-
         private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary)
         {
             var formatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);

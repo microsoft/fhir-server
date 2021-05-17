@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<RuleSet Name="FHIR Analysis Rules" Description="The code analysis rules used for the FHIR server C# source projects." ToolsVersion="14.0">
+<RuleSet Name="FHIR Analysis Rules" Description="The code analysis rules used for the FHIR server C# source projects." ToolsVersion="16.0">
   <Include Path="minimumrecommendedrules.ruleset" Action="Default" />
   <Include Path="securityrules.ruleset" Action="Default" />
   <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp.Features" RuleNamespace="Microsoft.CodeAnalysis.CSharp.Features">
@@ -8,11 +8,33 @@
     <Rule Id="IDE0005" Action="Warning" />
     <Rule Id="IDE1005" Action="Warning" />
   </Rules>
+  <Rules AnalyzerId="Microsoft.CodeAnalysis.NetAnalyzers" RuleNamespace="Microsoft.CodeAnalysis.NetAnalyzers">
+    <Rule Id="CA1008" Action="Info" />
+    <Rule Id="CA1014" Action="Info" />
+    <Rule Id="CA1019" Action="Info" />
+    <Rule Id="CA1031" Action="Info" />
+    <Rule Id="CA1062" Action="Info" />
+    <Rule Id="CA1508" Action="Info" />
+    <Rule Id="CA1805" Action="Info" />
+  </Rules>
+  <Rules AnalyzerId="Microsoft.CodeQuality.Analyzers" RuleNamespace="Microsoft.CodeQuality.Analyzers">
+    <Rule Id="CA1054" Action="Info" />
+    <Rule Id="CA1716" Action="Info" />
+    <Rule Id="CA2007" Action="None" />
+  </Rules>
+  <Rules AnalyzerId="Microsoft.CodeQuality.CSharp.Analyzers" RuleNamespace="Microsoft.CodeQuality.CSharp.Analyzers">
+    <Rule Id="CA1032" Action="Info" />
+  </Rules>
+  <Rules AnalyzerId="Microsoft.NetCore.Analyzers" RuleNamespace="Microsoft.NetCore.Analyzers">
+    <Rule Id="CA1305" Action="Info" />
+    <Rule Id="CA1308" Action="None" />
+  </Rules>
   <Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers">
     <Rule Id="CS1591" Action="None" />
     <Rule Id="SA0001" Action="None" />
     <Rule Id="SA1013" Action="None" />
     <Rule Id="SA1101" Action="None" />
+    <Rule Id="SA1108" Action="None" />
     <Rule Id="SA1308" Action="None" />
     <Rule Id="SA1309" Action="None" />
     <Rule Id="SA1316" Action="None" />
@@ -25,16 +47,5 @@
     <Rule Id="SA1629" Action="None" />
     <Rule Id="SA1642" Action="None" />
     <Rule Id="SA1652" Action="None" />
-  </Rules>
-  <Rules AnalyzerId="Microsoft.CodeQuality.Analyzers" RuleNamespace="Microsoft.CodeQuality.Analyzers">
-    <Rule Id="CA2007" Action="None" />
-    <Rule Id="CA1716" Action="Info" />
-    <Rule Id="CA1054" Action="Info" />
-  </Rules>
-  <Rules AnalyzerId="Microsoft.CodeQuality.CSharp.Analyzers" RuleNamespace="Microsoft.CodeQuality.CSharp.Analyzers">
-    <Rule Id="CA1032" Action="Info" />
-  </Rules>
-  <Rules AnalyzerId="Microsoft.NetCore.Analyzers" RuleNamespace="Microsoft.NetCore.Analyzers">
-    <Rule Id="CA1305" Action="Info" />
   </Rules>
 </RuleSet>

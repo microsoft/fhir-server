@@ -6,12 +6,12 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     {
         private readonly IRawResourceFactory _rawResourceFactory;
         private readonly ISearchIndexer _searchIndexer;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly ICompartmentIndexer _compartmentIndexer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="resourceDeserializer">Resource deserializer</param>
         public ResourceWrapperFactory(
             IRawResourceFactory rawResourceFactory,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             ISearchIndexer searchIndexer,
             IClaimsExtractor claimsExtractor,
             ICompartmentIndexer compartmentIndexer,
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             ExtractMinAndMaxValues(searchIndices);
 
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             return new ResourceWrapper(
                 resource,
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         // A given search parameter can have multiple values. We want to keep track of which
         // of these values are the min and max for each parameter and mark the corresponding
         // SearchValue object appropriately.
-        private void ExtractMinAndMaxValues(IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        private static void ExtractMinAndMaxValues(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
             var minValues = new Dictionary<Uri, ISupportSortSearchValue>();
             var maxValues = new Dictionary<Uri, ISupportSortSearchValue>();

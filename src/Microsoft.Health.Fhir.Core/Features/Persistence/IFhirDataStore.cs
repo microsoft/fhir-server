@@ -22,10 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken);
 
-        Task UpdateSearchParameterHashBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
+        Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
 
-        Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
+        Task<ResourceWrapper> UpdateSearchParameterIndicesAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken);
 
-        Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken);
+        Task<int?> GetProvisionedDataStoreCapacityAsync(CancellationToken cancellationToken);
     }
 }

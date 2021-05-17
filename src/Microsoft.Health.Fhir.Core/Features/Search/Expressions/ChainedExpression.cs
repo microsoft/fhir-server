@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
@@ -80,6 +81,56 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {Expression})";
+        }
+
+        public override void AddValueInsensitiveHashCode(ref HashCode hashCode)
+        {
+            hashCode.Add(typeof(ChainedExpression));
+            hashCode.Add(ReferenceSearchParameter);
+            foreach (string resourceType in ResourceTypes)
+            {
+                hashCode.Add(resourceType);
+            }
+
+            foreach (string targetResourceType in TargetResourceTypes)
+            {
+                hashCode.Add(targetResourceType);
+            }
+
+            hashCode.Add(Reversed);
+
+            Expression.AddValueInsensitiveHashCode(ref hashCode);
+        }
+
+        public override bool ValueInsensitiveEquals(Expression other)
+        {
+            if (other is not ChainedExpression chained ||
+                !chained.ReferenceSearchParameter.Equals(ReferenceSearchParameter) ||
+                chained.ResourceTypes.Length != ResourceTypes.Length ||
+                chained.TargetResourceTypes.Length != TargetResourceTypes.Length ||
+                chained.Reversed != Reversed ||
+                !chained.Expression.ValueInsensitiveEquals(Expression))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < ResourceTypes.Length; i++)
+            {
+                if (chained.ResourceTypes[i] != ResourceTypes[i])
+                {
+                    return false;
+                }
+            }
+
+            for (var i = 0; i < TargetResourceTypes.Length; i++)
+            {
+                if (chained.TargetResourceTypes[i] != TargetResourceTypes[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

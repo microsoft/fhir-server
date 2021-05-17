@@ -11,7 +11,6 @@ using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -74,7 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
                 // Set target to provided resource.
                 provenance.Target = new System.Collections.Generic.List<ResourceReference>()
                 {
-                    new ResourceReference($"{response.Outcome.RawResourceElement.InstanceType}/{response.Outcome.RawResourceElement.Id}"),
+                    new ResourceReference($"{response.Outcome.RawResourceElement.InstanceType}/{response.Outcome.RawResourceElement.Id}/_history/{response.Outcome.RawResourceElement.VersionId}"),
                 };
 
                 // Create Provenance resource.

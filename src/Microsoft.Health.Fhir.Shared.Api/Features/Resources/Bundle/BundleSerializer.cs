@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             writer.WriteStartObject();
 
-            writer.WriteString("resourceType", bundle.ResourceType.GetLiteral());
+            writer.WriteString("resourceType", bundle.TypeName);
             writer.WriteString("id", bundle.Id);
 
             SerializeMetadata();

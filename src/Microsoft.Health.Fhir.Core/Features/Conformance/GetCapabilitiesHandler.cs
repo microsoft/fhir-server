@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
@@ -15,22 +14,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
     public class GetCapabilitiesHandler : IRequestHandler<GetCapabilitiesRequest, GetCapabilitiesResponse>
     {
         private readonly IConformanceProvider _provider;
-        private readonly IUrlResolver _urlResolver;
 
-        public GetCapabilitiesHandler(IConformanceProvider provider, IUrlResolver urlResolver)
+        public GetCapabilitiesHandler(IConformanceProvider provider)
         {
             EnsureArg.IsNotNull(provider, nameof(provider));
-            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
 
             _provider = provider;
-            _urlResolver = urlResolver;
         }
 
-        public async Task<GetCapabilitiesResponse> Handle(GetCapabilitiesRequest message, CancellationToken cancellationToken)
+        public async Task<GetCapabilitiesResponse> Handle(GetCapabilitiesRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
-            var response = await _provider.GetCapabilityStatementAsync(cancellationToken);
+            var response = await _provider.GetMetadata(cancellationToken);
 
             return new GetCapabilitiesResponse(response);
         }

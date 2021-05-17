@@ -3,7 +3,8 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
-
+- name: appServiceName
+  type: string
 jobs:
 - job: "integrationTests"
   pool:
@@ -68,9 +69,15 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
-
+        
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
         $allStorageAccounts = ""
         foreach ($storageAccount in $storageAccounts) {
@@ -82,6 +89,15 @@ jobs:
         }
         Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
+        $appServiceName = "${{ parameters.appServiceName }}"
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
+        $acrLoginServer = $acrSettings[0].Value
+        $acrAccountName = ($acrLoginServer -split '\.')[0]
+        $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
+
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
@@ -91,7 +107,13 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
         # ----------------------------------------
 
@@ -109,6 +131,8 @@ jobs:
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
+      'TestContainerRegistryServer': $(TestContainerRegistryServer)
+      'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
@@ -154,7 +178,13 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
 
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
@@ -168,6 +198,15 @@ jobs:
         }
         Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
+        $appServiceName = "${{ parameters.appServiceName }}-sql"
+        $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
+        $acrSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__ConvertData__ContainerRegistryServers__0"}
+        $acrLoginServer = $acrSettings[0].Value
+        $acrAccountName = ($acrLoginServer -split '\.')[0]
+        $acrPassword = (Get-AzContainerRegistryCredential -ResourceGroupName $(ResourceGroupName) -Name $acrAccountName).Password
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
+        Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
+
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
@@ -177,7 +216,13 @@ jobs:
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
-            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+            # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
+            $plainValue = ([System.Net.NetworkCredential]::new("", $secretValue.SecretValue).Password).ToString()
+            if([string]::IsNullOrEmpty($plainValue))
+            {
+                throw "$($secret.Name) is empty"
+            }
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
         # ----------------------------------------
 
@@ -195,6 +240,8 @@ jobs:
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
+      'TestContainerRegistryServer': $(TestContainerRegistryServer)
+      'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)

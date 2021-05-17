@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -26,6 +28,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class CosmosContainerProvider : IHostedService, IRequireInitializationOnFirstRequest, IDisposable
     {
         private readonly ILogger<CosmosContainerProvider> _logger;
+        private readonly IMediator _mediator;
         private Lazy<Container> _container;
         private readonly RetryableInitializationOperation _initializationOperation;
         private readonly CosmosClient _client;
@@ -35,6 +38,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
             ICosmosClientInitializer cosmosClientInitializer,
             ILogger<CosmosContainerProvider> logger,
+            IMediator mediator,
             IEnumerable<ICollectionInitializer> collectionInitializers)
         {
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -43,6 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
             _logger = logger;
+            _mediator = mediator;
 
             string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
             _client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
@@ -79,7 +84,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             // The result is ignored and will be awaited in EnsureInitialized(). Exceptions are logged within CosmosClientInitializer.
-            _initializationOperation.EnsureInitialized();
+            _initializationOperation.EnsureInitialized()
+                .AsTask()
+                .ContinueWith(_ => _mediator.Publish(new StorageInitializedNotification(), CancellationToken.None), TaskScheduler.Default);
 #pragma warning restore CS4014
 
             return Task.CompletedTask;
@@ -106,6 +113,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             if (disposing)
             {
+                _initializationOperation.Dispose();
                 _client.Dispose();
                 _container = null;
             }
@@ -117,7 +125,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 try
                 {
-                    _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
+                    _initializationOperation.EnsureInitialized().AsTask().GetAwaiter().GetResult();
                 }
                 catch (Exception ex) when (ex is not RequestRateExceededException)
                 {

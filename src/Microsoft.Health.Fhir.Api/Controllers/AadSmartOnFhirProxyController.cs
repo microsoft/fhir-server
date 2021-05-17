@@ -71,17 +71,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var openIdConfigurationUrl = $"{securityConfiguration.Authentication.Authority}/.well-known/openid-configuration";
 
             HttpResponseMessage openIdConfigurationResponse;
-            var httpClient = httpClientFactory.CreateClient();
-
+#pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
+            var client = _httpClientFactory.CreateClient();
+#pragma warning restore CA2000
             try
             {
-                openIdConfigurationResponse = httpClient.GetAsync(new Uri(openIdConfigurationUrl)).GetAwaiter().GetResult();
+                openIdConfigurationResponse = client.GetAsync(new Uri(openIdConfigurationUrl)).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
                 if (ex is HttpRequestException || ex is OperationCanceledException)
                 {
-                    logger.LogWarning(ex, $"There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".");
+                    logger.LogWarning(ex, "There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
                     throw new OpenIdConfigurationException();
                 }
 
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (_aadTokenEndpoint == null || _aadAuthorizeEndpoint == null)
             {
-                logger.LogError($"There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".");
+                logger.LogError("There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
                 throw new OpenIdConfigurationException();
             }
         }
@@ -254,7 +255,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error parsing launch parameters: {ex.Message}");
+                _logger.LogError("Error parsing launch parameters: {message}", ex.Message);
                 throw new AadSmartOnFhirProxyBadRequestException(Resources.InvalidLaunchContext, ex);
             }
 
@@ -299,8 +300,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 throw new AadSmartOnFhirProxyBadRequestException(string.Format(Resources.ValueCannotBeNull, ex.ParamName), ex);
             }
-
+#pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
             var client = _httpClientFactory.CreateClient();
+#pragma warning restore CA2000
 
             // Azure AD supports client_credentials, etc.
             // These are used in tests and may have value even when SMART proxy is used.
@@ -317,7 +319,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     fields.Add(new KeyValuePair<string, string>(f.Key, f.Value));
                 }
 
-                var passThroughContent = new FormUrlEncodedContent(fields);
+                using var passThroughContent = new FormUrlEncodedContent(fields);
 
                 var passThroughResponse = await client.PostAsync(new Uri(_aadTokenEndpoint), passThroughContent);
 
@@ -348,22 +350,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error decoding compound code: {ex.Message}");
+                _logger.LogError("Error decoding compound code: {message}", ex.Message);
                 throw new AadSmartOnFhirProxyBadRequestException(Resources.InvalidCompoundCode, ex);
             }
 
             Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
 
             // TODO: Deal with client secret in basic auth header
-            var content = new FormUrlEncodedContent(
-                new[]
-                {
+            using var content = new FormUrlEncodedContent(
+                 new[]
+                 {
                     new KeyValuePair<string, string>("grant_type", grantType),
                     new KeyValuePair<string, string>("code", code),
                     new KeyValuePair<string, string>("redirect_uri", callbackUrl.AbsoluteUri),
                     new KeyValuePair<string, string>("client_id", clientId),
                     new KeyValuePair<string, string>("client_secret", clientSecret),
-                });
+                 });
 
             HttpResponseMessage response = await client.PostAsync(new Uri(_aadTokenEndpoint), content);
 

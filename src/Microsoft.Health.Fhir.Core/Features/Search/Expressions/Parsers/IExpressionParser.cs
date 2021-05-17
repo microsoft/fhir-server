@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
     {
         Expression Parse(string[] resourceTypes, string key, string value);
 
-        IncludeExpression ParseInclude(string[] resourceTypes, string value, bool isReversed, bool iterate);
+        IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate);
     }
 }

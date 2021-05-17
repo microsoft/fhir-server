@@ -26,10 +26,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class TypedElementSearchIndexer : ISearchIndexer
     {
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IFhirNodeToSearchValueTypeConverterManager _fhirElementTypeConverterManager;
+        private readonly ITypedElementToSearchValueConverterManager _fhirElementTypeConverterManager;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly ILogger<ISearchIndexer> _logger;
+        private readonly ILogger<TypedElementSearchIndexer> _logger;
         private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new ConcurrentDictionary<string, List<string>>();
 
         /// <summary>
@@ -42,10 +42,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="logger">The logger.</param>
         public TypedElementSearchIndexer(
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
-            IFhirNodeToSearchValueTypeConverterManager fhirElementTypeConverterManager,
+            ITypedElementToSearchValueConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             IModelInfoProvider modelInfoProvider,
-            ILogger<ISearchIndexer> logger)
+            ILogger<TypedElementSearchIndexer> logger)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var context = _modelInfoProvider.GetEvaluationContext(_referenceToElementResolver.Resolve);
 
             // This allow to resolve %resource FhirPath to provided value.
-            context.Container = resource.Instance;
+            context.Resource = resource.Instance;
 
             IEnumerable<SearchParameterInfo> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
 
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             foreach (var extractedValue in extractedValues)
             {
-                if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.InstanceType, GetSearchValueTypeForSearchParamType(searchParameterType), out IFhirNodeToSearchValueTypeConverter converter))
+                if (!_fhirElementTypeConverterManager.TryGetConverter(extractedValue.InstanceType, GetSearchValueTypeForSearchParamType(searchParameterType), out ITypedElementToSearchValueConverter converter))
                 {
                     _logger.LogWarning(
                         "The FHIR element '{ElementType}' is not supported.",

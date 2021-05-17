@@ -11,13 +11,13 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IFhirAuthorizationService authorizationService)
+            IAuthorizationService<DataActions> authorizationService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -49,37 +49,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             _mediator = mediator;
         }
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest message, CancellationToken cancellationToken = default)
+        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, CancellationToken cancellationToken = default)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write) != (DataActions.Read | DataActions.Write))
+            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            IReadOnlyCollection<SearchResultEntry> matchedResults = await _searchService.ConditionalSearchAsync(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
+            IReadOnlyCollection<SearchResultEntry> matchedResults = await _searchService.ConditionalSearchAsync(request.Resource.InstanceType, request.ConditionalParameters, cancellationToken);
 
             int count = matchedResults.Count;
             if (count == 0)
             {
-                if (string.IsNullOrEmpty(message.Resource.Id))
+                if (string.IsNullOrEmpty(request.Resource.Id))
                 {
                     // No matches, no id provided: The server creates the resource
                     // TODO: There is a potential contention issue here in that this could create another new resource with a different id
-                    return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(message.Resource), cancellationToken);
+                    return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource), cancellationToken);
                 }
                 else
                 {
                     // No matches, id provided: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
                     // TODO: There is a potential contention issue here that this could replace an existing resource
-                    return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(message.Resource), cancellationToken);
+                    return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource), cancellationToken);
                 }
             }
             else if (count == 1)
             {
                 ResourceWrapper resourceWrapper = matchedResults.First().Resource;
-                Resource resource = message.Resource.ToPoco();
+                Resource resource = request.Resource.ToPoco();
                 var version = WeakETag.FromVersionId(resourceWrapper.Version);
 
                 // One Match, no resource id provided OR (resource id provided and it matches the found resource): The server performs the update against the matching resource

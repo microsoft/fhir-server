@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private const char SearchSplitChar = ':';
         private const char ChainParameter = '.';
-        private const string ReverseChainParameter = "_has:";
+        internal const string ReverseChainParameter = "_has:";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExpressionParser"/> class.
@@ -71,12 +71,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
             {
-                throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
+                throw new InvalidSearchOperationException(isReversed ? Resources.RevIncludeMissingType : Resources.IncludeMissingType);
             }
 
-            if (resourceTypes.Length == 1 && resourceTypes[0].Equals(KnownResourceTypes.DomainResource, StringComparison.InvariantCultureIgnoreCase))
+            if (resourceTypes.Length == 1 && resourceTypes[0].Equals(KnownResourceTypes.DomainResource, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
+                throw new InvalidSearchOperationException(Resources.IncludeCannotBeAgainstBase);
             }
 
             SearchParameterInfo refSearchParameter;

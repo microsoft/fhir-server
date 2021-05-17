@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -26,13 +27,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static readonly string _validConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
         private readonly Func<IScoped<Container>> _client;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
         public FhirCosmosResponseHandler(
             Func<IScoped<Container>> client,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             ICosmosResponseProcessor cosmosResponseProcessor)
         {
             _client = client;
@@ -44,10 +45,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public override async Task<ResponseMessage> SendAsync(RequestMessage request, CancellationToken cancellationToken)
         {
             UpdateOptions(request);
-            ResponseMessage response = null;
 
-            response = await base.SendAsync(request, cancellationToken);
-            await _cosmosResponseProcessor.ProcessResponse(response.Headers.Session, response.Headers.RequestCharge, response.StatusCode);
+            ResponseMessage response = await base.SendAsync(request, cancellationToken);
+
+            await _cosmosResponseProcessor.ProcessResponse(response);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private (ConsistencyLevel? consistencyLevel, string sessionToken) GetConsistencyHeaders()
         {
-            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             if (fhirRequestContext == null)
             {

@@ -26,6 +26,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
@@ -38,8 +40,8 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -50,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// </summary>
     public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly Dictionary<HTTPVerb, List<(RouteContext, int, string)>> _requests;
@@ -69,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
-        private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
 
@@ -82,7 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public BundleHandler(
             IHttpContextAccessor httpContextAccessor,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             FhirJsonSerializer fhirJsonSerializer,
             FhirJsonParser fhirJsonParser,
             ITransactionHandler transactionHandler,
@@ -92,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             ResourceReferenceResolver referenceResolver,
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
-            IFhirAuthorizationService authorizationService,
+            IAuthorizationService<DataActions> authorizationService,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -162,9 +164,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
+        public async Task<BundleResponse> Handle(BundleRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(bundleRequest, nameof(bundleRequest));
+            EnsureArg.IsNotNull(request, nameof(request));
 
             // In scenarios where access checks involve a remote service call, it is advantageous
             // to perform one single access check for all necessary permissions rather than one per operation.
@@ -173,18 +175,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             //      for all possible actions. Trouble is, the exact mapping from method + URI is embedded in MVC logic
             //      and attributes.
             // (2) One we have the full set of permitted actions, it would be more efficient for the individual
-            //     operations to use an IFhirAuthorizationService that implements CheckAccess based on these known permitted
+            //     operations to use an IAuthorizationService<DataActions> that implements CheckAccess based on these known permitted
             //     actions.
 
-            if (await _authorizationService.CheckAccess(DataActions.All) == DataActions.None)
+            if (await _authorizationService.CheckAccess(DataActions.All, cancellationToken) == DataActions.None)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            _originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            _originalFhirRequestContext = _fhirRequestContextAccessor.RequestContext;
             try
             {
-                var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+                var bundleResource = request.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
                 _bundleType = bundleResource.Type;
 
                 if (_bundleType == BundleType.Batch)
@@ -219,7 +221,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
             finally
             {
-                _fhirRequestContextAccessor.FhirRequestContext = _originalFhirRequestContext;
+                _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
             }
         }
 
@@ -298,7 +300,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             httpContext.Features[typeof(IHttpAuthenticationFeature)] = _httpAuthenticationFeature;
             httpContext.Response.Body = new MemoryStream();
 
-            var requestUri = new Uri(_fhirRequestContextAccessor.FhirRequestContext.BaseUri, requestUrl);
+            var requestUri = new Uri(_fhirRequestContextAccessor.RequestContext.BaseUri, requestUrl);
             httpContext.Request.Scheme = requestUri.Scheme;
             httpContext.Request.Host = new HostString(requestUri.Host, requestUri.Port);
             httpContext.Request.PathBase = _originalRequestBase;
@@ -445,7 +447,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 var entryComponentResource = _fhirJsonParser.Parse<Resource>(bodyContent);
 
-                if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
+                if (entryComponentResource.TypeName == KnownResourceTypes.OperationOutcome)
                 {
                     entryComponent.Response.Outcome = entryComponentResource;
                 }
@@ -489,7 +491,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 ExecutingBatchOrTransaction = true,
             };
 
-            _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
+            _fhirRequestContextAccessor.RequestContext = newFhirRequestContext;
 
             _bundleHttpContextAccessor.HttpContext = httpContext;
 

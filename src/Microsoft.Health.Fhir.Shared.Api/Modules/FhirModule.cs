@@ -5,7 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -14,9 +16,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
@@ -37,13 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public class FhirModule : IStartupModule
     {
-        private readonly FeatureConfiguration _featureConfiguration;
-
-        public FhirModule(FhirServerConfiguration fhirServerConfiguration)
-        {
-            EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
-            _featureConfiguration = fhirServerConfiguration.Features;
-        }
+        private static readonly Regex MessageChecker = new Regex("Type checking the data: Literal '(?<value>.*)' cannot be parsed as a (?<type>.*). \\(at (?<location>.*)\\)", RegexOptions.Compiled);
 
         /// <inheritdoc />
         public void Load(IServiceCollection services)
@@ -79,8 +75,59 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     {
                         FhirResourceFormat.Json, (str, version, lastModified) =>
                         {
-                            var resource = jsonParser.Parse<Resource>(str);
+                            Resource resource = null;
+                            var parsed = false;
+                            var i = 0;
+                            do
+                            {
+                                try
+                                {
+                                    resource = jsonParser.Parse<Resource>(str);
+                                    parsed = true;
+                                }
+                                catch (StructuralTypeException ex)
+                                {
+                                    var match = MessageChecker.Match(ex.Message);
+                                    if (match.Success && match.Groups.Count == 4 && match.Groups["type"].Value == "date")
+                                    {
+                                        i++;
+                                        if (i > 100)
+                                        {
+                                            throw;
+                                        }
 
+                                        var valueToReplace = match.Groups["value"].Value;
+                                        var location = match.Groups["location"].Value;
+                                        var replace = valueToReplace.Substring(0, 10);
+                                        var root = FhirJsonNode.Parse(str, KnownResourceTypes.Resource);
+                                        var currentNode = root;
+                                        while (currentNode != null)
+                                        {
+                                            foreach (var child in currentNode.Children())
+                                            {
+                                                if (location.StartsWith(child.Location, StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    currentNode = child;
+                                                    break;
+                                                }
+                                            }
+
+                                            if (currentNode.Location == location)
+                                            {
+                                                break;
+                                            }
+                                        }
+
+                                        (currentNode as FhirJsonNode).JsonValue.Value = replace;
+                                        str = root.ToJson();
+                                    }
+                                    else
+                                    {
+                                        throw;
+                                    }
+                                }
+                            }
+                            while (!parsed);
                             return SetMetadata(resource, version, lastModified);
                         }
                     },
@@ -127,7 +174,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<FhirRequestContextAccessor>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IFhirRequestContextAccessor>();
+                .AsService<RequestContextAccessor<IFhirRequestContext>>();
 
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
@@ -153,6 +200,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
             services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
             services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
+
+            // Register pipeline behavior to check service permission for CUD actions on StructuredDefinition,ValueSet,CodeSystem, ConceptMap.
+
+            services.Add<ProfileResourcesBehaviour>().Singleton().AsSelf().AsImplementedInterfaces();
 
             services.AddLazy();
             services.AddScoped();

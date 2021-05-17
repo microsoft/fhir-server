@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
@@ -18,14 +20,16 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
+using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -42,7 +46,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly ResourceDeserializer _deserializer;
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly IFhirDataStore _dataStore;
-        private ConformanceProviderBase _conformanceProvider;
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ConformanceProviderBase _conformanceProvider;
 
         public FhirStorageTests(FhirStorageTestsFixture fixture)
         {
@@ -52,6 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _dataStore = fixture.DataStore;
             _fhirJsonParser = fixture.JsonParser;
             _conformanceProvider = fixture.ConformanceProvider;
+            _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
             Mediator = fixture.Mediator;
         }
 
@@ -603,91 +609,319 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task GivenAnUpdatedResource_WhenUpdateSearchIndexForResourceAsync_ThenResourceGetsUpdated()
+        public async Task GivenAnUpdatedResource_WhenUpdatingSearchParameterIndexAsync_ThenResourceMetadataIsUnchanged()
         {
-            ResourceElement patientResource = Samples.GetJsonSample("Patient");
+            ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
 
-            (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingResource(upsertResult);
+            SearchParameter searchParam = null;
+            const string searchParamName = "newSearchParam";
 
-            ResourceWrapper replaceResult = await _dataStore.UpdateSearchIndexForResourceAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None);
+            try
+            {
+                searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
+                ISearchValue searchValue = new StringSearchValue(searchParamName);
 
+                (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
+
+                await _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None);
+
+                // Get the reindexed resource from the database
+                var resourceKey1 = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
+                ResourceWrapper reindexed = await _dataStore.GetAsync(resourceKey1, CancellationToken.None);
+
+                VerifyReindexedResource(original, reindexed);
+            }
+            finally
+            {
+                if (searchParam != null)
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
+        {
+            ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
+            SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
+
+            SearchParameter searchParam1 = null;
+            const string searchParamName1 = "newSearchParam1";
+
+            SearchParameter searchParam2 = null;
+            const string searchParamName2 = "newSearchParam2";
+
+            try
+            {
+                searchParam1 = await CreatePatientSearchParam(searchParamName1, SearchParamType.String, "Patient.name");
+                ISearchValue searchValue1 = new StringSearchValue(searchParamName1);
+
+                (ResourceWrapper original, ResourceWrapper updatedWithSearchParam1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam1, searchValue1);
+
+                await _dataStore.UpsertAsync(updatedWithSearchParam1, WeakETag.FromVersionId(original.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+
+                // Let's update the resource again with new information
+                searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
+                ISearchValue searchValue2 = new TokenSearchValue("system", "code", "text");
+
+                // Create the updated wrapper from the original resource that has the outdated version
+                (_, ResourceWrapper updatedWithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam2, searchValue2, original);
+
+                // Attempt to reindex the resource
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updatedWithSearchParam2, WeakETag.FromVersionId(original.Version), CancellationToken.None));
+            }
+            finally
+            {
+                if (searchParam1 != null)
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam1.ToTypedElement());
+                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam1.Url, CancellationToken.None);
+                }
+
+                if (searchParam2 != null)
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam2.ToTypedElement());
+                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam2.Url, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenAnUpdatedResourceWithWrongResourceId_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
+        {
+            ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
+            SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
+
+            SearchParameter searchParam = null;
+            const string searchParamName = "newSearchParam";
+
+            try
+            {
+                searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
+                ISearchValue searchValue = new StringSearchValue(searchParamName);
+
+                // Update the resource wrapper, adding the new search parameter and a different ID
+                (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue, null, Guid.NewGuid().ToString());
+
+                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None));
+            }
+            finally
+            {
+                if (searchParam != null)
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenUpdatedResources_WhenBulkUpdatingSearchParameterIndicesAsync_ThenResourceMetadataIsUnchanged()
+        {
+            ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
+            SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
+
+            ResourceElement patientResource2 = CreatePatientResourceElement("Patient2", Guid.NewGuid().ToString());
+            SaveOutcome upsertResult2 = await Mediator.UpsertResourceAsync(patientResource2);
+
+            SearchParameter searchParam = null;
+            const string searchParamName = "newSearchParam";
+
+            try
+            {
+                searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
+                ISearchValue searchValue = new StringSearchValue(searchParamName);
+
+                (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue);
+                (ResourceWrapper original2, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue);
+
+                var resources = new List<ResourceWrapper> { updated1, updated2 };
+
+                await _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None);
+
+                // Get the reindexed resources from the database
+                var resourceKey1 = new ResourceKey(upsertResult1.RawResourceElement.InstanceType, upsertResult1.RawResourceElement.Id, upsertResult1.RawResourceElement.VersionId);
+                ResourceWrapper reindexed1 = await _dataStore.GetAsync(resourceKey1, CancellationToken.None);
+
+                var resourceKey2 = new ResourceKey(upsertResult2.RawResourceElement.InstanceType, upsertResult2.RawResourceElement.Id, upsertResult2.RawResourceElement.VersionId);
+                ResourceWrapper reindexed2 = await _dataStore.GetAsync(resourceKey2, CancellationToken.None);
+
+                VerifyReindexedResource(original1, reindexed1);
+                VerifyReindexedResource(original2, reindexed2);
+            }
+            finally
+            {
+                if (searchParam != null)
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenUpdatedResourcesWithWrongWeakETag_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
+        {
+            ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
+            SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
+
+            ResourceElement patientResource2 = CreatePatientResourceElement("Patient2", Guid.NewGuid().ToString());
+            SaveOutcome upsertResult2 = await Mediator.UpsertResourceAsync(patientResource2);
+
+            SearchParameter searchParam1 = null;
+            const string searchParamName1 = "newSearchParam1";
+
+            SearchParameter searchParam2 = null;
+            const string searchParamName2 = "newSearchParam2";
+
+            try
+            {
+                searchParam1 = await CreatePatientSearchParam(searchParamName1, SearchParamType.String, "Patient.name");
+                ISearchValue searchValue1 = new StringSearchValue(searchParamName1);
+
+                (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam1, searchValue1);
+                (ResourceWrapper original2, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam1, searchValue1);
+
+                await _dataStore.UpsertAsync(updated1, WeakETag.FromVersionId(original1.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+                await _dataStore.UpsertAsync(updated2, WeakETag.FromVersionId(original2.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
+
+                // Let's update the resources again with new information
+                searchParam2 = await CreatePatientSearchParam(searchParamName2, SearchParamType.Token, "Patient.gender");
+                ISearchValue searchValue2 = new TokenSearchValue("system", "code", "text");
+
+                // Create the updated wrappers using the original resource and its outdated version
+                (_, ResourceWrapper updated1WithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam2, searchValue2, original1);
+                (_, ResourceWrapper updated2WithSearchParam2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam2, searchValue2, original2);
+
+                var resources = new List<ResourceWrapper> { updated1WithSearchParam2, updated2WithSearchParam2 };
+
+                // Attempt to reindex resources with the old versions
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
+            }
+            finally
+            {
+                if (searchParam1 != null)
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam1.ToTypedElement());
+                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam1.Url, CancellationToken.None);
+                }
+
+                if (searchParam2 != null)
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam2.ToTypedElement());
+                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam2.Url, CancellationToken.None);
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GivenUpdatedResourcesWithWrongResourceId_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
+        {
+            ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
+            SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
+
+            ResourceElement patientResource2 = CreatePatientResourceElement("Patient2", Guid.NewGuid().ToString());
+            SaveOutcome upsertResult2 = await Mediator.UpsertResourceAsync(patientResource2);
+
+            SearchParameter searchParam = null;
+            const string searchParamName = "newSearchParam";
+
+            try
+            {
+                searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
+                ISearchValue searchValue = new StringSearchValue(searchParamName);
+
+                // Update the resource wrappers, adding the new search parameter and a different ID
+                (_, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue, null, Guid.NewGuid().ToString());
+                (_, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue, null, Guid.NewGuid().ToString());
+
+                var resources = new List<ResourceWrapper> { updated1, updated2 };
+
+                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
+            }
+            finally
+            {
+                if (searchParam != null)
+                {
+                    _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
+                    await _fixture.TestHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
+                }
+            }
+        }
+
+        private static void VerifyReindexedResource(ResourceWrapper original, ResourceWrapper replaceResult)
+        {
             Assert.Equal(original.ResourceId, replaceResult.ResourceId);
             Assert.Equal(original.Version, replaceResult.Version);
             Assert.Equal(original.ResourceTypeName, replaceResult.ResourceTypeName);
             Assert.Equal(original.LastModified, replaceResult.LastModified);
-            Assert.NotEqual((original as FhirCosmosResourceWrapper).ETag, (replaceResult as FhirCosmosResourceWrapper).ETag);
         }
 
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdateSearchIndexForResourceAsync_ThenExceptionIsThrown()
-        {
-            ResourceElement patientResource = Samples.GetJsonSample("Patient");
-            SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
-
-            (ResourceWrapper originalWrapper, ResourceWrapper updatedWrapper) = await CreateUpdatedWrapperFromExistingResource(upsertResult);
-            UpsertOutcome upsertOutcome = await _dataStore.UpsertAsync(updatedWrapper, WeakETag.FromVersionId(originalWrapper.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
-
-            // Let's update the resource again with new information.
-            var searchParamInfo = new SearchParameterInfo("newSearchParam2", "newSearchParam2");
-            var searchIndex = new SearchIndexEntry(searchParamInfo, new TokenSearchValue("system", "code", "text"));
-            var searchIndices = new List<SearchIndexEntry>() { searchIndex };
-
-            updatedWrapper = new ResourceWrapper(
-                originalWrapper.ResourceId,
-                originalWrapper.Version,
-                originalWrapper.ResourceTypeName,
-                originalWrapper.RawResource,
-                originalWrapper.Request,
-                originalWrapper.LastModified,
-                deleted: false,
-                searchIndices,
-                originalWrapper.CompartmentIndices,
-                originalWrapper.LastModifiedClaims);
-
-            // Attempt to replace resource with the old weaketag
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchIndexForResourceAsync(updatedWrapper, WeakETag.FromVersionId(originalWrapper.Version), CancellationToken.None));
-        }
-
-        [Fact]
-        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task GivenAnUpdatedResourceWithWrongResourceId_WhenUpdateSearchIndexForResourceAsync_ThenExceptionIsThrown()
-        {
-            ResourceElement patientResource = Samples.GetJsonSample("Patient");
-            SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
-
-            (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingResource(upsertResult, Guid.NewGuid().ToString());
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchIndexForResourceAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None));
-        }
-
-        private async Task<(ResourceWrapper original, ResourceWrapper updated)> CreateUpdatedWrapperFromExistingResource(
+        private async Task<(ResourceWrapper original, ResourceWrapper updated)> CreateUpdatedWrapperFromExistingPatient(
             SaveOutcome upsertResult,
+            SearchParameter searchParam,
+            ISearchValue searchValue,
+            ResourceWrapper originalWrapper = null,
             string updatedId = null)
         {
-            // Get wrapper from data store directly
-            ResourceKey resourceKey = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
-            FhirCosmosResourceWrapper originalWrapper = (FhirCosmosResourceWrapper)await _dataStore.GetAsync(resourceKey, CancellationToken.None);
+            var searchIndex = new SearchIndexEntry(searchParam.ToInfo(), searchValue);
+            var searchIndices = new List<SearchIndexEntry> { searchIndex };
 
-            // Add new search index entry to existing wrapper.
-            SearchParameterInfo searchParamInfo = new SearchParameterInfo("newSearchParam", "newSearchParam");
-            SearchIndexEntry searchIndex = new SearchIndexEntry(searchParamInfo, new NumberSearchValue(12));
-            List<SearchIndexEntry> searchIndices = new List<SearchIndexEntry>() { searchIndex };
+            if (originalWrapper == null)
+            {
+                // Get wrapper from data store directly
+                var resourceKey = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
 
+                originalWrapper = await _dataStore.GetAsync(resourceKey, CancellationToken.None);
+            }
+
+            // Add new search index entry to existing wrapper
             var updatedWrapper = new ResourceWrapper(
-                updatedId == null ? originalWrapper.Id : updatedId,
+                updatedId ?? originalWrapper.ResourceId,
                 originalWrapper.Version,
                 originalWrapper.ResourceTypeName,
                 originalWrapper.RawResource,
-                originalWrapper.Request,
+                new ResourceRequest(HttpMethod.Post, null),
                 originalWrapper.LastModified,
                 deleted: false,
                 searchIndices,
                 originalWrapper.CompartmentIndices,
-                originalWrapper.LastModifiedClaims);
+                originalWrapper.LastModifiedClaims,
+                _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
 
             return (originalWrapper, updatedWrapper);
+        }
+
+        private async Task<SearchParameter> CreatePatientSearchParam(string searchParamName, SearchParamType type, string expression)
+        {
+            var searchParam = new SearchParameter
+            {
+                Url = $"http://hl7.org/fhir/SearchParameter/Patient-{searchParamName}",
+                Type = type,
+                Base = new List<ResourceType?> { ResourceType.Patient },
+                Expression = expression,
+                Name = searchParamName,
+                Code = searchParamName,
+            };
+
+            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam.ToTypedElement() });
+
+            // Add the search parameter to the datastore
+            await _fixture.SearchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string> { searchParam.Url }, SearchParameterStatus.Supported);
+
+            return searchParam;
+        }
+
+        private ResourceElement CreatePatientResourceElement(string patientName, string id)
+        {
+            var json = Samples.GetJson("Patient");
+            json = json.Replace("Chalmers", patientName);
+            json = json.Replace("\"id\": \"example\"", "\"id\": \"" + id + "\"");
+            var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
+            return Deserializers.ResourceDeserializer.DeserializeRaw(rawResource, "v1", DateTimeOffset.UtcNow);
         }
 
         private async Task ExecuteAndVerifyException<TException>(Func<Task> action)

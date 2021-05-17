@@ -9,7 +9,7 @@ using Microsoft.Health.Api.Features.Audit;
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [AttributeUsage(AttributeTargets.Class)]
-    internal class AadSmartOnFhirProxyAuditLoggingFilterAttribute : AuditLoggingFilterAttribute
+    internal sealed class AadSmartOnFhirProxyAuditLoggingFilterAttribute : AuditLoggingFilterAttribute
     {
         public AadSmartOnFhirProxyAuditLoggingFilterAttribute(
             AadSmartOnFhirClaimsExtractor claimsExtractor,

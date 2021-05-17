@@ -13,8 +13,8 @@
     <EmbeddedResource Include="Views\_ViewStart.cshtml" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Ensure.That" Version="10.0.0" />
-    <PackageReference Include="FluentValidation" Version="9.5.1" />
+    <PackageReference Include="Ensure.That" Version="10.1.0" />
+    <PackageReference Include="FluentValidation" Version="9.5.4" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="MediatR" Version="9.0.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="9.0.0" />

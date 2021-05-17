@@ -10,12 +10,12 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
-            IFhirAuthorizationService authorizationService,
+            IAuthorizationService<DataActions> authorizationService,
             IModelInfoProvider modelInfoProvider)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
@@ -42,18 +42,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest message, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await AuthorizationService.CheckAccess(DataActions.Write) != DataActions.Write)
+            if (await AuthorizationService.CheckAccess(DataActions.Write, cancellationToken) != DataActions.Write)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            Resource resource = message.Resource.ToPoco<Resource>();
+            Resource resource = request.Resource.ToPoco<Resource>();
 
-            if (await ConformanceProvider.Value.RequireETag(resource.TypeName, cancellationToken) && message.WeakETag == null)
+            if (await ConformanceProvider.Value.RequireETag(resource.TypeName, cancellationToken) && request.WeakETag == null)
             {
                 throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.TypeName));
             }
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: allowCreate);
 
-            UpsertOutcome result = await UpsertAsync(message, resourceWrapper, allowCreate, keepHistory, cancellationToken);
+            UpsertOutcome result = await UpsertAsync(request, resourceWrapper, allowCreate, keepHistory, cancellationToken);
 
             resource.VersionId = result.Wrapper.Version;
 

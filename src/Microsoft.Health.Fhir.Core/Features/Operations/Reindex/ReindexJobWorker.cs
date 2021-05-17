@@ -8,34 +8,46 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
     /// <summary>
     /// The worker responsible for running the reindex job tasks.
     /// </summary>
-    public class ReindexJobWorker
+    public class ReindexJobWorker : INotificationHandler<SearchParametersInitializedNotification>
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IReindexJobTask> _reindexJobTaskFactory;
+        private readonly ISearchParameterOperations _searchParameterOperations;
         private readonly ILogger _logger;
+        private bool _searchParametersInitialized = false;
 
-        public ReindexJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ReindexJobConfiguration> reindexJobConfiguration, Func<IReindexJobTask> reindexJobTaskFactory, ILogger<ReindexJobWorker> logger)
+        public ReindexJobWorker(
+            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
+            IOptions<ReindexJobConfiguration> reindexJobConfiguration,
+            Func<IReindexJobTask> reindexJobTaskFactory,
+            ISearchParameterOperations searchParameterOperations,
+            ILogger<ReindexJobWorker> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(reindexJobTaskFactory, nameof(reindexJobTaskFactory));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _reindexJobTaskFactory = reindexJobTaskFactory;
+            _searchParameterOperations = searchParameterOperations;
             _logger = logger;
         }
 
@@ -45,45 +57,76 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                try
+                if (_searchParametersInitialized)
                 {
-                    // Remove all completed tasks.
-                    runningTasks.RemoveAll(task => task.IsCompleted);
-
-                    // Get list of available jobs.
-                    if (runningTasks.Count < _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
+                    // Check for any changes to Search Parameters
+                    try
                     {
-                        using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+                        await _searchParameterOperations.GetAndApplySearchParameterUpdates(cancellationToken);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogDebug("Reindex job worker canceled.");
+                    }
+                    catch (Exception ex)
+                    {
+                        // The job failed.
+                        _logger.LogError(ex, "Error querying latest SearchParameterStatus updates");
+                    }
+
+                    // Check for any new Reindex Jobs
+                    try
+                    {
+                        // Remove all completed tasks.
+                        runningTasks.RemoveAll(task => task.IsCompleted);
+
+                        // Get list of available jobs.
+                        if (runningTasks.Count < _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
                         {
-                            _logger.LogTrace("Querying datastore for reindex jobs.");
-
-                            IReadOnlyCollection<ReindexJobWrapper> jobs = await store.Value.AcquireReindexJobsAsync(
-                                _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
-                                _reindexJobConfiguration.JobHeartbeatTimeoutThreshold,
-                                cancellationToken);
-
-                            foreach (ReindexJobWrapper job in jobs)
+                            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory.Invoke())
                             {
-                                _logger.LogTrace($"Picked up reindex job: {job.JobRecord.Id}.");
+                                _logger.LogTrace("Querying datastore for reindex jobs.");
 
-                                runningTasks.Add(_reindexJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                                IReadOnlyCollection<ReindexJobWrapper> jobs = await store.Value.AcquireReindexJobsAsync(
+                                    _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
+                                    _reindexJobConfiguration.JobHeartbeatTimeoutThreshold,
+                                    cancellationToken);
+
+                                foreach (ReindexJobWrapper job in jobs)
+                                {
+                                    _logger.LogTrace("Picked up reindex job: {jobId}.", job.JobRecord.Id);
+
+                                    runningTasks.Add(_reindexJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                                }
                             }
                         }
                     }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        // End the execution of the task
+                    }
+                    catch (Exception ex)
+                    {
+                        // The job failed.
+                        _logger.LogError(ex, "Error polling Reindex jobs.");
+                    }
+                }
 
+                try
+                {
                     await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     // End the execution of the task
                 }
-                catch (Exception ex)
-                {
-                    // The job failed.
-                    _logger.LogError(ex, "Unhandled exception in the worker.");
-                    await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
-                }
             }
+        }
+
+        public Task Handle(SearchParametersInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            _searchParametersInitialized = true;
+            return Task.CompletedTask;
         }
     }
 }

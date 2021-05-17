@@ -11,10 +11,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 {
     public interface ICosmosResponseProcessor
     {
-        Task ProcessErrorResponse(ResponseMessage ex);
+        Task ProcessErrorResponse(ResponseMessage response);
 
         void ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage);
 
-        Task ProcessResponse(string sessionToken, double responseRequestCharge, HttpStatusCode? statusCode);
+        Task ProcessResponse(ResponseMessage responseMessage);
     }
 }

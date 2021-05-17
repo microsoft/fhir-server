@@ -23,11 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool SupportsTransaction { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether to use the ITypedElement based search indexer.
-        /// </summary>
-        public bool UseTypedElementIndexer { get; set; } = true;
-
-        /// <summary>
         /// Gets or sets the default value for IncludeTotal in search bundles.
         /// </summary>
         public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;

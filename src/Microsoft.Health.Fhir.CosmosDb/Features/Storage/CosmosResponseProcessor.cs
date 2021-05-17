@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
 using System.Threading;
@@ -14,6 +15,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -22,18 +24,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class CosmosResponseProcessor : ICosmosResponseProcessor
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
+        private readonly ICosmosQueryLogger _queryLogger;
         private readonly ILogger<CosmosResponseProcessor> _logger;
 
-        public CosmosResponseProcessor(IFhirRequestContextAccessor fhirRequestContextAccessor, IMediator mediator, ILogger<CosmosResponseProcessor> logger)
+        public CosmosResponseProcessor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IMediator mediator, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(queryLogger, nameof(queryLogger));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _mediator = mediator;
+            _queryLogger = queryLogger;
             _logger = logger;
         }
 
@@ -57,7 +62,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             if (statusCode == HttpStatusCode.TooManyRequests)
             {
                 string retryHeader = headers["x-ms-retry-after-ms"];
-                throw new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : (TimeSpan?)null);
+                throw new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
             }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
@@ -84,42 +89,63 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <summary>
         /// Updates the request context with Cosmos DB info and updates response headers with the session token and request change values.
         /// </summary>
-        /// <param name="sessionToken">THe session token</param>
-        /// <param name="responseRequestCharge">The request charge.</param>
-        /// <param name="statusCode">The HTTP status code.</param>
-        public async Task ProcessResponse(string sessionToken, double responseRequestCharge, HttpStatusCode? statusCode)
+        /// <param name="responseMessage">The response message</param>
+        public async Task ProcessResponse(ResponseMessage responseMessage)
         {
-            if (_fhirRequestContextAccessor.FhirRequestContext == null)
+            var responseRequestCharge = responseMessage.Headers.RequestCharge;
+
+            _queryLogger.LogQueryExecutionResult(
+                responseMessage.Headers.ActivityId,
+                responseMessage.Headers.RequestCharge,
+                responseMessage.ContinuationToken == null ? null : "<nonempty>",
+                int.TryParse(responseMessage.Headers["x-ms-item-count"], out var count) ? count : 0,
+                double.TryParse(responseMessage.Headers["x-ms-request-duration-ms"], out var duration) ? duration : 0,
+                responseMessage.Headers["x-ms-documentdb-partitionkeyrangeid"]);
+
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+            if (fhirRequestContext == null)
             {
                 return;
             }
 
+            var sessionToken = responseMessage.Headers.Session;
+
             if (!string.IsNullOrEmpty(sessionToken))
             {
-                _fhirRequestContextAccessor.FhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
+                fhirRequestContext.ResponseHeaders[CosmosDbHeaders.SessionToken] = sessionToken;
             }
 
-            await AddRequestChargeToFhirRequestContext(responseRequestCharge, statusCode);
+            if (fhirRequestContext.Properties.TryGetValue(Constants.CosmosDbResponseMessagesProperty, out object propertyValue))
+            {
+                // This is planted in FhirCosmosSearchService in order for us to relay the individual responses
+                // back for analysis of the selectivity of the search.
+                ((ConcurrentBag<ResponseMessage>)propertyValue).Add(responseMessage);
+            }
+
+            await AddRequestChargeToFhirRequestContext(responseRequestCharge, responseMessage.StatusCode);
         }
 
         private async Task AddRequestChargeToFhirRequestContext(double responseRequestCharge, HttpStatusCode? statusCode)
         {
-            IFhirRequestContext requestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            IFhirRequestContext requestContext = _fhirRequestContextAccessor.RequestContext;
 
-            // If there has already been a request to the database for this request, then we want to add to it.
-            if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingHeaderValue))
+            lock (requestContext.ResponseHeaders)
             {
-                if (double.TryParse(existingHeaderValue.ToString(), out double existing))
+                // If there has already been a request to the database for this request, then we want to add to it.
+                if (requestContext.ResponseHeaders.TryGetValue(CosmosDbHeaders.RequestCharge, out StringValues existingHeaderValue))
                 {
-                    responseRequestCharge += existing;
+                    if (double.TryParse(existingHeaderValue.ToString(), out double existing))
+                    {
+                        responseRequestCharge += existing;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Unable to parse request charge header: {request change}", existingHeaderValue);
+                    }
                 }
-                else
-                {
-                    _logger.LogWarning("Unable to parse request charge header: {request change}", existingHeaderValue);
-                }
-            }
 
-            requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+                requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+            }
 
             var cosmosMetrics = new CosmosStorageRequestMetricsNotification(requestContext.AuditEventType, requestContext.ResourceType)
             {
@@ -141,7 +167,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        private string GetCustomerManagedKeyErrorMessage(int subStatusCode)
+        private static string GetCustomerManagedKeyErrorMessage(int subStatusCode)
         {
             string errorMessage = Resources.CmkDefaultError;
 

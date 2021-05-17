@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
@@ -19,12 +20,12 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
 {
     public class ApiNotificationMiddleware : IMiddleware
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
         private readonly ILogger<ApiNotificationMiddleware> _logger;
 
         public ApiNotificationMiddleware(
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IMediator mediator,
             ILogger<ApiNotificationMiddleware> logger)
         {
@@ -64,11 +65,11 @@ namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications
                 }
                 finally
                 {
-                    apiNotification.Latency = timer.GetElapsedTime();
+                    apiNotification.Latency = timer.ElapsedTime;
 
                     try
                     {
-                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+                        IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
                         // For now, we will only emit metrics for audited actions (e.g., metadata will not emit metrics).
                         if (fhirRequestContext?.AuditEventType != null)

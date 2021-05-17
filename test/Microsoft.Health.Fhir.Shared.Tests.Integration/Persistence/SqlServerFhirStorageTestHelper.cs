@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,14 +11,12 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
-using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Polly;
 using Xunit;
@@ -52,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
-            schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString);
+            schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
 
             // Create the database.
             using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
@@ -110,37 +107,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        public bool CompareDatabaseSchemas(string databaseName1, string databaseName2)
-        {
-            var testConnectionString1 = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName1 }.ToString();
-            var testConnectionString2 = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName2 }.ToString();
-
-            var source = new SchemaCompareDatabaseEndpoint(testConnectionString1);
-            var target = new SchemaCompareDatabaseEndpoint(testConnectionString2);
-            var comparison = new SchemaComparison(source, target);
-
-            SchemaComparisonResult result = comparison.Compare();
-
-            // These types were introduced in earlier schema versions but are no longer used in newer versions.
-            // They are not removed so as to no break compatibility with instances requiring an older schema version.
-            // Exclude them from the schema comparison differences.
-            (string type, string name)[] deprecatedObjectToIgnore =
-            {
-                ("Procedure", "[dbo].[UpsertResource]"),
-                ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
-                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
-            };
-
-            var remainingDifferences = result.Differences.Where(
-                d => !deprecatedObjectToIgnore.Any(
-                    i =>
-                        (d.SourceObject?.ObjectType.Name == i.type && d.SourceObject?.Name?.ToString() == i.name) ||
-                        (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
-                .ToList();
-
-            return remainingDifferences.Count == 0;
-        }
-
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
             using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
@@ -176,6 +142,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await command.Connection.OpenAsync(cancellationToken);
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
+
+            _sqlServerFhirModel.RemoveSearchParamIdToUriMapping(uri);
         }
 
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
@@ -259,20 +227,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private SchemaInitializer CreateSchemaInitializer(string testConnectionString)
+        private SchemaInitializer CreateSchemaInitializer(string testConnectionString, int maxSupportedSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions };
-            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
             var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory);
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
 
-            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
         }
     }
 }

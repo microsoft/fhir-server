@@ -49,10 +49,10 @@ jobs:
      
         $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
      
-        $cors = (ConvertFrom-Json (Get-Content -Raw "$deployPath/corstestconfiguration.json"))
-        $flattenedCors = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
+        $testConfig = (ConvertFrom-Json (Get-Content -Raw "$deployPath/testconfiguration.json"))
+        $flattenedTestConfig = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $testConfig
      
-        $additionalProperties = $flattenedCors
+        $additionalProperties = $flattenedTestConfig
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
@@ -63,6 +63,7 @@ jobs:
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
             appServicePlanSku = "B3"
+            numberOfInstances = 2
             serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"

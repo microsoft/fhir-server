@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -94,6 +95,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public static IncludeExpression Include(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
         {
             return new IncludeExpression(resourceTypes, referenceSearchParameter, sourceResourceType, targetResourceType, referencedTypes, wildCard, reversed, iterate);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="StringExpression"/> that represents left side starts with operation.
+        /// </summary>
+        /// <param name="fieldName">The field name.</param>
+        /// <param name="componentIndex">The component index.</param>
+        /// <param name="value">The value.</param>
+        /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
+        /// <returns>A <see cref="StringExpression"/> that represents contains operation.</returns>
+        public static StringExpression LeftSideStartsWith(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        {
+            return new StringExpression(StringOperator.LeftSideStartsWith, fieldName, componentIndex, value, ignoreCase);
         }
 
         /// <summary>
@@ -265,5 +279,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         /// <inheritdoc />
         public abstract override string ToString();
+
+        /// <summary>
+        /// Accumulates a "value-insensitive" hash code of this instance, meaning it ignores parameterizable values.
+        /// For example, date=2013&name=Smith and date=2014&name=Trudeau would have the same hash code.
+        /// </summary>
+        /// <param name="hashCode">The HashCode instance to accumulate into</param>
+        public abstract void AddValueInsensitiveHashCode(ref HashCode hashCode);
+
+        /// <summary>
+        /// Determines whether the given expression is equal to this instance, ignoring any parameterizable values.
+        /// For example, date=2013&name=Smith and date=2014&name=Trudeau would be considered equal
+        /// </summary>
+        /// <param name="other">The expression to compare this instance to.</param>
+        public abstract bool ValueInsensitiveEquals(Expression other);
     }
 }
