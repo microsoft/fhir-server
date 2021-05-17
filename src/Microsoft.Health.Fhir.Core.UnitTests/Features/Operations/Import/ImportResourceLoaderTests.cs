@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenResourceLoader_WhenLoadResourcesWithParseException_ThenAllResoruceShouldBeLoadAndErroShouldBeReturned()
+        public async Task GivenResourceLoader_WhenLoadResourcesWithParseException_ThenAllResoruceShouldBeLoadAndErrorShouldBeReturned()
         {
             string errorMessage = "error";
             using MemoryStream stream = new MemoryStream();
@@ -77,6 +77,53 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
 
             (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, null, idGenerator, CancellationToken.None);
+
+            int errorCount = 0;
+            await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
+            {
+                Assert.Equal(errorMessage, resource.ImportError);
+                ++errorCount;
+            }
+
+            await importTask;
+
+            Assert.Equal(1, errorCount);
+        }
+
+        [Fact]
+        public async Task GivenResourceLoader_WhenLoadResourcesWithDifferentResourceType_ThenResourcesWithDifferentTypeShouldBeSkipped()
+        {
+            string errorMessage = "Resource type not match.";
+            using MemoryStream stream = new MemoryStream();
+            using StreamWriter writer = new StreamWriter(stream);
+            await writer.WriteLineAsync("test");
+            await writer.FlushAsync();
+
+            stream.Position = 0;
+
+            IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
+            integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
+
+            IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
+            importResourceParser.Parse(Arg.Any<string>())
+                .Returns(callInfo =>
+                {
+                    ImportResource importResource = new ImportResource(null, null);
+                    return importResource;
+                });
+
+            IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
+            serializer.Serialize(Arg.Any<long>(), Arg.Any<Exception>())
+                .Returns(callInfo =>
+                {
+                    Exception ex = (Exception)callInfo[1];
+                    return ex.Message;
+                });
+
+            Func<long, long> idGenerator = (i) => i;
+            ImportResourceLoader loader = new ImportResourceLoader(integrationDataStoreClient, importResourceParser, serializer, NullLogger<ImportResourceLoader>.Instance);
+
+            (Channel<ImportResource> outputChannel, Task importTask) = loader.LoadResources("http://dummy", 0, "DummyType", idGenerator, CancellationToken.None);
 
             int errorCount = 0;
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
