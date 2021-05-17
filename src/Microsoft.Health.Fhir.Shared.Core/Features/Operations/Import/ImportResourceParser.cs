@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
 
-            using var gzipStream = new GZipStream(stream, CompressionMode.Compress, leaveOpen: true);
+            using var gzipStream = new GZipStream(stream, CompressionMode.Compress, leaveOpen: false);
             using var writer = new StreamWriter(gzipStream, ResourceEncoding);
             writer.Write(rawResource);
             writer.Flush();

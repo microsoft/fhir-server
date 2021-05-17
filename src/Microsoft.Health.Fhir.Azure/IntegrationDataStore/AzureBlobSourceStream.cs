@@ -11,6 +11,7 @@ using EnsureThat;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
+using Microsoft.IO;
 using Polly;
 
 namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
@@ -24,6 +25,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
         private long _startOffset;
         private long _position;
         private ILogger _logger;
+        private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
 
         private ICloudBlob _blobClient;
         private readonly Queue<Task<Stream>> _downloadTasks = new Queue<Task<Stream>>();
@@ -37,6 +39,8 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             _startOffset = startOffset ?? 0;
             _position = _startOffset;
             _logger = logger;
+
+            _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
         public int ConcurrentCount
@@ -168,7 +172,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
         private async Task<Stream> DownloadDataFunc(long offset, long length)
         {
-            MemoryStream stream = new MemoryStream();
+            var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
             await _blobClient.DownloadRangeToStreamAsync(stream, offset, length);
             stream.Position = 0;
 

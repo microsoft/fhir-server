@@ -179,6 +179,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 return new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
             }
+            catch (ImportProcessingException processingEx)
+            {
+                _logger.LogError(processingEx, "Failed to process input resources.");
+
+                ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
+                errorResult.HttpStatusCode = HttpStatusCode.BadRequest;
+                errorResult.ErrorMessage = processingEx.Message;
+
+                return new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to import data.");
@@ -301,6 +311,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     _runningTasks.Add((resourceUri, taskInfoFromServer));
                     await Task.Delay(TimeSpan.FromSeconds(PollingFrequencyInSeconds), cancellationToken);
+                }
+                else
+                {
+                    AddToResult(completedOperationOutcome, failedOperationOutcome, new List<Uri>() { resourceUri });
                 }
             }
 
