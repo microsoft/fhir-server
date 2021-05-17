@@ -45,6 +45,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         }
 
         [Fact]
+        public async Task GivenAnOrchestratorTask_WhenResumeFromFailure_ThenTaskShouldBeCompleted()
+        {
+            await VerifyCommonOrchestratorTaskAsync(105, 6, 10);
+        }
+
+        [Fact]
         public async Task GivenAnOrchestratorTaskAndWrongEtag_WhenOrchestratorTaskStart_ThenTaskShouldFailedWithDetails()
         {
             IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
@@ -542,7 +548,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(1, context.DataProcessingTasks.Count);
         }
 
-        private static async Task VerifyCommonOrchestratorTaskAsync(int inputFileCount, int concurrentCount)
+        private static async Task VerifyCommonOrchestratorTaskAsync(int inputFileCount, int concurrentCount, int resumeFrom = -1)
         {
             IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
@@ -558,6 +564,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 if (t == null)
                 {
                     return null;
+                }
+
+                if (t.Status == TaskManagement.TaskStatus.Completed)
+                {
+                    return t;
                 }
 
                 ImportProcessingTaskInputData processingInput = JsonConvert.DeserializeObject<ImportProcessingTaskInputData>(t.InputData);
@@ -577,9 +588,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
             importOrchestratorTaskInputData.BaseUri = new Uri("http://dummy");
             var inputs = new List<InputResource>();
+
+            bool resumeMode = resumeFrom >= 0;
             for (int i = 0; i < inputFileCount; ++i)
             {
-                inputs.Add(new InputResource() { Type = "Resource", Url = new Uri($"http://dummy/{i}") });
+                string location = $"http://dummy/{i}";
+                inputs.Add(new InputResource() { Type = "Resource", Url = new Uri(location) });
+
+                if (resumeMode)
+                {
+                    if (i <= resumeFrom)
+                    {
+                        TaskInfo taskInfo = new TaskInfo();
+                        taskInfo.TaskId = Guid.NewGuid().ToString("N");
+
+                        ImportProcessingTaskResult processingResult = new ImportProcessingTaskResult();
+                        processingResult.ResourceType = "Resource";
+                        processingResult.SucceedCount = 1;
+                        processingResult.FailedCount = 1;
+                        processingResult.ErrorLogLocation = "http://dummy/error";
+
+                        taskInfo.Result = JsonConvert.SerializeObject(new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(processingResult)));
+                        taskInfo.Status = TaskManagement.TaskStatus.Completed;
+
+                        await taskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+
+                        importOrchestratorTaskContext.DataProcessingTasks[new Uri(location)] = taskInfo;
+                    }
+                    else
+                    {
+                        TaskInfo taskInfo = new TaskInfo();
+                        taskInfo.TaskId = Guid.NewGuid().ToString("N");
+                        ImportProcessingTaskInputData processingInput = new ImportProcessingTaskInputData();
+                        processingInput.BaseUriString = "http://dummy";
+                        processingInput.BeginSequenceId = i;
+                        processingInput.EndSequenceId = i + 1;
+                        processingInput.ResourceType = "Resource";
+                        taskInfo.InputData = JsonConvert.SerializeObject(processingInput);
+
+                        await taskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+                        importOrchestratorTaskContext.DataProcessingTasks[new Uri(location)] = taskInfo;
+                    }
+
+                    importOrchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.SubTaskRecordsGenerated;
+                }
             }
 
             importOrchestratorTaskInputData.Input = inputs;
@@ -637,7 +689,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(importOrchestratorTaskInputData.TaskCreateTime, resultDetails.TransactionTime);
 
             var orderedSurrogatedIdRanges = surrogatedIdRanges.OrderBy(r => r.begin).ToArray();
-            Assert.Equal(inputFileCount, orderedSurrogatedIdRanges.Length);
+            Assert.Equal(inputFileCount, orderedSurrogatedIdRanges.Length + resumeFrom + 1);
             for (int i = 0; i < orderedSurrogatedIdRanges.Length - 1; ++i)
             {
                 Assert.True(orderedSurrogatedIdRanges[i].end > orderedSurrogatedIdRanges[i].begin);
