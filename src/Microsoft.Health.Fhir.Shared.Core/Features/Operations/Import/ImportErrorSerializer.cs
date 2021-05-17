@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import
 
         public string Serialize(long index, Exception ex)
         {
+            EnsureArg.IsNotNull(ex, nameof(ex));
+
             var issue = new OperationOutcome.IssueComponent();
             issue.Severity = OperationOutcome.IssueSeverity.Error;
             issue.Diagnostics = string.Format("Failed to process resource at line: {0}", index);

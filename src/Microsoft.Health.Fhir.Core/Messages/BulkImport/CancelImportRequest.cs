@@ -17,6 +17,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             TaskId = taskId;
         }
 
+        /// <summary>
+        /// Import orchestrator task id
+        /// </summary>
         public string TaskId { get; }
     }
 }

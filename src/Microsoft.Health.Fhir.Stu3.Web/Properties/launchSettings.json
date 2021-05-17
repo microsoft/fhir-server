@@ -28,6 +28,9 @@
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "DataStore": "SqlServer",
                 "TaskHosting:Enabled": "true",
+                "TaskHosting:MaxRunningTaskCount": "2",
+                "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer:Operations:Import:Enabled": "true",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
             "applicationUrl": "https://localhost:44348/"

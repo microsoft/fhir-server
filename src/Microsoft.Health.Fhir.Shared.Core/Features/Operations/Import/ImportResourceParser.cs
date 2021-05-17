@@ -6,6 +6,7 @@
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -25,6 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
         {
+            EnsureArg.IsNotNull(parser, nameof(parser));
+            EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
+
             _parser = parser;
             _resourceFactory = resourceFactory;
 

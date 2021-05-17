@@ -29,14 +29,29 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             StorageDetail = storageDetail;
         }
 
+        /// <summary>
+        /// Import request uri
+        /// </summary>
         public Uri RequestUri { get; }
 
+        /// <summary>
+        /// Input resource file format.
+        /// </summary>
         public string InputFormat { get; }
 
+        /// <summary>
+        /// Input resource
+        /// </summary>
         public Uri InputSource { get; }
 
+        /// <summary>
+        /// Input resource list
+        /// </summary>
         public IReadOnlyList<InputResource> Input { get; }
 
+        /// <summary>
+        /// Storage details
+        /// </summary>
         public ImportRequestStorageDetail StorageDetail { get; }
     }
 }

@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Web
             // Set task hosting and related background service
             if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
             {
-                AddBackgroundService(services);
+                AddTaskHostingService(services);
             }
 
             /*
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Web
             AddApplicationInsightsTelemetry(services);
         }
 
-        private void AddBackgroundService(IServiceCollection services)
+        private void AddTaskHostingService(IServiceCollection services)
         {
             services.Add<TaskHosting>()
                 .Scoped()

@@ -21,8 +21,14 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             TaskResult = taskResult;
         }
 
+        /// <summary>
+        /// Response http status
+        /// </summary>
         public HttpStatusCode StatusCode { get; }
 
+        /// <summary>
+        /// Response result
+        /// </summary>
         public ImportTaskResult TaskResult { get; }
     }
 }

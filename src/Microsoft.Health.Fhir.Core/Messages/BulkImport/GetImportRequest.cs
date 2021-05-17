@@ -20,8 +20,14 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             TaskId = taskId;
         }
 
+        /// <summary>
+        /// Request uri for get request
+        /// </summary>
         public Uri RequestUri { get; }
 
+        /// <summary>
+        /// Import task id
+        /// </summary>
         public string TaskId { get; }
     }
 }

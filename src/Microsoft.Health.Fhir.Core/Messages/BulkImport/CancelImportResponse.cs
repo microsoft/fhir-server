@@ -14,6 +14,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             StatusCode = statusCode;
         }
 
+        /// <summary>
+        /// Response status code
+        /// </summary>
         public HttpStatusCode StatusCode { get; }
     }
 }
