@@ -6,17 +6,17 @@
 using System.Collections.Generic;
 using System.Data;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
     internal class ResourceWriteClaimTableBulkCopyDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>
     {
-        private ITableValuedParameterRowGenerator<ResourceMetadata, ResourceWriteClaimTableTypeV1Row> _generator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkResourceWriteClaimTableTypeV1Row> _generator;
 
-        public ResourceWriteClaimTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<ResourceMetadata, ResourceWriteClaimTableTypeV1Row> generator)
+        public ResourceWriteClaimTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkResourceWriteClaimTableTypeV1Row> generator)
         {
             EnsureArg.IsNotNull(generator, nameof(generator));
 
@@ -27,18 +27,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {
-            IEnumerable<ResourceWriteClaimTableTypeV1Row> claims = _generator.GenerateRows(input.Metadata);
+            IEnumerable<BulkResourceWriteClaimTableTypeV1Row> claims = _generator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
             if (claims != null)
             {
-                foreach (var claim in _generator.GenerateRows(input.Metadata))
+                foreach (var claim in claims)
                 {
                     FillDataTable(table, input.ResourceSurrogateId, claim);
                 }
             }
         }
 
-        internal static void FillDataTable(DataTable table, long resourceSurrogateId, ResourceWriteClaimTableTypeV1Row claim)
+        internal static void FillDataTable(DataTable table, long resourceSurrogateId, BulkResourceWriteClaimTableTypeV1Row claim)
         {
             DataRow newRow = table.NewRow();
 
