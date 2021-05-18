@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Specification;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -477,11 +478,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
+            Observation[] observations = await CreateObservationWithSpecifiedElements(tag, elements);
 
-            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}");
+            Bundle bundle = await Client.SearchAsync($"Observation?_tag={tag.Code}&_elements={string.Join(',', elements)}");
 
-            ValidateBundle(bundle, patients);
+            ValidateBundle(bundle, observations);
         }
 
         [Fact]
@@ -491,11 +492,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
+            Observation[] observations = await CreateObservationWithSpecifiedElements(tag, elements);
 
-            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements=invalidProperty,{string.Join(',', elements)}");
+            Bundle bundle = await Client.SearchAsync($"Observation?_tag={tag.Code}&_elements=invalidProperty,{string.Join(',', elements)}");
 
-            ValidateBundle(bundle, patients);
+            ValidateBundle(bundle, observations);
         }
 
         [InlineData("id", "count")]
@@ -523,11 +524,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
+            Observation[] observations = await CreateObservationWithSpecifiedElements(tag, elements);
 
-            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}&_summary=false");
+            Bundle bundle = await Client.SearchAsync($"Observation?_tag={tag.Code}&_elements={string.Join(',', elements)}&_summary=false");
 
-            ValidateBundle(bundle, patients);
+            ValidateBundle(bundle, observations);
         }
 
         [Fact]
@@ -917,21 +918,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
         }
 
-        private async Task<Patient[]> CreatePatientsWithSpecifiedElements(Coding tag, string[] elements)
+        private async Task<Observation[]> CreateObservationWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;
+            IStructureDefinitionSummaryProvider summaryProvider = new PocoStructureDefinitionSummaryProvider();
+            var typeinfo = summaryProvider.Provide("Observation");
+            var required = typeinfo.GetElements().Where(e => e.IsRequired).Select(x => x.ElementName).ToList();
+            required.Add("meta");
+            elements = elements.Union(required).ToArray();
 
-            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
-            var patients = new Patient[numberOfResources];
+            Observation patient = Samples.GetDefaultObservation().ToPoco<Observation>();
+            var patients = new Observation[numberOfResources];
 
             for (int i = 0; i < numberOfResources; i++)
             {
                 patient.Meta = new Meta();
                 patient.Meta.Tag.Add(tag);
 
-                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
-                patients[i] = MaskingNode.ForElements(new ScopedNode(createdPatient.Resource.ToTypedElement()), elements)
-                    .ToPoco<Patient>();
+                FhirResponse<Observation> createdObservation = await Client.CreateAsync(patient);
+                patients[i] = MaskingNode.ForElements(new ScopedNode(createdObservation.Resource.ToTypedElement()), elements)
+                    .ToPoco<Observation>();
+                var subsettedTag = new Coding("http://hl7.org/fhir/v3/ObservationValue", "SUBSETTED");
+                patients[i].Meta.Tag.Add(subsettedTag);
             }
 
             return patients;
