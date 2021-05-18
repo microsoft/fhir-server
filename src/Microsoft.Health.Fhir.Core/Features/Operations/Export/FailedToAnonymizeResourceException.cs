@@ -12,8 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     public class FailedToAnonymizeResourceException : FhirException
     {
         public FailedToAnonymizeResourceException()
-            {
-            }
+        {
+        }
 
         public FailedToAnonymizeResourceException(string message)
             : base(message)

@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogError(ex, "Failed to anonymize resource. The job will be marked as failed.");
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Resources.FailedToAnonymizeResource, ex.Message), HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (AnonymizationConfigurationNotFoundException ex)
