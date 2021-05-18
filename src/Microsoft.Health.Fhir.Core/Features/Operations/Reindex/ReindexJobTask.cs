@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private SemaphoreSlim _jobSemaphore;
         private CancellationToken _cancellationToken;
         private WeakETag _weakETag;
+        private List<SearchParameterInfo> _notYetIndexedParams;
 
         public ReindexJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -162,6 +163,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // The reindex job was updated externally.
                 _logger.LogInformation("The job was updated by another process.");
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("The reindex job was canceled.");
+            }
             catch (Exception ex)
             {
                 await HandleException(ex);
@@ -177,10 +182,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             // Build query based on new search params
             // Find supported, but not yet searchable params
-            var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
+            var possibleNotYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
+            _notYetIndexedParams = new List<SearchParameterInfo>();
+
+            var resourceList = new HashSet<string>();
+
+            // filter list of SearchParameters by the target resource types
+            if (_reindexJobRecord.TargetResourceTypes.Any())
+            {
+                foreach (var searchParam in possibleNotYetIndexedParams)
+                {
+                    var matchingResourceTypes = searchParam.BaseResourceTypes.Intersect(_reindexJobRecord.TargetResourceTypes);
+                    if (matchingResourceTypes.Any())
+                    {
+                        _notYetIndexedParams.Add(searchParam);
+
+                        // add matching resource types to the set of resource types which we will reindex
+                        resourceList.UnionWith(matchingResourceTypes);
+                    }
+                }
+            }
+            else
+            {
+                _notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
+
+                // From the param list, get the list of necessary resources which should be
+                // included in our query
+                foreach (var param in _notYetIndexedParams)
+                {
+                    resourceList.UnionWith(param.BaseResourceTypes);
+                }
+            }
 
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
-            if (!notYetIndexedParams.Any())
+            if (!_notYetIndexedParams.Any())
             {
                 _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
@@ -191,45 +226,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return false;
             }
 
-            // From the param list, get the list of necessary resources which should be
-            // included in our query
-            var resourceList = new HashSet<string>();
-            foreach (var param in notYetIndexedParams)
+            // From the current list of resource types
+            // determine if they are base resource types and we should include
+            // any inherited types, use a temp copy so we can iterate over it
+            var tempResourceListCopy = new List<string>(resourceList);
+            foreach (var baseResourceType in tempResourceListCopy)
             {
-                foreach (var baseResourceType in param.BaseResourceTypes)
+                if (baseResourceType == KnownResourceTypes.Resource)
                 {
-                    if (baseResourceType == KnownResourceTypes.Resource)
-                    {
-                        resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+                    resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
 
-                        // We added all possible resource types, so no need to continue
-                        break;
-                    }
+                    // We added all possible resource types, so no need to continue
+                    break;
+                }
 
-                    if (baseResourceType == KnownResourceTypes.DomainResource)
-                    {
-                        var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+                if (baseResourceType == KnownResourceTypes.DomainResource)
+                {
+                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
 
-                        // Remove types that inherit from Resource directly
-                        domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
-                        domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
-                        domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
+                    // Remove types that inherit from Resource directly
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
 
-                        resourceList.UnionWith(domainResourceChildResourceTypes);
-                    }
-                    else
-                    {
-                        resourceList.UnionWith(new[] { baseResourceType });
-                    }
+                    resourceList.UnionWith(domainResourceChildResourceTypes);
+                }
+                else
+                {
+                    resourceList.UnionWith(new[] { baseResourceType });
                 }
             }
 
+            // Save the list of resource types in the reindexjob document
             foreach (var resource in resourceList)
             {
                 _reindexJobRecord.Resources.Add(resource);
             }
 
-            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.ToString()))
+            // save the list of search parameters to the reindexjob document
+            foreach (var searchParams in _notYetIndexedParams.Select(p => p.Url.ToString()))
             {
                 _reindexJobRecord.SearchParams.Add(searchParams);
             }
@@ -629,7 +664,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task UpdateParametersAndCompleteJob()
         {
-            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams.ToList(), _cancellationToken);
+            // here we check if all the resource types which are base types of the search parameter
+            // were reindexed by this job.  If so, then we should mark the search parameters
+            // as fully reindexed
+            var fullyIndexexParams = new List<string>();
+            var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.SearchParams);
+            foreach (var searchParam in _reindexJobRecord.SearchParams)
+            {
+                var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(new Uri(searchParam));
+                if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes))
+                {
+                    fullyIndexexParams.Add(searchParam);
+                }
+            }
+
+            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(fullyIndexexParams, _cancellationToken);
 
             if (success)
             {

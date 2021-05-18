@@ -1223,6 +1223,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to ResourceType: {0} is not a known or supported resource type..
+        /// </summary>
+        internal static string UnknownResourceType {
+            get {
+                return ResourceManager.GetString("UnknownResourceType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {

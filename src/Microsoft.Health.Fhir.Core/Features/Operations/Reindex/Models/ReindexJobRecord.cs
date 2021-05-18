@@ -20,12 +20,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     {
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
+            IReadOnlyCollection<string> targetResourceTypes,
             ushort maxiumumConcurrency = 1,
             uint maxResourcesPerQuery = 100,
             int queryDelayIntervalInMilliseconds = 500,
             ushort? targetDataStoreUsagePercentage = null)
         {
             EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
+            EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
 
             // Default values
             SchemaVersion = 1;
@@ -40,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
             QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
             TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
+            TargetResourceTypes = targetResourceTypes;
         }
 
         [JsonConstructor]
@@ -103,6 +106,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// </summary>
         [JsonProperty(JobRecordProperties.TargetDataStoreUsagePercentage)]
         public ushort? TargetDataStoreUsagePercentage { get; set; }
+
+        /// <summary>
+        /// A user can optionally limit the scope of the Reindex job to specific
+        /// resource types
+        /// </summary>
+        public IReadOnlyCollection<string> TargetResourceTypes { get; }
 
         [JsonIgnore]
         public int PercentComplete

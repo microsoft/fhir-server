@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -21,11 +23,26 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             uint? maxResourcesPerQuery,
             int? queryDelay,
             ushort? targetDataStoreResourcePercentage,
+            string targetResourceTypesString,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new CreateReindexRequest(maximumConcurrency, maxResourcesPerQuery, queryDelay, targetDataStoreResourcePercentage);
+            var targetResourceTypes = new List<string>();
+
+            if (!string.IsNullOrEmpty(targetResourceTypesString))
+            {
+                targetResourceTypes.AddRange(targetResourceTypesString.Split(","));
+                foreach (var resourceType in targetResourceTypes)
+                {
+                    if (!Enum.TryParse<Hl7.Fhir.Model.ResourceType>(resourceType, out var result))
+                    {
+                        throw new RequestNotValidException(string.Format(Resources.UnknownResourceType, resourceType));
+                    }
+                }
+            }
+
+            var request = new CreateReindexRequest(targetResourceTypes, maximumConcurrency, maxResourcesPerQuery, queryDelay, targetDataStoreResourcePercentage);
 
             CreateReindexResponse response = await mediator.Send(request, cancellationToken);
             return response.Job.ToParametersResourceElement();
