@@ -1481,8 +1481,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnUnKnownExceptionThrowFromAnonymizer_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
-            // this should not happen, thise test is to make sure if any unexpected exception happen, would not block export worker.
-            string expectedError = "Unknown Error.";
+            // First search should not have continuation token in the list of query parameters.
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    return CreateSearchResult(new[]
+                        {
+                            CreateSearchResultEntry("1", "Patient"),
+                        });
+                });
 
             // Setup export destination client.
             ExportJobRecord exportJobRecordWithOneResource =
@@ -1500,8 +1510,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(expectedError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
         [Fact]
