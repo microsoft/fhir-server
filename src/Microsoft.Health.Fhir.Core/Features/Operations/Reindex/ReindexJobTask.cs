@@ -382,7 +382,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         var wrapper = await store.Value.GetReindexJobByIdAsync(_reindexJobRecord.Id, _cancellationToken);
                         _weakETag = wrapper.ETag;
-                        _reindexJobRecord = wrapper.JobRecord;
+                        _reindexJobRecord.Status = wrapper.JobRecord.Status;
                     }
                 }
                 finally
