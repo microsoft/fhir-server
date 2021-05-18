@@ -214,6 +214,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The _count parameter must be between {0} and {1}..
+        /// </summary>
+        internal static string ConditionalDeleteCountOutOfRange {
+            get {
+                return ResourceManager.GetString("ConditionalDeleteCountOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
         /// </summary>
         internal static string ConditionalOperationNotSelectiveEnough {

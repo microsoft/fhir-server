@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
             ConditionalUpdate = false;
             ConditionalCreate = false;
-            ConditionalDelete = new HashSet<string>(StringComparer.Ordinal);
+            ConditionalDelete = new DefaultOptionHashSet<string>(ConditionalDeleteStatus.Single, StringComparer.Ordinal);
             ConditionalRead = new HashSet<string>(StringComparer.Ordinal);
         }
 

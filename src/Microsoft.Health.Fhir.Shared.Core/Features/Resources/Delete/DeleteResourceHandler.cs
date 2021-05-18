@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 return new DeleteResourceResponse(new ResourceKey(key.ResourceType, key.Id));
             }
 
-            return new DeleteResourceResponse(new ResourceKey(key.ResourceType, key.Id, version), WeakETag.FromVersionId(version));
+            return new DeleteResourceResponse(new ResourceKey(key.ResourceType, key.Id, version), weakETag: WeakETag.FromVersionId(version));
         }
     }
 }
