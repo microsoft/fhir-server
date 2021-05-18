@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ITypedElementToSearchValueConverterManager _fhirElementTypeConverterManager;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly IModelInfoProvider _modelInfoProvider;
-        private readonly ILogger<ISearchIndexer> _logger;
+        private readonly ILogger<TypedElementSearchIndexer> _logger;
         private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new ConcurrentDictionary<string, List<string>>();
 
         /// <summary>
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ITypedElementToSearchValueConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             IModelInfoProvider modelInfoProvider,
-            ILogger<ISearchIndexer> logger)
+            ILogger<TypedElementSearchIndexer> logger)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var context = _modelInfoProvider.GetEvaluationContext(_referenceToElementResolver.Resolve);
 
             // This allow to resolve %resource FhirPath to provided value.
-            context.Container = resource.Instance;
+            context.Resource = resource.Instance;
 
             IEnumerable<SearchParameterInfo> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
 
@@ -222,8 +222,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     if (ev.InstanceType.Equals("ResourceReference", StringComparison.OrdinalIgnoreCase))
                     {
-                        var rr = ev.Scalar("reference") as string;
-                        return rr != null && targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
+                        return ev.Scalar("reference") is string rr && targetResourceTypes.Any(trt => rr.Contains(trt, StringComparison.Ordinal));
                     }
 
                     return true;

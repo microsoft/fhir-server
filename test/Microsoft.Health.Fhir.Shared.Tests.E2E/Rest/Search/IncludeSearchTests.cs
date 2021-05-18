@@ -1297,7 +1297,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             foreach (Bundle.EntryComponent entry in bundle.Entry)
             {
-                var searchEntryMode = entry.Resource.ResourceType == matchResourceType ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include;
+                var searchEntryMode = entry.Resource.TypeName == matchResourceType.ToString() ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include;
                 Assert.Equal(searchEntryMode, entry.Search.Mode);
             }
         }

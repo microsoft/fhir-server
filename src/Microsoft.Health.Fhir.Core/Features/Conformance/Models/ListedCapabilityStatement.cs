@@ -45,6 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 
         public SoftwareComponent Software { get; set; }
 
+        public string Date { get; set; }
+
         public string FhirVersion { get; set; }
 
         public ICollection<string> Format { get; }

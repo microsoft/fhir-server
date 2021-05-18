@@ -78,10 +78,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
-                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
+                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
 
-                var searchParameterUrl = searchParam.GetStringScalar("url");
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url });
             }
             catch (FhirException fex)
             {
@@ -142,6 +141,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             try
             {
+                // We need to make sure we have the latest search parameters before trying to update
+                // existing search parameter. This is to avoid trying to update a search parameter that
+                // was recently added and that hasn't propogated to all fhir-server instances.
+                await GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
                 (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);

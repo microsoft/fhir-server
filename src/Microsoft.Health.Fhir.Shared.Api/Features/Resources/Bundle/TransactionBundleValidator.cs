@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             // Resource type bundle is not supported.within a bundle.
-            if (entry.Resource?.ResourceType == Hl7.Fhir.Model.ResourceType.Bundle)
+            if (entry.Resource?.TypeName == KnownResourceTypes.Bundle)
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.UnsupportedResourceType, KnownResourceTypes.Bundle));
             }

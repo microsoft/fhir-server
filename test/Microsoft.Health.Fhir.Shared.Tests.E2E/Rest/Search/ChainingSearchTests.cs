@@ -389,7 +389,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             Meta = meta,
                             Status = ObservationStatus.Final,
                             Code = code,
-                            Subject = new ResourceReference($"{subject.ResourceType}/{subject.Id}"),
+                            Subject = new ResourceReference($"{subject.TypeName}/{subject.Id}"),
                         })).Resource;
                 }
             }

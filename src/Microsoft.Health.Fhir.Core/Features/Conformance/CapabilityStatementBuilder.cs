@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
@@ -55,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             using Stream resourceStream = modelInfoProvider.OpenVersionedFileStream("BaseCapabilities.json");
             using var reader = new StreamReader(resourceStream);
             var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
+            statement.Date = File.GetCreationTime(Assembly.GetExecutingAssembly().Location).ToUniversalTime().ToString("O");
             return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, supportedProfiles);
         }
 
@@ -135,6 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         public ICapabilityStatementBuilder AddGlobalSearchParameters()
         {
             _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = SearchParameterNames.ResourceType, Definition = SearchParameterNames.TypeUri, Type = SearchParamType.Token });
+            _statement.Rest.Server().SearchParam.Add(new SearchParamComponent { Name = KnownQueryParameterNames.Count, Type = SearchParamType.Number });
 
             return this;
         }
@@ -281,6 +284,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             _statement.Profile.Clear();
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
+                // Parameters is a non-persisted resource used to pass information into and back from an operation
+                if (string.Equals(resource, KnownResourceTypes.Parameters, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 SyncProfile(resource, disableCacheRefresh);
             }
 
@@ -291,7 +300,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             // To build a CapabilityStatement we use a custom JsonConverter that serializes
             // the ListedCapabilityStatement into a CapabilityStatement poco
-
             var json = JsonConvert.SerializeObject(_statement, new JsonSerializerSettings
             {
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
@@ -300,6 +308,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     new DefaultOptionHashSetJsonConverter(),
                     new EnumLiteralJsonConverter(),
                     new ProfileReferenceConverter(_modelInfoProvider),
+                    new CodingJsonConverter(),
                 },
                 NullValueHandling = NullValueHandling.Ignore,
             });

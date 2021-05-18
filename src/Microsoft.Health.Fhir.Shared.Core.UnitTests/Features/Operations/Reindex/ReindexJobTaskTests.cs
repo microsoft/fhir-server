@@ -45,8 +45,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private Func<IReindexJobTask> _reindexJobTaskFactory;
 
-        private ReindexJobTask _reindexJobTask;
         private CancellationToken _cancellationToken;
 
         public ReindexJobTaskTests(SearchParameterFixtureData fixture) => _fixture = fixture;
@@ -67,18 +67,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Returns(new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()));
 
             _throttleController.GetThrottleBasedDelay().Returns(0);
-
-            _reindexJobTask = new ReindexJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                () => _fhirDataStore.CreateMockScope(),
-                Options.Create(_reindexJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                await _fixture.GetSupportedSearchDefinitionManagerAsync(),
-                _reindexUtilities,
-                _contextAccessor,
-                _throttleController,
-                ModelInfoProvider.Instance,
-                NullLogger<ReindexJobTask>.Instance);
+            var supportedSearchParameterDefinitionManager = await _fixture.GetSupportedSearchDefinitionManagerAsync();
+            _reindexJobTaskFactory = () =>
+                 new ReindexJobTask(
+                     () => _fhirOperationDataStore.CreateMockScope(),
+                     () => _fhirDataStore.CreateMockScope(),
+                     Options.Create(_reindexJobConfiguration),
+                     () => _searchService.CreateMockScope(),
+                     supportedSearchParameterDefinitionManager,
+                     _reindexUtilities,
+                     _contextAccessor,
+                     _throttleController,
+                     ModelInfoProvider.Instance,
+                     NullLogger<ReindexJobTask>.Instance);
 
             _reindexUtilities.UpdateSearchParameterStatus(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
         }
@@ -95,6 +96,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
             ReindexJobRecord job = CreateReindexJobRecord();
+            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
             // setup search result
             _searchService.SearchForReindexAsync(
@@ -104,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>()).
                 Returns(CreateSearchResult());
 
-            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
             await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
@@ -136,6 +138,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
             ReindexJobRecord job = CreateReindexJobRecord();
+            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
             // setup search result
             _searchService.SearchForReindexAsync(
@@ -147,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     x => CreateSearchResult("token"),
                     x => CreateSearchResult());
 
-            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
             await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
@@ -189,6 +192,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             resourceTypeSearchParamHashMap.Add("AppointmentResponse", "appointmentResponseHash");
 
             ReindexJobRecord job = CreateReindexJobRecord(paramHashMap: resourceTypeSearchParamHashMap);
+            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
             // setup search result
             _searchService.SearchForReindexAsync(
@@ -202,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     x => CreateSearchResult(),
                     x => CreateSearchResult());
 
-            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
             await _searchService.Received(2).SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
@@ -237,7 +241,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 false,
                 Arg.Any<CancellationToken>());
 
-            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(_mockedSearchCount * 2, job.Count);
@@ -265,8 +269,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCanceled()
         {
             var job = CreateReindexJobRecord();
+            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
-            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             Assert.Equal(OperationStatus.Canceled, job.Status);
             await _searchService.DidNotReceiveWithAnyArgs().SearchForReindexAsync(default, default, default, default);
@@ -282,6 +287,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _reindexJobConfiguration.JobHeartbeatTimeoutThreshold = new TimeSpan(0, 0, 0, 1, 0);
 
             ReindexJobRecord job = CreateReindexJobRecord(maxResourcePerQuery: 3);
+            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
             job.QueryList.TryAdd(new ReindexJobQueryStatus("patient", "token") { Status = OperationStatus.Running }, 1);
 
@@ -298,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     x => CreateSearchResult("token4", 3),
                     x => CreateSearchResult(null, 2));
 
-            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             param.IsSearchable = true;
 
@@ -314,6 +320,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             param.IsSearchable = false;
 
             var job = CreateReindexJobRecord(maxResourcePerQuery: 3);
+            _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
             job.QueryList.TryAdd(new ReindexJobQueryStatus("patient", "token") { Status = OperationStatus.Running }, 1);
 
@@ -328,7 +335,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _reindexUtilities.ProcessSearchResultsAsync(Arg.Any<SearchResult>(), Arg.Any<Dictionary<string, string>>(), Arg.Any<CancellationToken>())
                 .Throws(new Exception("Failed to process query"));
 
-            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+            await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             param.IsSearchable = true;
 

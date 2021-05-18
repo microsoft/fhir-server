@@ -5,6 +5,11 @@
             "Methods": ["*"],
             "Headers": ["*"],
             "MaxAge": 1440 
+        },
+        "Operations": {
+            "Validate": {
+                "CacheDurationInSeconds": 0
+            }
         }
     }
 }

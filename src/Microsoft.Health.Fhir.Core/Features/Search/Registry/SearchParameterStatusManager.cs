@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _mediator = mediator;
 
-            _latestSearchParams = DateTime.MinValue;
+            _latestSearchParams = DateTimeOffset.MinValue;
         }
 
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 var searchParamUri = new Uri(uri);
 
-                var paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
+                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
                 updated.Add(paramInfo);
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                 paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
