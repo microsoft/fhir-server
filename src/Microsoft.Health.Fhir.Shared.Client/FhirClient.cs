@@ -374,7 +374,6 @@ namespace Microsoft.Health.Fhir.Client
                 Content = CreateStringContent(parameters),
             };
 
-            message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
@@ -387,13 +386,14 @@ namespace Microsoft.Health.Fhir.Client
         public async Task CancelImport(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            message.Headers.Add("Prefer", "respond-async");
+
             await HttpClient.SendAsync(message, cancellationToken);
         }
 
         public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-            message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 
             var response = await HttpClient.SendAsync(message, cancellationToken);
