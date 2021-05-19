@@ -63,5 +63,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <param name="resourceUri">Resource URI.</param>
         /// <param name="cancellationToken">Cancellation Token.</param>
         public Task<Dictionary<string, object>> GetPropertiesAsync(Uri resourceUri, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Try acquire lease on resource file.
+        /// </summary>
+        /// <param name="resourceUri">Resource URI.</param>
+        /// <param name="proposedLeaseId">Proposed LeaseId.</param>
+        /// <param name="cancellationToken">Cancellation Token.</param>
+        public Task<string> TryAcquireLeaseAsync(Uri resourceUri, string proposedLeaseId, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Try to release lease on resource file.
+        /// </summary>
+        /// <param name="resourceUri">Resource URI.</param>
+        /// <param name="leaseId">Lease id for the resource file.</param>
+        /// <param name="cancellationToken">Cancellation Token.</param>
+        public Task TryReleaseLeaseAsync(Uri resourceUri, string leaseId, CancellationToken cancellationToken);
     }
 }

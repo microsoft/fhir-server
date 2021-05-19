@@ -59,9 +59,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task LoadResourcesInternalAsync(Channel<ImportResource> outputChannel, string resourceLocation, long startIndex, string resourceType, Func<long, long> sequenceIdGenerator, CancellationToken cancellationToken)
         {
+            string leaseId = null;
             try
             {
                 _logger.LogInformation("Start to load resource from store.");
+
+                // Try to acquire lease to block change on the blob.
+                leaseId = await _integrationDataStoreClient.TryAcquireLeaseAsync(new Uri(resourceLocation), Guid.NewGuid().ToString("N"), cancellationToken);
 
                 using Stream inputDataStream = _integrationDataStoreClient.DownloadResource(new Uri(resourceLocation), 0, cancellationToken);
                 using StreamReader inputDataReader = new StreamReader(inputDataStream);
@@ -131,6 +135,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             finally
             {
                 outputChannel.Writer.Complete();
+
+                if (!string.IsNullOrEmpty(leaseId))
+                {
+                    await _integrationDataStoreClient.TryReleaseLeaseAsync(new Uri(resourceLocation), leaseId, cancellationToken);
+                }
+
                 _logger.LogInformation("Load resource from store complete.");
             }
         }

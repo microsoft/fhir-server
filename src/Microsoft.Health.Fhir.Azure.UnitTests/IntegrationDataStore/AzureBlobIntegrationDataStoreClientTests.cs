@@ -279,6 +279,48 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
             }
         }
 
+        [Fact(Skip = "Local tests need emulator.")]
+        public async Task GivenStorageBlob_WhenAcquireLease_ThenLeaseIdShouldBeReturned()
+        {
+            IIntegrationDataStoreClientInitilizer<CloudBlobClient> initializer = GetClientInitializer();
+            CloudBlobClient client = await initializer.GetAuthorizedClientAsync(CancellationToken.None);
+
+            string containerName = Guid.NewGuid().ToString("N");
+            string blobName = Guid.NewGuid().ToString("N");
+
+            Uri blobUri = new Uri(Path.Combine(client.StorageUri.PrimaryUri.ToString(), $"{containerName}/{blobName}"));
+
+            try
+            {
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
+
+                long count = 30;
+                List<string> blockIds = new List<string>();
+                for (long i = 0; i < count; ++i)
+                {
+                    using Stream input = new MemoryStream(Encoding.UTF8.GetBytes(i.ToString() + "\r\n"));
+                    string blockId = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+                    await blobClient.UploadBlockAsync(blobUri, input, blockId, CancellationToken.None);
+                    blockIds.Add(blockId);
+                }
+
+                await blobClient.CommitAsync(blobUri, blockIds.ToArray(), CancellationToken.None);
+
+                string leaseId = await blobClient.TryAcquireLeaseAsync(blobUri, blobName, CancellationToken.None);
+                Assert.NotNull(leaseId);
+                string nullLeaseId = await blobClient.TryAcquireLeaseAsync(blobUri, "dummy", CancellationToken.None);
+                Assert.Null(nullLeaseId);
+
+                await blobClient.TryReleaseLeaseAsync(blobUri, leaseId, CancellationToken.None);
+            }
+            finally
+            {
+                var container = client.GetContainerReference(containerName);
+                await container.DeleteIfExistsAsync();
+            }
+        }
+
         private static IIntegrationDataStoreClientInitilizer<CloudBlobClient> GetClientInitializer()
         {
             IntegrationDataStoreConfiguration configuration = new IntegrationDataStoreConfiguration()

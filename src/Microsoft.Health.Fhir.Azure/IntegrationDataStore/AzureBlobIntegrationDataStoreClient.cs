@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                             await container.CreateIfNotExistsAsync(cancellationToken);
 
                             CloudBlob blob = container.GetBlobReference(fileName);
+
                             return blob.Uri;
                         });
             }
@@ -181,6 +182,37 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
                 HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
                 throw new IntegrationDataStoreException(storageEx.Message, statusCode);
+            }
+        }
+
+        public async Task<string> TryAcquireLeaseAsync(Uri resourceUri, string proposedLeaseId, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
+
+            try
+            {
+                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                return await blob.AcquireLeaseAsync(null, proposedLeaseId, cancellationToken);
+            }
+            catch (StorageException storageEx)
+            {
+                _logger.LogError(storageEx, "Failed to acquire lease on the blob {0}", resourceUri);
+                return null;
+            }
+        }
+
+        public async Task TryReleaseLeaseAsync(Uri resourceUri, string leaseId, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
+
+            try
+            {
+                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                await blob.ReleaseLeaseAsync(AccessCondition.GenerateLeaseCondition(leaseId), cancellationToken);
+            }
+            catch (Exception storageEx)
+            {
+                _logger.LogError(storageEx, "Failed to release lease on the blob {0}", resourceUri);
             }
         }
 

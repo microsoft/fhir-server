@@ -57,6 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
+            integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
             importResourceParser.Parse(Arg.Any<string>())
@@ -103,6 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
+            integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
             importResourceParser.Parse(Arg.Any<string>())
@@ -156,6 +158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
+            integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
             importResourceParser.Parse(Arg.Any<string>())
@@ -223,6 +226,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             integrationDataStoreClient.DownloadResource(Arg.Any<Uri>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(stream);
+            integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
             importResourceParser.Parse(Arg.Any<string>())
