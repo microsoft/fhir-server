@@ -498,7 +498,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="end">The end date relates to care dates</param>
         /// <param name="since">Resources updated after this period will be included in the response</param>
         /// <param name="type">Comma-delimited FHIR resource types to include in the return resources</param>
-        /// <param name="count">The number of resources returned in one page</param>
         /// <param name="ct">The continuation token</param>
         [HttpGet]
         [Route(KnownRoutes.PatientEverythingById, Name = RouteNames.PatientEverythingById)]
@@ -509,10 +508,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.End)] PartialDateTime end,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string type,
-            [FromQuery(Name = KnownQueryParameterNames.Count)] int? count,
             string ct)
         {
-            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, count, ct), HttpContext.RequestAborted);
+            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct), HttpContext.RequestAborted);
 
             return FhirResult.Create(result.Bundle);
         }

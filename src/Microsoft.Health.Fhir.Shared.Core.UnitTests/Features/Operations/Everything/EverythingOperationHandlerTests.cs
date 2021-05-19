@@ -43,7 +43,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
                 request.End,
                 request.Since,
                 request.ResourceTypes,
-                request.Count,
                 request.ContinuationToken,
                 CancellationToken.None).Returns(searchResult);
 

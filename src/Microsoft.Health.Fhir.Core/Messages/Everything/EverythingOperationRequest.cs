@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Everything
 {
     public class EverythingOperationRequest : IRequest<EverythingOperationResponse>
     {
-        public EverythingOperationRequest(string everythingOperationType, string resourceId, PartialDateTime start = null, PartialDateTime end = null, PartialDateTime since = null, string resourceTypes = null, int? count = null, string continuationToken = null)
+        public EverythingOperationRequest(string everythingOperationType, string resourceId, PartialDateTime start = null, PartialDateTime end = null, PartialDateTime since = null, string resourceTypes = null, string continuationToken = null)
         {
             EnsureArg.IsNotNullOrWhiteSpace(everythingOperationType, nameof(everythingOperationType));
             EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Everything
             End = end;
             Since = since;
             ResourceTypes = resourceTypes;
-            Count = count;
             ContinuationToken = continuationToken;
         }
 
@@ -37,8 +36,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Everything
         public PartialDateTime Since { get; }
 
         public string ResourceTypes { get; }
-
-        public int? Count { get; }
 
         public string ContinuationToken { get; }
     }

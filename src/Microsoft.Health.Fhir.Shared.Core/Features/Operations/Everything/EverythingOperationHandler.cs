@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             SearchResult searchResult = await _patientEverythingService.SearchAsync(
-                request.ResourceId, request.Start, request.End, request.Since, request.ResourceTypes, request.Count, request.ContinuationToken, cancellationToken);
+                request.ResourceId, request.Start, request.End, request.Since, request.ResourceTypes, request.ContinuationToken, cancellationToken);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 

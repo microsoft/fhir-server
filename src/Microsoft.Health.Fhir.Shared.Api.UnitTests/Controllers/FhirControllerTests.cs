@@ -55,7 +55,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 end: PartialDateTime.Parse("2020"),
                 since: PartialDateTime.Parse("2021"),
                 type: ResourceType.Observation.ToString(),
-                count: null,
                 ct: null);
 
             await _mediator.Received().Send(
@@ -66,7 +65,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                          && string.Equals(r.End.ToString(), "2020", StringComparison.Ordinal)
                          && string.Equals(r.Since.ToString(), "2021", StringComparison.Ordinal)
                          && string.Equals(r.ResourceTypes, ResourceType.Observation.ToString(), StringComparison.Ordinal)
-                         && r.Count == null
                          && r.ContinuationToken == null),
                 Arg.Any<CancellationToken>());
 
