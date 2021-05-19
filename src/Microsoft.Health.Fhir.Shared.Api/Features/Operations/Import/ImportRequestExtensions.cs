@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         public const string UrlParamterName = "url";
         public const string EtagParamterName = "etag";
         public const string StorageDetailParamterName = "storageDetail";
+        public const string SkipRunningImportTaskCheckParamterName = "skipRunningImportTaskCheck";
         public const string DefaultStorageDetailType = "azure-blob";
 
         public static Parameters ToParameters(this ImportRequest importRequest)
@@ -73,6 +74,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             }
 
             paramters.Parameter.Add(storageDetailsParameterComponent);
+
+            if (importRequest.SkipRunningImportTaskCheck)
+            {
+                paramters.Add(SkipRunningImportTaskCheckParamterName, new FhirBoolean(true));
+            }
 
             return paramters;
         }
@@ -130,6 +136,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             else
             {
                 importRequest.StorageDetail.Type = DefaultStorageDetailType;
+            }
+
+            if (parameters.TryGetBooleanValue(SkipRunningImportTaskCheckParamterName, out bool skipRunningImportTaskCheck))
+            {
+                importRequest.SkipRunningImportTaskCheck = skipRunningImportTaskCheck;
             }
 
             return importRequest;

@@ -18,7 +18,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             string inputFormat,
             Uri inputSource,
             IReadOnlyList<InputResource> input,
-            ImportRequestStorageDetail storageDetail)
+            ImportRequestStorageDetail storageDetail,
+            bool skipRunningImportTaskCheck)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
             InputSource = inputSource;
             Input = input;
             StorageDetail = storageDetail;
+            SkipRunningImportTaskCheck = skipRunningImportTaskCheck;
         }
 
         /// <summary>
@@ -53,5 +55,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Import
         /// Storage details
         /// </summary>
         public ImportRequestStorageDetail StorageDetail { get; }
+
+        /// <summary>
+        /// Skip Running Import Task Check
+        /// </summary>
+        public bool SkipRunningImportTaskCheck { get; }
     }
 }

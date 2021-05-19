@@ -30,5 +30,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         /// Determines the details of the storage.
         /// </summary>
         public ImportRequestStorageDetail StorageDetail { get; set; }
+
+        /// <summary>
+        /// Skip Running Import Task Check
+        /// </summary>
+        public bool SkipRunningImportTaskCheck { get; set; }
     }
 }

@@ -98,6 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  importRequest.InputSource,
                  importRequest.Input,
                  importRequest.StorageDetail,
+                 importRequest.SkipRunningImportTaskCheck,
                  HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted();

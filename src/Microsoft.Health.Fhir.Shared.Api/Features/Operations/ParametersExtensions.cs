@@ -31,11 +31,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             return stringValue != null;
         }
 
+        public static bool TryGetBooleanValue(this Parameters.ParameterComponent paramComponent, out bool boolValue)
+        {
+            Element booleanElement = paramComponent?.Value;
+
+            return bool.TryParse(booleanElement?.ToString(), out boolValue);
+        }
+
         public static bool TryGetUriValue(this Parameters.ParameterComponent paramComponent, out Uri uriValue)
         {
             Element uriElement = paramComponent?.Value;
 
             return Uri.TryCreate(uriElement?.ToString(), UriKind.RelativeOrAbsolute, out uriValue);
+        }
+
+        public static bool TryGetBooleanValue(this Parameters parameters, string name, out bool booleanValue)
+        {
+            Parameters.ParameterComponent param = parameters?.GetSingle(name);
+
+            if (param == null)
+            {
+                booleanValue = false;
+                return false;
+            }
+
+            return param.TryGetBooleanValue(out booleanValue);
         }
     }
 }

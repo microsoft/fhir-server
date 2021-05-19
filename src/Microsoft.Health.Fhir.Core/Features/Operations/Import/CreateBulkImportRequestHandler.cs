@@ -62,10 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            var activeImportTasks = await _taskManager.GetActiveTasksByTypeAsync(ImportOrchestratorTask.ImportOrchestratorTaskId, cancellationToken);
-            if (activeImportTasks.Count > 0)
+            if (!request.SkipRunningImportTaskCheck)
             {
-                throw new OperationFailedException(Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
+                var activeImportTasks = await _taskManager.GetActiveTasksByTypeAsync(ImportOrchestratorTask.ImportOrchestratorTaskId, cancellationToken);
+                if (activeImportTasks.Count > 0)
+                {
+                    throw new OperationFailedException(Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
+                }
             }
 
             string taskId = Guid.NewGuid().ToString("N");

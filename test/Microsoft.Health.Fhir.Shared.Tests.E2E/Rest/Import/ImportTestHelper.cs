@@ -137,6 +137,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             {
                 try
                 {
+                    request.SkipRunningImportTaskCheck = true;
                     Uri checkLocation = await testFhirClient.ImportAsync(request.ToParameters());
                     return checkLocation;
                 }
