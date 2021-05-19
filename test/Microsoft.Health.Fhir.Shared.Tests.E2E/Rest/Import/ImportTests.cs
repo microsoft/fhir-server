@@ -45,7 +45,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             if (TestUsers.BulkImportUser.UserId == "globalImporterUser")
             {
-                throw new Exception("Import user has default user id. List of environment variables: " + string.Join(',', Environment.GetEnvironmentVariables().Keys));
+                var keyCollection = Environment.GetEnvironmentVariables().Keys;
+                string[] keys = new string[keyCollection.Count];
+                keyCollection.CopyTo(keys, 0);
+                throw new Exception("Import user has default user id. List of environment variables: " + string.Join(',', keys));
             }
 
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
