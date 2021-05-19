@@ -476,6 +476,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There is already a import task running..
+        /// </summary>
+        internal static string ImportTaskIsRunning {
+            get {
+                return ResourceManager.GetString("ImportTaskIsRunning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The _include search cannot be used against the base route..
         /// </summary>
         internal static string IncludeCannotBeAgainstBase {

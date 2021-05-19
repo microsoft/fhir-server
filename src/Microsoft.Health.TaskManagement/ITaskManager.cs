@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -36,5 +37,13 @@ namespace Microsoft.Health.TaskManagement
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Task information after cancel.</returns>
         public Task<TaskInfo> CancelTaskAsync(string taskId, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Get active tasks by task type
+        /// </summary>
+        /// <param name="taskTypeId">Task type id</param>
+        /// <param name="cancellationToken">Cancellation Token</param>
+        /// <returns>List active taskInfos</returns>
+        public Task<IReadOnlyCollection<TaskInfo>> GetActiveTasksByTypeAsync(short taskTypeId, CancellationToken cancellationToken);
     }
 }

@@ -4,12 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.TaskManagement;
+using NSubstitute;
 using Xunit;
 using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
@@ -67,6 +71,90 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             Assert.Equal(0, taskInfo.RetryCount);
             Assert.Null(taskInfo.Context);
             Assert.Null(taskInfo.Result);
+        }
+
+        [Fact]
+        public async Task GivenActiveTasks_WhenGetActiveTasks_ThenActiveTasksShouldBeCreated()
+        {
+            string queueId = Guid.NewGuid().ToString();
+            string taskId1 = Guid.NewGuid().ToString();
+            string taskId2 = Guid.NewGuid().ToString();
+            short typeId = 1;
+            string inputData = "inputData";
+
+            TaskHostingConfiguration config = new TaskHostingConfiguration()
+            {
+                Enabled = true,
+                QueueId = queueId,
+                TaskHeartbeatTimeoutThresholdInSeconds = 60,
+            };
+
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+
+            TaskInfo taskInfo1 = new TaskInfo()
+            {
+                TaskId = taskId1,
+                QueueId = queueId,
+                TaskTypeId = typeId,
+                InputData = inputData,
+            };
+
+            TaskInfo taskInfo2 = new TaskInfo()
+            {
+                TaskId = taskId2,
+                QueueId = queueId,
+                TaskTypeId = typeId,
+                InputData = inputData,
+            };
+
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo1, CancellationToken.None);
+            taskInfo2 = await sqlServerTaskManager.CreateTaskAsync(taskInfo2, CancellationToken.None);
+
+            taskInfo1 = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
+            await sqlServerTaskConsumer.CompleteAsync(taskInfo1.TaskId, new TaskResultData(TaskResult.Success, "Result"), taskInfo1.RunId, CancellationToken.None);
+
+            var activeTasks = await sqlServerTaskManager.GetActiveTasksByTypeAsync(1, CancellationToken.None);
+            Assert.Single(activeTasks);
+            Assert.Equal(taskInfo2.TaskId, activeTasks.First().TaskId);
+        }
+
+        [Fact]
+        public async Task GivenNoActiveTasks_WhenGetActiveTasks_ThenEmptyListShouldBeCreated()
+        {
+            string queueId = Guid.NewGuid().ToString();
+            string taskId1 = Guid.NewGuid().ToString();
+            short typeId = 1;
+            string inputData = "inputData";
+
+            TaskHostingConfiguration config = new TaskHostingConfiguration()
+            {
+                Enabled = true,
+                QueueId = queueId,
+                TaskHeartbeatTimeoutThresholdInSeconds = 60,
+            };
+
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+
+            TaskInfo taskInfo1 = new TaskInfo()
+            {
+                TaskId = taskId1,
+                QueueId = queueId,
+                TaskTypeId = typeId,
+                InputData = inputData,
+            };
+
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo1, CancellationToken.None);
+            taskInfo1 = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
+            await sqlServerTaskConsumer.CompleteAsync(taskInfo1.TaskId, new TaskResultData(TaskResult.Success, "Result"), taskInfo1.RunId, CancellationToken.None);
+
+            var activeTasks = await sqlServerTaskManager.GetActiveTasksByTypeAsync(1, CancellationToken.None);
+            Assert.Empty(activeTasks);
         }
 
         [Fact]

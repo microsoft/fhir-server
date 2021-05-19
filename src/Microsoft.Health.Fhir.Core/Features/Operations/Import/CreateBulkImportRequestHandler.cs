@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -59,6 +60,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             if (await _authorizationService.CheckAccess(DataActions.Import, cancellationToken) != DataActions.Import)
             {
                 throw new UnauthorizedFhirActionException();
+            }
+
+            var activeImportTasks = await _taskManager.GetActiveTasksByTypeAsync(ImportOrchestratorTask.ImportOrchestratorTaskId, cancellationToken);
+            if (activeImportTasks.Count > 0)
+            {
+                throw new OperationFailedException(Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
             }
 
             string taskId = Guid.NewGuid().ToString("N");
