@@ -240,7 +240,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             searchParam.Name = searchParam.Name.Replace("foo", randomName);
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
-            searchParam.Base = new List<ResourceType?>() { ResourceType.Appointment, ResourceType.Patient };
 
             // POST a new appointment
             var appointment = Samples.GetJsonSample<Appointment>("Appointment");

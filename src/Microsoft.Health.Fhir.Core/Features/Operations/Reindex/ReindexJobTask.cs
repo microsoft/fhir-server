@@ -192,7 +192,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 foreach (var searchParam in possibleNotYetIndexedParams)
                 {
-                    var matchingResourceTypes = searchParam.BaseResourceTypes.Intersect(_reindexJobRecord.TargetResourceTypes);
+                    var searchParamResourceTypes = GetDerivedResourceTypes(searchParam.BaseResourceTypes);
+                    var matchingResourceTypes = searchParamResourceTypes.Intersect(_reindexJobRecord.TargetResourceTypes);
                     if (matchingResourceTypes.Any())
                     {
                         _notYetIndexedParams.Add(searchParam);
@@ -210,7 +211,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // included in our query
                 foreach (var param in _notYetIndexedParams)
                 {
-                    resourceList.UnionWith(param.BaseResourceTypes);
+                    var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
+                    resourceList.UnionWith(searchParamResourceTypes);
                 }
             }
 
@@ -224,37 +226,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.CanceledTime = Clock.UtcNow;
                 await MoveToFinalStatusAsync(OperationStatus.Canceled);
                 return false;
-            }
-
-            // From the current list of resource types
-            // determine if they are base resource types and we should include
-            // any inherited types, use a temp copy so we can iterate over it
-            var tempResourceListCopy = new List<string>(resourceList);
-            foreach (var baseResourceType in tempResourceListCopy)
-            {
-                if (baseResourceType == KnownResourceTypes.Resource)
-                {
-                    resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
-
-                    // We added all possible resource types, so no need to continue
-                    break;
-                }
-
-                if (baseResourceType == KnownResourceTypes.DomainResource)
-                {
-                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
-
-                    // Remove types that inherit from Resource directly
-                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
-                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
-                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
-
-                    resourceList.UnionWith(domainResourceChildResourceTypes);
-                }
-                else
-                {
-                    resourceList.UnionWith(new[] { baseResourceType });
-                }
             }
 
             // Save the list of resource types in the reindexjob document
@@ -696,6 +667,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await MoveToFinalStatusAsync(OperationStatus.Failed);
             }
+        }
+
+        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        {
+            var completeResourceList = new HashSet<string>(resourceTypes);
+
+            foreach (var possibleBaseType in resourceTypes)
+            {
+                if (possibleBaseType == KnownResourceTypes.Resource)
+                {
+                    completeResourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+
+                    // We added all possible resource types, so no need to continue
+                    break;
+                }
+
+                if (possibleBaseType == KnownResourceTypes.DomainResource)
+                {
+                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+
+                    // Remove types that inherit from Resource directly
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
+
+                    completeResourceList.UnionWith(domainResourceChildResourceTypes);
+                }
+            }
+
+            return completeResourceList;
         }
 
         public void Dispose()
