@@ -1,0 +1,219 @@
+# This test flow confirms that reindexing operations can handle search parameters
+# that target the network extension of PractitionerRole resources.
+# It also checks that the appropriate error message is returned when the
+# search parameter's expression is not specific enough.
+#
+# This test assumes the following local environment setup:
+# 1. appsettings.json has Security.Enabled = false
+# 2. The version is R4 or R5
+
+@baseUrl = https://localhost:44348
+@contentType = application/json
+
+###
+# Create a PractitionerRole resource with a network extension.
+POST {{baseUrl}}/PractitionerRole HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "resourceType" : "PractitionerRole",
+  "id" : "CounselorRole1",
+  "meta" : {
+    "lastUpdated" : "2020-07-07T13:26:22.0314215+00:00",
+    "profile" : [
+      "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-PractitionerRole"
+    ]
+  },
+  "language" : "en-US",
+  "text" : {
+    "status" : "extensions",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en-US\" lang=\"en-US\"><p><b>Generated Narrative</b></p><p><b>Network Reference</b>: <a href=\"Organization-AcmeofCTStdNet.html\">Generated Summary: language: en-US; active; <span title=\"Codes: {http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/OrgTypeCS ntwk}\">Network</span>; name: ACME CT Preferred Provider Network</a></p><p><b>active</b>: true</p><p><b>practitioner</b>: <a href=\"Practitioner-Counselor.html\">Generated Summary: language: en-US; id: NPI3238; active; Susie Smith, LPC; <span title=\"Codes: {urn:ietf:bcp:47 ru}\">Russian</span></a></p><p><b>code</b>: <span title=\"Codes: {http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/ProviderRoleCS co}\">Counselor</span></p><p><b>specialty</b>: <span title=\"Codes: {http://nucc.org/provider-taxonomy 101YP2500X}\">Professional Counselor</span></p><p><b>healthcareService</b>: <a href=\"HealthcareService-VirtualCounselService.html\">Generated Summary: language: en-US; active; <span title=\"Codes: {http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/HealthcareServiceCategoryCS prov}\">Medical Provider</span>; <span title=\"Codes: {http://nucc.org/provider-taxonomy 101YP2500X}\">Professional</span></a></p></div>"
+  },
+  "extension" : [
+    {
+      "url" : "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference",
+      "valueReference" : {
+        "reference" : "Organization/AcmeofCTStdNet"
+      }
+    }
+  ],
+  "active" : true,
+  "practitioner" : {
+    "reference" : "Practitioner/Counselor"
+  },
+  "code" : [
+    {
+      "coding" : [
+        {
+          "system" : "http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/ProviderRoleCS",
+          "code" : "co",
+          "display" : "Counselor"
+        }
+      ]
+    }
+  ],
+  "specialty" : [
+    {
+      "coding" : [
+        {
+          "system" : "http://nucc.org/provider-taxonomy",
+          "code" : "101YP2500X",
+          "display" : "Professional Counselor"
+        }
+      ]
+    }
+  ],
+  "healthcareService" : [
+    {
+      "reference" : "HealthcareService/VirtualCounselService"
+    }
+  ]
+}
+
+###
+# Create a search parameter resource that targets the PractitionerRole network extension.
+POST {{baseUrl}}/SearchParameter HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "resourceType": "SearchParameter",
+  "id": "practitionerrole-network",
+  "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-network",
+  "version": "1.0.0",
+  "name": "Plannet_sp_practitionerrole_network",
+  "status": "active",
+  "date": "2018-05-23T00:00:00+00:00",
+  "publisher": "HL7 Financial Management Working Group",
+  "contact": [
+    {
+      "name": "HL7 Financial Management Working Group",
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/fm/index.cfm"
+        },
+        {
+          "system": "email",
+          "value": "fm@lists.HL7.org"
+        }
+      ]
+    }
+  ],
+  "description": "Select roles where the practitioner is a member of the specified health insurance provider network",
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "code": "network",
+  "base": [
+    "PractitionerRole"
+  ],
+  "type": "reference",
+  "expression": "PractitionerRole.extension.where(url='http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference').value.as(Reference)",
+  "target": [
+    "Organization"
+  ],
+  "multipleOr": true,
+  "multipleAnd": true,
+  "chain": [
+    "name",
+    "address",
+    "partof",
+    "type"
+  ]
+}
+
+###
+# Initiate a reindexing operation.
+# Copy the reindexing job ID into the variable below.
+POST {{baseUrl}}/$reindex HTTP/1.1
+content-type: application/json
+
+{  "resourceType": "Parameters", "parameter": [] }
+
+@reindexId = 438002bc-1995-44d7-aaa5-1f291b7d4a78
+
+
+###
+
+@reindexId = 028575cb-b7bd-4a70-9dea-0787143109da
+
+# Get the status of the reindex job.
+# This should complete quickly because we are only reindexing one resource.
+GET {{baseUrl}}/_operations/reindex/{{reindexId}} HTTP/1.1
+
+###
+# Get the practitioner role with matching network reference info.
+# This should return one value.
+GET {{baseUrl}}/PractitionerRole?network=Organization/AcmeofCTStdNet&_total=accurate HTTP/1.1
+
+###
+# Attempt to get a practitioner role with non-matching network reference info.
+# This shouldn't return any values.
+GET {{baseUrl}}/PractitionerRole?network=Organization/AcmeofDoesNotExist&_total=accurate HTTP/1.1
+
+###
+# Attempt to create a search parameter resource with an expression that is not specific enough.
+# This should fail with the message that the search parameter is unable to be indexed.
+POST {{baseUrl}}/SearchParameter HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "resourceType": "SearchParameter",
+  "id": "practitionerrole-network",
+  "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-network-incomplete-expression",
+  "version": "1.0.0",
+  "name": "Plannet_sp_practitionerrole_network_incomplete_expression",
+  "status": "active",
+  "date": "2018-05-23T00:00:00+00:00",
+  "publisher": "HL7 Financial Management Working Group",
+  "contact": [
+    {
+      "name": "HL7 Financial Management Working Group",
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/fm/index.cfm"
+        },
+        {
+          "system": "email",
+          "value": "fm@lists.HL7.org"
+        }
+      ]
+    }
+  ],
+  "description": "Select roles where the practitioner is a member of the specified health insurance provider network",
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "code": "network-incomplete-expression",
+  "base": [
+    "PractitionerRole"
+  ],
+  "type": "reference",
+  "expression": "PractitionerRole.extension.where(url='http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference')",
+  "target": [
+    "Organization"
+  ],
+  "multipleOr": true,
+  "multipleAnd": true,
+  "chain": [
+    "name",
+    "address",
+    "partof",
+    "type"
+  ]
+}
