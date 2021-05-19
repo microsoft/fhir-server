@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
@@ -129,9 +131,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             await ImportCheckAsync(testFhirClient, request);
         }
 
+        public static async Task<Uri> CreateImportTaskAsync(TestFhirClient testFhirClient, ImportRequest request)
+        {
+            while (true)
+            {
+                try
+                {
+                    Uri checkLocation = await testFhirClient.ImportAsync(request.ToParameters());
+                    return checkLocation;
+                }
+                catch (FhirException fhirException)
+                {
+                    if (!HttpStatusCode.Conflict.Equals(fhirException.StatusCode))
+                    {
+                        throw;
+                    }
+
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                }
+            }
+        }
+
         private static async Task ImportCheckAsync(TestFhirClient testFhirClient, ImportRequest request)
         {
-            Uri checkLocation = await testFhirClient.ImportAsync(request.ToParameters());
+            Uri checkLocation = await CreateImportTaskAsync(testFhirClient, request);
 
             while ((await testFhirClient.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {

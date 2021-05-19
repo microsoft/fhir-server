@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.Equal(HttpStatusCode.Conflict, fhirException.StatusCode);
 
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             HttpResponseMessage response;
             while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
@@ -267,7 +267,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             HttpResponseMessage response;
             while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
@@ -339,7 +339,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             await _client.CancelImport(checkLocation);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.CheckImportAsync(checkLocation));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
@@ -363,7 +363,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(
                 async () =>
@@ -398,7 +398,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
 
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(
                 async () =>
@@ -414,7 +414,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private async Task<Uri> ImportCheckAsync(ImportRequest request, TestFhirClient client = null)
         {
             client = client ?? _client;
-            Uri checkLocation = await client.ImportAsync(request.ToParameters());
+            Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
 
             HttpResponseMessage response;
             while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)

@@ -116,7 +116,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             taskInfo1 = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
             await sqlServerTaskConsumer.CompleteAsync(taskInfo1.TaskId, new TaskResultData(TaskResult.Success, "Result"), taskInfo1.RunId, CancellationToken.None);
 
-            var activeTasks = await sqlServerTaskManager.GetActiveTasksByTypeAsync(1, CancellationToken.None);
+            var activeTasks = (await sqlServerTaskManager.GetActiveTasksByTypeAsync(1, CancellationToken.None)).ToArray();
+            activeTasks = activeTasks.Where(t => t.QueueId.Equals(queueId)).ToArray();
             Assert.Single(activeTasks);
             Assert.Equal(taskInfo2.TaskId, activeTasks.First().TaskId);
         }
@@ -153,7 +154,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             taskInfo1 = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
             await sqlServerTaskConsumer.CompleteAsync(taskInfo1.TaskId, new TaskResultData(TaskResult.Success, "Result"), taskInfo1.RunId, CancellationToken.None);
 
-            var activeTasks = await sqlServerTaskManager.GetActiveTasksByTypeAsync(1, CancellationToken.None);
+            var activeTasks = (await sqlServerTaskManager.GetActiveTasksByTypeAsync(1, CancellationToken.None)).ToArray();
+            activeTasks = activeTasks.Where(t => t.QueueId.Equals(queueId)).ToArray();
             Assert.Empty(activeTasks);
         }
 
