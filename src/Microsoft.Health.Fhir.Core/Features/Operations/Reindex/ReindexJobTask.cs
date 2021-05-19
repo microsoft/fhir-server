@@ -122,6 +122,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _throttleController.Initialize(_reindexJobRecord, provisionedCapacity);
                     }
                 }
+                else
+                {
+                    _throttleController.Initialize(_reindexJobRecord, null);
+                }
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If no queries have been added to the progress then this is a new job
