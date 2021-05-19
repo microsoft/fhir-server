@@ -105,11 +105,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Any<SearchParameterInfo>())
-                .Returns((false, false));
+                .Returns((false, false, Resources.SearchParameterCannotBeIndexed));
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
-                .Returns((true, false));
+                .Returns((true, false, null));
         }
 
         [Fact]

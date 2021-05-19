@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(supported.Supported);
             Assert.False(supported.IsPartiallySupported);
+            Assert.Null(supported.ErrorMessage);
         }
 
         [Fact]
@@ -60,6 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.False(supported.Supported);
             Assert.False(supported.IsPartiallySupported);
+            Assert.Equal(Core.Resources.SearchParameterCannotBeIndexed, supported.ErrorMessage);
         }
 
         [Fact]
@@ -79,6 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.True(supported.Supported);
             Assert.True(supported.IsPartiallySupported);
+            Assert.Null(supported.ErrorMessage);
         }
 
         [Fact]
@@ -96,6 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.False(supported.Supported);
             Assert.False(supported.IsPartiallySupported);
+            Assert.Equal(Core.Resources.SearchParameterCannotBeIndexed, supported.ErrorMessage);
         }
 
         [Fact]

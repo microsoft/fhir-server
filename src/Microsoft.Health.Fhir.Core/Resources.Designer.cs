@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -926,6 +926,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Unable to index search parameter. Check the search parameter expression and base type(s)..
+        /// </summary>
+        internal static string SearchParameterCannotBeIndexed {
+            get {
+                return ResourceManager.GetString("SearchParameterCannotBeIndexed", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to SearchParameter[{0}].resource.base is not defined..
         /// </summary>
         internal static string SearchParameterDefinitionBaseNotDefined {
@@ -1039,6 +1048,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterDefinitionNotFound {
             get {
                 return ResourceManager.GetString("SearchParameterDefinitionNotFound", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameter expression cannot be empty..
+        /// </summary>
+        internal static string SearchParameterExpressionEmpty {
+            get {
+                return ResourceManager.GetString("SearchParameterExpressionEmpty", resourceCulture);
             }
         }
 

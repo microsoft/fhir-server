@@ -557,4 +557,10 @@
   <data name="SearchParameterDefinitionConflictingCodeValue" xml:space="preserve">
     <value>A search parameter with the same code value '{0}' already exists for base type '{1}'.</value>
   </data>
+  <data name="SearchParameterExpressionEmpty" xml:space="preserve">
+    <value>Search parameter expression cannot be empty.</value>
+  </data>
+  <data name="SearchParameterCannotBeIndexed" xml:space="preserve">
+    <value>Unable to index search parameter. Check the search parameter expression and base type(s).</value>
+  </data>
 </root>

@@ -29,13 +29,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchValueConverterManager = searchValueConverterManager;
         }
 
-        public (bool Supported, bool IsPartiallySupported) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
+        public (bool Supported, bool IsPartiallySupported, string ErrorMessage) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
         {
             EnsureArg.IsNotNull(parameterInfo, nameof(parameterInfo));
 
             if (string.IsNullOrWhiteSpace(parameterInfo.Expression))
             {
-                return (false, false);
+                return (false, false, Core.Resources.SearchParameterExpressionEmpty);
             }
 
             Expression parsed = _compiler.Parse(parameterInfo.Expression);
@@ -72,13 +72,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!converters.Any())
                 {
-                    return (false, false);
+                    return (false, false, Core.Resources.SearchParameterCannotBeIndexed);
                 }
 
                 if (!converters.All(x => x.hasConverter))
                 {
                     bool partialSupport = converters.Any(x => x.hasConverter);
-                    return (partialSupport, partialSupport);
+                    return (partialSupport, partialSupport, partialSupport ? null : Core.Resources.SearchParameterCannotBeIndexed);
                 }
             }
 
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 return classMapping.IsCodeOfT ? _codeOfTName : classMapping.Name;
             }
 
-            return (true, false);
+            return (true, false, null);
         }
     }
 }

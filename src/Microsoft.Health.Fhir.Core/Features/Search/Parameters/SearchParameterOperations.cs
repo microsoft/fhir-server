@@ -65,15 +65,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // verify the parameter is supported before continuing
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
-                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                (bool supported, bool _, string errorMessage) = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
-                if (!supportedResult.Supported)
+                if (!supported)
                 {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                    throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
                 // check data store specific support for SearchParameter
-                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out errorMessage))
                 {
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }
@@ -148,15 +148,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
-                (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
+                (bool supported, bool _, string errorMessage) = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
 
-                if (!supportedResult.Supported)
+                if (!supported)
                 {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                    throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
                 // check data store specific support for SearchParameter
-                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out var errorMessage))
+                if (!_dataStoreSearchParameterValidator.ValidateSearchParameter(searchParameterInfo, out errorMessage))
                 {
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }

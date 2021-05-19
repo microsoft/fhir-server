@@ -106,11 +106,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Any<SearchParameterInfo>())
-                .Returns((false, false));
+                .Returns((false, false, Core.Resources.SearchParameterCannotBeIndexed));
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
-                .Returns((true, false));
+                .Returns((true, false, null));
 
             var searchParameterDataStoreValidator = Substitute.For<IDataStoreSearchParameterValidator>();
             searchParameterDataStoreValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true, null);
@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
-                .Returns((true, false));
+                .Returns((true, false, null));
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement());
 
@@ -350,7 +350,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(p => p.Name == "test"))
-                .Returns((true, false));
+                .Returns((true, false, null));
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement());
 
@@ -453,7 +453,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is<SearchParameterInfo>(s => s.Name.StartsWith("preexisting")))
-                .Returns((true, false));
+                .Returns((true, false, null));
 
             await searchParameterResourceDataStore.EnsureInitializedAsync(CancellationToken.None);
 
