@@ -314,11 +314,11 @@
     <value>Convert data operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid.</value>
   </data>
   <data name="ImportRequestValueNotValid" xml:space="preserve">
-    <value>Value of the following configuration {0} is invalid.</value>
+    <value>Value of the following parameter {0} is invalid.</value>
     <comment>{0} = the configuration name which was invalid</comment>
   </data>
   <data name="ImportRequestNotValid" xml:space="preserve">
-    <value>Import request configuration must be specified as a Paramters.  The body provided in this request is not valid.</value>
+    <value>Import request must be specified as a Paramters.  The body provided in this request is not valid. </value>
   </data>
   <data name="InvalidTemplateCollectionReference" xml:space="preserve">
     <value>The template collection reference '{0}' is invalid.</value>

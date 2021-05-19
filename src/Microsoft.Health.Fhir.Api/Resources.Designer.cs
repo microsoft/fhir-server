@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Import request configuration must be specified as a Paramters.  The body provided in this request is not valid..
+        ///   Looks up a localized string similar to Import request must be specified as a Paramters.  The body provided in this request is not valid. .
         /// </summary>
         public static string ImportRequestNotValid {
             get {
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Value of the following configuration {0} is invalid..
+        ///   Looks up a localized string similar to Value of the following parameter {0} is invalid..
         /// </summary>
         public static string ImportRequestValueNotValid {
             get {
