@@ -6,7 +6,6 @@
 using System;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Net.Http.Headers;
 
@@ -31,13 +30,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (!context.HttpContext.Request.Headers.TryGetValue(HeaderNames.Accept, out var acceptHeaderValue) ||
-                acceptHeaderValue.Count != 1 ||
-                !string.Equals(acceptHeaderValue[0], KnownContentTypes.JsonContentType, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.Accept));
-            }
-
             if (!context.HttpContext.Request.Headers.TryGetValue(PreferHeaderName, out var preferHeaderValue) ||
                 preferHeaderValue.Count != 1 ||
                 !string.Equals(preferHeaderValue[0], PreferHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
@@ -51,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     preferHeaderValue.Count != 1 ||
                     !contentTypeHeaderValue[0].Contains(ContentTypeHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, ContentTypeHeaderExpectedValue));
+                    throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
                 }
             }
         }

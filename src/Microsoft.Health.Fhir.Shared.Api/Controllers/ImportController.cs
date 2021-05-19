@@ -107,6 +107,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpDelete]
         [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.CancelImport)]
+        [ServiceFilter(typeof(ValidateImportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Import)]
         public async Task<IActionResult> CancelImport(string idParameter)
         {

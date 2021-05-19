@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -19,7 +18,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 {
     public class ValidateBulkImportRequestFilterAttributeTests
     {
-        private const string CorrectAcceptHeaderValue = ContentType.JSON_CONTENT_HEADER;
         private const string CorrectPreferHeaderValue = "respond-async";
         private const string CorrectContentTypeHeaderValue = "application/fhir+json";
         private const string PreferHeaderName = "Prefer";
@@ -32,67 +30,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Theory]
-        [InlineData("application/fhir+xml")]
-        [InlineData("application/xml")]
-        [InlineData("text/xml")]
-        [InlineData("application/json")]
-        [InlineData("*/*")]
-        public void GivenARequestWithInvalidAcceptHeader_GettingABulkImportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string acceptHeader)
-        {
-            var context = CreateContext();
-
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, acceptHeader);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        [Theory]
-        [InlineData("application/fhir+xml")]
-        [InlineData("application/xml")]
-        [InlineData("text/xml")]
-        [InlineData("application/json")]
-        [InlineData("*/*")]
-        public void GivenARequestWithInvalidAcceptHeader_CreatingABulkImportRequest_ThenARequestNotValidExceptionShouldBeThrown(string acceptHeader)
-        {
-            var context = CreateContext();
-            context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, acceptHeader);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        [Fact]
-        public void GivenARequestWithNoAcceptHeader_WhenGettingABulkImportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
-        {
-            var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        [Fact]
-        public void GivenARequestWithNoAcceptHeader_WhenCreatingABulkImportRequest_ThenARequestNotValidExceptionShouldBeThrown()
-        {
-            var context = CreateContext();
-            context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
-            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
-        }
-
-        [Theory]
         [InlineData("respond-async, wait = 10")]
         [InlineData("return-content")]
         [InlineData("*")]
         public void GiveARequestWithInvalidPreferHeader_WhenGettingABulkImportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string preferHeader)
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Method = "GET";
             context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
+            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -105,7 +51,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
+            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
+        }
+
+        [Theory]
+        [InlineData("respond-async, wait = 10")]
+        [InlineData("return-content")]
+        [InlineData("*")]
+        public void GiveARequestWithInvalidPreferHeader_WhenCancelABulkImportRequest_ThenARequestNotValidExceptionShouldBeThrown(string preferHeader)
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Method = "DELETE";
             context.HttpContext.Request.Headers.Add(PreferHeaderName, preferHeader);
             context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
 
@@ -116,7 +75,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenARequestWithNoPreferHeader_WhenGettingABulkImportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Method = "GET";
+            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
@@ -126,7 +86,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
+
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
+        }
+
+        [Fact]
+        public void GivenARequestWithNoPreferHeader_WhenCancelABulkImportRequest_ThenARequestNotValidExceptionShouldBeThrown()
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Method = "DELETE";
             context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
@@ -144,7 +113,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
             context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, contentTypeHeader);
 
@@ -156,17 +124,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [Fact]
-        public void GivenARequestWithCorrectHeader_WhenGettingAnBulkImportOperationRequest_ThenTheResultIsSuccessful()
+        public void GivenARequestWithNoContentTypeHeader_WhenGetABulkImportRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Method = "GET";
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            _filter.OnActionExecuting(context);
+        }
+
+        [Fact]
+        public void GivenARequestWithNoContentTypeHeader_WhenCancelABulkImportRequest_ThenTheResultIsSuccessful()
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Method = "DELETE";
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
             _filter.OnActionExecuting(context);
@@ -177,7 +154,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var context = CreateContext();
             context.HttpContext.Request.Method = "POST";
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
             context.HttpContext.Request.Headers.Add(HeaderNames.ContentType, CorrectContentTypeHeaderValue);
 
