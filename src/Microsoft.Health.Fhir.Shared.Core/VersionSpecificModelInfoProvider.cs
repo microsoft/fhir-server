@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core
 
             if (Version == FhirSpecification.R5)
             {
-                supportedResources = supportedResources.Where(x => x != "CanonicalResource" && x != "MetadataResource").ToList();
+                supportedResources = supportedResources.Where(x => x != "CanonicalResource" && x != "MetadataResource" && x != "Citation").ToList();
             }
 
             return supportedResources;

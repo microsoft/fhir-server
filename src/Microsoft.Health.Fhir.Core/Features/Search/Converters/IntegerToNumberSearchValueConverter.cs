@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public class IntegerToNumberSearchValueConverter : FhirTypedElementToSearchValueConverter<NumberSearchValue>
     {
         public IntegerToNumberSearchValueConverter()
-            : base("integer", "positiveInt", "unsignedInt")
+            : base("integer", "positiveInt", "unsignedInt", "System.Integer")
         {
         }
 

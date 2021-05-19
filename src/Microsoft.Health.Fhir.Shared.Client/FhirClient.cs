@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Client
         public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
+            return CreateAsync(resource.TypeName, resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
         }
 
         public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
@@ -156,13 +156,13 @@ namespace Microsoft.Health.Fhir.Client
         public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
         }
 
         public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
         }
 
         public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Client
         public Task<FhirResponse> DeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return DeleteAsync($"{resource.ResourceType}/{resource.Id}", cancellationToken);
+            return DeleteAsync($"{resource.TypeName}/{resource.Id}", cancellationToken);
         }
 
         public async Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default)
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Client
         public Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true", cancellationToken);
+            return DeleteAsync($"{resource.TypeName}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
         public async Task<FhirResponse> PatchAsync(string uri, string content, CancellationToken cancellationToken = default)

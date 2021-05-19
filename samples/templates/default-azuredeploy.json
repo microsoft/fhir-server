@@ -296,7 +296,8 @@
                 "clientAffinityEnabled": false,
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
                 "siteConfig": {
-                   "AlwaysOn": true
+                    "AlwaysOn": true,
+                    "healthCheckPath": "/health/check"
                }
             },
             "dependsOn": [

@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(":contains", "123", false)]
         public async Task GivenAStringSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string valueToSearch, bool shouldMatch)
         {
-            string query = string.Format("address-city{0}={1}&_tag={2}", modifier, valueToSearch, Fixture.FixtureTag);
+            string query = $"address-city{modifier}={valueToSearch}&_tag={Fixture.FixtureTag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(":contains", "NotInString", false)]
         public async Task GivenAStringSearchParamAndAResourceWithALongSearchParamValue_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string valueToSearch, bool shouldMatch)
         {
-            string query = string.Format("address-city{0}={1}&_tag={2}", modifier, valueToSearch, Fixture.FixtureTag);
+            string query = $"address-city{modifier}={valueToSearch}&_tag={Fixture.FixtureTag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 

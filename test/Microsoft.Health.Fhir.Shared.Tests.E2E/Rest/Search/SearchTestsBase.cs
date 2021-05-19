@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using static Hl7.Fhir.Model.OperationOutcome;
@@ -139,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected OperationOutcome GetAndValidateOperationOutcome(Bundle bundle)
         {
-            var outcomeEnity = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.OperationOutcome).FirstOrDefault();
+            var outcomeEnity = bundle.Entry.FirstOrDefault(x => x.Resource.TypeName == KnownResourceTypes.OperationOutcome);
             Assert.NotNull(outcomeEnity);
             var outcome = outcomeEnity.Resource as OperationOutcome;
             Assert.NotNull(outcome);

@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             }
 
             _logger.LogInformation("Successfully retrieved ACR access token.");
-            return string.Format("Bearer {0}", accessToken);
+            return $"Bearer {accessToken}";
         }
 
         private async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
