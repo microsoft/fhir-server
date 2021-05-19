@@ -43,6 +43,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Fact]
         public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
         {
+            if (TestUsers.BulkImportUser.UserId == "globalImporterUser")
+            {
+                throw new Exception("Import user has default user id. List of environment variables: " + string.Join(',', Environment.GetEnvironmentVariables().Keys));
+            }
+
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);

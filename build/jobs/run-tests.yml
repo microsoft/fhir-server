@@ -176,6 +176,7 @@ jobs:
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
+            Write-Host "Adding variable $environmentVariableName"
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
             # Replace with -AsPlainText flag when v5.3 of the Az Module is supported
