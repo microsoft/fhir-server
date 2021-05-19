@@ -20,6 +20,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTaskTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalDelete.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\BooleanToBooleanSearchValueConverterTests.cs" />

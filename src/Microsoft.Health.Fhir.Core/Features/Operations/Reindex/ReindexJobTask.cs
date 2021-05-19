@@ -314,6 +314,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     CancellationTokenSource queryTokensSource = new CancellationTokenSource();
                     queryCancellationTokens.TryAdd(query, queryTokensSource);
 
+                    // We don't await ProcessQuery, so query status can or can not be changed inside immediately
+                    // In some cases we can go th6rough whole loop and pick same query from query list.
+                    // To prevent that we marking query as running here and not inside ProcessQuery code.
+                    query.Status = OperationStatus.Running;
+                    query.LastModified = DateTimeOffset.UtcNow;
 #pragma warning disable CS4014 // Suppressed as we want to continue execution and begin processing the next query while this continues to run
                     queryTasks.Add(ProcessQueryAsync(query, queryTokensSource.Token));
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -382,8 +387,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         var wrapper = await store.Value.GetReindexJobByIdAsync(_reindexJobRecord.Id, _cancellationToken);
                         _weakETag = wrapper.ETag;
-                        _reindexJobRecord = wrapper.JobRecord;
+                        _reindexJobRecord.Status = wrapper.JobRecord.Status;
                     }
+                }
+                catch (Exception)
+                {
+                    // if something went wrong with fetching job status, we shouldn't fail process loop.
                 }
                 finally
                 {
@@ -417,14 +426,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 await _jobSemaphore.WaitAsync(cancellationToken);
                 try
                 {
-                    query.Status = OperationStatus.Running;
-                    query.LastModified = DateTimeOffset.UtcNow;
-
                     // Query first batch of resources
                     results = await ExecuteReindexQueryAsync(query, countOnly: false, cancellationToken);
 
-                    // if continuation token then update next query
-                    if (!string.IsNullOrEmpty(results?.ContinuationToken))
+                    // If continuation token then update next query but only if parent query haven't been in pipeline.
+                    // For cases like retry or stale query we don't want to start another chain.
+                    if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.HasOffspring)
                     {
                         var encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(results.ContinuationToken));
                         var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
@@ -433,6 +440,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             Status = OperationStatus.Queued,
                         };
                         _reindexJobRecord.QueryList.TryAdd(nextQuery, 1);
+                        query.HasOffspring = true;
                     }
 
                     await UpdateJobAsync();
