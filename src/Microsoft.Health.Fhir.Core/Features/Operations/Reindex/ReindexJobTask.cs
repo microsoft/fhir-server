@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
                     Resources.NoSearchParametersNeededToBeIndexed));
-                _reindexJobRecord.CanceledTime = DateTimeOffset.UtcNow;
+                _reindexJobRecord.CanceledTime = Clock.UtcNow;
                 await MoveToFinalStatusAsync(OperationStatus.Canceled);
                 return false;
             }
@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // In some cases we can go th6rough whole loop and pick same query from query list.
                     // To prevent that we marking query as running here and not inside ProcessQuery code.
                     query.Status = OperationStatus.Running;
-                    query.LastModified = DateTimeOffset.UtcNow;
+                    query.LastModified = Clock.UtcNow;
 #pragma warning disable CS4014 // Suppressed as we want to continue execution and begin processing the next query while this continues to run
                     queryTasks.Add(ProcessQueryAsync(query, queryTokensSource.Token));
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed

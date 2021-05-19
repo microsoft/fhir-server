@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.ResourceType)]
         public string ResourceType { get; private set; }
 
+        [JsonProperty(JobRecordProperties.HasOffstring)]
         public bool HasOffspring { get; set; }
     }
 }
