@@ -29,6 +29,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
     public class ImportTests : IClassFixture<ImportTestFixture<StartupForImportTestProvider>>
     {
+        private const string ForbiddenMessage = "Forbidden: Authorization failed.";
+
         private readonly TestFhirClient _client;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
 
@@ -36,6 +38,58 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             _client = fixture.TestFhirClient;
             _fixture = fixture;
+        }
+
+        [Fact]
+        public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            await ImportCheckAsync(request, tempClient);
+        }
+
+        [Fact]
+        public async Task GivenAUserWithoutImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
+        {
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Type = "Patient",
+                    },
+                },
+            };
+
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ImportAsync(request.ToParameters(), CancellationToken.None));
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
         [Fact]
@@ -324,12 +378,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 });
         }
 
-        private async Task<Uri> ImportCheckAsync(ImportRequest request)
+        private async Task<Uri> ImportCheckAsync(ImportRequest request, TestFhirClient client = null)
         {
-            Uri checkLocation = await _client.ImportAsync(request.ToParameters());
+            client = client ?? _client;
+            Uri checkLocation = await client.ImportAsync(request.ToParameters());
 
             HttpResponseMessage response;
-            while ((response = await _client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
+            while ((response = await client.CheckImportAsync(checkLocation, CancellationToken.None)).StatusCode == System.Net.HttpStatusCode.Accepted)
             {
                 await Task.Delay(TimeSpan.FromSeconds(5));
             }
