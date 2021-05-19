@@ -260,3 +260,27 @@ AS
 
     COMMIT TRANSACTION
 GO
+
+/*************************************************************
+    Stored procedures for get active task payload by type
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     GetActiveTaskByType
+--
+-- DESCRIPTION
+--     Get active task by type
+--
+-- PARAMETERS
+--     @typeId
+--         * The ID of the task task
+--
+CREATE OR ALTER PROCEDURE [dbo].[GetActiveTaskByType]
+    @typeId smallint
+AS
+    SET NOCOUNT ON
+
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+	FROM [dbo].[TaskInfo]
+	where TaskTypeId = @typeId and Status <> 3
+GO

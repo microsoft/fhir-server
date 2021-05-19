@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             foreach (Resource resource in resources)
             {
-                string resourceType = resource.ResourceType.ToString();
+                string resourceType = resource.TypeName.ToString();
                 if (!contentBuilders.ContainsKey(resourceType))
                 {
                     contentBuilders[resourceType] = new StringBuilder();
