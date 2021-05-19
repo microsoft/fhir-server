@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // Start a reindex job
                 (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
 
-                await WaitForReindexStatus(reindexJobUri, "Running", "Completed");
+                await WaitForReindexStatus(reindexJobUri, "Completed");
 
                 FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
