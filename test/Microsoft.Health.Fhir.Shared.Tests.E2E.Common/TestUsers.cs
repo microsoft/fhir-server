@@ -5,6 +5,12 @@
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
+    /*
+     * When adding a new user they must be added in the following locations:
+     * - /build/jobs/run-tests.yml DotNetCoreCLI@2 Tasks
+     * - /testauthenvironment.json
+     */
+
     public static class TestUsers
     {
         public static TestUser ReadOnlyUser { get; } = new TestUser("globalReaderUser");
