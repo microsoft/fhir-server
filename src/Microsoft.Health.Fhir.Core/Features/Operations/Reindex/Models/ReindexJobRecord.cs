@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// A user can optionally limit the scope of the Reindex job to specific
         /// resource types
         /// </summary>
-        public IReadOnlyCollection<string> TargetResourceTypes { get; }
+        public IReadOnlyCollection<string> TargetResourceTypes { get; private set; } = new List<string>();
 
         [JsonIgnore]
         public int PercentComplete
@@ -139,6 +139,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public string SearchParamList
         {
             get { return string.Join(",", SearchParams); }
+        }
+
+        [JsonIgnore]
+        public string TargetResourceTypeList
+        {
+            get { return string.Join(",", TargetResourceTypes); }
         }
     }
 }

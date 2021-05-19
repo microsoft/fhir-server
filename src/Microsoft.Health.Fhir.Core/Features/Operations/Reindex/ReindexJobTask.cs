@@ -668,7 +668,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // were reindexed by this job.  If so, then we should mark the search parameters
             // as fully reindexed
             var fullyIndexexParams = new List<string>();
-            var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.SearchParams);
+            var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.Resources);
             foreach (var searchParam in _reindexJobRecord.SearchParams)
             {
                 var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(new Uri(searchParam));

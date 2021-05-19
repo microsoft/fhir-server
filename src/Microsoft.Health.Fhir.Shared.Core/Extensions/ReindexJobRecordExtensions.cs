@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(job.MaximumConcurrency) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Resources, Value = new FhirString(job.ResourceList) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.SearchParams, Value = new FhirString(job.SearchParamList) });
+            parametersResource.Add(JobRecordProperties.TargetResourceTypes, new FhirString(job.TargetResourceTypeList));
 
             return parametersResource.ToResourceElement();
         }
