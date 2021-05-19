@@ -31,17 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken);
 
         /// <summary>
-        /// To disable necessary indexes for the data store.
+        /// Pre-process before import operation.
         /// </summary>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task DisableIndexesAsync(CancellationToken cancellationToken);
+        public Task PreprocessAsync(CancellationToken cancellationToken);
 
         /// <summary>
-        /// Rebuild Indexes for the data store
+        /// Post-process after import operation.
         /// </summary>
         /// <param name="concurrentCount">Rebuild operation concurrent count. </param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task RebuildIndexesAsync(int concurrentCount, CancellationToken cancellationToken);
+        public Task PostprocessAsync(int concurrentCount, CancellationToken cancellationToken);
 
         /// <summary>
         /// Remove duplicated resoruces in data store.

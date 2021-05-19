@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Failed to bulk copy data.");
+                    _logger.LogError(ex, "Failed to bulk copy data.");
 
                     throw;
                 }
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task DisableIndexesAsync(CancellationToken cancellationToken)
+        public async Task PreprocessAsync(CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task RebuildIndexesAsync(int concurrentCount, CancellationToken cancellationToken)
+        public async Task PostprocessAsync(int concurrentCount, CancellationToken cancellationToken)
         {
             IndexTableTypeV1Row[] allIndexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             List<Task> runningTasks = new List<Task>();

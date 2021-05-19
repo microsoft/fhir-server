@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return properties;
                 });
 
-            fhirDataBulkImportOperation.DisableIndexesAsync(Arg.Any<CancellationToken>())
+            fhirDataBulkImportOperation.PreprocessAsync(Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     throw new InvalidCastException();
@@ -522,7 +522,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            fhirDataBulkImportOperation.RebuildIndexesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     throw new InvalidCastException();
