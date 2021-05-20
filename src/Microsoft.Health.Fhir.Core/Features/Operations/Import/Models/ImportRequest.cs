@@ -32,8 +32,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         public ImportRequestStorageDetail StorageDetail { get; set; }
 
         /// <summary>
-        /// Skip Running Import Task Check
+        /// Import operation mode
         /// </summary>
-        public bool SkipRunningImportTaskCheck { get; set; }
+        public string Mode { get; set; }
     }
 }

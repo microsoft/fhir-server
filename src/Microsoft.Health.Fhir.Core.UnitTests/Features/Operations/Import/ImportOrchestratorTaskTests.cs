@@ -522,7 +522,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     throw new InvalidCastException();
@@ -611,7 +611,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         taskInfo.Result = JsonConvert.SerializeObject(new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(processingResult)));
                         taskInfo.Status = TaskManagement.TaskStatus.Completed;
 
-                        await taskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+                        await taskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
                         importOrchestratorTaskContext.DataProcessingTasks[new Uri(location)] = taskInfo;
                     }
@@ -626,7 +626,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                         processingInput.ResourceType = "Resource";
                         taskInfo.InputData = JsonConvert.SerializeObject(processingInput);
 
-                        await taskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+                        await taskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
                         importOrchestratorTaskContext.DataProcessingTasks[new Uri(location)] = taskInfo;
                     }
 

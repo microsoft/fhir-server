@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [InlineData(TaskStatus.Completed)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
-            TaskInfo taskInfo = await SetupAndExecuteCancelExportAsync(taskStatus, HttpStatusCode.Conflict);
+            TaskInfo taskInfo = await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Conflict);
 
             Assert.Equal(taskStatus, taskInfo.Status);
         }
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCanceled_ThenAcceptedCodeShouldBeReturned()
         {
-            await SetupAndExecuteCancelExportAsync(TaskStatus.Queued, HttpStatusCode.Accepted, true);
+            await SetupAndExecuteCancelImportAsync(TaskStatus.Queued, HttpStatusCode.Accepted, true);
         }
 
         [Theory]
@@ -69,12 +69,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [InlineData(TaskStatus.Running)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasNotCompleted_ThenAcceptedStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
-            TaskInfo taskInfo = await SetupAndExecuteCancelExportAsync(taskStatus, HttpStatusCode.Accepted);
+            TaskInfo taskInfo = await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Accepted);
 
             await _taskManager.Received(1).CancelTaskAsync(taskInfo.TaskId, _cancellationToken);
         }
 
-        private async Task<TaskInfo> SetupAndExecuteCancelExportAsync(TaskStatus taskStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
+        private async Task<TaskInfo> SetupAndExecuteCancelImportAsync(TaskStatus taskStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
         {
             TaskInfo taskInfo = SetupBulkImportTask(taskStatus, isCanceled);
 

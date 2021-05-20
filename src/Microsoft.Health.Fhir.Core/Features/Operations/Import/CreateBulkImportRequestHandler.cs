@@ -62,15 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            if (!request.SkipRunningImportTaskCheck)
-            {
-                var activeImportTasks = await _taskManager.GetActiveTasksByTypeAsync(ImportOrchestratorTask.ImportOrchestratorTaskId, cancellationToken);
-                if (activeImportTasks.Count > 0)
-                {
-                    throw new OperationFailedException(Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
-                }
-            }
-
             string taskId = Guid.NewGuid().ToString("N");
 
             string processingTaskQueueId = string.IsNullOrEmpty(_importTaskConfiguration.ProcessingTaskQueueId) ? _taskHostingConfiguration.QueueId : _importTaskConfiguration.ProcessingTaskQueueId;
@@ -83,7 +74,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
                 MaxConcurrentProcessingTaskCount = _importTaskConfiguration.MaximumConcurrency,
-                MaxConcurrentRebuildIndexOperationCount = _importTaskConfiguration.MaximumConcurrentRebuildOperationCount,
                 ProcessingTaskQueueId = processingTaskQueueId,
                 TaskId = taskId,
                 TaskCreateTime = Clock.UtcNow,
@@ -98,7 +88,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputData = JsonConvert.SerializeObject(inputData),
             };
 
-            await _taskManager.CreateTaskAsync(taskInfo, cancellationToken);
+            try
+            {
+                await _taskManager.CreateTaskAsync(taskInfo, true, cancellationToken);
+            }
+            catch (TaskConflictException)
+            {
+                throw new OperationFailedException(Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
+            }
 
             return new CreateImportResponse(taskId);
         }

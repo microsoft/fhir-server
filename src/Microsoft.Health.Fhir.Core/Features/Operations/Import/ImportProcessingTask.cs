@@ -189,7 +189,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             finally
             {
-                _cancellationTokenSource.Cancel();
+                if (!_cancellationTokenSource.IsCancellationRequested)
+                {
+                    _cancellationTokenSource.Cancel();
+                }
             }
         }
 

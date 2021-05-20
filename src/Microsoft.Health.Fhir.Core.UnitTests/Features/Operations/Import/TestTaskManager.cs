@@ -31,16 +31,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             return Task.FromResult(taskInfo);
         }
 
-        public Task<TaskInfo> CreateTaskAsync(TaskInfo task, CancellationToken cancellationToken)
+        public Task<TaskInfo> CreateTaskAsync(TaskInfo task, bool isUniqueTaskByType, CancellationToken cancellationToken)
         {
             TaskInfos.Add(task);
 
             return Task.FromResult(task);
-        }
-
-        public Task<IReadOnlyCollection<TaskInfo>> GetActiveTasksByTypeAsync(short taskTypeId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult((IReadOnlyCollection<TaskInfo>)TaskInfos.Where(t => t.Status != TaskManagement.TaskStatus.Completed));
         }
 
         public Task<TaskInfo> GetTaskAsync(string taskId, CancellationToken cancellationToken)

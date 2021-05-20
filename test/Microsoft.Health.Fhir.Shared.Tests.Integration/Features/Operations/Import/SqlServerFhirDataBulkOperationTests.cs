@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             }
             finally
             {
-                await sqlServerFhirDataBulkOperation.PostprocessAsync(9, CancellationToken.None);
+                await sqlServerFhirDataBulkOperation.PostprocessAsync(CancellationToken.None);
             }
         }
 

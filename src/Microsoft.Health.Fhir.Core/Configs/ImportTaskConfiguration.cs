@@ -8,7 +8,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class ImportTaskConfiguration
     {
         private const int DefaultMaximumConcurrency = 5;
-        private const int DefaultMaximumConcurrentRebuildOperationCount = 3;
 
         /// <summary>
         /// Determines whether bulk import is enabled or not.
@@ -24,10 +23,5 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Controls how many data processing task would run at the same time.
         /// </summary>
         public int MaximumConcurrency { get; set; } = DefaultMaximumConcurrency;
-
-        /// <summary>
-        /// For bulk import operation, we need to rebuild index after data imported. This setting is to control the rebuild index operation concurrent.
-        /// </summary>
-        public int MaximumConcurrentRebuildOperationCount { get; set; } = DefaultMaximumConcurrentRebuildOperationCount;
     }
 }

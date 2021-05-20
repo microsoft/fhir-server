@@ -236,25 +236,80 @@ AS
 GO
 
 /*************************************************************
-    Stored procedures for get active task payload by type
+    Stored procedures for general task
 **************************************************************/
 --
 -- STORED PROCEDURE
---     GetActiveTaskByType
+--     CreateTask_2
 --
 -- DESCRIPTION
---     Get active task by type
+--     Create task for given task payload.
 --
 -- PARAMETERS
---     @typeId
---         * The ID of the task task
+--     @taskId
+--         * The ID of the task record to create
+--     @queueId
+--         * The number of seconds that must pass before an export job is considered stale
+--     @taskTypeId
+--         * The maximum number of running jobs we can have at once
+--     @maxRetryCount
+--         * The maximum number for retry operation
+--     @inputData
+--         * Input data payload for the task
+--     @isUniqueTaskByType
+--         * Only create task if there's no other active task with same task type id
 --
-CREATE OR ALTER PROCEDURE [dbo].[GetActiveTaskByType]
-    @typeId smallint
+CREATE OR ALTER PROCEDURE [dbo].[CreateTask_2]
+    @taskId varchar(64),
+    @queueId varchar(64),
+	@taskTypeId smallint,
+    @maxRetryCount smallint = 3,
+    @inputData varchar(max),
+    @isUniqueTaskByType bit
 AS
     SET NOCOUNT ON
 
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
+	DECLARE @status smallint = 1
+    DECLARE @retryCount smallint = 0
+	DECLARE @isCanceled bit = 0
+
+    -- Check if the task already be created
+    IF (@isUniqueTaskByType = 1) BEGIN
+        IF EXISTS
+        (
+            SELECT *
+            FROM [dbo].[TaskInfo]
+            WHERE TaskId = @taskId or (TaskTypeId = @taskTypeId and (Status <> 3 and IsCanceled = 0))
+        ) 
+        BEGIN
+            THROW 50409, 'Task already existed', 1;
+        END
+    END 
+    ELSE BEGIN
+        IF EXISTS
+        (
+            SELECT *
+            FROM [dbo].[TaskInfo]
+            WHERE TaskId = @taskId
+        ) 
+        BEGIN
+            THROW 50409, 'Task already existed', 1;
+        END
+    END
+
+    -- Create new task
+    INSERT INTO [dbo].[TaskInfo]
+        (TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData)
+    VALUES
+        (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @maxRetryCount, @heartbeatDateTime, @inputData)
+
+    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData
 	FROM [dbo].[TaskInfo]
-	where TaskTypeId = @typeId and Status <> 3
+	where TaskId = @taskId
+
+    COMMIT TRANSACTION
 GO

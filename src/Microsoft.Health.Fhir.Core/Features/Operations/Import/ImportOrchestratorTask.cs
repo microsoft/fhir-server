@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.SubTasksCompleted)
                 {
                     await _fhirDataBulkImportOperation.DeleteDuplicatedResourcesAsync(cancellationToken);
-                    await _fhirDataBulkImportOperation.PostprocessAsync(_orchestratorInputData.MaxConcurrentRebuildIndexOperationCount, cancellationToken);
+                    await _fhirDataBulkImportOperation.PostprocessAsync(cancellationToken);
 
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.PostprocessCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
@@ -303,7 +303,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 TaskInfo taskInfoFromServer = await _taskManager.GetTaskAsync(taskInfo.TaskId, cancellationToken);
                 if (taskInfoFromServer == null)
                 {
-                    taskInfoFromServer = await _taskManager.CreateTaskAsync(taskInfo, cancellationToken);
+                    taskInfoFromServer = await _taskManager.CreateTaskAsync(taskInfo, false, cancellationToken);
                 }
 
                 _orchestratorTaskContext.DataProcessingTasks[resourceUri] = taskInfoFromServer;
@@ -395,16 +395,57 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public async Task TryToCancelRunningTasksAsync()
         {
+            List<string> runningTaskIds = new List<string>();
+
             foreach ((_, TaskInfo runningTaskInfo) in _runningTasks)
             {
                 try
                 {
+                    runningTaskIds.Add(runningTaskInfo.TaskId);
                     await _taskManager.CancelTaskAsync(runningTaskInfo.TaskId, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "failed to cancel task {0}", runningTaskInfo.TaskId);
                 }
+            }
+
+            while (true)
+            {
+                if (runningTaskIds.Count == 0)
+                {
+                    break;
+                }
+
+                string[] currentRunningTaskIds = runningTaskIds.ToArray();
+
+                foreach (string runningTaskId in currentRunningTaskIds)
+                {
+                    try
+                    {
+                        TaskInfo taskInfo = await _taskManager.GetTaskAsync(runningTaskId, CancellationToken.None);
+                        if (taskInfo.Status != TaskStatus.Running)
+                        {
+                            runningTaskIds.Remove(runningTaskId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to get task info for canceled task {0}", runningTaskId);
+                    }
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+
+            try
+            {
+                await _fhirDataBulkImportOperation.DeleteDuplicatedResourcesAsync(CancellationToken.None);
+                await _fhirDataBulkImportOperation.PostprocessAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clean resource after import operation cancelled.");
             }
         }
 

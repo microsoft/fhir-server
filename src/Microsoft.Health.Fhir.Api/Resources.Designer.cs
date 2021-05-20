@@ -421,6 +421,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Only initial load import is supported. Please add &quot;InitialLoad&quot; mode to parameters..
+        /// </summary>
+        public static string OnlyInitialImportOperationSupported {
+            get {
+                return ResourceManager.GetString("OnlyInitialImportOperationSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
         /// </summary>
         public static string OperationFailed {
