@@ -3489,72 +3489,46 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DECLARE @duplicatedResource TABLE 
-    (
-	    ResourceSurrogateId bigint
-    )
-
-    Insert Into @duplicatedResource
-    Select ResourceSurrogateId from 
-    (
-	    SELECT *
-	    , DupRank = ROW_NUMBER() OVER (
-				      PARTITION BY ResourceId
-				      ORDER BY ResourceSurrogateId desc)
-	    From dbo.Resource
-    ) as rank
+    DELETE rank FROM
+		(
+			SELECT *
+			, DupRank = ROW_NUMBER() OVER (
+						  PARTITION BY ResourceId
+						  ORDER BY ResourceSurrogateId desc)
+			From dbo.Resource
+		) as rank
     where rank.DupRank > 1
 
-    DELETE target FROM dbo.Resource target
-    INNER JOIN @duplicatedResource dup ON target.ResourceSurrogateId = dup.ResourceSurrogateId
+    COMMIT TRANSACTION
+GO
 
-    DELETE FROM dbo.ResourceWriteClaim 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-    
-    DELETE FROM dbo.CompartmentAssignment 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-    
-    DELETE FROM dbo.ReferenceSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
+/*************************************************************
+    Stored procedures for remove duplicate search parameters
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     DeleteDuplicatedSearchParams
+--
+-- DESCRIPTION
+--     Delete duplicated search parameters
+--
+-- PARAMETERS
+--
+CREATE PROCEDURE dbo.DeleteDuplicatedSearchParams
+    @TableName nvarchar(128)
+AS
+    SET NOCOUNT ON
+    SET XACT_ABORT ON
 
-    DELETE FROM dbo.TokenSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+    BEGIN TRANSACTION
 
-    DELETE FROM dbo.TokenText 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
+	DECLARE @Sql NVARCHAR(MAX);
 
-    DELETE FROM dbo.StringSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
+	SET @Sql = N'DELETE FROM ' + @TableName
+	+ N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
 
-    DELETE FROM dbo.UriSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.NumberSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.QuantitySearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.DateTimeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.ReferenceTokenCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenTokenCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenDateTimeCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenQuantityCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenStringCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
-
-    DELETE FROM dbo.TokenNumberNumberCompositeSearchParam 
-    WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
+	EXECUTE sp_executesql @Sql
 
     COMMIT TRANSACTION
 GO

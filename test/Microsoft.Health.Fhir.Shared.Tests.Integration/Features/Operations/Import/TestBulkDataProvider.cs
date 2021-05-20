@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 {
     public static class TestBulkDataProvider
     {
-        public static DataTable GenerateResourceTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateResourceTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             ResourceTableBulkCopyDataGenerator generator = new ResourceTableBulkCopyDataGenerator();
 
@@ -20,13 +20,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                ResourceTableBulkCopyDataGenerator.FillDataTable(result, resoureType, Guid.NewGuid().ToString(), startSurrogatedId + i, new byte[10], string.Empty);
+                ResourceTableBulkCopyDataGenerator.FillDataTable(result, resoureType, resourceId ?? Guid.NewGuid().ToString(), startSurrogatedId + i, new byte[10], string.Empty);
             }
 
             return result;
         }
 
-        public static DataTable GenerateDateTimeSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateDateTimeSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             DateTimeSearchParamsTableBulkCopyDataGenerator generator = new DateTimeSearchParamsTableBulkCopyDataGenerator();
 
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateNumberSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateNumberSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             NumberSearchParamsTableBulkCopyDataGenerator generator = new NumberSearchParamsTableBulkCopyDataGenerator();
 
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateQuantitySearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateQuantitySearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             QuantitySearchParamsTableBulkCopyDataGenerator generator = new QuantitySearchParamsTableBulkCopyDataGenerator();
 
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateReferenceSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateReferenceSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             ReferenceSearchParamsTableBulkCopyDataGenerator generator = new ReferenceSearchParamsTableBulkCopyDataGenerator();
 
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateReferenceTokenCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateReferenceTokenCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator generator = new ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator();
 
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateStringSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateStringSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             StringSearchParamsTableBulkCopyDataGenerator generator = new StringSearchParamsTableBulkCopyDataGenerator();
 
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateTokenDateTimeCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateTokenDateTimeCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator generator = new TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator();
 
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateTokenNumberNumberCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateTokenNumberNumberCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator generator = new TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator();
 
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateTokenQuantityCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateTokenQuantityCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator generator = new TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator();
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateTokenSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateTokenSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             TokenSearchParamsTableBulkCopyDataGenerator generator = new TokenSearchParamsTableBulkCopyDataGenerator();
 
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateTokenStringCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateTokenStringCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             TokenStringCompositeSearchParamsTableBulkCopyDataGenerator generator = new TokenStringCompositeSearchParamsTableBulkCopyDataGenerator();
 
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateTokenTextSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateTokenTextSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             TokenTextSearchParamsTableBulkCopyDataGenerator generator = new TokenTextSearchParamsTableBulkCopyDataGenerator();
 
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateTokenTokenCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateTokenTokenCompositeSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator generator = new TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator();
 
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateUriSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateUriSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             UriSearchParamsTableBulkCopyDataGenerator generator = new UriSearchParamsTableBulkCopyDataGenerator();
 
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateCompartmentAssignmentTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateCompartmentAssignmentTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             CompartmentAssignmentTableBulkCopyDataGenerator generator = new CompartmentAssignmentTableBulkCopyDataGenerator();
 
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateResourceWriteClaimTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateResourceWriteClaimTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             ResourceWriteClaimTableBulkCopyDataGenerator generator = new ResourceWriteClaimTableBulkCopyDataGenerator();
 
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             return result;
         }
 
-        public static DataTable GenerateInValidUriSearchParamsTable(int count, long startSurrogatedId, short resoureType)
+        public static DataTable GenerateInValidUriSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
             UriSearchParamsTableBulkCopyDataGenerator generator = new UriSearchParamsTableBulkCopyDataGenerator();
 

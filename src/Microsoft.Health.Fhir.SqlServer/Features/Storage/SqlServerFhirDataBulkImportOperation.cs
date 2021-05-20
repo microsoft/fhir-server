@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private const int LongRunningCommandTimeoutInSec = 60 * 30;
         private const int BulkOperationRunningCommandTimeoutInSec = 60 * 10;
+        private const int MaxDeleteDuplicateOperationCount = 8;
 
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
@@ -52,6 +53,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId),
                 (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId_Version),
+            };
+
+        public static IReadOnlyList<string> SearchParameterTables { get; } =
+            new List<string>()
+            {
+                VLatest.ResourceWriteClaim.TableName,
+                VLatest.CompartmentAssignment.TableName,
+                VLatest.ReferenceSearchParam.TableName,
+                VLatest.TokenSearchParam.TableName,
+                VLatest.TokenText.TableName,
+                VLatest.StringSearchParam.TableName,
+                VLatest.UriSearchParam.TableName,
+                VLatest.NumberSearchParam.TableName,
+                VLatest.QuantitySearchParam.TableName,
+                VLatest.DateTimeSearchParam.TableName,
+                VLatest.ReferenceTokenCompositeSearchParam.TableName,
+                VLatest.TokenTokenCompositeSearchParam.TableName,
+                VLatest.TokenDateTimeCompositeSearchParam.TableName,
+                VLatest.TokenQuantityCompositeSearchParam.TableName,
+                VLatest.TokenStringCompositeSearchParam.TableName,
+                VLatest.TokenNumberNumberCompositeSearchParam.TableName,
             };
 
         public async Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken)
@@ -144,6 +166,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await Task.WhenAll(runningTasks.ToArray());
         }
 
+        public async Task DeleteDuplicatedResourcesAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                await ExecuteDeleteDuplicatedResourcesTaskAsync(cancellationToken);
+
+                List<Task> runningTasks = new List<Task>();
+
+                foreach (var tableName in SearchParameterTables.ToArray())
+                {
+                    if (runningTasks.Count >= MaxDeleteDuplicateOperationCount)
+                    {
+                        Task completedTask = await Task.WhenAny(runningTasks);
+                        runningTasks.Remove(completedTask);
+                        await completedTask;
+                    }
+
+                    runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(tableName, cancellationToken));
+                }
+
+                while (runningTasks.Count > 0)
+                {
+                    await runningTasks.First();
+                    runningTasks.RemoveAt(0);
+                }
+            }
+            catch (SqlException sqlEx)
+            {
+                _logger.LogError(sqlEx, $"Failed to delete duplicate resources.");
+
+                throw;
+            }
+        }
+
         private async Task ExecuteRebuildIndexTaskAsync(IndexTableTypeV1Row index, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -165,23 +221,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task DeleteDuplicatedResourcesAsync(CancellationToken cancellationToken)
+        private async Task ExecuteDeleteDuplicatedResourcesTaskAsync(CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                try
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
-                    VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                        VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
+                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to delete resoueces duplicate search paramters.");
+
+                        throw;
+                    }
                 }
-                catch (SqlException sqlEx)
-                {
-                    _logger.LogError(sqlEx, $"Failed to remove duplicated resources.");
+            }
+        }
 
-                    throw;
+        private async Task ExecuteDeleteDuplicatedSearchParamsTaskAsync(string tableName, CancellationToken cancellationToken)
+        {
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                {
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
+
+                        VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName);
+                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to delete duplicate search paramters.");
+
+                        throw;
+                    }
                 }
             }
         }
