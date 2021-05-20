@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Skip.If(true);
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = randomName } } };
-            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter");
+            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Patient-foo");
             searchParam.Name = randomName;
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName;
@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToResourceType_ThenOnlyTargetedTypesAreReindexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Resource-id");
+            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Resource-idfoo");
             searchParam.Name = searchParam.Name.Replace("foo", randomName);
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";
@@ -355,7 +355,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToSameListOfResourceTypes_ThenSearchParametersMarkedFullyIndexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
-            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Resource-id");
+            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Resource-idfoo");
             searchParam.Name = searchParam.Name.Replace("foo", randomName);
             searchParam.Url = searchParam.Url.Replace("foo", randomName);
             searchParam.Code = randomName + "Code";

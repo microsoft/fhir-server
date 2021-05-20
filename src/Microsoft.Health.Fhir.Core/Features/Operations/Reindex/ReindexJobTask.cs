@@ -44,7 +44,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private SemaphoreSlim _jobSemaphore;
         private CancellationToken _cancellationToken;
         private WeakETag _weakETag;
-        private List<SearchParameterInfo> _notYetIndexedParams;
 
         public ReindexJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -183,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // Build query based on new search params
             // Find supported, but not yet searchable params
             var possibleNotYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
-            _notYetIndexedParams = new List<SearchParameterInfo>();
+            var notYetIndexedParams = new List<SearchParameterInfo>();
 
             var resourceList = new HashSet<string>();
 
@@ -196,7 +195,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var matchingResourceTypes = searchParamResourceTypes.Intersect(_reindexJobRecord.TargetResourceTypes);
                     if (matchingResourceTypes.Any())
                     {
-                        _notYetIndexedParams.Add(searchParam);
+                        notYetIndexedParams.Add(searchParam);
 
                         // add matching resource types to the set of resource types which we will reindex
                         resourceList.UnionWith(matchingResourceTypes);
@@ -205,11 +204,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             else
             {
-                _notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
+                notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
 
                 // From the param list, get the list of necessary resources which should be
                 // included in our query
-                foreach (var param in _notYetIndexedParams)
+                foreach (var param in notYetIndexedParams)
                 {
                     var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
                     resourceList.UnionWith(searchParamResourceTypes);
@@ -217,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
-            if (!_notYetIndexedParams.Any())
+            if (!notYetIndexedParams.Any())
             {
                 _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
@@ -235,7 +234,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // save the list of search parameters to the reindexjob document
-            foreach (var searchParams in _notYetIndexedParams.Select(p => p.Url.ToString()))
+            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.ToString()))
             {
                 _reindexJobRecord.SearchParams.Add(searchParams);
             }

@@ -554,10 +554,6 @@
   <data name="MemberMatchNoMatchFound" xml:space="preserve">
     <value>No match found.</value>
   </data>
-  <data name="UnknownResourceType" xml:space="preserve">
-    <value>ResourceType: {0} is not a known or supported resource type.</value>
-    <comment>{0} is the name of resource type.</comment>
-  </data>
   <data name="ConditionalDeleteCountOutOfRange" xml:space="preserve">
     <value>The _count parameter must be between {0} and {1}.</value>
   </data>

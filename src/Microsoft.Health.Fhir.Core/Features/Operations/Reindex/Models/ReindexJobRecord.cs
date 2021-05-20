@@ -111,6 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// A user can optionally limit the scope of the Reindex job to specific
         /// resource types
         /// </summary>
+        [JsonProperty(JobRecordProperties.TargetResourceTypes)]
         public IReadOnlyCollection<string> TargetResourceTypes { get; private set; } = new List<string>();
 
         [JsonIgnore]

@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 {
                     if (!Enum.TryParse<Hl7.Fhir.Model.ResourceType>(resourceType, out var result))
                     {
-                        throw new RequestNotValidException(string.Format(Resources.UnknownResourceType, resourceType));
+                        throw new RequestNotValidException(string.Format(Resources.ResourceNotSupported, resourceType));
                     }
                 }
             }
