@@ -123,6 +123,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string TargetDataStoreUsagePercentage = "targetDataStoreUsagePercentage";
 
-        public const string HasOffstring = "hasOffstring";
+        public const string CreatedChild = "createdChild";
     }
 }

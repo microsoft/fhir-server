@@ -435,7 +435,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     // If continuation token then update next query but only if parent query haven't been in pipeline.
                     // For cases like retry or stale query we don't want to start another chain.
-                    if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.HasOffspring)
+                    if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.CreatedChild)
                     {
                         var encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(results.ContinuationToken));
                         var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
@@ -444,7 +444,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             Status = OperationStatus.Queued,
                         };
                         _reindexJobRecord.QueryList.TryAdd(nextQuery, 1);
-                        query.HasOffspring = true;
+                        query.CreatedChild = true;
                     }
 
                     await UpdateJobAsync();
