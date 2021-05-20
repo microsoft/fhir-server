@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
                 long succeedCount = 0;
                 long failedCount = 0;
-                long lastCheckpointIndex = -1;
+                long? lastCheckpointIndex = null;
                 long currentIndex = -1;
                 Dictionary<string, DataTable> resourceBuffer = new Dictionary<string, DataTable>();
                 List<string> importErrorBuffer = new List<string>();
@@ -159,6 +159,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         throw new OperationCanceledException();
                     }
 
+                    lastCheckpointIndex = lastCheckpointIndex ?? resource.Index - 1;
                     currentIndex = resource.Index;
 
                     if (!string.IsNullOrEmpty(resource.ImportError))
