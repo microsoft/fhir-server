@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
 {
     public class SqlServerTaskManagerTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
+        private const short SqlServerTaskManagerTestsTypeId = 100;
         private SqlServerFhirStorageTestsFixture _fixture;
 
         public SqlServerTaskManagerTests(SqlServerFhirStorageTestsFixture fixture)
@@ -33,14 +34,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         {
             string queueId = Guid.NewGuid().ToString();
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskManagerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
 
             Assert.Equal(queueId, taskInfo.QueueId);
             Assert.Equal(taskId, taskInfo.TaskId);
-            Assert.Equal(typeId, taskInfo.TaskTypeId);
+            Assert.Equal(SqlServerTaskManagerTestsTypeId, taskInfo.TaskTypeId);
             Assert.Equal(inputData, taskInfo.InputData);
             Assert.Equal(TaskStatus.Queued, taskInfo.Status);
             Assert.NotNull(taskInfo.HeartbeatDateTime);
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             taskInfo = await sqlServerTaskManager.GetTaskAsync(taskId, CancellationToken.None);
             Assert.Equal(queueId, taskInfo.QueueId);
             Assert.Equal(taskId, taskInfo.TaskId);
-            Assert.Equal(typeId, taskInfo.TaskTypeId);
+            Assert.Equal(SqlServerTaskManagerTestsTypeId, taskInfo.TaskTypeId);
             Assert.Equal(inputData, taskInfo.InputData);
             Assert.Equal(TaskStatus.Queued, taskInfo.Status);
             Assert.NotNull(taskInfo.HeartbeatDateTime);
@@ -79,7 +79,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             string queueId = Guid.NewGuid().ToString();
             string taskId1 = Guid.NewGuid().ToString();
             string taskId2 = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -98,7 +97,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             {
                 TaskId = taskId1,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskManagerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -106,7 +105,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             {
                 TaskId = taskId2,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskManagerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -127,7 +126,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         {
             string queueId = Guid.NewGuid().ToString();
             string taskId1 = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskHostingConfiguration config = new TaskHostingConfiguration()
@@ -146,7 +144,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             {
                 TaskId = taskId1,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskManagerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -164,14 +162,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         {
             string queueId = Guid.NewGuid().ToString();
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskManagerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -186,14 +183,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
         {
             string queueId = Guid.NewGuid().ToString();
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskManagerTestsTypeId,
                 InputData = inputData,
             };
 

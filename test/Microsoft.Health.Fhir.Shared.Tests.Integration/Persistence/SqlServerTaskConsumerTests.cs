@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
 {
     public class SqlServerTaskConsumerTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
+        private const short SqlServerTaskConsumerTestsTypeId = 101;
         private SqlServerFhirStorageTestsFixture _fixture;
 
         public SqlServerTaskConsumerTests(SqlServerFhirStorageTestsFixture fixture)
@@ -48,14 +49,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             for (int i = 0; i < 5; ++i)
             {
                 string taskId = Guid.NewGuid().ToString();
-                short typeId = 1;
                 string inputData = "inputData";
 
                 TaskInfo taskInfo = new TaskInfo()
                 {
                     TaskId = taskId,
                     QueueId = queueId,
-                    TaskTypeId = typeId,
+                    TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                     InputData = inputData,
                 };
 
@@ -83,14 +83,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -123,14 +122,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -158,14 +156,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -194,14 +191,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -235,14 +231,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
             };
 
@@ -272,14 +267,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
                 MaxRetryCount = 1,
             };
@@ -314,14 +308,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
                 MaxRetryCount = 1,
             };
@@ -351,14 +344,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
 
             string taskId = Guid.NewGuid().ToString();
-            short typeId = 1;
             string inputData = "inputData";
 
             TaskInfo taskInfo = new TaskInfo()
             {
                 TaskId = taskId,
                 QueueId = queueId,
-                TaskTypeId = typeId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
                 InputData = inputData,
                 MaxRetryCount = 1,
             };
