@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [CollectionDefinition(Categories.CustomSearch, DisableParallelization = true)]
     [Collection(Categories.CustomSearch)]
     [Trait(Traits.Category, Categories.CustomSearch)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         private readonly HttpIntegrationTestFixture _fixture;
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 // Start a reindex job
                 (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
 
-                await WaitForReindexStatus(reindexJobUri, "Running", "Completed");
+                await WaitForReindexStatus(reindexJobUri, "Completed");
 
                 FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
