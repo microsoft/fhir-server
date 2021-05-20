@@ -87,6 +87,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 TaskHeartbeatTimeoutThresholdInSeconds = 60,
             };
 
+            short conflictTestTypeId = 1000;
+
             IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
             taskHostingConfig.Value.Returns(config);
             SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
@@ -95,7 +97,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             {
                 TaskId = taskId1,
                 QueueId = queueId,
-                TaskTypeId = SqlServerTaskManagerTestsTypeId,
+                TaskTypeId = conflictTestTypeId,
                 InputData = inputData,
             };
 
@@ -103,7 +105,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             {
                 TaskId = taskId2,
                 QueueId = queueId,
-                TaskTypeId = SqlServerTaskManagerTestsTypeId,
+                TaskTypeId = conflictTestTypeId,
                 InputData = inputData,
             };
 
