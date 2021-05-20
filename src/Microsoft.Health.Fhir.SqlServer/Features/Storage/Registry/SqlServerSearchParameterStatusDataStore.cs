@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         }
                         else
                         {
-                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Supported;
+                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
                         }
 
                         parameterStatuses.Add(resourceSearchParameterStatus);
