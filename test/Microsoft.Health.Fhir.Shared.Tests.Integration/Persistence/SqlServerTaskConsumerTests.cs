@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                     InputData = inputData,
                 };
 
-                _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+                _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
             }
 
             var result = (await sqlServerTaskConsumer.GetNextMessagesAsync(3, 60, CancellationToken.None)).ToList();
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
             TaskResultData result = new TaskResultData(TaskResult.Success, "Result");
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             _ = await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None);
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).FirstOrDefault();
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             _ = await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None);
             await Task.Delay(TimeSpan.FromSeconds(3));
@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
             string firstRunId = taskInfo.RunId;
@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 InputData = inputData,
             };
 
-            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
             TaskResultData result = new TaskResultData(TaskResult.Success, "Result");
@@ -278,7 +278,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 MaxRetryCount = 1,
             };
 
-            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
             TaskResultData result = new TaskResultData(TaskResult.Fail, "Result");
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 MaxRetryCount = 1,
             };
 
-            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
             TaskResultData result = new TaskResultData(TaskResult.Fail, "Result");
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
@@ -355,7 +355,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
                 MaxRetryCount = 1,
             };
 
-            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, CancellationToken.None);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
             TaskResultData result = new TaskResultData(TaskResult.Fail, "Result");
 
             taskInfo = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();

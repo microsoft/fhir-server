@@ -23,13 +23,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             Uri inputSource,
             IReadOnlyList<InputResource> input,
             ImportRequestStorageDetail storageDetail,
-            bool skipRunningImportTaskCheck,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail, skipRunningImportTaskCheck);
+            var request = new CreateImportRequest(requestUri, inputFormat, inputSource, input, storageDetail);
 
             CreateImportResponse response = await mediator.Send(request, cancellationToken);
             return response;

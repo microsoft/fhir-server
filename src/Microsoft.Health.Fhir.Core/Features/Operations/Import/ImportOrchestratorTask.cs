@@ -303,7 +303,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 TaskInfo taskInfoFromServer = await _taskManager.GetTaskAsync(taskInfo.TaskId, cancellationToken);
                 if (taskInfoFromServer == null)
                 {
-                    taskInfoFromServer = await _taskManager.CreateTaskAsync(taskInfo, cancellationToken);
+                    taskInfoFromServer = await _taskManager.CreateTaskAsync(taskInfo, false, cancellationToken);
                 }
 
                 _orchestratorTaskContext.DataProcessingTasks[resourceUri] = taskInfoFromServer;

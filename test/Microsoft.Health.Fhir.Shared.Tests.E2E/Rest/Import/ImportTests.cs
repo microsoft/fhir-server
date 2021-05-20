@@ -139,6 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
+            request.Mode = ImportConstants.InitialLoadMode;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.Equal(HttpStatusCode.Conflict, fhirException.StatusCode);

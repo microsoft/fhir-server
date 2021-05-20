@@ -2893,7 +2893,7 @@ GO
 **************************************************************/
 --
 -- STORED PROCEDURE
---     CreateTask
+--     CreateTask_2
 --
 -- DESCRIPTION
 --     Create task for given task payload.
@@ -2905,13 +2905,20 @@ GO
 --         * The number of seconds that must pass before an export job is considered stale
 --     @taskTypeId
 --         * The maximum number of running jobs we can have at once
+--     @maxRetryCount
+--         * The maximum number for retry operation
+--     @inputData
+--         * Input data payload for the task
+--     @isUniqueTaskByType
+--         * Only create task if there's no other active task with same task type id
 --
-CREATE PROCEDURE [dbo].[CreateTask]
+CREATE PROCEDURE [dbo].[CreateTask_2]
     @taskId varchar(64),
     @queueId varchar(64),
 	@taskTypeId smallint,
     @maxRetryCount smallint = 3,
-    @inputData varchar(max)
+    @inputData varchar(max),
+    @isUniqueTaskByType bit
 AS
     SET NOCOUNT ON
 
@@ -2924,13 +2931,27 @@ AS
 	DECLARE @isCanceled bit = 0
 
     -- Check if the task already be created
-    IF EXISTS
-    (
-        SELECT *
-        FROM [dbo].[TaskInfo]
-        WHERE TaskId = @taskId
-    ) BEGIN
-        THROW 50409, 'Task already existed', 1;
+    IF (@isUniqueTaskByType = 1) BEGIN
+        IF EXISTS
+        (
+            SELECT *
+            FROM [dbo].[TaskInfo]
+            WHERE TaskId = @taskId or (TaskTypeId = @taskTypeId and Status <> 3)
+        ) 
+        BEGIN
+            THROW 50409, 'Task already existed', 1;
+        END
+    END 
+    ELSE BEGIN
+        IF EXISTS
+        (
+            SELECT *
+            FROM [dbo].[TaskInfo]
+            WHERE TaskId = @taskId
+        ) 
+        BEGIN
+            THROW 50409, 'Task already existed', 1;
+        END
     END
 
     -- Create new task
@@ -3557,28 +3578,4 @@ AS
     WHERE  ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)
 
     COMMIT TRANSACTION
-GO
-
-/*************************************************************
-    Stored procedures for get active task payload by type
-**************************************************************/
---
--- STORED PROCEDURE
---     GetActiveTaskByType
---
--- DESCRIPTION
---     Get active task by type
---
--- PARAMETERS
---     @typeId
---         * The ID of the task task
---
-CREATE PROCEDURE [dbo].[GetActiveTaskByType]
-    @typeId smallint
-AS
-    SET NOCOUNT ON
-
-    SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskTypeId = @typeId and Status <> 3
 GO
