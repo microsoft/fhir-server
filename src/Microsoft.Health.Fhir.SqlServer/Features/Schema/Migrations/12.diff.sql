@@ -309,7 +309,7 @@ AS
         (
             SELECT *
             FROM [dbo].[TaskInfo]
-            WHERE TaskId = @taskId or (TaskTypeId = @taskTypeId and Status <> 3)
+            WHERE TaskId = @taskId or (TaskTypeId = @taskTypeId and (Status <> 3 or IsCanceled = 1))
         ) 
         BEGIN
             THROW 50409, 'Task already existed', 1;
