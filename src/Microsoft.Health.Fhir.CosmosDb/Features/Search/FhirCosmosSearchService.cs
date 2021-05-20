@@ -545,7 +545,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     foreach (Task<ResourceWrapper> task in tasks)
                     {
                         var resourceWrapper = (FhirCosmosResourceWrapper)await task;
-                        if (resourceWrapper != null)
+
+                        // Get Async always return latest resource, so no need to check for history flag.
+                        if (resourceWrapper != null && !resourceWrapper.IsDeleted)
                         {
                             includes.Add(resourceWrapper);
                             if (includes.Count > maxIncludeCount)
