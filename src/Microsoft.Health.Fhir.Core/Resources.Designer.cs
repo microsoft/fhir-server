@@ -1223,15 +1223,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Requested operation does not support resource type: {0}..
-        /// </summary>
-        internal static string UnsupportedResourceType {
-            get {
-                return ResourceManager.GetString("UnsupportedResourceType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is not supported. The supported values are: {1}..
         /// </summary>
         internal static string UnsupportedTotalParameter {

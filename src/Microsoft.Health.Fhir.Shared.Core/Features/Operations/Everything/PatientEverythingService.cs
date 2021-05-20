@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
-        private readonly Tuple<string, string> _revinclude = Tuple.Create("Device", "patient");
+        private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
 
         public PatientEverythingService(
             Func<IScoped<ISearchService>> searchServiceFactory,
@@ -77,13 +77,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string encodedInternalContinuationToken = EncodeContinuationToken(token.InternalContinuationToken);
             IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
-            switch (token.Phase)
+            var phase = token.Phase;
+            switch (phase)
             {
                 case 0:
                     searchResult = await SearchIncludes(resourceId, since, types, cancellationToken);
                     if (!searchResult.Results.Any())
                     {
-                        token.Phase = 1;
+                        phase = 1;
                         goto case 1;
                     }
 
@@ -92,14 +93,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     // If both start and end are null, we can just perform regular compartment search in Phase 2
                     if (start == null && end == null)
                     {
-                        token.Phase = 2;
+                        phase = 2;
                         goto case 2;
                     }
 
                     searchResult = await SearchCompartmentWithDate(resourceId, start, end, since, types, encodedInternalContinuationToken, cancellationToken);
                     if (!searchResult.Results.Any())
                     {
-                        token.Phase = 2;
+                        phase = 2;
                         goto case 2;
                     }
 
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
                     if (!searchResult.Results.Any())
                     {
-                        token.Phase = 3;
+                        phase = 3;
                         goto case 3;
                     }
 
@@ -121,17 +122,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     break;
                 default:
                     // This should never happen
-                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, token.Phase));
+                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase));
             }
 
             string newContinuationToken = null;
             if (searchResult.ContinuationToken != null)
             {
-                newContinuationToken = EverythingOperationContinuationToken.ToString(token.Phase, searchResult.ContinuationToken);
+                newContinuationToken = EverythingOperationContinuationToken.ToString(phase, searchResult.ContinuationToken);
             }
-            else if (token.Phase < 3)
+            else if (phase < 3)
             {
-                newContinuationToken = EverythingOperationContinuationToken.ToString(token.Phase + 1, null);
+                newContinuationToken = EverythingOperationContinuationToken.ToString(phase + 1, null);
             }
 
             return new SearchResult(searchResult.Results, newContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
@@ -192,14 +193,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            if (types.Any() && !types.Contains(_revinclude.Item1))
+            if (types.Any() && !types.Contains(_revinclude.resourceType))
             {
                 return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
             }
 
             var searchParameters = new List<Tuple<string, string>>
             {
-                Tuple.Create(_revinclude.Item2, resourceId),
+                Tuple.Create(_revinclude.searchParameterName, resourceId),
             };
 
             if (since != null)
@@ -214,7 +215,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             // We do not use Patient?_revinclude here since it depends on the existence of the parent resource
             using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(_revinclude.Item1, searchParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(_revinclude.resourceType, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 

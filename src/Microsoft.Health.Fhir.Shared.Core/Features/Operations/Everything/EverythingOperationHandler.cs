@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             if (!string.Equals(request.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
             {
-                throw new RequestNotValidException(string.Format(Core.Resources.UnsupportedResourceType, request.EverythingOperationType));
+                throw new RequestNotValidException(string.Format(Core.Resources.ResourceNotSupported, request.EverythingOperationType));
             }
 
             SearchResult searchResult = await _patientEverythingService.SearchAsync(

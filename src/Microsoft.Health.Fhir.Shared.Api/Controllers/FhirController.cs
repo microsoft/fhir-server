@@ -30,6 +30,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -528,8 +529,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Everything)]
         public async Task<IActionResult> PatientEverythingById(
             string idParameter,
-            [FromQuery(Name = KnownQueryParameterNames.Start)] PartialDateTime start,
-            [FromQuery(Name = KnownQueryParameterNames.End)] PartialDateTime end,
+            [FromQuery(Name = EverythingOperationParameterNames.Start)] PartialDateTime start,
+            [FromQuery(Name = EverythingOperationParameterNames.End)] PartialDateTime end,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string type,
             string ct)

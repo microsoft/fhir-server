@@ -71,12 +71,5 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string OutputFormat = "_outputFormat";
 
         public const string TypeFilter = "_typeFilter";
-
-        /// <summary>
-        /// The date range parameters for $everything operation
-        /// </summary>
-        public const string Start = "start";
-
-        public const string End = "end";
     }
 }
