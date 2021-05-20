@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private const int LongRunningCommandTimeoutInSec = 60 * 20;
         private const int BulkOperationRunningCommandTimeoutInSec = 60 * 5;
+        private const int MaximumConcurrentRebuildIndexOperationCount = 3;
 
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
@@ -123,14 +124,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task PostprocessAsync(int concurrentCount, CancellationToken cancellationToken)
+        public async Task PostprocessAsync(CancellationToken cancellationToken)
         {
             IndexTableTypeV1Row[] allIndexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             List<Task> runningTasks = new List<Task>();
 
             foreach (IndexTableTypeV1Row index in allIndexes)
             {
-                while (runningTasks.Count >= concurrentCount)
+                while (runningTasks.Count >= MaximumConcurrentRebuildIndexOperationCount)
                 {
                     Task completedTask = await Task.WhenAny(runningTasks.ToArray());
                     await completedTask;

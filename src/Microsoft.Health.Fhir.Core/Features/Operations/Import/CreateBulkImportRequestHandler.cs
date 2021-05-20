@@ -74,7 +74,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
                 MaxConcurrentProcessingTaskCount = _importTaskConfiguration.MaximumConcurrency,
-                MaxConcurrentRebuildIndexOperationCount = _importTaskConfiguration.MaximumConcurrentRebuildOperationCount,
                 ProcessingTaskQueueId = processingTaskQueueId,
                 TaskId = taskId,
                 TaskCreateTime = Clock.UtcNow,

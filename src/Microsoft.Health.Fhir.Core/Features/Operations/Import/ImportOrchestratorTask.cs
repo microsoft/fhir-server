@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.SubTasksCompleted)
                 {
                     await _fhirDataBulkImportOperation.DeleteDuplicatedResourcesAsync(cancellationToken);
-                    await _fhirDataBulkImportOperation.PostprocessAsync(_orchestratorInputData.MaxConcurrentRebuildIndexOperationCount, cancellationToken);
+                    await _fhirDataBulkImportOperation.PostprocessAsync(cancellationToken);
 
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.PostprocessCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);

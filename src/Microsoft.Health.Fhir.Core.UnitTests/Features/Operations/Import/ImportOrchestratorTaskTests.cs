@@ -522,7 +522,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            fhirDataBulkImportOperation.PostprocessAsync(Arg.Any<CancellationToken>())
                 .Returns(_ =>
                 {
                     throw new InvalidCastException();

@@ -39,9 +39,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <summary>
         /// Post-process after import operation.
         /// </summary>
-        /// <param name="concurrentCount">Rebuild operation concurrent count. </param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task PostprocessAsync(int concurrentCount, CancellationToken cancellationToken);
+        public Task PostprocessAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// Remove duplicated resoruces in data store.
