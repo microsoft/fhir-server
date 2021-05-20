@@ -1205,6 +1205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest);
 
