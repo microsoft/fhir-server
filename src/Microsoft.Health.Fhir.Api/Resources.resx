@@ -364,4 +364,7 @@
   <data name="MemberMatchInvalidParameter" xml:space="preserve">
     <value>$member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
   </data>
+  <data name="OnlyInitialImportOperationSupported" xml:space="preserve">
+    <value>Only initial load import is supported. Please add "InitialLoad" mode to parameters.</value>
+  </data>
 </root>

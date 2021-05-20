@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (!ImportConstants.InitialLoadMode.Equals(importRequest.Mode, StringComparison.Ordinal))
             {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Import));
+                throw new RequestNotValidException(Resources.OnlyInitialImportOperationSupported);
             }
 
             CreateImportResponse response = await _mediator.BulkImportAsync(
