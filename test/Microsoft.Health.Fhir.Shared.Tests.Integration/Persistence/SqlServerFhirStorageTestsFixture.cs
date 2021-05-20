@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
             _schemaInitializer = new SchemaInitializer(config, _schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator);
+            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
@@ -159,8 +159,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
-            _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
-
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
                 () => searchableSearchParameterDefinitionManager,
@@ -211,6 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitializeAsync()
         {
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
             await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
         }
 

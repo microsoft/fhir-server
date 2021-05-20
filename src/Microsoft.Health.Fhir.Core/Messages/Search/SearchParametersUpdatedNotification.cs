@@ -10,9 +10,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
-    public class SearchParametersUpdated : INotification
+    public class SearchParametersUpdatedNotification : INotification
     {
-        public SearchParametersUpdated(IReadOnlyCollection<SearchParameterInfo> searchParameters)
+        public SearchParametersUpdatedNotification(IReadOnlyCollection<SearchParameterInfo> searchParameters)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
 

@@ -45,7 +45,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 {
-    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class ReindexJobTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly FhirStorageTestsFixture _fixture;
