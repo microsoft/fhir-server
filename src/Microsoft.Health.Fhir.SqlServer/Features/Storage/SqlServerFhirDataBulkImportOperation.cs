@@ -22,8 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerFhirDataBulkImportOperation : IFhirDataBulkImportOperation
     {
-        private const int LongRunningCommandTimeoutInSec = 60 * 30;
-        private const int BulkOperationRunningCommandTimeoutInSec = 60 * 10;
+        private const int LongRunningCommandTimeoutInSec = 60 * 20;
+        private const int BulkOperationRunningCommandTimeoutInSec = 60 * 5;
 
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
