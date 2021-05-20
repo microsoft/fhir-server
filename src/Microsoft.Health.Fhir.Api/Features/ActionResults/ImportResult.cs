@@ -39,6 +39,8 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <param name="taskResult">The job payload that must be returned as part of the ImportResult.</param>
         public static ImportResult Ok(ImportTaskResult taskResult)
         {
+            EnsureArg.IsNotNull(taskResult, nameof(taskResult));
+
             return new ImportResult(taskResult, HttpStatusCode.OK);
         }
     }
