@@ -200,6 +200,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // add matching resource types to the set of resource types which we will reindex
                         resourceList.UnionWith(matchingResourceTypes);
                     }
+                    else
+                    {
+                        _logger.LogInformation("Search parameter {url} is not being reindexed as it does not match the target types of reindex job {reindexid}.", searchParam.Url, _reindexJobRecord.Id);
+                    }
                 }
             }
             else
@@ -672,9 +676,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             var completeResourceList = new HashSet<string>(resourceTypes);
 
-            foreach (var possibleBaseType in resourceTypes)
+            foreach (var baseResourceType in resourceTypes)
             {
-                if (possibleBaseType == KnownResourceTypes.Resource)
+                if (baseResourceType == KnownResourceTypes.Resource)
                 {
                     completeResourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
 
@@ -682,7 +686,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     break;
                 }
 
-                if (possibleBaseType == KnownResourceTypes.DomainResource)
+                if (baseResourceType == KnownResourceTypes.DomainResource)
                 {
                     var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
 

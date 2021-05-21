@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             if (!string.IsNullOrEmpty(targetResourceTypesString))
             {
-                targetResourceTypes.AddRange(targetResourceTypesString.Split(","));
+                targetResourceTypes.AddRange(targetResourceTypesString.Split(",").Select(s => s.Trim()));
                 foreach (var resourceType in targetResourceTypes)
                 {
                     if (!Enum.TryParse<Hl7.Fhir.Model.ResourceType>(resourceType, out var result))
