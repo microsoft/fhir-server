@@ -92,6 +92,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 
+            _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
@@ -209,8 +211,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitializeAsync()
         {
-            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
             await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
+            await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
         }
 
         public async Task DisposeAsync()
