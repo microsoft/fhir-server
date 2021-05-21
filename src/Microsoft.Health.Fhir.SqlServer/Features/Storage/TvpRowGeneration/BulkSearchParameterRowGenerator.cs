@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             }
         }
 
-        private void EnsureInitialized()
+        protected void EnsureInitialized()
         {
             if (Volatile.Read(ref _isInitialized))
             {
