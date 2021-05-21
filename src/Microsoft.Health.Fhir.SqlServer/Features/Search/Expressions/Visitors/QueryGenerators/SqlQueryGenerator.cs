@@ -640,6 +640,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 AppendHistoryClause(delimited, referenceTargetResourceTableAlias);
                 AppendHistoryClause(delimited, referenceSourceTableAlias);
 
+                AppendDeletedClause(delimited, referenceTargetResourceTableAlias);
+
                 table = !includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
 
                 // For RevIncludeIterate we expect to have a TargetType specified if the target reference can be of multiple types
