@@ -202,8 +202,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, url));
             }
 
-            var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
-            foreach (var resourceType in allResourceTypes)
+            // for search parameters with a base resource type we need to delete the search parameter
+            // from all derived types as well, so we iterate across all resources
+            foreach (var resourceType in TypeLookup.Keys)
             {
                 TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
             }
