@@ -72,7 +72,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.InputFormat = "ndjson";
             importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
-            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
 
@@ -128,7 +127,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.InputFormat = "ndjson";
             importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
-            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
 
@@ -192,7 +190,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.InputFormat = "ndjson";
             importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
-            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
 
@@ -271,7 +268,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.InputFormat = "ndjson";
             importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
-            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
 
@@ -338,7 +334,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.InputFormat = "ndjson";
             importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
-            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
 
@@ -417,7 +412,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.InputFormat = "ndjson";
             importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
-            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
 
@@ -501,7 +495,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.InputFormat = "ndjson";
             importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = 1;
-            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
 
@@ -638,7 +631,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importOrchestratorTaskInputData.InputFormat = "ndjson";
             importOrchestratorTaskInputData.InputSource = new Uri("http://dummy");
             importOrchestratorTaskInputData.MaxConcurrentProcessingTaskCount = concurrentCount;
-            importOrchestratorTaskInputData.MaxConcurrentRebuildIndexOperationCount = 3;
             importOrchestratorTaskInputData.ProcessingTaskQueueId = "default";
             importOrchestratorTaskInputData.RequestUri = new Uri("http://dummy");
 

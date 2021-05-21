@@ -75,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 StorageDetail = request.StorageDetail,
                 MaxConcurrentProcessingTaskCount = _importTaskConfiguration.MaximumConcurrency,
                 ProcessingTaskQueueId = processingTaskQueueId,
+                ProcessingTaskMaxRetryCount = _importTaskConfiguration.MaxRetryCount,
                 TaskId = taskId,
                 TaskCreateTime = Clock.UtcNow,
             };
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 TaskId = taskId,
                 TaskTypeId = ImportOrchestratorTask.ImportOrchestratorTaskId,
-                MaxRetryCount = 5,
+                MaxRetryCount = _importTaskConfiguration.MaxRetryCount,
                 QueueId = _taskHostingConfiguration.QueueId,
                 InputData = JsonConvert.SerializeObject(inputData),
             };

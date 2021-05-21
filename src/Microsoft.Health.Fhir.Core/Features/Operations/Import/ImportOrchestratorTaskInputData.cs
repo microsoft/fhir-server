@@ -55,9 +55,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public int MaxConcurrentProcessingTaskCount { get; set; }
 
         /// <summary>
-        /// Max running index rebuild operation count.
+        /// Max retry count for processing task
         /// </summary>
-        public int MaxConcurrentRebuildIndexOperationCount { get; set; }
+        public short? ProcessingTaskMaxRetryCount { get; set; }
 
         /// <summary>
         /// Sub processing task queue id.

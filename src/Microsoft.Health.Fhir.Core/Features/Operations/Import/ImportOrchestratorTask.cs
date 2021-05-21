@@ -256,6 +256,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     TaskId = taskId,
                     TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
                     InputData = JsonConvert.SerializeObject(importTaskPayload),
+                    MaxRetryCount = _orchestratorInputData.ProcessingTaskMaxRetryCount,
                 };
 
                 result[input.Url] = processingTask;
