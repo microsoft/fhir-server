@@ -40,6 +40,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public Organization LabFOrganization { get; private set; }
 
+        public Organization DeletedOrganization { get; private set; }
+
+        public Device DeletedDevice { get; private set; }
+
         public Practitioner Practitioner { get; private set; }
 
         public Practitioner AndersonPractitioner { get; private set; }
@@ -55,6 +59,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         public Patient PatiPatient { get; private set; }
 
         public Patient AdamsPatient { get; private set; }
+
+        public Patient PatientWithDeletedOrganization { get; private set; }
 
         public Observation AdamsLoincObservation { get; private set; }
 
@@ -111,8 +117,25 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             PercocetMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") })).Resource;
             TramadolMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") })).Resource;
             Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
+
+            DeletedOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "SeattleForgotten" } } })).Resource;
+
+            Organization.Name = "Updated";
+
+            Organization = (await TestFhirClient.UpdateAsync(Organization)).Resource;
+
             Practitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta })).Resource;
             PatiPatient = await CreatePatient("Pati", Practitioner, Organization, "1990-01-01");
+            PatientWithDeletedOrganization = await CreatePatient("NonExisting", Practitioner, DeletedOrganization, "1990-01-01");
+
+            DeletedDevice = (await TestFhirClient.CreateAsync(new Device
+            {
+                Meta = meta,
+                Patient = new ResourceReference($"Patient/{PatientWithDeletedOrganization.Id}"),
+            })).Resource;
+
+            await TestFhirClient.DeleteAsync(DeletedOrganization);
+            await TestFhirClient.DeleteAsync(DeletedDevice);
 
             // Organization Hierarchy
             LabFOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta }).Result.Resource;
