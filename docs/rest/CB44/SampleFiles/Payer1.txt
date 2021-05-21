@@ -1,0 +1,43 @@
+{
+  "resourceType": "Organization",
+  "id": "Payer1",
+  "meta": {
+    "lastUpdated": "2019-12-12T09:14:11+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization",
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en-US\" lang=\"en-US\"><p><b>Generated Narrative</b></p><p><b>identifier</b>: National Provider Identifier: 345678, Payer ID: 901234</p><p><b>active</b>: true</p><p><b>name</b>: Payer 1</p></div>"
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi"
+          }
+        ]
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "345678"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "payerid"
+          }
+        ]
+      },
+      "value": "901234"
+    }
+  ],
+  "active": true,
+  "name": "Payer 1"
+}
