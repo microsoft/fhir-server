@@ -22,6 +22,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             Assert.Equal(0, token.Phase);
             Assert.Null(token.InternalContinuationToken);
 
+            token = EverythingOperationContinuationToken.FromString("{\"Phase\":3}");
+            Assert.Equal(3, token.Phase);
+            Assert.Null(token.InternalContinuationToken);
+
             token = EverythingOperationContinuationToken.FromString("{\"Phase\":1,\"InternalContinuationToken\":null}");
             Assert.Equal(1, token.Phase);
             Assert.Null(token.InternalContinuationToken);
