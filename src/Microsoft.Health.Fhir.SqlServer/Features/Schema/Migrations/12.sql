@@ -3534,9 +3534,9 @@ GO
 --     Delete duplicated search parameters
 --
 -- PARAMETERS
---
+--     @tableName search params table name
 CREATE PROCEDURE dbo.DeleteDuplicatedSearchParams
-    @TableName nvarchar(128)
+    @tableName nvarchar(128)
 AS
     SET NOCOUNT ON
     SET XACT_ABORT ON
