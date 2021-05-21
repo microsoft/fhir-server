@@ -14,11 +14,15 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
@@ -26,22 +30,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
-    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService, INotificationHandler<SearchParametersUpdated>
+    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService, INotificationHandler<SearchParametersUpdatedNotification>, INotificationHandler<StorageInitializedNotification>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly IMediator _mediator;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
+        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly ILogger _logger;
 
-        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider, IMediator mediator)
+        public SearchParameterDefinitionManager(
+            IModelInfoProvider modelInfoProvider,
+            IMediator mediator,
+            Func<IScoped<ISearchService>> searchServiceFactory,
+            ILogger<SearchParameterDefinitionManager> logger)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _modelInfoProvider = modelInfoProvider;
             _mediator = mediator;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
             UrlLookup = new ConcurrentDictionary<Uri, SearchParameterInfo>();
+            _searchServiceFactory = searchServiceFactory;
+            _logger = logger;
         }
 
         internal ConcurrentDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
@@ -66,12 +80,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 TypeLookup,
                 _modelInfoProvider);
 
-            CalculateSearchParameterHash();
-
             return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public async Task EnsureInitializedAsync(CancellationToken cancellationToken)
+        {
+            await LoadSearchParamsFromDataStore(cancellationToken);
+
+            await _mediator.Publish(new SearchParameterDefinitionManagerInitialized(), cancellationToken);
+        }
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
@@ -183,8 +202,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, url));
             }
 
-            var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
-            foreach (var resourceType in allResourceTypes)
+            // for search parameters with a base resource type we need to delete the search parameter
+            // from all derived types as well, so we iterate across all resources
+            foreach (var resourceType in TypeLookup.Keys)
             {
                 TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
             }
@@ -195,10 +215,70 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public async Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
+        public async Task Handle(SearchParametersUpdatedNotification notification, CancellationToken cancellationToken)
         {
             CalculateSearchParameterHash();
             await _mediator.Publish(new RebuildCapabilityStatement(RebuildPart.SearchParameter), cancellationToken);
+        }
+
+        public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            await EnsureInitializedAsync(cancellationToken);
+        }
+
+        private async Task LoadSearchParamsFromDataStore(CancellationToken cancellationToken)
+        {
+            // now read in any previously POST'd SearchParameter resources
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            string continuationToken = null;
+            do
+            {
+                var queryParams = new List<Tuple<string, string>>();
+                if (continuationToken != null)
+                {
+                    queryParams.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, continuationToken));
+                }
+
+                var result = await search.Value.SearchAsync("SearchParameter", queryParams, cancellationToken);
+                if (!string.IsNullOrEmpty(result?.ContinuationToken))
+                {
+                    continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken));
+                }
+                else
+                {
+                    continuationToken = null;
+                }
+
+                if (result?.Results != null && result.Results.Any())
+                {
+                    var searchParams = result.Results.Select(r => r.Resource.RawResource.ToITypedElement(_modelInfoProvider)).ToList();
+
+                    foreach (var searchParam in searchParams)
+                    {
+                        try
+                        {
+                            SearchParameterDefinitionBuilder.Build(
+                                new List<ITypedElement>() { searchParam },
+                                UrlLookup,
+                                TypeLookup,
+                                _modelInfoProvider);
+                        }
+                        catch (SearchParameterNotSupportedException ex)
+                        {
+                            _logger.LogWarning(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                        }
+                        catch (InvalidDefinitionException ex)
+                        {
+                            _logger.LogWarning(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error loading search parameter {url} from data store.", searchParam.GetStringScalar("url"));
+                        }
+                    }
+                }
+            }
+            while (continuationToken != null);
         }
     }
 }

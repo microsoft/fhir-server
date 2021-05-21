@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await _mediator
                 .Received()
                 .Publish(
-                    Arg.Is<SearchParametersUpdated>(x => modifiedItems.Except(x.SearchParameters).Any() == false),
+                    Arg.Is<SearchParametersUpdatedNotification>(x => modifiedItems.Except(x.SearchParameters).Any() == false),
                     Arg.Any<CancellationToken>());
         }
 

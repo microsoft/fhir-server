@@ -58,7 +58,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<ISearchParameterDefinitionManager>()
                 .AsService<IHostedService>()
-                .ReplaceService<INotificationHandler<SearchParametersUpdated>>();
+                .ReplaceService<INotificationHandler<SearchParametersUpdatedNotification>>()
+                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
 
             services.Add<SearchableSearchParameterDefinitionManager>()
                 .Singleton()
@@ -79,12 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<SearchParameterStatusManager>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
-
-            services.Add<SearchParameterResourceDataStore>()
-                .Singleton()
-                .AsSelf()
-                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
+                .ReplaceService<INotificationHandler<SearchParameterDefinitionManagerInitialized>>();
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()
