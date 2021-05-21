@@ -1650,6 +1650,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             {
                 if (!isInitialized)
                 {
+                    await ((SearchParameterDefinitionManager)SearchParameterDefinitionManager).StartAsync(CancellationToken.None);
                     await ((SearchParameterDefinitionManager)SearchParameterDefinitionManager).EnsureInitializedAsync(CancellationToken.None);
                     isInitialized = true;
                 }
