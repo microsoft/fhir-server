@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private const int LongRunningCommandTimeoutInSec = 60 * 30;
         private const int BulkOperationRunningCommandTimeoutInSec = 60 * 10;
-        private const int MaxDeleteDuplicateOperationCount = 8;
+        private const int MaxDeleteDuplicateOperationCount = 3;
         private const int MaximumConcurrentRebuildIndexOperationCount = 3;
 
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
