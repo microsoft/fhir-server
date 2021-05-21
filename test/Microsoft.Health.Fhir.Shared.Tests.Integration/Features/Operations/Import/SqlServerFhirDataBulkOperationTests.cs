@@ -172,7 +172,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 foreach (string tableName in tableNames)
                 {
                     int rCount = await GetResourceCountAsync(tableName, startSurrogateId, startSurrogateId + count);
-                    Console.WriteLine(rCount);
                 }
 
                 await sqlServerFhirDataBulkOperation.DeleteDuplicatedResourcesAsync(CancellationToken.None);
