@@ -160,9 +160,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
-            // Filter results by IsDeleted
-            searchResultEntries = searchResultEntries.Where(s => !s.Resource.IsDeleted).ToList();
-
             // Filter results by _type
             if (types.Any())
             {
