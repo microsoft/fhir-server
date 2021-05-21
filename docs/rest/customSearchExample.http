@@ -1,0 +1,269 @@
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### POST new patient, this patient has a race value which can be indexed with the new Search parameter below
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType" : "Patient",
+  "id" : "child-example",
+  "meta" : {
+    "profile" : [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+    ]
+  },
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>id</b>: child-example</p><p><b>meta</b>: </p><p><b>identifier</b>: Medical Record Number: 1032704 (USUAL)</p><p><b>active</b>: true</p><p><b>name</b>: Child Example </p><p><b>telecom</b>: ph: 555-555-5555(HOME)</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 2016-01-15</p><p><b>address</b>: 49 Meadow St Mounds OK 74047 US </p></div>"
+  },
+  "extension" : [
+    {
+      "extension" : [
+        {
+          "url" : "ombCategory",
+          "valueCoding" : {
+            "system" : "urn:oid:2.16.840.1.113883.6.238",
+            "code" : "2028-9",
+            "display" : "Asian"
+          }
+        },
+        {
+          "url" : "text",
+          "valueString" : "Asian"
+        }
+      ],
+      "url" : "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race"
+    },
+    {
+      "extension" : [
+        {
+          "url" : "ombCategory",
+          "valueCoding" : {
+            "system" : "urn:oid:2.16.840.1.113883.6.238",
+            "code" : "2186-5",
+            "display" : "Not Hispanic or Latino"
+          }
+        },
+        {
+          "url" : "text",
+          "valueString" : "Not Hispanic or Latino"
+        }
+      ],
+      "url" : "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity"
+    },
+    {
+      "url" : "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
+      "valueCode" : "M"
+    }
+  ],
+  "identifier" : [
+    {
+      "use" : "usual",
+      "type" : {
+        "coding" : [
+          {
+            "system" : "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code" : "MR",
+            "display" : "Medical Record Number"
+          }
+        ],
+        "text" : "Medical Record Number"
+      },
+      "system" : "http://hospital.smarthealthit.org",
+      "value" : "1032704"
+    }
+  ],
+  "active" : true,
+  "name" : [
+    {
+      "family" : "Example",
+      "given" : [
+        "Child"
+      ]
+    }
+  ],
+  "telecom" : [
+    {
+      "system" : "phone",
+      "value" : "555-555-5555",
+      "use" : "home"
+    }
+  ],
+  "gender" : "male",
+  "birthDate" : "2016-01-15",
+  "address" : [
+    {
+      "line" : [
+        "49 Meadow St"
+      ],
+      "city" : "Mounds",
+      "state" : "OK",
+      "postalCode" : "74047",
+      "country" : "US"
+    }
+  ]
+}
+
+
+### Create a new SearchParameter resource, this is copied from US Core race
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType" : "SearchParameter",
+  "id" : "us-core-race",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>id</b>: us-core-race</p><p><b>url</b>: <a href=\"http://hl7.org/fhir/us/core/SearchParameter/us-core-race\">http://hl7.org/fhir/us/core/SearchParameter/us-core-race</a></p><p><b>version</b>: 3.1.1</p><p><b>name</b>: USCoreRace</p><p><b>status</b>: active</p><p><b>date</b>: 2019-05-21</p><p><b>publisher</b>: US Realm Steering Committee</p><p><b>contact</b>: http://www.healthit.gov/</p><p><b>description</b>: Returns patients with a race extension matching the specified code.</p><p><b>jurisdiction</b>: <span title=\"Codes: {urn:iso:std:iso:3166 US}\">United States of America</span></p><p><b>code</b>: race</p><p><b>base</b>: Patient</p><p><b>type</b>: token</p><p><b>expression</b>: Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.value.code</p><p><b>xpath</b>: f:Patient/f:extension[@url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-race']/f:extension/f:valueCoding/f:code/@value</p><p><b>xpathUsage</b>: normal</p></div>"
+  },
+  "url" : "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+  "version" : "3.1.1",
+  "name" : "USCoreRace",
+  "status" : "active",
+  "date" : "2019-05-21",
+  "publisher" : "US Realm Steering Committee",
+  "contact" : [
+    {
+      "telecom" : [
+        {
+          "system" : "other",
+          "value" : "http://www.healthit.gov/"
+        }
+      ]
+    }
+  ],
+  "description" : "Returns patients with a race extension matching the specified code.",
+  "jurisdiction" : [
+    {
+      "coding" : [
+        {
+          "system" : "urn:iso:std:iso:3166",
+          "code" : "US",
+          "display" : "United States of America"
+        }
+      ]
+    }
+  ],
+  "code" : "race",
+  "base" : [
+    "Patient"
+  ],
+  "type" : "token",
+  "expression" : "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.value.code",
+  "xpath" : "f:Patient/f:extension[@url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-race']/f:extension/f:valueCoding/f:code/@value",
+  "xpathUsage" : "normal"
+}
+
+### Another search parameter example, this is based on the the definition for the id parameter
+# it has a base type of Resource, so it applies to all resources in teh server
+POST https://{{hostname}}/SearchParameter
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+      "resourceType" : "SearchParameter",
+      "id" : "Resource-idnew",
+      "extension" : [{
+        "url" : "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+        "valueCode" : "trial-use"
+      }],
+      "url" : "http://hl7.org/fhir/SearchParameter/Resource-idnew",
+      "version" : "4.0.1",
+      "name" : "_idnew",
+      "status" : "draft",
+      "experimental" : false,
+      "date" : "2019-11-01T09:29:23+11:00",
+      "publisher" : "Health Level Seven International (FHIR Infrastructure)",
+      "contact" : [{
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://hl7.org/fhir"
+        }]
+      },
+      {
+        "telecom" : [{
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+        }]
+      }],
+      "description" : "Logical id of this artifact",
+      "code" : "_idnew",
+      "base" : ["Resource"],
+      "type" : "token",
+      "expression" : "Resource.id",
+      "xpath" : "f:Resource/f:id",
+      "xpathUsage" : "normal"
+    }
+
+###  This creates a reindex job, you can do this now, or you can skip below to see if you can search
+# using the new search parameter before it is indexed
+# @name reindex
+POST https://{{hostname}}/$reindex
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "maximumConcurrency",
+      "valueInteger": "3"
+    },
+    {
+      "name": "targetDataStoreUsagePercentage",
+      "valueInteger": "80"
+    },
+    {
+      "name": "queryDelayIntervalInMilliseconds",
+      "valueInteger": "500"
+    },
+    {
+      "name": "maximumNumberOfResourcesPerQuery",
+      "valueInteger": "5"
+    }
+  ]
+}
+
+### Check the status of your reindex job
+GET {{reindex.response.headers.Content-Location}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Test your new search parameter to see what values it will return
+# This will extract and return the extracted values so you can see them
+# but it will not persist the extracted value to the DB
+GET https://{{hostname}}/Patient/{{patient.response.body.id}}/$reindex
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### if you want to test a single resource being indexed, use the same url as above
+# but with a POST to commit the new indices to the DB
+POST https://{{hostname}}/Patient/{{patient.response.body.id}}/$reindex
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+### Try searching by race
+# if you have not yet reindexed, this should not work :)
+GET https://{{hostname}}/Patient?race=2028-9
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### If you have not yet fully reindexed, but have used the POST to reindex
+# a single resource and you want to test it, use the following query
+# with the patient indices header
+GET https://{{hostname}}/Patient?race=2028-9
+Authorization: Bearer {{bearer.response.body.access_token}}
+x-ms-use-partial-indices: true

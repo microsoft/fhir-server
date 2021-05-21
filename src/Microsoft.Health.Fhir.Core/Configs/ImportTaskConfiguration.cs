@@ -8,6 +8,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class ImportTaskConfiguration
     {
         private const int DefaultMaximumConcurrency = 5;
+        private const int DefaultMaxRetryCount = 5;
 
         /// <summary>
         /// Determines whether bulk import is enabled or not.
@@ -23,5 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Controls how many data processing task would run at the same time.
         /// </summary>
         public int MaximumConcurrency { get; set; } = DefaultMaximumConcurrency;
+
+        /// <summary>
+        /// Controls how many data processing task would run at the same time.
+        /// </summary>
+        public short MaxRetryCount { get; set; } = DefaultMaxRetryCount;
     }
 }
