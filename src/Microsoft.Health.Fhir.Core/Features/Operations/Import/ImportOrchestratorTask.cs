@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private const int DefaultPollingFrequencyInSeconds = 3;
         private const long DefaultResourceSizePerByte = 64;
+        private const long WaitRunningTaskCancelTimeoutInSec = 120;
 
         private ImportOrchestratorTaskInputData _orchestratorInputData;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -149,14 +150,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogWarning(taskCanceledEx, "Import task canceled. {0}", taskCanceledEx.Message);
 
-                await TryToCancelRunningTasksAsync();
+                await CleanupForCancelAsync();
                 return new TaskResultData(TaskResult.Canceled, taskCanceledEx.Message);
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogWarning(canceledEx, "Import task canceled. {0}", canceledEx.Message);
 
-                await TryToCancelRunningTasksAsync();
+                await CleanupForCancelAsync();
                 return new TaskResultData(TaskResult.Canceled, canceledEx.Message);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
@@ -394,7 +395,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             return completedTaskResourceUris;
         }
 
-        public async Task TryToCancelRunningTasksAsync()
+        public async Task CleanupForCancelAsync()
         {
             List<string> runningTaskIds = new List<string>();
 
@@ -411,6 +412,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
             }
 
+            // Wait task cancel for WaitRunningTaskCancelTimeoutInSec
+            await Task.WhenAny(new Task[] { Task.Delay(TimeSpan.FromSeconds(WaitRunningTaskCancelTimeoutInSec)), WaitRunningTaskCompleteAsync(runningTaskIds) });
+
+            try
+            {
+                await _fhirDataBulkImportOperation.DeleteDuplicatedResourcesAsync(CancellationToken.None);
+                await _fhirDataBulkImportOperation.PostprocessAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clean resource after import operation cancelled.");
+            }
+        }
+
+        private async Task WaitRunningTaskCompleteAsync(List<string> runningTaskIds)
+        {
             while (true)
             {
                 if (runningTaskIds.Count == 0)
@@ -437,16 +454,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(5));
-            }
-
-            try
-            {
-                await _fhirDataBulkImportOperation.DeleteDuplicatedResourcesAsync(CancellationToken.None);
-                await _fhirDataBulkImportOperation.PostprocessAsync(CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to clean resource after import operation cancelled.");
             }
         }
 

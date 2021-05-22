@@ -21,5 +21,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Current index for last checkpoint
         /// </summary>
         public long CurrentIndex { get; set; }
+
+        /// <summary>
+        /// Need clean data for retry. Use this flag to accelerate first run.
+        /// </summary>
+        public bool NeedCleanDataForRetry { get; set; }
     }
 }

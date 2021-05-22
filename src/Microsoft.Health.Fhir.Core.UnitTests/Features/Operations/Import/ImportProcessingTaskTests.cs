@@ -222,6 +222,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     throw new InvalidOperationException();
                 });
 
+            progress.NeedCleanDataForRetry = true;
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
@@ -257,6 +258,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     throw new OperationCanceledException();
                 });
 
+            progress.NeedCleanDataForRetry = true;
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
@@ -354,6 +356,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
+            progress.NeedCleanDataForRetry = true;
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,

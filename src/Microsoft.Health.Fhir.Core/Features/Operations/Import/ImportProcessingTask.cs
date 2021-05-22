@@ -96,7 +96,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 Func<long, long> sequenceIdGenerator = (index) => _inputData.BeginSequenceId + index;
 
                 // Clean imported resource after last checkpoint.
-                await CleanDataAsync(cancellationToken);
+                if (_importProgress.NeedCleanDataForRetry)
+                {
+                    await CleanDataAsync(cancellationToken);
+                }
+                else
+                {
+                    _importProgress.NeedCleanDataForRetry = true;
+                    await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_importProgress), cancellationToken);
+                }
 
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(), cancellationToken);

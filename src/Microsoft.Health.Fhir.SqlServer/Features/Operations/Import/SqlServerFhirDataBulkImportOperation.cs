@@ -25,7 +25,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private const int LongRunningCommandTimeoutInSec = 60 * 30;
         private const int BulkOperationRunningCommandTimeoutInSec = 60 * 10;
         private const int MaxDeleteDuplicateOperationCount = 3;
-        private const int MaximumConcurrentRebuildIndexOperationCount = 3;
+        private const int MaximumConcurrentRebuildIndexOperationCount = 6;
+        private const int CleanResourceBatchSize = 1000;
 
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
@@ -52,14 +53,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public static IReadOnlyList<(Table table, Index index)> UnclusteredIndexes { get; } =
             new List<(Table table, Index index)>()
             {
+                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId),
                 (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId),
                 (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId_Version),
+                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId),
+                (VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId),
+                (VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime),
+                (VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long),
+                (VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime),
+                (VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long),
+                (VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_HighValue_LowValue),
+                (VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_LowValue_HighValue),
+                (VLatest.NumberSearchParam, VLatest.NumberSearchParam.IX_NumberSearchParam_SearchParamId_SingleValue),
+                (VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue),
+                (VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue),
+                (VLatest.QuantitySearchParam, VLatest.QuantitySearchParam.IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue),
+                (VLatest.ReferenceSearchParam, VLatest.ReferenceSearchParam.IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion),
+                (VLatest.ReferenceTokenCompositeSearchParam, VLatest.ReferenceTokenCompositeSearchParam.IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2),
+                (VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_Text),
+                (VLatest.StringSearchParam, VLatest.StringSearchParam.IX_StringSearchParam_SearchParamId_TextWithOverflow),
+                (VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2),
+                (VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_EndDateTime2_StartDateTime2_Long),
+                (VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2),
+                (VLatest.TokenDateTimeCompositeSearchParam, VLatest.TokenDateTimeCompositeSearchParam.IX_TokenDateTimeCompositeSearchParam_Code1_StartDateTime2_EndDateTime2_Long),
+                (VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_LowValue2_HighValue2_LowValue3_HighValue3),
+                (VLatest.TokenNumberNumberCompositeSearchParam, VLatest.TokenNumberNumberCompositeSearchParam.IX_TokenNumberNumberCompositeSearchParam_SearchParamId_Code1_Text2),
+                (VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2),
+                (VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2),
+                (VLatest.TokenQuantityCompositeSearchParam, VLatest.TokenQuantityCompositeSearchParam.IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_SingleValue2),
+                (VLatest.TokenSearchParam, VLatest.TokenSearchParam.IX_TokenSeachParam_SearchParamId_Code_SystemId),
+                (VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2),
+                (VLatest.TokenStringCompositeSearchParam, VLatest.TokenStringCompositeSearchParam.IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow),
+                (VLatest.TokenText, VLatest.TokenText.IX_TokenText_SearchParamId_Text),
+                (VLatest.TokenTokenCompositeSearchParam, VLatest.TokenTokenCompositeSearchParam.IX_TokenTokenCompositeSearchParam_Code1_Code2),
+                (VLatest.UriSearchParam, VLatest.UriSearchParam.IX_UriSearchParam_SearchParamId_Uri),
+
+                // ResourceWriteClaim Table - No unclustered index
             };
+
+        public static string ResourceWriteClaimTableName { get; } = VLatest.ResourceWriteClaim.TableName;
 
         public static IReadOnlyList<string> SearchParameterTables { get; } =
             new List<string>()
             {
-                VLatest.ResourceWriteClaim.TableName,
                 VLatest.CompartmentAssignment.TableName,
                 VLatest.ReferenceSearchParam.TableName,
                 VLatest.TokenSearchParam.TableName,
@@ -104,23 +140,100 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            short resourceTypeId = _model.GetResourceTypeId(resourceType);
+
+            await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, cancellationToken);
+            await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, cancellationToken);
+
+            foreach (var tableName in SearchParameterTables.ToArray())
             {
-                try
+                await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, cancellationToken);
+            }
+        }
+
+        private async Task BatchDeleteResourcesInternalAsync(long beginSequenceId, long endSequenceId, short resourceTypeId, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
 
-                    short resourceTypeId = _model.GetResourceTypeId(resourceType);
+                        VLatest.BatchDeleteResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId, CleanResourceBatchSize);
+                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
 
-                    VLatest.DeleteBatchResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                        if (impactRows == 0)
+                        {
+                            return;
+                        }
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to remove context.");
+
+                        throw;
+                    }
                 }
-                catch (SqlException sqlEx)
-                {
-                    _logger.LogError(sqlEx, $"Failed to remove context.");
+            }
+        }
 
-                    throw;
+        private async Task BatchDeleteResourceWriteClaimsInternalAsync(long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                {
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+
+                        VLatest.BatchDeleteResourceWriteClaims.PopulateCommand(sqlCommandWrapper, beginSequenceId, endSequenceId, CleanResourceBatchSize);
+                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                        if (impactRows == 0)
+                        {
+                            return;
+                        }
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to remove context.");
+
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private async Task BatchDeleteResourceParamsInternalAsync(string tableName, long beginSequenceId, long endSequenceId, short resourceTypeId, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                {
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+
+                        VLatest.BatchDeleteResourceParams.PopulateCommand(sqlCommandWrapper, tableName, resourceTypeId, beginSequenceId, endSequenceId, CleanResourceBatchSize);
+                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                        if (impactRows == 0)
+                        {
+                            return;
+                        }
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to remove context.");
+
+                        throw;
+                    }
                 }
             }
         }
@@ -175,6 +288,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 List<Task> runningTasks = new List<Task>();
 
+                runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(ResourceWriteClaimTableName, cancellationToken));
                 foreach (var tableName in SearchParameterTables.ToArray())
                 {
                     if (runningTasks.Count >= MaxDeleteDuplicateOperationCount)
@@ -224,6 +338,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task ExecuteDeleteDuplicatedResourcesTaskAsync(CancellationToken cancellationToken)
         {
+            while (true)
             {
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -232,8 +347,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
-                        VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
-                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                        VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper, CleanResourceBatchSize);
+                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                        if (impactRows == 0)
+                        {
+                            return;
+                        }
                     }
                     catch (SqlException sqlEx)
                     {
@@ -247,6 +366,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task ExecuteDeleteDuplicatedSearchParamsTaskAsync(string tableName, CancellationToken cancellationToken)
         {
+            while (true)
             {
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                 using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -255,8 +375,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
-                        VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName);
-                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                        VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName, CleanResourceBatchSize);
+                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                        if (impactRows == 0)
+                        {
+                            return;
+                        }
                     }
                     catch (SqlException sqlEx)
                     {

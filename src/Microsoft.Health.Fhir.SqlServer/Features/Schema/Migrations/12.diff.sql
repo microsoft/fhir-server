@@ -10,14 +10,14 @@ END
 GO
 
 /*************************************************************
-    Stored procedures for delete batch resources
+    Stored procedures for batch delete resources
 **************************************************************/
 --
 -- STORED PROCEDURE
---     DeleteBatchResources
+--     BatchDeleteResources
 --
 -- DESCRIPTION
---     Delete batch resources
+--     Batch delete resources
 --
 -- PARAMETERS
 --     @resourceTypeId
@@ -26,69 +26,111 @@ GO
 --         * The start ResourceSurrogateId
 --     @endResourceSurrogateId
 --         * The end ResourceSurrogateId
-CREATE OR ALTER PROCEDURE dbo.DeleteBatchResources
+--     @batchSize
+--         * Max batch size for delete operation
+CREATE OR ALTER PROCEDURE dbo.BatchDeleteResources
     @resourceTypeId smallint,
     @startResourceSurrogateId bigint,
-    @endResourceSurrogateId bigint
+    @endResourceSurrogateId bigint,
+    @batchSize int
 AS
-    SET NOCOUNT ON
     SET XACT_ABORT ON
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DELETE FROM dbo.Resource
+    DELETE Top(@batchSize) FROM dbo.Resource
     WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
 
-    DELETE FROM dbo.ResourceWriteClaim
+    COMMIT TRANSACTION
+
+    return @@rowcount
+GO
+
+/*************************************************************
+    Stored procedures for batch delete ResourceWriteClaims
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     BatchDeleteResourceWriteClaims
+--
+-- DESCRIPTION
+--     Batch delete ResourceWriteClaims
+--
+-- PARAMETERS
+--     @startResourceSurrogateId
+--         * The start ResourceSurrogateId
+--     @endResourceSurrogateId
+--         * The end ResourceSurrogateId
+--     @batchSize
+--         * Max batch size for delete operation
+CREATE OR ALTER PROCEDURE dbo.BatchDeleteResourceWriteClaims
+    @startResourceSurrogateId bigint,
+    @endResourceSurrogateId bigint,
+    @batchSize int
+AS
+    SET XACT_ABORT ON
+
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+    BEGIN TRANSACTION
+
+    DELETE Top(@batchSize) FROM dbo.ResourceWriteClaim
     WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
 
-    DELETE FROM dbo.CompartmentAssignment
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.ReferenceSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenText
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.StringSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.UriSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.NumberSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.QuantitySearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.DateTimeSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.ReferenceTokenCompositeSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenTokenCompositeSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenDateTimeCompositeSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenQuantityCompositeSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenStringCompositeSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-
-    DELETE FROM dbo.TokenNumberNumberCompositeSearchParam
-    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
-        
     COMMIT TRANSACTION
+
+    return @@rowcount
+GO
+
+
+/*************************************************************
+    Stored procedures for batch delete ResourceParams
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     BatchDeleteResourceParams
+--
+-- DESCRIPTION
+--     Batch delete ResourceParams
+--
+-- PARAMETERS
+--     @tableName
+--         * Resource params table name
+--     @resourceTypeId
+--         * Resource type id
+--     @startResourceSurrogateId
+--         * The start ResourceSurrogateId
+--     @endResourceSurrogateId
+--         * The end ResourceSurrogateId
+--     @batchSize
+--         * Max batch size for delete operation
+CREATE OR ALTER PROCEDURE dbo.BatchDeleteResourceParams
+    @tableName nvarchar(128),
+    @resourceTypeId smallint,
+    @startResourceSurrogateId bigint,
+    @endResourceSurrogateId bigint,
+    @batchSize int
+AS
+    SET XACT_ABORT ON
+
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+    BEGIN TRANSACTION
+
+    DECLARE @Sql NVARCHAR(MAX);
+    DECLARE @ParmDefinition NVARCHAR(512);
+
+    SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName	+ N' WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
+    SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint'; 
+
+	EXECUTE sp_executesql @sql, @parmDefinition,
+                          @BatchSizeParam = @batchSize,
+                          @ResourceTypeIdParam = @resourceTypeId,
+                          @StartResourceSurrogateIdParam = @startResourceSurrogateId,
+                          @EndResourceSurrogateIdParam = @endResourceSurrogateId
+
+    COMMIT TRANSACTION
+
+    return @@rowcount
 GO
 
 /*************************************************************
@@ -102,7 +144,8 @@ GO
 --     Stored procedures for disable indexes
 --
 -- PARAMETERS
---     @indexes indexes table
+--     @indexes 
+--         * indexes table
 CREATE OR ALTER PROCEDURE [dbo].[DisableIndexes]
     @indexes dbo.IndexTableType_1 READONLY
 AS
@@ -142,7 +185,8 @@ GO
 --     Stored procedures for rebuild indexes
 --
 -- PARAMETERS
---     @indexes indexes table
+--     @indexes 
+--         * indexes table
 CREATE OR ALTER PROCEDURE [dbo].[RebuildIndexes]
     @indexes dbo.IndexTableType_1 READONLY
 AS
@@ -182,16 +226,17 @@ GO
 --     Delete duplicated resources
 --
 -- PARAMETERS
---
+--     @batchSize 
+--         * Max batch size for delete operation
 CREATE OR ALTER PROCEDURE dbo.DeleteDuplicatedResources
+    @batchSize int
 AS
-    SET NOCOUNT ON
     SET XACT_ABORT ON
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DELETE rank FROM
+    DELETE Top(@batchSize) rank FROM
 		(
 			SELECT *
 			, DupRank = ROW_NUMBER() OVER (
@@ -202,6 +247,8 @@ AS
     where rank.DupRank > 1
 
     COMMIT TRANSACTION
+
+    return @@rowcount
 GO
 
 /*************************************************************
@@ -215,24 +262,31 @@ GO
 --     Delete duplicated search parameters
 --
 -- PARAMETERS
---     @tableName search params table name
+--     @tableName 
+--         * Search params table name
+--     @batchSize 
+--         * Max batch size for delete operation
 CREATE OR ALTER PROCEDURE dbo.DeleteDuplicatedSearchParams
-    @tableName nvarchar(128)
+    @tableName nvarchar(128),
+    @batchSize int
 AS
-    SET NOCOUNT ON
     SET XACT_ABORT ON
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-	DECLARE @Sql NVARCHAR(MAX);
+	DECLARE @sql NVARCHAR(MAX);
+    DECLARE @parmDefinition NVARCHAR(128);
 
-	SET @Sql = N'DELETE FROM ' + @TableName
-	+ N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
+	SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @TableName	+ N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
+    SET @parmDefinition = N'@BatchSizeParam int'; 
 
-	EXECUTE sp_executesql @Sql
+	EXECUTE sp_executesql @sql, @parmDefinition,
+                          @BatchSizeParam = @batchSize
 
     COMMIT TRANSACTION
+
+    return @@rowcount
 GO
 
 /*************************************************************
