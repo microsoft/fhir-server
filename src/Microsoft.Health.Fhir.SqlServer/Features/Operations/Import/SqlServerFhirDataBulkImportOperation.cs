@@ -197,11 +197,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                await ExecuteDeleteDuplicatedResourcesTaskAsync(CleanResourceBatchSize, cancellationToken);
+                await ExecuteDeleteDuplicatedResourcesTaskAsync(cancellationToken);
 
                 List<Task> runningTasks = new List<Task>();
 
-                runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(ResourceWriteClaimTableName, CleanResourceBatchSize, cancellationToken));
+                runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(ResourceWriteClaimTableName, cancellationToken));
                 foreach (var tableName in SearchParameterTables.ToArray())
                 {
                     if (runningTasks.Count >= MaxDeleteDuplicateOperationCount)
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         await completedTask;
                     }
 
-                    runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(tableName, CleanResourceBatchSize, cancellationToken));
+                    runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(tableName, cancellationToken));
                 }
 
                 while (runningTasks.Count > 0)
@@ -249,58 +249,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task ExecuteDeleteDuplicatedResourcesTaskAsync(int batchSize, CancellationToken cancellationToken)
+        private async Task ExecuteDeleteDuplicatedResourcesTaskAsync(CancellationToken cancellationToken)
         {
-            while (true)
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                try
                 {
-                    try
-                    {
-                        sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
-                        VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper, batchSize);
-                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                        if (impactRows < batchSize)
-                        {
-                            return;
-                        }
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        _logger.LogError(sqlEx, $"Failed to delete resoueces duplicate search paramters.");
+                    VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogError(sqlEx, $"Failed to delete resoueces duplicate search paramters.");
 
-                        throw;
-                    }
+                    throw;
                 }
             }
         }
 
-        private async Task ExecuteDeleteDuplicatedSearchParamsTaskAsync(string tableName, int batchSize, CancellationToken cancellationToken)
+        private async Task ExecuteDeleteDuplicatedSearchParamsTaskAsync(string tableName, CancellationToken cancellationToken)
         {
-            while (true)
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                try
                 {
-                    try
-                    {
-                        sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
-                        VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName, batchSize);
-                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                        if (impactRows < batchSize)
-                        {
-                            return;
-                        }
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        _logger.LogError(sqlEx, $"Failed to delete duplicate search paramters.");
+                    VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName);
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogError(sqlEx, $"Failed to delete duplicate search paramters.");
 
-                        throw;
-                    }
+                    throw;
                 }
             }
         }
@@ -326,7 +312,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (SqlException sqlEx)
                     {
-                        _logger.LogError(sqlEx, $"Failed to remove context.");
+                        _logger.LogError(sqlEx, $"Failed batch delete Resource.");
 
                         throw;
                     }
@@ -355,7 +341,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (SqlException sqlEx)
                     {
-                        _logger.LogError(sqlEx, $"Failed to remove context.");
+                        _logger.LogError(sqlEx, $"Failed batch delete ResourceWriteClaims.");
 
                         throw;
                     }
@@ -384,7 +370,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (SqlException sqlEx)
                     {
-                        _logger.LogError(sqlEx, $"Failed to remove context.");
+                        _logger.LogError(sqlEx, $"Failed batch delete ResourceParams.");
 
                         throw;
                     }

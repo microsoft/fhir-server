@@ -215,6 +215,7 @@ AS
     COMMIT TRANSACTION
 GO
 
+
 /*************************************************************
     Stored procedures for remove duplicate resources
 **************************************************************/
@@ -226,17 +227,16 @@ GO
 --     Delete duplicated resources
 --
 -- PARAMETERS
---     @batchSize 
---         * Max batch size for delete operation
+--
 CREATE OR ALTER PROCEDURE dbo.DeleteDuplicatedResources
-    @batchSize int
 AS
+    SET NOCOUNT ON
     SET XACT_ABORT ON
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DELETE Top(@batchSize) rank FROM
+    DELETE rank FROM
 		(
 			SELECT *
 			, DupRank = ROW_NUMBER() OVER (
@@ -247,8 +247,6 @@ AS
     where rank.DupRank > 1
 
     COMMIT TRANSACTION
-
-    return @@rowcount
 GO
 
 /*************************************************************
@@ -262,31 +260,25 @@ GO
 --     Delete duplicated search parameters
 --
 -- PARAMETERS
---     @tableName 
---         * Search params table name
---     @batchSize 
---         * Max batch size for delete operation
+--     @tableName
+--         * search params table name
 CREATE OR ALTER PROCEDURE dbo.DeleteDuplicatedSearchParams
-    @tableName nvarchar(128),
-    @batchSize int
+    @tableName nvarchar(128)
 AS
+    SET NOCOUNT ON
     SET XACT_ABORT ON
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-	DECLARE @sql NVARCHAR(MAX);
-    DECLARE @parmDefinition NVARCHAR(128);
+	DECLARE @Sql NVARCHAR(MAX);
 
-	SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @TableName	+ N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
-    SET @parmDefinition = N'@BatchSizeParam int'; 
+	SET @Sql = N'DELETE FROM ' + @TableName
+	+ N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
 
-	EXECUTE sp_executesql @sql, @parmDefinition,
-                          @BatchSizeParam = @batchSize
+	EXECUTE sp_executesql @Sql
 
     COMMIT TRANSACTION
-
-    return @@rowcount
 GO
 
 /*************************************************************
