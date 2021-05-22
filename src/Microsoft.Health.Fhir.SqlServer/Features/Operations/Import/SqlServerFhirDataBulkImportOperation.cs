@@ -142,99 +142,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             short resourceTypeId = _model.GetResourceTypeId(resourceType);
 
-            await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, cancellationToken);
-            await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, cancellationToken);
+            await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, CleanResourceBatchSize, cancellationToken);
+            await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, CleanResourceBatchSize, cancellationToken);
 
             foreach (var tableName in SearchParameterTables.ToArray())
             {
-                await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, cancellationToken);
-            }
-        }
-
-        private async Task BatchDeleteResourcesInternalAsync(long beginSequenceId, long endSequenceId, short resourceTypeId, CancellationToken cancellationToken)
-        {
-            while (true)
-            {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
-                {
-                    try
-                    {
-                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
-
-                        VLatest.BatchDeleteResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId, CleanResourceBatchSize);
-                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                        if (impactRows == 0)
-                        {
-                            return;
-                        }
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        _logger.LogError(sqlEx, $"Failed to remove context.");
-
-                        throw;
-                    }
-                }
-            }
-        }
-
-        private async Task BatchDeleteResourceWriteClaimsInternalAsync(long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
-        {
-            while (true)
-            {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
-                {
-                    try
-                    {
-                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
-
-                        VLatest.BatchDeleteResourceWriteClaims.PopulateCommand(sqlCommandWrapper, beginSequenceId, endSequenceId, CleanResourceBatchSize);
-                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                        if (impactRows == 0)
-                        {
-                            return;
-                        }
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        _logger.LogError(sqlEx, $"Failed to remove context.");
-
-                        throw;
-                    }
-                }
-            }
-        }
-
-        private async Task BatchDeleteResourceParamsInternalAsync(string tableName, long beginSequenceId, long endSequenceId, short resourceTypeId, CancellationToken cancellationToken)
-        {
-            while (true)
-            {
-                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
-                {
-                    try
-                    {
-                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
-
-                        VLatest.BatchDeleteResourceParams.PopulateCommand(sqlCommandWrapper, tableName, resourceTypeId, beginSequenceId, endSequenceId, CleanResourceBatchSize);
-                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-
-                        if (impactRows == 0)
-                        {
-                            return;
-                        }
-                    }
-                    catch (SqlException sqlEx)
-                    {
-                        _logger.LogError(sqlEx, $"Failed to remove context.");
-
-                        throw;
-                    }
-                }
+                await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, CleanResourceBatchSize, cancellationToken);
             }
         }
 
@@ -284,11 +197,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             try
             {
-                await ExecuteDeleteDuplicatedResourcesTaskAsync(cancellationToken);
+                await ExecuteDeleteDuplicatedResourcesTaskAsync(CleanResourceBatchSize, cancellationToken);
 
                 List<Task> runningTasks = new List<Task>();
 
-                runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(ResourceWriteClaimTableName, cancellationToken));
+                runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(ResourceWriteClaimTableName, CleanResourceBatchSize, cancellationToken));
                 foreach (var tableName in SearchParameterTables.ToArray())
                 {
                     if (runningTasks.Count >= MaxDeleteDuplicateOperationCount)
@@ -298,7 +211,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         await completedTask;
                     }
 
-                    runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(tableName, cancellationToken));
+                    runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(tableName, CleanResourceBatchSize, cancellationToken));
                 }
 
                 while (runningTasks.Count > 0)
@@ -336,7 +249,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task ExecuteDeleteDuplicatedResourcesTaskAsync(CancellationToken cancellationToken)
+        private async Task ExecuteDeleteDuplicatedResourcesTaskAsync(int batchSize, CancellationToken cancellationToken)
         {
             while (true)
             {
@@ -347,9 +260,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
-                        VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper, CleanResourceBatchSize);
+                        VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper, batchSize);
                         int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                        if (impactRows == 0)
+                        if (impactRows < batchSize)
                         {
                             return;
                         }
@@ -364,7 +277,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task ExecuteDeleteDuplicatedSearchParamsTaskAsync(string tableName, CancellationToken cancellationToken)
+        private async Task ExecuteDeleteDuplicatedSearchParamsTaskAsync(string tableName, int batchSize, CancellationToken cancellationToken)
         {
             while (true)
             {
@@ -375,9 +288,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
 
-                        VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName, CleanResourceBatchSize);
+                        VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName, batchSize);
                         int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                        if (impactRows == 0)
+                        if (impactRows < batchSize)
                         {
                             return;
                         }
@@ -385,6 +298,93 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     catch (SqlException sqlEx)
                     {
                         _logger.LogError(sqlEx, $"Failed to delete duplicate search paramters.");
+
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private async Task BatchDeleteResourcesInternalAsync(long beginSequenceId, long endSequenceId, short resourceTypeId, int batchSize, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                {
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+
+                        VLatest.BatchDeleteResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
+                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                        if (impactRows < batchSize)
+                        {
+                            return;
+                        }
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to remove context.");
+
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private async Task BatchDeleteResourceWriteClaimsInternalAsync(long beginSequenceId, long endSequenceId, int batchSize, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                {
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+
+                        VLatest.BatchDeleteResourceWriteClaims.PopulateCommand(sqlCommandWrapper, beginSequenceId, endSequenceId, batchSize);
+                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                        if (impactRows < batchSize)
+                        {
+                            return;
+                        }
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to remove context.");
+
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private async Task BatchDeleteResourceParamsInternalAsync(string tableName, long beginSequenceId, long endSequenceId, short resourceTypeId, int batchSize, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                {
+                    try
+                    {
+                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+
+                        VLatest.BatchDeleteResourceParams.PopulateCommand(sqlCommandWrapper, tableName, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
+                        int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                        if (impactRows < batchSize)
+                        {
+                            return;
+                        }
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        _logger.LogError(sqlEx, $"Failed to remove context.");
 
                         throw;
                     }
