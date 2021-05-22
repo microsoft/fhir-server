@@ -476,7 +476,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to There is already a import task running..
+        ///   Looks up a localized string similar to There is already an import task running..
         /// </summary>
         internal static string ImportTaskIsRunning {
             get {

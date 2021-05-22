@@ -564,6 +564,6 @@
     <value>Failed to anonymize resource. The job will be marked as failed. {0}</value>
   </data>
   <data name="ImportTaskIsRunning" xml:space="preserve">
-    <value>There is already a import task running.</value>
+    <value>There is already an import task running.</value>
   </data>
 </root>
