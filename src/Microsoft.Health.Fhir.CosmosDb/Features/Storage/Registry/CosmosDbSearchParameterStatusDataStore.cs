@@ -103,34 +103,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
         private async Task<bool> CheckIfSearchParameterStatusUpdateRequiredAsync(IScoped<Container> container, int currentCount, DateTimeOffset lastRefreshed, CancellationToken cancellationToken)
         {
-            var countQuery = _queryFactory.Create<int>(
+            var lastUpdatedQuery = _queryFactory.Create<CacheQueryResponse>(
                 container.Value,
                 new CosmosQueryContext(
-                    new QueryDefinition("select value count(0) from c"),
+                    new QueryDefinition("select count(0) as count, max(c.lastUpdated) as lastUpdated from c"),
                     new QueryRequestOptions
                     {
                         PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
                         MaxItemCount = 1,
                     }));
 
-            FeedResponse<int> countResponse = await countQuery.ExecuteNextAsync(cancellationToken);
-            if (countResponse.FirstOrDefault() != currentCount)
-            {
-                return true;
-            }
+            FeedResponse<CacheQueryResponse> lastUpdatedResponse = await lastUpdatedQuery.ExecuteNextAsync(cancellationToken);
+            var result = lastUpdatedResponse?.FirstOrDefault();
 
-            var lastUpdatedQuery = _queryFactory.Create<DateTimeOffset>(
-                container.Value,
-                new CosmosQueryContext(
-                    new QueryDefinition("select value c.lastUpdated from c order by c.lastUpdated desc"),
-                    new QueryRequestOptions
-                    {
-                        PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
-                        MaxItemCount = 1,
-                    }));
-
-            FeedResponse<DateTimeOffset> lastUpdatedResponse = await lastUpdatedQuery.ExecuteNextAsync(cancellationToken);
-            if (lastUpdatedResponse.FirstOrDefault() > lastRefreshed)
+            if (result == null || result.Count != currentCount || result.LastUpdated > lastRefreshed)
             {
                 return true;
             }
@@ -165,6 +151,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         public void Dispose()
         {
             _statusListSemaphore?.Dispose();
+        }
+
+        private class CacheQueryResponse
+        {
+            public int Count { get; set; }
+
+            public DateTimeOffset LastUpdated { get; set; }
         }
     }
 }
