@@ -50,9 +50,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             {
                 if (_lastRefreshed.HasValue)
                 {
-                    DateTimeOffset lastUpdated = await GetSearchParameterStatusesLastUpdatedAsync(clientScope, cancellationSource.Token);
+                    bool updateRequired = await CheckIfSearchParameterStatusUpdateRequiredAsync(
+                        clientScope,
+                        _statusList.Count,
+                        _lastRefreshed.Value,
+                        cancellationSource.Token);
 
-                    if (lastUpdated < _lastRefreshed)
+                    if (!updateRequired)
                     {
                         return _statusList;
                     }
@@ -97,9 +101,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             }
         }
 
-        private async Task<DateTimeOffset> GetSearchParameterStatusesLastUpdatedAsync(IScoped<Container> container, CancellationToken cancellationToken)
+        private async Task<bool> CheckIfSearchParameterStatusUpdateRequiredAsync(IScoped<Container> container, int currentCount, DateTimeOffset lastRefreshed, CancellationToken cancellationToken)
         {
-            var query = _queryFactory.Create<DateTimeOffset>(
+            var countQuery = _queryFactory.Create<int>(
+                container.Value,
+                new CosmosQueryContext(
+                    new QueryDefinition("select value count(0) from c"),
+                    new QueryRequestOptions
+                    {
+                        PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
+                        MaxItemCount = 1,
+                    }));
+
+            FeedResponse<int> countResponse = await countQuery.ExecuteNextAsync(cancellationToken);
+            if (countResponse.FirstOrDefault() != currentCount)
+            {
+                return true;
+            }
+
+            var lastUpdatedQuery = _queryFactory.Create<DateTimeOffset>(
                 container.Value,
                 new CosmosQueryContext(
                     new QueryDefinition("select value c.lastUpdated from c order by c.lastUpdated desc"),
@@ -109,9 +129,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                         MaxItemCount = 1,
                     }));
 
-            var response = await query.ExecuteNextAsync(cancellationToken);
+            FeedResponse<DateTimeOffset> lastUpdatedResponse = await lastUpdatedQuery.ExecuteNextAsync(cancellationToken);
+            if (lastUpdatedResponse.FirstOrDefault() > lastRefreshed)
+            {
+                return true;
+            }
 
-            return response.FirstOrDefault();
+            return false;
         }
 
         public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
