@@ -11,6 +11,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -72,6 +73,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             TaskInfo taskInfo = await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Accepted);
 
             await _taskManager.Received(1).CancelTaskAsync(taskInfo.TaskId, _cancellationToken);
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenCancelingWithNotExistTask_ThenNotFoundShouldBeReturned()
+        {
+            _taskManager.GetTaskAsync(Arg.Any<string>(), _cancellationToken).Returns(Task.FromResult<TaskInfo>(null));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelBulkImportAsync(TaskId, _cancellationToken));
         }
 
         private async Task<TaskInfo> SetupAndExecuteCancelImportAsync(TaskStatus taskStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)

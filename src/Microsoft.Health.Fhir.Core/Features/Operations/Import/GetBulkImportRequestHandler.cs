@@ -42,6 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             TaskInfo taskInfo = await _taskManager.GetTaskAsync(request.TaskId, cancellationToken);
 
+            if (taskInfo == null)
+            {
+                throw new ResourceNotFoundException(string.Format(Resources.ImportTaskNotFound, request.TaskId));
+            }
+
             if (taskInfo.Status != TaskManagement.TaskStatus.Completed)
             {
                 if (taskInfo.IsCanceled)
