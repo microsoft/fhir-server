@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
     public class ImportProcessingTaskTests
     {
         [Fact]
-        public async Task GivenImportTaskInput_WhenCleanStart_ThenAllResoruceShouldBeImported()
+        public async Task GivenImportTaskInput_WhenStartFromClean_ThenAllResoruceShouldBeImported()
         {
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();

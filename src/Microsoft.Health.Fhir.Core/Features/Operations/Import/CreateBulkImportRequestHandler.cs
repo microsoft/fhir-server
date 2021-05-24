@@ -64,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             string taskId = Guid.NewGuid().ToString("N");
 
+            // Processing task might be dispatch to different environment with differenet queueid later.
             string processingTaskQueueId = string.IsNullOrEmpty(_importTaskConfiguration.ProcessingTaskQueueId) ? _taskHostingConfiguration.QueueId : _importTaskConfiguration.ProcessingTaskQueueId;
             ImportOrchestratorTaskInputData inputData = new ImportOrchestratorTaskInputData()
             {
