@@ -31,6 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public string ErrorFileLocation => _fileUri.ToString();
 
+        /// <summary>
+        /// Upload error logs to store. Append to existed error file.
+        /// </summary>
+        /// <param name="importErrors">New import errors</param>
+        /// <param name="cancellationToken">Cancellaltion Token</param>
         public async Task UploadErrorsAsync(string[] importErrors, CancellationToken cancellationToken)
         {
             if (importErrors == null || importErrors.Length == 0)
