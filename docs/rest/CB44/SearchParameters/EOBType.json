@@ -1,0 +1,59 @@
+{
+  "resourceType": "SearchParameter",
+  "id": "explanationofbenefit-type",
+  "meta": {
+    "versionId": "1",
+    "lastUpdated": "2020-03-31T06:41:13.000+00:00"
+  },
+  "text": {
+    "status": "extensions",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>Standards Status</b>: trial-use</p><p><b>url</b>: <code>http://hl7.org/fhir/us/carin-bb/SearchParameter/explanationofbenefit-type</code></p><p><b>version</b>: 1.0.0</p><p><b>name</b>: ExplanationOfBenefit_Type</p><p><b>status</b>: active</p><p><b>experimental</b>: false</p><p><b>date</b>: Mar 31, 2020, 9:48:45 AM</p><p><b>publisher</b>: HL7 Financial Management Working Group</p><p><b>contact</b>: HL7 Financial Management Working Group: <a href=\"http://www.hl7.org/Special/committees/fm/index.cfm\">http://www.hl7.org/Special/committees/fm/index.cfm</a>,<a href=\"mailto:fm@lists.HL7.org\">fm@lists.HL7.org</a></p><p><b>description</b>: The type of the ExplanationOfBenefit</p><p><b>jurisdiction</b>: <span title=\"Codes: {urn:iso:std:iso:3166 US}\">United States of America</span></p><p><b>code</b>: type</p><p><b>base</b>: ExplanationOfBenefit</p><p><b>type</b>: token</p><p><b>expression</b>: ExplanationOfBenefit.type</p><p><b>xpath</b>: f:ExplanationOfBenefit/f:type</p><p><b>xpathUsage</b>: normal</p></div>"
+  },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+      "valueCode": "trial-use"
+    }
+  ],
+  "url": "http://hl7.org/fhir/us/carin-bb/SearchParameter/explanationofbenefit-type",
+  "version": "1.0.0",
+  "name": "type",
+  "status": "active",
+  "experimental": false,
+  "date": "2020-03-31T19:48:45+10:00",
+  "publisher": "HL7 Financial Management Working Group",
+  "contact": [
+    {
+      "name": "HL7 Financial Management Working Group",
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/fm/index.cfm"
+        },
+        {
+          "system": "email",
+          "value": "fm@lists.HL7.org"
+        }
+      ]
+    }
+  ],
+  "description": "The type of the ExplanationOfBenefit",
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "code": "type",
+  "base": [
+    "ExplanationOfBenefit"
+  ],
+  "type": "token",
+  "expression": "ExplanationOfBenefit.type",
+  "xpath": "f:ExplanationOfBenefit/f:type",
+  "xpathUsage": "normal"
+}
