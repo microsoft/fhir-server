@@ -373,15 +373,6 @@ content-type: {{contentType}}
     ],
     "text": "Institutional"
   },
-  "subType": {
-    "coding": [
-      {
-        "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBInstitutionalClaimSubType",
-        "code": "inpatient"
-      }
-    ],
-    "text": "Inpatient"
-  },
   "use": "claim",
   "patient": {
     "reference": "Patient/{{Patient1}}"
@@ -522,30 +513,6 @@ content-type: {{contentType}}
           }
         ]
       }
-    },
-    {
-      "sequence": 8,
-      "category": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
-            "code": "medicalrecordnumber"
-          }
-        ]
-      },
-      "valueString": "1234-234-1243-12345678901m"
-    },
-    {
-      "sequence": 9,
-      "category": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
-            "code": "patientaccountnumber"
-          }
-        ]
-      },
-      "valueString": "1234-234-1243-12345678901a"
     }
   ],
   "diagnosis": [
@@ -729,15 +696,6 @@ content-type: {{contentType}}
     ],
     "text": "Institutional"
   },
-  "subType": {
-    "coding": [
-      {
-        "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBInstitutionalClaimSubType",
-        "code": "outpatient"
-      }
-    ],
-    "text": "Outpatient"
-  },
   "use": "claim",
   "patient": {
     "reference": "Patient/{{Patient1}}"
@@ -863,30 +821,6 @@ content-type: {{contentType}}
           }
         ]
       }
-    },
-    {
-      "sequence": 7,
-      "category": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
-            "code": "medicalrecordnumber"
-          }
-        ]
-      },
-      "valueString": "1234-234-1243-12345678901m"
-    },
-    {
-      "sequence": 8,
-      "category": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
-            "code": "patientaccountnumber"
-          }
-        ]
-      },
-      "valueString": "1234-234-1243-12345678901a"
     }
   ],
   "diagnosis": [
@@ -1145,7 +1079,7 @@ content-type: {{contentType}}
         "coding": [
           {
             "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
-            "code": "brandgenericindicator"
+            "code": "brandgenericcode"
           }
         ]
       },
@@ -1488,30 +1422,6 @@ content-type: {{contentType}}
       "valueReference": {
         "reference": "Organization/{{ProviderOrg1}}"
       }
-    },
-    {
-      "sequence": 5,
-      "category": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
-            "code": "medicalrecordnumber"
-          }
-        ]
-      },
-      "valueString": "1234-234-1243-12345678901m"
-    },
-    {
-      "sequence": 6,
-      "category": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
-            "code": "patientaccountnumber"
-          }
-        ]
-      },
-      "valueString": "1234-234-1243-12345678901a"
     }
   ],
   "diagnosis": [
