@@ -34,14 +34,14 @@ POST {{fhirurl}}/SearchParameter
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
-< ./SearchParameters/EOBType.txt
+< ./SearchParameters/EOBType.json
 
 ### ExplanationOfBenefit - service-date
 POST {{fhirurl}}/SearchParameter
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
-< ./SearchParameters/EOBServiceDate.txt
+< ./SearchParameters/EOBServiceDate.json
 
 
 ### ExplanationOfBenefit - Insurer
@@ -49,7 +49,7 @@ POST {{fhirurl}}/SearchParameter
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
-< ./SearchParameters/EOBInsurer.txt
+< ./SearchParameters/EOBInsurer.json
 
 ### Trigger reindex
 # You need to trigger a reindex to get the search parameters to be fully supported in your database
