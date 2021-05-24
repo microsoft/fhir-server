@@ -43,20 +43,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new UnauthorizedFhirActionException();
             }
 
-            TaskInfo taskInfo = await _taskManager.CancelTaskAsync(request.TaskId, cancellationToken);
+            try
+            {
+                TaskInfo taskInfo = await _taskManager.CancelTaskAsync(request.TaskId, cancellationToken);
 
-            if (taskInfo == null)
+                if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
+                {
+                    return new CancelImportResponse(HttpStatusCode.Conflict);
+                }
+                else
+                {
+                    return new CancelImportResponse(HttpStatusCode.Accepted);
+                }
+            }
+            catch (TaskNotExistException)
             {
                 throw new ResourceNotFoundException(string.Format(Resources.ImportTaskNotFound, request.TaskId));
-            }
-
-            if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
-            {
-                return new CancelImportResponse(HttpStatusCode.Conflict);
-            }
-            else
-            {
-                return new CancelImportResponse(HttpStatusCode.Accepted);
             }
         }
     }
