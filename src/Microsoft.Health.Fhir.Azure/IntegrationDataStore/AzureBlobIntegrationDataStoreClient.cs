@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogError(storageEx, "Failed to commit for {0}", resourceUri);
+                _logger.LogError(storageEx, "Failed to upload data for {0}", resourceUri);
 
                 HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
                 throw new IntegrationDataStoreException(storageEx.Message, statusCode);
