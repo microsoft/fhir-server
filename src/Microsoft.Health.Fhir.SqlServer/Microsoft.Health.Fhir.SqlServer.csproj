@@ -24,14 +24,15 @@
     <EmbeddedResource Include="Features\Schema\Migrations\8.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\8.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\9.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\9.sql"/>
+    <EmbeddedResource Include="Features\Schema\Migrations\9.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\10.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\10.sql">
+    <EmbeddedResource Include="Features\Schema\Migrations\10.sql"/>
+    <EmbeddedResource Include="Features\Schema\Migrations\11.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\11.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
       <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
       <MutableClassVersion>Latest</MutableClassVersion>
     </EmbeddedResource>
-
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
@@ -46,6 +47,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="Resources.Designer.cs">
@@ -72,12 +74,12 @@
       <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.cs">
         <Generator>ImmutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(ImmutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+        <Args>@(ImmutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
       </Generated>
       <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.cs">
         <Generator>MutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(MutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+        <Args>@(MutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
       </Generated>
     </ItemGroup>
   </Target>

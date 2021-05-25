@@ -140,6 +140,10 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Share
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FhirAnalyzer", "tools\FhirAnalyzer\FhirAnalyzer.csproj", "{389C844A-4DC2-4780-9821-464580396850}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManagement", "src\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj", "{03AD4FC4-A56F-4E94-B295-B02A9E3E3CCD}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManagement.UnitTests", "src\Microsoft.Health.TaskManagement.UnitTests\Microsoft.Health.TaskManagement.UnitTests.csproj", "{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -357,6 +361,14 @@ Global
 		{389C844A-4DC2-4780-9821-464580396850}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{389C844A-4DC2-4780-9821-464580396850}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{389C844A-4DC2-4780-9821-464580396850}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03AD4FC4-A56F-4E94-B295-B02A9E3E3CCD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03AD4FC4-A56F-4E94-B295-B02A9E3E3CCD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03AD4FC4-A56F-4E94-B295-B02A9E3E3CCD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03AD4FC4-A56F-4E94-B295-B02A9E3E3CCD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -421,6 +433,8 @@ Global
 		{83B3EE6D-693E-4E86-A925-28B1A108268E} = {7457B218-2651-49B5-BED8-22233889516A}
 		{A955963B-D766-492D-94FD-98A8B9EA8931} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 		{389C844A-4DC2-4780-9821-464580396850} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
+		{03AD4FC4-A56F-4E94-B295-B02A9E3E3CCD} = {7457B218-2651-49B5-BED8-22233889516A}
+		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D} = {7457B218-2651-49B5-BED8-22233889516A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
