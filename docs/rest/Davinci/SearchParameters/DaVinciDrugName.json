@@ -1,0 +1,55 @@
+{
+  "resourceType": "SearchParameter",
+  "id": "DrugName",
+  "text": {
+    "status": "generated"
+      },
+  "url": "http://hl7.org/fhir/us/davinci-drug-formulary/SearchParameter/DrugName",
+  "version": "1.0.1",
+  "name": "DrugName",
+  "status": "active",
+  "date": "2020-12-21T16:51:36+00:00",
+  "publisher": "HL7 Pharmacy Working Group",
+  "contact": [
+    {
+      "name": "HL7 Pharmacy Working Group",
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/medication/"
+        },
+        {
+          "system": "email",
+          "value": "pharmacy@lists.HL7.org"
+        }
+      ]
+    }
+  ],
+  "description": "Accesses the Descriptive Name of a FormularyDrug",
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "code": "DrugName",
+  "base": [
+    "MedicationKnowledge"
+  ],
+  "type": "string",
+  "expression": "MedicationKnowledge.code.coding.display",
+  "multipleOr": true,
+  "multipleAnd": true,
+  "comparator": [
+    "eq"
+  ],
+  "modifier": [
+    "missing",
+    "exact",
+    "contains"
+  ]
+}
