@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [Fact]
         public async Task GivenAFhirMediator_WhenCancelingWithNotExistTask_ThenNotFoundShouldBeReturned()
         {
-            _taskManager.GetTaskAsync(Arg.Any<string>(), _cancellationToken).Returns<Task<TaskInfo>>(_ => throw new TaskNotExistException("Task not exist."));
+            _taskManager.CancelTaskAsync(Arg.Any<string>(), _cancellationToken).Returns<Task<TaskInfo>>(_ => throw new TaskNotExistException("Task not exist."));
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelBulkImportAsync(TaskId, _cancellationToken));
         }
 
