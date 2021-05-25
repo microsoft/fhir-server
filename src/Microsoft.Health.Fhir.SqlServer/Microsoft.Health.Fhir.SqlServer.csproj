@@ -3,12 +3,6 @@
     <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Features\Schema\Migrations\10.diff.sql" />
-    <None Remove="Features\Schema\Migrations\10.sql" />
-    <None Remove="Features\Schema\Migrations\9.diff.sql" />
-    <None Remove="Features\Schema\Migrations\9.sql" />
-  </ItemGroup>
-  <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\4.diff.sql" />
