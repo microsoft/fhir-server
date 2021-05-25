@@ -1,4 +1,4 @@
-# DaVinci IG
+# DaVinci Formulary IG
 
 This series of files can be used to configure your FHIR server to meet the requirements in the DaVinci Formulary IG.
 

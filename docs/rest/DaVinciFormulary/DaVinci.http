@@ -1,4 +1,4 @@
-# This file includes all the search parameters, reindex operation, and profiles to load to get the necessary pieces for the Carin Blue Button IG
+# This file includes all the search parameters, reindex operation, and profiles to load to get the necessary pieces for the DaVinci Formulary IG
 ### REST Client
 @fhirurl= <FHIR URL>
 @clientid= <CLIENT ID>
@@ -26,8 +26,8 @@ grant_type=client_credentials
 @token={{getAADToken.response.body.access_token}}
 
 ### Create SearchParameters
-# There are three non-standard search parameters that need to be created for C4BB
-# Run the commands below to create type, service-date, and insurer SearchParameters for EOB
+# There are three non-standard search parameters that need to be created for DaVinci Formulary
+# Run the commands below to create Drug Name, Drug Plan and Drug Tier
 
 ### DrugName
 POST {{fhirurl}}/SearchParameter
