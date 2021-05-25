@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
 {
     public class SqlServerBulkImportOperationTests
     {
-        [Fact(Skip = "only disable indexes necessary")]
+        [Fact]
         public void GivenResourceRelatedTables_WhenNewIndexesAdded_BulkImportOperationShouldSupportNewIndexes()
         {
             Table[] resourceRelatedTables = new Table[]
