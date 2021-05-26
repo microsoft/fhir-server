@@ -476,6 +476,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import operation has already completed.
+        /// </summary>
+        internal static string ImportOperationCompleted {
+            get {
+                return ResourceManager.GetString("ImportOperationCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There is already an import task running..
         /// </summary>
         internal static string ImportTaskIsRunning {

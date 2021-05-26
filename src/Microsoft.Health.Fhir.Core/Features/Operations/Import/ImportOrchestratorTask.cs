@@ -441,7 +441,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     try
                     {
                         TaskInfo taskInfo = await _taskManager.GetTaskAsync(runningTaskId, CancellationToken.None);
-                        if (taskInfo.Status != TaskStatus.Running)
+                        if (taskInfo != null && taskInfo.Status != TaskStatus.Running)
                         {
                             runningTaskIds.Remove(runningTaskId);
                         }

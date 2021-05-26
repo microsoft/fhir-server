@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
                 {
-                    return new CancelImportResponse(HttpStatusCode.Conflict);
+                    throw new OperationFailedException(Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
                 }
                 else
                 {
