@@ -18,7 +18,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationParameterNames.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationToken.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\FhirServerBuilderEverythingOperationRegistrationExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\IPatientEverythingService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\PatientEverythingService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />

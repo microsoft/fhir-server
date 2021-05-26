@@ -33,8 +33,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
                 .AddConvertData()
-                .AddMemberMatch()
-                .AddEverythingOperations();
+                .AddMemberMatch();
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
