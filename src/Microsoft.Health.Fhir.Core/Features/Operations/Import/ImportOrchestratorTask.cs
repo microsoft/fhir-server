@@ -93,7 +93,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             CancellationToken cancellationToken = _cancellationTokenSource.Token;
 
-            ImportTaskResult result = null;
             try
             {
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.Initalized)
@@ -127,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.SubTaskRecordsGenerated)
                 {
-                    result = await ExecuteDataProcessingTasksAsync(cancellationToken);
+                    _orchestratorTaskContext.ImportResult = await ExecuteDataProcessingTasksAsync(cancellationToken);
 
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.SubTasksCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
@@ -201,8 +200,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 throw new RetriableTaskException(JsonConvert.SerializeObject(errorResult));
             }
 
-            result.TransactionTime = _orchestratorInputData.TaskCreateTime;
-            return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(result));
+            _orchestratorTaskContext.ImportResult.TransactionTime = _orchestratorInputData.TaskCreateTime;
+            return new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(_orchestratorTaskContext.ImportResult));
         }
 
         private async Task ValidateResourcesAsync(CancellationToken cancellationToken)

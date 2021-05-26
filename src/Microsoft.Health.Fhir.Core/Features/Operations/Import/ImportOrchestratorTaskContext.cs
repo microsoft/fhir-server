@@ -22,5 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Orchestrator task progress.
         /// </summary>
         public ImportOrchestratorTaskProgress Progress { get; set; }
+
+        /// <summary>
+        /// Import result during execution
+        /// </summary>
+        public ImportTaskResult ImportResult { get; set; }
     }
 }

@@ -149,6 +149,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     await importTask;
                 }
+                catch (TaskCanceledException)
+                {
+                    throw;
+                }
                 catch (OperationCanceledException)
                 {
                     throw;
@@ -162,6 +166,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 try
                 {
                     await loadTask;
+                }
+                catch (TaskCanceledException)
+                {
+                    throw;
                 }
                 catch (OperationCanceledException)
                 {
