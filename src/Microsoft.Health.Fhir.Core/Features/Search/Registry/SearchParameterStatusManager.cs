@@ -14,12 +14,11 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class SearchParameterStatusManager : INotificationHandler<StorageInitializedNotification>
+    public class SearchParameterStatusManager : INotificationHandler<SearchParameterDefinitionManagerInitialized>
     {
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -94,10 +93,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
-            await _mediator.Publish(new SearchParametersUpdated(updated), cancellationToken);
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            await _mediator.Publish(new SearchParametersInitializedNotification(), cancellationToken);
         }
 
-        public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public async Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
         {
             await EnsureInitializedAsync(cancellationToken);
         }
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList);
 
-            await _mediator.Publish(new SearchParametersUpdated(updated));
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated));
         }
 
         internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris)
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
 
-            await _mediator.Publish(new SearchParametersUpdated(updated), cancellationToken);
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
         private static TempStatus EvaluateSearchParamStatus(ResourceSearchParameterStatus paramStatus)

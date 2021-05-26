@@ -220,8 +220,9 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         await Task.Delay(TimeSpan.FromSeconds(10));
                         return new TaskResultData(TaskResult.Success, resultMessage);
                     },
-                    () =>
+                    async () =>
                     {
+                        await Task.Delay(TimeSpan.FromMilliseconds(20));
                         isCancelled = true;
                         tokenSource.Cancel();
                     })
@@ -234,6 +235,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 0;
 
+            tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
             await taskHosting.StartAsync(tokenSource);
 
             Assert.True(isCancelled);
