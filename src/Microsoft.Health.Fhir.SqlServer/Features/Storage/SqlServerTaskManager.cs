@@ -140,45 +140,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                VLatest.CancelTask.PopulateCommand(sqlCommandWrapper, taskId);
-                SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+                    VLatest.CancelTask.PopulateCommand(sqlCommandWrapper, taskId);
+                    SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
-                if (!sqlDataReader.Read())
-                {
-                    return null;
+                    if (!sqlDataReader.Read())
+                    {
+                        return null;
+                    }
+
+                    var taskInfoTable = VLatest.TaskInfo;
+
+                    string id = sqlDataReader.Read(taskInfoTable.TaskId, 0);
+                    string queueId = sqlDataReader.Read(taskInfoTable.QueueId, 1);
+                    short status = sqlDataReader.Read(taskInfoTable.Status, 2);
+                    short taskTypeId = sqlDataReader.Read(taskInfoTable.TaskTypeId, 3);
+                    string taskRunId = sqlDataReader.Read(taskInfoTable.RunId, 4);
+                    bool isCanceled = sqlDataReader.Read(taskInfoTable.IsCanceled, 5);
+                    short retryCount = sqlDataReader.Read(taskInfoTable.RetryCount, 6);
+                    short maxRetryCount = sqlDataReader.Read(taskInfoTable.MaxRetryCount, 7);
+                    DateTime? heartbeatDateTime = sqlDataReader.Read(taskInfoTable.HeartbeatDateTime, 8);
+                    string inputData = sqlDataReader.Read(taskInfoTable.InputData, 9);
+                    string taskContext = sqlDataReader.Read(taskInfoTable.TaskContext, 10);
+                    string result = sqlDataReader.Read(taskInfoTable.Result, 11);
+
+                    return new TaskInfo()
+                    {
+                        TaskId = id,
+                        QueueId = queueId,
+                        Status = (TaskStatus)status,
+                        TaskTypeId = taskTypeId,
+                        RunId = taskRunId,
+                        IsCanceled = isCanceled,
+                        RetryCount = retryCount,
+                        MaxRetryCount = maxRetryCount,
+                        HeartbeatDateTime = heartbeatDateTime,
+                        InputData = inputData,
+                        Context = taskContext,
+                        Result = result,
+                    };
                 }
-
-                var taskInfoTable = VLatest.TaskInfo;
-
-                string id = sqlDataReader.Read(taskInfoTable.TaskId, 0);
-                string queueId = sqlDataReader.Read(taskInfoTable.QueueId, 1);
-                short status = sqlDataReader.Read(taskInfoTable.Status, 2);
-                short taskTypeId = sqlDataReader.Read(taskInfoTable.TaskTypeId, 3);
-                string taskRunId = sqlDataReader.Read(taskInfoTable.RunId, 4);
-                bool isCanceled = sqlDataReader.Read(taskInfoTable.IsCanceled, 5);
-                short retryCount = sqlDataReader.Read(taskInfoTable.RetryCount, 6);
-                short maxRetryCount = sqlDataReader.Read(taskInfoTable.MaxRetryCount, 7);
-                DateTime? heartbeatDateTime = sqlDataReader.Read(taskInfoTable.HeartbeatDateTime, 8);
-                string inputData = sqlDataReader.Read(taskInfoTable.InputData, 9);
-                string taskContext = sqlDataReader.Read(taskInfoTable.TaskContext, 10);
-                string result = sqlDataReader.Read(taskInfoTable.Result, 11);
-
-                return new TaskInfo()
-                {
-                    TaskId = id,
-                    QueueId = queueId,
-                    Status = (TaskStatus)status,
-                    TaskTypeId = taskTypeId,
-                    RunId = taskRunId,
-                    IsCanceled = isCanceled,
-                    RetryCount = retryCount,
-                    MaxRetryCount = maxRetryCount,
-                    HeartbeatDateTime = heartbeatDateTime,
-                    InputData = inputData,
-                    Context = taskContext,
-                    Result = result,
-                };
-            }
                 catch (SqlException sqlEx)
                 {
                     if (sqlEx.Number == SqlErrorCodes.NotFound)
