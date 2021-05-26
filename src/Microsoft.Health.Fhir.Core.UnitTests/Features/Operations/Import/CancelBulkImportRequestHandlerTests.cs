@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Import;
@@ -54,9 +55,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         [InlineData(TaskStatus.Completed)]
         public async Task GivenAFhirMediator_WhenCancelingExistingBulkImportTaskThatHasAlreadyCompleted_ThenConflictStatusCodeShouldBeReturned(TaskStatus taskStatus)
         {
-            TaskInfo taskInfo = await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Conflict);
+            OperationFailedException operationFailedException = await Assert.ThrowsAsync<OperationFailedException>(async () => await SetupAndExecuteCancelImportAsync(taskStatus, HttpStatusCode.Conflict));
 
-            Assert.Equal(taskStatus, taskInfo.Status);
+            Assert.Equal(HttpStatusCode.Conflict, operationFailedException.ResponseStatusCode);
         }
 
         [Fact]
