@@ -199,7 +199,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 searchParameterSupportResolver,
-                mediator);
+                mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
 
             _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container);
         }

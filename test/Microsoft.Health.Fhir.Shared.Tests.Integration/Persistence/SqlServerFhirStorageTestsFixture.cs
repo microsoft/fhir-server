@@ -196,7 +196,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlServerSearchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 searchParameterSupportResolver,
-                mediator);
+                mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
 
             _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, sqlConnectionFactory);
         }
