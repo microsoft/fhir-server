@@ -1,0 +1,4918 @@
+# This file includes sample resources that you can use to test C4BB
+
+@fhirurl= <FHIR URL>
+@clientid= <CLIENT ID>
+@clientsecret= <CLIENT SECRET>
+@tenantid= <SUBSCRIPTION ID>
+@contentType = application/json
+
+### Get access token
+
+# @name getAADToken
+POST https://login.microsoftonline.com/{{tenantid}}/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&resource={{fhirurl}}
+&client_id={{clientid}}
+&client_secret={{clientsecret}}
+
+### Capture access token from getToken request
+@token={{getAADToken.response.body.access_token}}
+
+
+### Variables for creating resources
+# Add values to each ID as you create them.
+# You need to create in order and add IDs as you go or references will not work
+@Patient1=<Patient1>
+@Payer1=<Payer1>
+@Payer2=<Payer2>
+@Coverage1=<Coverage1>
+@ProviderOrg1=<ProviderOrg1>
+@Patient2=<Patient2>
+@ProviderOrg3=<ProviderOrg3>
+@ProviderOrg4=<ProviderOrg4>
+@Practitioner2=<Pracitioner2>
+@Coverage2=<Coverage2>
+@ProviderOrg5=<ProviderOrg5>
+@Practitioner1=<Practitioner1>
+@ProviderOrg6=<ProviderOrg6>
+@Practitioner3=<Practitioner3>
+@ProviderOrg2=<ProviderOrg2>
+
+### Create Patient1
+POST {{fhirurl}}/Patient
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Patient",
+  "id": "Patient1",
+  "meta": {
+    "lastUpdated": "2020-07-07T13:26:22.0314215+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Patient",
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Patient|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en-US\" lang=\"en-US\"><p><b>Generated Narrative</b></p><p><b>identifier</b>: Member Number: 1234-234-1243-12345678901, Unique Member ID: 1234-234-1243-12345678901u</p><p><b>active</b>: true</p><p><b>name</b>: Johnny Example1 </p><p><b>telecom</b>: ph: (301)666-1212</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 1986-01-01</p><p><b>address</b>: 123 Main Street Pittsburgh PA 12519 </p><p><b>maritalStatus</b>: <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-NullFlavor UNK}\">unknown</span></p></div>"
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MB"
+          }
+        ]
+      },
+      "system": "https://www.xxxhealthplan.com/fhir/memberidentifier",
+      "value": "1234-234-1243-12345678901"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "um"
+          }
+        ]
+      },
+      "system": "https://www.xxxhealthplan.com/fhir/iniquememberidentifier",
+      "value": "1234-234-1243-12345678901u"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Example1",
+      "given": [
+        "Johnny"
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "(301)666-1212",
+      "rank": 2
+    }
+  ],
+  "gender": "male",
+  "birthDate": "1986-01-01",
+  "address": [
+    {
+      "type": "physical",
+      "line": [
+        "123 Main Street"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "12519"
+    }
+  ],
+  "maritalStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-NullFlavor",
+        "code": "UNK"
+      }
+    ]
+  }
+}
+
+### Create Payer1
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Organization",
+  "id": "Payer1",
+  "meta": {
+    "lastUpdated": "2019-12-12T09:14:11+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization",
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en-US\" lang=\"en-US\"><p><b>Generated Narrative</b></p><p><b>identifier</b>: National Provider Identifier: 345678, Payer ID: 901234</p><p><b>active</b>: true</p><p><b>name</b>: Payer 1</p></div>"
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi"
+          }
+        ]
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "345678"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "payerid"
+          }
+        ]
+      },
+      "value": "901234"
+    }
+  ],
+  "active": true,
+  "name": "Payer 1"
+}
+
+### Create Coverage1
+POST {{fhirurl}}/Coverage
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Coverage",
+  "id": "Coverage1",
+  "meta": {
+    "lastUpdated": "2020-07-07T13:26:22.0314215+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Coverage",
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Coverage|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en-US\" lang=\"en-US\"><p><b>Generated Narrative</b></p><p><b>identifier</b>: Member Number: 1234-234-1243-12345678901</p><p><b>status</b>: active</p><p><b>type</b>: <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-ActCode HIP}\">health insurance plan policy</span></p><p><b>policyHolder</b>: <a href=\"Patient-Patient1.html\">Generated Summary: language: en-US; Member Number: 1234-234-1243-12345678901, Unique Member ID: 1234-234-1243-12345678901u; active; Johnny Example1 ; Phone: (301)666-1212; gender: male; birthDate: 1986-01-01; <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-NullFlavor UNK}\">unknown</span></a></p><p><b>subscriber</b>: <a href=\"Patient-Patient1.html\">Generated Summary: language: en-US; Member Number: 1234-234-1243-12345678901, Unique Member ID: 1234-234-1243-12345678901u; active; Johnny Example1 ; Phone: (301)666-1212; gender: male; birthDate: 1986-01-01; <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-NullFlavor UNK}\">unknown</span></a></p><p><b>subscriberId</b>: 12345678901</p><p><b>beneficiary</b>: <a href=\"Patient-Patient1.html\">Generated Summary: language: en-US; Member Number: 1234-234-1243-12345678901, Unique Member ID: 1234-234-1243-12345678901u; active; Johnny Example1 ; Phone: (301)666-1212; gender: male; birthDate: 1986-01-01; <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-NullFlavor UNK}\">unknown</span></a></p><p><b>dependent</b>: 01</p><p><b>relationship</b>: <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/subscriber-relationship self}\">Self</span></p><p><b>period</b>: 2019-01-01 --&gt; 2019-10-31</p><p><b>payor</b>: <a href=\"Organization-Payer1.html\">Generated Summary: language: en-US; National Provider Identifier: 345678, Payer ID: 901234; active; name: Payer 1</a></p><blockquote><p><b>class</b></p><p><b>type</b>: <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/coverage-class group}\">An employee group</span></p><p><b>value</b>: 021890</p><p><b>name</b>: Acme Corporation</p></blockquote><blockquote><p><b>class</b></p><p><b>type</b>: <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/coverage-class plan}\">Plan</span></p><p><b>value</b>: XYZ123</p><p><b>name</b>: XYZ123-UPMC CONSUMER ADVA</p></blockquote><p><b>network</b>: XYZ123-UPMC CONSUMER ADVA</p></div>"
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MB"
+          }
+        ]
+      },
+      "system": "https://www.xxxhealthplan.com/fhir/memberidentifier",
+      "value": "1234-234-1243-12345678901"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+        "code": "HIP"
+      }
+    ],
+    "text": "health insurance plan policy"
+  },
+  "policyHolder": {
+    "reference": "Patient/{{Patient1}}"
+  },
+  "subscriber": {
+    "reference": "Patient/{{Patient1}}"
+  },
+  "subscriberId": "12345678901",
+  "beneficiary": {
+    "reference": "Patient/{{Patient1}}"
+  },
+  "dependent": "01",
+  "relationship": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/subscriber-relationship",
+        "code": "self"
+      }
+    ]
+  },
+  "period": {
+    "start": "2019-01-01",
+    "end": "2019-10-31"
+  },
+  "payor": [
+    {
+      "reference": "Organization/{{Payer1}}"
+    }
+  ],
+  "class": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+            "code": "group"
+          }
+        ],
+        "text": "An employee group"
+      },
+      "value": "021890",
+      "name": "Acme Corporation"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+            "code": "plan"
+          }
+        ],
+        "text": "Plan"
+      },
+      "value": "XYZ123",
+      "name": "XYZ123-UPMC CONSUMER ADVA"
+    }
+  ],
+  "network": "XYZ123-UPMC CONSUMER ADVA"
+}
+
+### Create ProviderOrg1
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Organization",
+  "id": "ProviderOrganization1",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "1112223330"
+    }
+  ],
+  "active": true,
+  "name": "Orange Medical Group",
+  "address": [
+    {
+      "line": [
+        "Attn: Orange Medical Group"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "15222",
+      "country": "USA"
+    }
+  ],
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "555-555-5510",
+          "use": "work"
+        }
+      ]
+    }
+  ]
+}
+
+### Create EOBInpatient1
+POST {{fhirurl}}/ExplanationOfBenefit
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "EOBInpatient1",
+  "meta": {
+    "lastUpdated": "2019-12-12T09:14:11+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Inpatient-Institutional",
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Inpatient-Institutional|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "uc"
+          }
+        ]
+      },
+      "system": "https://www.xxxplan.com/fhir/EOBIdentifier",
+      "value": "AW123412341234123412341234123412"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "institutional"
+      }
+    ],
+    "text": "Institutional"
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/{{Patient1}}"
+  },
+  "billablePeriod": {
+    "start": "2019-01-01",
+    "end": "2019-10-31"
+  },
+  "created": "2019-11-02T00:00:00+00:00",
+  "insurer": {
+    "reference": "Organization/{{Payer1}}",
+    "display": "XXX Health Plan"
+  },
+  "provider": {
+    "reference": "Organization/{{ProviderOrg1}}",
+    "display": "XXX Health Plan"
+  },
+  "outcome": "partial",
+  "supportingInfo": [
+    {
+      "sequence": 2,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "admissionperiod"
+          }
+        ]
+      },
+      "timingPeriod": {
+        "start": "2011-05-23",
+        "end": "2011-05-25"
+      }
+    },
+    {
+      "sequence": 1,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "billingnetworkcontractingstatus"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "contracted"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "clmrecvddate"
+          }
+        ]
+      },
+      "timingDate": "2011-05-30"
+    },
+    {
+      "sequence": 4,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "typeofbill"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/TypeOfBill",
+            "code": "Dummy"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 5,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "pointoforigin"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/PointOfOrigin",
+            "code": "Dummy"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 6,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "admtype"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/PriorityTypeOfAdmitOrVisit",
+            "code": "Dummy"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 7,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "discharge-status"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/PatDischargeStatus",
+            "code": "11"
+          }
+        ]
+      }
+    }
+  ],
+  "diagnosis": [
+    {
+      "sequence": 1,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "S06.0X1A"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/ex-diagnosistype",
+              "code": "principal"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/{{Coverage1}}"
+      }
+    }
+  ],
+  "adjudication": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidtoprovider"
+          }
+        ],
+        "text": "Payment Amount"
+      },
+      "amount": {
+        "value": 620,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "submitted"
+          }
+        ],
+        "text": "Submitted Amount"
+      },
+      "amount": {
+        "value": 2650,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidbypatient"
+          }
+        ],
+        "text": "Patient Pay Amount"
+      },
+      "amount": {
+        "value": 0,
+        "currency": "USD"
+      }
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidtoprovider"
+          }
+        ],
+        "text": "Payment Amount"
+      },
+      "amount": {
+        "value": 620,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "submitted"
+          }
+        ],
+        "text": "Submitted Amount"
+      },
+      "amount": {
+        "value": 2650,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidbypatient"
+          }
+        ],
+        "text": "Patient Pay Amount"
+      },
+      "amount": {
+        "value": 0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "innetwork"
+          }
+        ]
+      },
+      "amount": {
+        "value": 0,
+        "currency": "USD"
+      }
+    }
+  ]
+}
+
+### Create EOBOutpatient1
+POST {{fhirurl}}/ExplanationOfBenefit
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "EOBOutpatientInstitutional1",
+  "meta": {
+    "lastUpdated": "2019-12-12T09:14:11+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Outpatient-Institutional",
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Outpatient-Institutional|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "uc"
+          }
+        ]
+      },
+      "system": "https://www.xxxplan.com/fhir/EOBIdentifier",
+      "value": "AW123412341234123412341234123412"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "institutional"
+      }
+    ],
+    "text": "Institutional"
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/{{Patient1}}"
+  },
+  "billablePeriod": {
+    "start": "2019-01-01",
+    "end": "2019-10-31"
+  },
+  "created": "2019-11-02T00:00:00+00:00",
+  "insurer": {
+    "reference": "Organization/{{Payer1}}",
+    "display": "XXX Health Plan"
+  },
+  "provider": {
+    "reference": "Organization/{{ProviderOrg1}}",
+    "display": "XXX Health Plan"
+  },
+  "outcome": "partial",
+  "supportingInfo": [
+    {
+      "sequence": 1,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "billingnetworkcontractingstatus"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "contracted"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 2,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "clmrecvddate"
+          }
+        ]
+      },
+      "timingDate": "2019-11-30"
+    },
+    {
+      "sequence": 3,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "typeofbill"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/TypeOfBill",
+            "code": "Dummy"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "pointoforigin"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/PointOfOrigin",
+            "code": "Dummy"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 5,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "admtype"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/PriorityTypeOfAdmitOrVisit",
+            "code": "Dummy"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 6,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "discharge-status"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/PatDischargeStatus",
+            "code": "Dummy"
+          }
+        ]
+      }
+    }
+  ],
+  "diagnosis": [
+    {
+      "sequence": 1,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "S06.0X1A"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimDiagnosisType",
+              "code": "patientreasonforvisit"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/{{Coverage1}}"
+      }
+    }
+  ],
+  "adjudication": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidtoprovider"
+          }
+        ],
+        "text": "Payment Amount"
+      },
+      "amount": {
+        "value": 620,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidbypatient"
+          }
+        ],
+        "text": "Patient Pay Amount"
+      },
+      "amount": {
+        "value": 0
+      }
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidtoprovider"
+          }
+        ],
+        "text": "Payment Amount"
+      },
+      "amount": {
+        "value": 620,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "submitted"
+          }
+        ],
+        "text": "Submitted Amount"
+      },
+      "amount": {
+        "value": 2650,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidbypatient"
+          }
+        ],
+        "text": "Patient Pay Amount"
+      },
+      "amount": {
+        "value": 0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "innetwork"
+          }
+        ]
+      },
+      "amount": {
+        "value": 0,
+        "currency": "USD"
+      }
+    }
+  ]
+}
+
+### Create EOBPharmacy
+POST {{fhirurl}}/ExplanationOfBenefit
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "EOBPharmacy1",
+  "meta": {
+    "lastUpdated": "2019-12-12T09:14:11+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Pharmacy",
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Pharmacy|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "uc"
+          }
+        ]
+      },
+      "system": "https://www.xxxplan.com/fhir/EOBIdentifier",
+      "value": "AW123412341234123412341234123412"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "pharmacy"
+      }
+    ],
+    "text": "Pharmacy"
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/{{Patient1}}"
+  },
+  "billablePeriod": {
+    "start": "2019-10-30",
+    "end": "2019-10-31"
+  },
+  "created": "2019-07-02T00:00:00+00:00",
+  "insurer": {
+    "reference": "Organization/{{Payer1}}",
+    "display": "XXX Health Plan"
+  },
+  "provider": {
+    "reference": "Organization/{{ProviderOrg1}}",
+    "display": "XXX Health Plan"
+  },
+  "outcome": "partial",
+  "supportingInfo": [
+    {
+      "sequence": 7,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "dayssupply"
+          }
+        ]
+      },
+      "valueQuantity": {
+        "value": 30
+      }
+    },
+    {
+      "sequence": 5,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "dawcode"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/NCPDPDispensedAsWrittenOrProductSelectionCode",
+            "code": "7"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 4,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "refillnum"
+          }
+        ]
+      },
+      "valueQuantity": {
+        "value": 0
+      }
+    },
+    {
+      "sequence": 1,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "billingnetworkcontractingstatus"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "contracted"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 2,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "brandgenericcode"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/NCPDPBrandGenericIndicator",
+            "code": "2"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "rxorigincode"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/NCPDPPrescriptionOriginCode",
+            "code": "1"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 6,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "clmrecvddate"
+          }
+        ]
+      },
+      "timingDate": "2019-10-31"
+    },
+    {
+      "sequence": 8,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "compoundcode"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/NCPDPCompoundCode",
+            "code": "Dummy"
+          }
+        ]
+      }
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/{{Coverage1}}"
+      }
+    }
+  ],
+  "item": [
+    {
+      "sequence": 1,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "0777-3105-02",
+            "display": "100 CAPSULE in 1 BOTTLE (0777-3105-02)"
+          }
+        ]
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted"
+              }
+            ]
+          },
+          "amount": {
+            "value": 1000,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit"
+              }
+            ]
+          },
+          "amount": {
+            "value": 20,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "discount"
+              }
+            ]
+          },
+          "amount": {
+            "value": 900,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "memberliability"
+              }
+            ]
+          },
+          "amount": {
+            "value": 80,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "paidtoprovider"
+              }
+            ]
+          },
+          "amount": {
+            "value": 20,
+            "currency": "USD"
+          }
+        }
+      ]
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidtoprovider"
+          }
+        ],
+        "text": "Payment Amount"
+      },
+      "amount": {
+        "value": 620,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "submitted"
+          }
+        ],
+        "text": "Submitted Amount"
+      },
+      "amount": {
+        "value": 2650,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidbypatient"
+          }
+        ],
+        "text": "Patient Pay Amount"
+      },
+      "amount": {
+        "value": 0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "innetwork"
+          }
+        ]
+      },
+      "amount": {
+        "value": 0,
+        "currency": "USD"
+      }
+    }
+  ]
+}
+
+### Create EOBProfessional1
+POST {{fhirurl}}/ExplanationOfBenefit
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "EOBProfessional1a",
+  "meta": {
+    "lastUpdated": "2019-12-12T09:14:11+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Professional-NonClinician",
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Professional-NonClinician|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "uc"
+          }
+        ]
+      },
+      "system": "https://www.xxxplan.com/fhir/EOBIdentifier",
+      "value": "AW123412341234123412341234123413"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "professional"
+      }
+    ],
+    "text": "Professional"
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/{{Patient1}}"
+  },
+  "billablePeriod": {
+    "start": "2019-01-01",
+    "end": "2019-10-31"
+  },
+  "created": "2019-07-02T00:00:00+00:00",
+  "insurer": {
+    "reference": "Organization/{{Payer1}}",
+    "display": "XXX Health Plan"
+  },
+  "provider": {
+    "reference": "Organization/{{ProviderOrg1}}",
+    "display": "XXX Health Plan"
+  },
+  "outcome": "partial",
+  "supportingInfo": [
+    {
+      "sequence": 1,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "billingnetworkcontractingstatus"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "contracted"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 2,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "performingnetworkcontractingstatus"
+          }
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "contracted"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "clmrecvddate"
+          }
+        ]
+      },
+      "timingDate": "2011-05-30"
+    },
+    {
+      "sequence": 4,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "servicefacility"
+          }
+        ]
+      },
+      "valueReference": {
+        "reference": "Organization/{{ProviderOrg1}}"
+      }
+    }
+  ],
+  "diagnosis": [
+    {
+      "sequence": 1,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "S06.0X1A"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/ex-diagnosistype",
+              "code": "principal"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/{{Coverage1}}"
+      }
+    }
+  ],
+  "item": [
+    {
+      "sequence": 1,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "97110",
+            "display": "Physical Therapy"
+          }
+        ]
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted"
+              }
+            ]
+          },
+          "amount": {
+            "value": 1000,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+                "code": "other"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidtoprovider"
+          }
+        ],
+        "text": "Payment Amount"
+      },
+      "amount": {
+        "value": 620,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "submitted"
+          }
+        ],
+        "text": "Submitted Amount"
+      },
+      "amount": {
+        "value": 2650,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "paidbypatient"
+          }
+        ],
+        "text": "Patient Pay Amount"
+      },
+      "amount": {
+        "value": 0,
+        "currency": "USD"
+      }
+    }
+  ]
+}
+
+### Create Payer2
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Organization",
+  "id": "PayerOrganizationExample1",
+  "meta": {
+    "lastUpdated": "2020-09-08T00:00:00+00:00",
+    "source": "Organization/PayerOrganizationExample1",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "naiccode",
+            "display": "NAIC Code"
+          }
+        ],
+        "text": "NAIC Code"
+      },
+      "system": "urn:oid:2.16.840.1.113883.6.300",
+      "value": "95216"
+    }
+  ],
+  "active": true,
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/organization-type",
+          "code": "pay"
+        }
+      ],
+      "text": "Payer"
+    }
+  ],
+  "name": "UPMC Health Plan",
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "1-844-220-4785 TTY: 711",
+      "use": "work"
+    },
+    {
+      "system": "phone",
+      "value": "1-866-406-8762",
+      "use": "work"
+    }
+  ],
+  "address": [
+    {
+      "type": "physical",
+      "line": [
+        "UPMC Health Plan",
+        "Attn: Commercial Plans",
+        "U.S. Steel Tower",
+        "600 Grant Street"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "15219"
+    }
+  ]
+}
+
+### Create Patient2
+POST {{fhirurl}}/Patient
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Patient",
+  "id": "ExamplePatient1",
+  "meta": {
+    "lastUpdated": "2020-10-30T09:48:01.8512764-04:00",
+    "source": "Organization/{{Payer2}}",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Patient|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MB",
+            "display": "Member Number"
+          }
+        ],
+        "text": "An identifier for the insured of an insurance policy (this insured always has a subscriber), usually assigned by the insurance carrier."
+      },
+      "system": "https://www.upmchealthplan.com/fhir/memberidentifier",
+      "value": "88800933501",
+      "assigner": {
+        "reference": "Organization/PayerOrganizationExample1",
+        "display": "UPMC Health Plan"
+      }
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Test",
+      "given": [
+        "Member 01"
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "5555555551",
+      "rank": 1
+    },
+    {
+      "system": "phone",
+      "value": "5555555552",
+      "rank": 2
+    },
+    {
+      "system": "phone",
+      "value": "5555555553",
+      "rank": 3
+    },
+    {
+      "system": "phone",
+      "value": "5555555554",
+      "rank": 4
+    },
+    {
+      "system": "phone",
+      "value": "5555555555",
+      "use": "home",
+      "rank": 5
+    },
+    {
+      "system": "phone",
+      "value": "5555555556",
+      "use": "work",
+      "rank": 6
+    },
+    {
+      "system": "email",
+      "value": "GXXX@XXXX.com",
+      "rank": 7
+    },
+    {
+      "system": "fax",
+      "value": "5555555557",
+      "rank": 8
+    }
+  ],
+  "gender": "male",
+  "birthDate": "1943-01-01",
+  "address": [
+    {
+      "type": "physical",
+      "line": [
+        "123 Main Street"
+      ],
+      "city": "PITTSBURGH",
+      "state": "PA",
+      "postalCode": "15239"
+    },
+    {
+      "type": "physical",
+      "line": [
+        "456 Murray Avenue"
+      ],
+      "city": "PITTSBURGH",
+      "state": "PA",
+      "postalCode": "15217"
+    }
+  ],
+  "maritalStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-NullFlavor",
+        "code": "UNK"
+      }
+    ],
+    "text": "unknown"
+  },
+  "communication": [
+    {
+      "language": {
+        "coding": [
+          {
+            "system": "urn:ietf:bcp:47",
+            "code": "en"
+          }
+        ],
+        "text": "English"
+      },
+      "preferred": true
+    }
+  ],
+  "managingOrganization": {
+    "reference": "Organization/{{Payer2}}",
+    "display": "UPMC Health Plan"
+  }
+}
+
+### Create Coverage2
+POST {{fhirurl}}/Coverage
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Coverage",
+  "id": "CoverageEx2",
+  "meta": {
+    "lastUpdated": "2020-10-30T09:48:01.8462752-04:00",
+    "source": "Organization/{{Payer2}}",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Coverage|1.0.0"
+    ]
+  },
+  "language": "en-US",
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MB",
+            "display": "Member Number"
+          }
+        ],
+        "text": "An identifier for the insured of an insurance policy (this insured always has a subscriber), usually assigned by the insurance carrier."
+      },
+      "system": "https://www.upmchealthplan.com/fhir/memberidentifier",
+      "value": "88800933501",
+      "assigner": {
+        "reference": "Organization/{{Payer2}}",
+        "display": "UPMC Health Plan"
+      }
+    }
+  ],
+  "status": "active",
+  "policyHolder": {
+    "reference": "Patient/{{Patient2}}"
+  },
+  "subscriber": {
+    "reference": "Patient/{{Patient2}}"
+  },
+  "subscriberId": "888009335",
+  "beneficiary": {
+    "reference": "Patient/{{Patient2}}"
+  },
+  "dependent": "01",
+  "relationship": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/subscriber-relationship",
+        "code": "self"
+      }
+    ],
+    "text": "Self"
+  },
+  "period": {
+    "start": "2017-01-01",
+    "end": "2017-06-30"
+  },
+  "payor": [
+    {
+      "reference": "Organization/{{Payer2}}",
+      "display": "UPMC Health Plan"
+    }
+  ],
+  "class": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+            "code": "group",
+            "display": "Group"
+          }
+        ],
+        "text": "An employee group"
+      },
+      "value": "MCHMO1",
+      "name": "MEDICARE HMO PLAN"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+            "code": "plan",
+            "display": "Plan"
+          }
+        ],
+        "text": "A specific suite of benefits."
+      },
+      "value": "GI8",
+      "name": "GI8-HMO DEDUCTIBLE"
+    }
+  ],
+  "network": "GI8-HMO DEDUCTIBLE"
+}
+
+### Create ProviderOrg3
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Organization",
+  "id": "ProviderOrganization3",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "3334445550"
+    }
+  ],
+  "active": true,
+  "name": "Green Medical Group",
+  "address": [
+    {
+      "line": [
+        "Attn: Green Medical Group"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "15222",
+      "country": "USA"
+    }
+  ],
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "555-555-5520",
+          "use": "work"
+        }
+      ]
+    }
+  ]
+}
+
+### Create ProviderOrg4
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Organization",
+  "id": "ProviderOrganization4",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "4445556660"
+    }
+  ],
+  "active": true,
+  "name": "Blue Medical Group",
+  "address": [
+    {
+      "line": [
+        "Attn: Blue Medical Group"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "15222",
+      "country": "USA"
+    }
+  ],
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "555-555-5530",
+          "use": "work"
+        }
+      ]
+    }
+  ]
+}
+
+### Create ProviderOrg5
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Organization",
+  "id": "ProviderOrganization5",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "5556667770"
+    }
+  ],
+  "active": "true",
+  "name": "Black Medical Group",
+  "address": [
+    {
+      "line": [
+        "Attn: Black Medical Group"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "15222",
+      "country": "USA"
+    }
+  ],
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "555-555-5560",
+          "use": "work"
+        }
+      ]
+    }
+  ]
+}
+
+### Create ProviderOrg6
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Organization",
+  "id": "ProviderOrganization6",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "0001112220"
+    }
+  ],
+  "active": "true",
+  "name": "White Medical Group",
+  "address": [
+    {
+      "line": [
+        "Attn: White Medical Group"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "15222",
+      "country": "USA"
+    }
+  ],
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "555-555-5570",
+          "use": "work"
+        }
+      ]
+    }
+  ]
+}
+
+### Create ProviderOrg2
+POST {{fhirurl}}/Organization
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Organization",
+  "id": "ProviderOrganization1",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Organization|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "1112223330"
+    }
+  ],
+  "active": true,
+  "name": "Orange Medical Group",
+  "address": [
+    {
+      "line": [
+        "Attn: Orange Medical Group"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "15222",
+      "country": "USA"
+    }
+  ],
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "555-555-5510",
+          "use": "work"
+        }
+      ]
+    }
+  ]
+}
+
+### Create Practitioner2
+POST {{fhirurl}}/Practitioner
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Practitioner",
+  "id": "Practitioner2",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Practitioner|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "8889990000"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Brown",
+      "given": [
+        "Jack"
+      ],
+      "prefix": [
+        "Dr."
+      ]
+    }
+  ]
+}
+
+### Create Practitioner3
+POST {{fhirurl}}/Practitioner
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Practitioner",
+  "id": "Practitioner3",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Practitioner|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "7778889990"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Williams",
+      "given": [
+        "Jane"
+      ],
+      "prefix": [
+        "Dr."
+      ]
+    }
+  ]
+}
+
+### Create Practitioner1
+POST {{fhirurl}}/Practitioner
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Practitioner",
+  "id": "Practitioner1",
+  "meta": {
+    "lastUpdated": "2020-05-04T03:02:01-04:00",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-Practitioner|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "npi",
+            "display": "National Provider Identifier"
+          }
+        ],
+        "text": "National Provider Identifier"
+      },
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "6667778880"
+    }
+  ],
+  "active": "true",
+  "name": [
+    {
+      "family": "Smith",
+      "given": [
+        "John"
+      ],
+      "prefix": [
+        "Dr."
+      ]
+    }
+  ]
+}
+
+### Create EOBInpatient2
+POST {{fhirurl}}/ExplanationOfBenefit
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "InpatientEOBExample1",
+  "meta": {
+    "lastUpdated": "2020-04-28T15:39:36-04:00",
+    "source": "Organization/{{Payer2}}",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Inpatient-Institutional|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "uc",
+            "display": "Unique Claim ID"
+          }
+        ],
+        "text": "Indicates that the claim identifier is that assigned by a payer for a claim received from a provider or subscriber"
+      },
+      "system": "https://www.upmchealthplan.com/fhir/EOBIdentifier",
+      "value": "InpatientEOBExample1"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "institutional"
+      }
+    ],
+    "text": "Institutional"
+  },
+  "subType": {
+    "coding": [
+      {
+        "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBInstitutionalClaimSubType",
+        "code": "inpatient"
+      }
+    ],
+    "text": "Inpatient"
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/{{Patient2}}"
+  },
+  "billablePeriod": {
+    "start": "2017-05-23",
+    "end": "2017-05-23"
+  },
+  "created": "2017-06-01T00:00:00-04:00",
+  "insurer": {
+    "reference": "Organization/{{Payer2}}",
+    "display": "UPMC Health Plan"
+  },
+  "provider": {
+    "reference": "Organization/{{ProviderOrg3}}"
+  },
+  "payee": {
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/payeetype",
+          "code": "provider",
+          "display": "Provider"
+        }
+      ],
+      "text": "Any benefit payable will be paid to the provider (Assignment of Benefit)."
+    },
+    "party": {
+      "reference": "Organization/{{ProviderOrg4}}"
+    }
+  },
+  "outcome": "complete",
+  "careTeam": [
+    {
+      "sequence": 1,
+      "provider": {
+        "reference": "Practitioner/{{Practitioner2}}"
+      },
+      "role": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimCareTeamRole",
+            "code": "attending",
+            "display": "Attending"
+          }
+        ],
+        "text": "The attending physician"
+      }
+    },
+    {
+      "sequence": 2,
+      "provider": {
+        "reference": "Practitioner/{{Practitioner2}}"
+      },
+      "role": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimCareTeamRole",
+            "code": "referring",
+            "display": "Referring"
+          }
+        ],
+        "text": "The referring physician"
+      }
+    }
+  ],
+  "supportingInfo": [
+    {
+      "sequence": 1,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "billingnetworkcontractingstatus",
+            "display": "Billing Network Contracting Status"
+          }
+        ],
+        "text": "Indicates that the Billing Provider has a contract with the Payer as of the effective date of service or admission."
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "contracted",
+            "display": "Contracted"
+          }
+        ],
+        "text": "Indicates the provider was contracted for the service"
+      }
+    },
+    {
+      "sequence": 2,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "clmrecvddate",
+            "display": "Claim Received Date"
+          }
+        ],
+        "text": "Date the claim was received by the payer."
+      },
+      "timingDate": "2017-06-01"
+    },
+    {
+      "sequence": 3,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "admissionperiod",
+            "display": "Admission Period"
+          }
+        ],
+        "text": "Dates corresponding with the admission and discharge of the beneficiary to a facility"
+      },
+      "timingPeriod": {
+        "start": "2017-05-23"
+      }
+    }
+  ],
+  "diagnosis": [
+    {
+      "sequence": 1,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "I21.4"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/ex-diagnosistype",
+              "code": "principal",
+              "display": "Principal Diagnosis"
+            }
+          ],
+          "text": "The single medical diagnosis that is most relevant to the patient's chief complaint or need for treatment."
+        }
+      ]
+    },
+    {
+      "sequence": 2,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "I25.118"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimDiagnosisType",
+              "code": "other",
+              "display": "Other"
+            }
+          ],
+          "text": "Required when other conditions coexist or develop subsequently during the treatment"
+        }
+      ]
+    },
+    {
+      "sequence": 3,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "E78.5"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimDiagnosisType",
+              "code": "other",
+              "display": "Other"
+            }
+          ],
+          "text": "Required when other conditions coexist or develop subsequently during the treatment"
+        }
+      ]
+    },
+    {
+      "sequence": 4,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "M19.90"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimDiagnosisType",
+              "code": "other",
+              "display": "Other"
+            }
+          ],
+          "text": "Required when other conditions coexist or develop subsequently during the treatment"
+        }
+      ]
+    }
+  ],
+  "procedure": [
+    {
+      "sequence": 1,
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimProcedureType",
+              "code": "principal",
+              "display": "Principal"
+            }
+          ],
+          "text": "The Principal Procedure is based on the relation of the procedure to the Principal Diagnosis"
+        }
+      ],
+      "date": "2017-05-23",
+      "procedureCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+            "code": "4A023N7"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 2,
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimProcedureType",
+              "code": "other",
+              "display": "Other"
+            }
+          ],
+          "text": "Other procedures performed during the inpatient institutional admission"
+        }
+      ],
+      "date": "2017-05-23",
+      "procedureCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+            "code": "B211YZZ"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimProcedureType",
+              "code": "other",
+              "display": "Other"
+            }
+          ],
+          "text": "Other procedures performed during the inpatient institutional admission"
+        }
+      ],
+      "date": "2017-05-23",
+      "procedureCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://www.cms.gov/Medicare/Coding/ICD10",
+            "code": "B215YZZ"
+          }
+        ]
+      }
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/{{Coverage2}}"
+      }
+    }
+  ],
+  "item": [
+    {
+      "sequence": 1,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0301"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 2,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0260"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 3,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0305"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 4,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0324"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 5,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0259"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 6,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0250"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 7,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0710"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 8,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0210"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 9,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0272"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 10,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0370"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 11,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0730"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 12,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0450"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    },
+    {
+      "sequence": 13,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0481"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedPeriod": {
+        "start": "2017-05-23"
+      },
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      }
+    }
+  ],
+  "adjudication": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "noncovered",
+            "display": "Noncovered"
+          }
+        ],
+        "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "submitted",
+            "display": "Submitted Amount"
+          }
+        ],
+        "text": "The total submitted amount for the claim or group or line item."
+      },
+      "amount": {
+        "value": 7147.2,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "eligible",
+            "display": "Eligible Amount"
+          }
+        ],
+        "text": "Amount of the change which is considered for adjudication."
+      },
+      "amount": {
+        "value": 1542.01,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "deductible",
+            "display": "Deductible"
+          }
+        ],
+        "text": "Amount deducted from the eligible amount prior to adjudication."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "copay",
+            "display": "CoPay"
+          }
+        ],
+        "text": "Patient Co-Payment"
+      },
+      "amount": {
+        "value": 120.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "noncovered",
+            "display": "Noncovered"
+          }
+        ],
+        "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "benefit",
+            "display": "Benefit Amount"
+          }
+        ],
+        "text": "Amount payable under the coverage"
+      },
+      "amount": {
+        "value": 1393.57,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "memberliability",
+            "display": "Member liability"
+          }
+        ],
+        "text": "The amount of the member's liability."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "innetwork"
+          }
+        ]
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    }
+  ]
+}
+
+### Create EOBOutpatient2
+POST {{fhirurl}}/ExplanationOfBenefit
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "OutpatientEOBExample1",
+  "meta": {
+    "lastUpdated": "2020-10-13T11:10:24-04:00",
+    "source": "Organization/{{Payer2}}",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Outpatient-Institutional|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "uc",
+            "display": "Unique Claim ID"
+          }
+        ],
+        "text": "Indicates that the claim identifier is that assigned by a payer for a claim received from a provider or subscriber"
+      },
+      "system": "https://www.upmchealthplan.com/fhir/EOBIdentifier",
+      "value": "OutpatientEOBExample1"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "institutional"
+      }
+    ],
+    "text": "Institutional"
+  },
+  "subType": {
+    "coding": [
+      {
+        "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBInstitutionalClaimSubType",
+        "code": "outpatient"
+      }
+    ],
+    "text": "Outpatient"
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/{{Patient2}}"
+  },
+  "billablePeriod": {
+    "start": "2020-09-29",
+    "end": "2020-09-29"
+  },
+  "created": "2020-10-10T00:00:00-04:00",
+  "insurer": {
+    "reference": "Organization/{{Payer2}}",
+    "display": "UPMC Health Plan"
+  },
+  "provider": {
+    "reference": "Organization/{{ProviderOrg5}}"
+  },
+  "payee": {
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/payeetype",
+          "code": "provider",
+          "display": "Provider"
+        }
+      ],
+      "text": "Any benefit payable will be paid to the provider (Assignment of Benefit)."
+    },
+    "party": {
+      "reference": "Organization/{{ProviderOrg6}}"
+    }
+  },
+  "outcome": "complete",
+  "careTeam": [
+    {
+      "sequence": 1,
+      "provider": {
+        "reference": "Practitioner/{{Practitioner1}}"
+      },
+      "role": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimCareTeamRole",
+            "code": "attending",
+            "display": "Attending"
+          }
+        ],
+        "text": "The attending physician"
+      }
+    },
+    {
+      "sequence": 2,
+      "provider": {
+        "reference": "Practitioner/{{Practitioner3}}"
+      },
+      "role": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimCareTeamRole",
+            "code": "referring",
+            "display": "Referring"
+          }
+        ],
+        "text": "The referring physician"
+      }
+    }
+  ],
+  "supportingInfo": [
+    {
+      "sequence": 1,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "billingnetworkcontractingstatus",
+            "display": "Billing Network Contracting Status"
+          }
+        ],
+        "text": "Indicates that the Billing Provider has a contract with the Payer as of the effective date of service or admission."
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "contracted",
+            "display": "Contracted"
+          }
+        ],
+        "text": "Indicates the provider was contracted for the service"
+      }
+    },
+    {
+      "sequence": 2,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "clmrecvddate",
+            "display": "Claim Received Date"
+          }
+        ],
+        "text": "Date the claim was received by the payer."
+      },
+      "timingDate": "2020-10-10"
+    }
+  ],
+  "diagnosis": [
+    {
+      "sequence": 1,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "I95.1"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/ex-diagnosistype",
+              "code": "principal",
+              "display": "Principal Diagnosis"
+            }
+          ],
+          "text": "The single medical diagnosis that is most relevant to the patient's chief complaint or need for treatment."
+        }
+      ]
+    },
+    {
+      "sequence": 2,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "I95.1"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimDiagnosisType",
+              "code": "other",
+              "display": "Other"
+            }
+          ],
+          "text": "Required when other conditions coexist or develop subsequently during the treatment"
+        }
+      ]
+    },
+    {
+      "sequence": 3,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "L97.529"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimDiagnosisType",
+              "code": "other",
+              "display": "Other"
+            }
+          ],
+          "text": "Required when other conditions coexist or develop subsequently during the treatment"
+        }
+      ]
+    },
+    {
+      "sequence": 4,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "I73.9"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimDiagnosisType",
+              "code": "other",
+              "display": "Other"
+            }
+          ],
+          "text": "Required when other conditions coexist or develop subsequently during the treatment"
+        }
+      ]
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/{{Coverage2}}"
+      }
+    }
+  ],
+  "item": [
+    {
+      "sequence": 1,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0551"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedDate": "2020-09-29",
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "12"
+          }
+        ],
+        "text": "HOME"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted",
+                "display": "Submitted Amount"
+              }
+            ],
+            "text": "The total submitted amount for the claim or group or line item."
+          },
+          "amount": {
+            "value": 84.4,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "copay",
+                "display": "CoPay"
+              }
+            ],
+            "text": "Patient Co-Payment"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "eligible",
+                "display": "Eligible Amount"
+              }
+            ],
+            "text": "Amount of the change which is considered for adjudication."
+          },
+          "amount": {
+            "value": 56.52,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "deductible",
+                "display": "Deductible"
+              }
+            ],
+            "text": "Amount deducted from the eligible amount prior to adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit",
+                "display": "Benefit Amount"
+              }
+            ],
+            "text": "Amount payable under the coverage"
+          },
+          "amount": {
+            "value": 56.52,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "noncovered",
+                "display": "Noncovered"
+              }
+            ],
+            "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 2,
+      "revenue": {
+        "coding": [
+          {
+            "system": "https://www.nubc.org/CodeSystem/RevenueCodes",
+            "code": "0023"
+          }
+        ]
+      },
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "99231"
+          }
+        ]
+      },
+      "servicedDate": "2020-09-29",
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "12"
+          }
+        ],
+        "text": "HOME"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted",
+                "display": "Submitted Amount"
+              }
+            ],
+            "text": "The total submitted amount for the claim or group or line item."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "copay",
+                "display": "CoPay"
+              }
+            ],
+            "text": "Patient Co-Payment"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "eligible",
+                "display": "Eligible Amount"
+              }
+            ],
+            "text": "Amount of the change which is considered for adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "deductible",
+                "display": "Deductible"
+              }
+            ],
+            "text": "Amount deducted from the eligible amount prior to adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit",
+                "display": "Benefit Amount"
+              }
+            ],
+            "text": "Amount payable under the coverage"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "noncovered",
+                "display": "Noncovered"
+              }
+            ],
+            "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        }
+      ]
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "submitted",
+            "display": "Submitted Amount"
+          }
+        ],
+        "text": "The total submitted amount for the claim or group or line item."
+      },
+      "amount": {
+        "value": 84.4,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "eligible",
+            "display": "Eligible Amount"
+          }
+        ],
+        "text": "Amount of the change which is considered for adjudication."
+      },
+      "amount": {
+        "value": 56.52,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "deductible",
+            "display": "Deductible"
+          }
+        ],
+        "text": "Amount deducted from the eligible amount prior to adjudication."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "copay",
+            "display": "CoPay"
+          }
+        ],
+        "text": "Patient Co-Payment"
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "noncovered",
+            "display": "Noncovered"
+          }
+        ],
+        "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "benefit",
+            "display": "Benefit Amount"
+          }
+        ],
+        "text": "Amount payable under the coverage"
+      },
+      "amount": {
+        "value": 56.52,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "memberliability",
+            "display": "Member liability"
+          }
+        ],
+        "text": "The amount of the member's liability."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "outofnetwork"
+          }
+        ]
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    }
+  ]
+}
+
+### Create EOBProfessional2
+POST {{fhirurl}}/ExplanationOfBenefit
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "ProfessionalEOBExample1",
+  "meta": {
+    "lastUpdated": "2020-10-20T14:46:05-04:00",
+    "source": "Organization/{{Payer2}}",
+    "profile": [
+      "http://hl7.org/fhir/us/carin-bb/StructureDefinition/C4BB-ExplanationOfBenefit-Professional-NonClinician|1.0.0"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBIdentifierType",
+            "code": "uc",
+            "display": "Unique Claim ID"
+          }
+        ],
+        "text": "Indicates that the claim identifier is that assigned by a payer for a claim received from a provider or subscriber"
+      },
+      "system": "https://www.upmchealthplan.com/fhir/EOBIdentifier",
+      "value": "ProfessionalEOBExample1"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "professional"
+      }
+    ],
+    "text": "Professional"
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/{{Patient2}}"
+  },
+  "billablePeriod": {
+    "start": "2020-08-04",
+    "end": "2020-08-04"
+  },
+  "created": "2020-08-24T00:00:00-04:00",
+  "insurer": {
+    "reference": "Organization/{{Payer2}}",
+    "display": "UPMC Health Plan"
+  },
+  "provider": {
+    "reference": "Organization/{{ProviderOrg2}}"
+  },
+  "payee": {
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/payeetype",
+          "code": "provider",
+          "display": "Provider"
+        }
+      ],
+      "text": "Any benefit payable will be paid to the provider (Assignment of Benefit)."
+    },
+    "party": {
+      "reference": "Organization/{{ProviderOrg2}}"
+    }
+  },
+  "outcome": "complete",
+  "careTeam": [
+    {
+      "sequence": 1,
+      "provider": {
+        "reference": "Organization/{{ProviderOrg2}}"
+      },
+      "role": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/claimcareteamrole",
+            "code": "primary",
+            "display": "Primary provider"
+          }
+        ],
+        "text": "The primary care provider."
+      }
+    },
+    {
+      "sequence": 2,
+      "provider": {
+        "reference": "Practitioner/{{Practitioner1}}"
+      },
+      "role": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimCareTeamRole",
+            "code": "referring",
+            "display": "Referring"
+          }
+        ],
+        "text": "The referring physician"
+      }
+    }
+  ],
+  "supportingInfo": [
+    {
+      "sequence": 1,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "billingnetworkcontractingstatus",
+            "display": "Billing Network Contracting Status"
+          }
+        ],
+        "text": "Indicates that the Billing Provider has a contract with the Payer as of the effective date of service or admission."
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+            "code": "contracted",
+            "display": "Contracted"
+          }
+        ],
+        "text": "Indicates the provider was contracted for the service"
+      }
+    },
+    {
+      "sequence": 2,
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBSupportingInfoType",
+            "code": "clmrecvddate",
+            "display": "Claim Received Date"
+          }
+        ],
+        "text": "Date the claim was received by the payer."
+      },
+      "timingDate": "2020-08-24"
+    }
+  ],
+  "diagnosis": [
+    {
+      "sequence": 1,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "I70.249"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/ex-diagnosistype",
+              "code": "principal",
+              "display": "Principal Diagnosis"
+            }
+          ],
+          "text": "The single medical diagnosis that is most relevant to the patient's chief complaint or need for treatment."
+        }
+      ]
+    },
+    {
+      "sequence": 2,
+      "diagnosisCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/icd-10-cm",
+            "code": "L97.929"
+          }
+        ]
+      },
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBClaimDiagnosisType",
+              "code": "secondary",
+              "display": "secondary"
+            }
+          ],
+          "text": "Required when necessary to report additional diagnoses on professional and non-clinician claims"
+        }
+      ]
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/{{Coverage2}}"
+      }
+    }
+  ],
+  "item": [
+    {
+      "sequence": 1,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "75710"
+          }
+        ]
+      },
+      "servicedDate": "2020-08-04",
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted",
+                "display": "Submitted Amount"
+              }
+            ],
+            "text": "The total submitted amount for the claim or group or line item."
+          },
+          "amount": {
+            "value": 68.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "copay",
+                "display": "CoPay"
+              }
+            ],
+            "text": "Patient Co-Payment"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "eligible",
+                "display": "Eligible Amount"
+              }
+            ],
+            "text": "Amount of the change which is considered for adjudication."
+          },
+          "amount": {
+            "value": 34.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "deductible",
+                "display": "Deductible"
+              }
+            ],
+            "text": "Amount deducted from the eligible amount prior to adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit",
+                "display": "Benefit Amount"
+              }
+            ],
+            "text": "Amount payable under the coverage"
+          },
+          "amount": {
+            "value": 34.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "noncovered",
+                "display": "Noncovered"
+              }
+            ],
+            "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+                "code": "innetwork",
+                "display": "In Network"
+              }
+            ],
+            "text": "Indicates the claim or claim line was paid in network. This does not indicate the contracting status of the provider"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 2,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "75710"
+          }
+        ]
+      },
+      "servicedDate": "2020-08-04",
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted",
+                "display": "Submitted Amount"
+              }
+            ],
+            "text": "The total submitted amount for the claim or group or line item."
+          },
+          "amount": {
+            "value": -68.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "copay",
+                "display": "CoPay"
+              }
+            ],
+            "text": "Patient Co-Payment"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "eligible",
+                "display": "Eligible Amount"
+              }
+            ],
+            "text": "Amount of the change which is considered for adjudication."
+          },
+          "amount": {
+            "value": -34.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "deductible",
+                "display": "Deductible"
+              }
+            ],
+            "text": "Amount deducted from the eligible amount prior to adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit",
+                "display": "Benefit Amount"
+              }
+            ],
+            "text": "Amount payable under the coverage"
+          },
+          "amount": {
+            "value": -34.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "noncovered",
+                "display": "Noncovered"
+              }
+            ],
+            "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+                "code": "innetwork",
+                "display": "In Network"
+              }
+            ],
+            "text": "Indicates the claim or claim line was paid in network. This does not indicate the contracting status of the provider"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 3,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "75710"
+          }
+        ]
+      },
+      "servicedDate": "2020-08-04",
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted",
+                "display": "Submitted Amount"
+              }
+            ],
+            "text": "The total submitted amount for the claim or group or line item."
+          },
+          "amount": {
+            "value": 68.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "copay",
+                "display": "CoPay"
+              }
+            ],
+            "text": "Patient Co-Payment"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "eligible",
+                "display": "Eligible Amount"
+              }
+            ],
+            "text": "Amount of the change which is considered for adjudication."
+          },
+          "amount": {
+            "value": 34.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "deductible",
+                "display": "Deductible"
+              }
+            ],
+            "text": "Amount deducted from the eligible amount prior to adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit",
+                "display": "Benefit Amount"
+              }
+            ],
+            "text": "Amount payable under the coverage"
+          },
+          "amount": {
+            "value": 34.8,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "noncovered",
+                "display": "Noncovered"
+              }
+            ],
+            "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+                "code": "innetwork",
+                "display": "In Network"
+              }
+            ],
+            "text": "Indicates the claim or claim line was paid in network. This does not indicate the contracting status of the provider"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 4,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "37228"
+          }
+        ]
+      },
+      "servicedDate": "2020-08-04",
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted",
+                "display": "Submitted Amount"
+              }
+            ],
+            "text": "The total submitted amount for the claim or group or line item."
+          },
+          "amount": {
+            "value": 751.2,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "copay",
+                "display": "CoPay"
+              }
+            ],
+            "text": "Patient Co-Payment"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "eligible",
+                "display": "Eligible Amount"
+              }
+            ],
+            "text": "Amount of the change which is considered for adjudication."
+          },
+          "amount": {
+            "value": 224.11,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "deductible",
+                "display": "Deductible"
+              }
+            ],
+            "text": "Amount deducted from the eligible amount prior to adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit",
+                "display": "Benefit Amount"
+              }
+            ],
+            "text": "Amount payable under the coverage"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "noncovered",
+                "display": "Noncovered"
+              }
+            ],
+            "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+          },
+          "amount": {
+            "value": 224.11,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+                "code": "innetwork",
+                "display": "In Network"
+              }
+            ],
+            "text": "Indicates the claim or claim line was paid in network. This does not indicate the contracting status of the provider"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 5,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "37228"
+          }
+        ]
+      },
+      "servicedDate": "2020-08-04",
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted",
+                "display": "Submitted Amount"
+              }
+            ],
+            "text": "The total submitted amount for the claim or group or line item."
+          },
+          "amount": {
+            "value": 751.2,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "copay",
+                "display": "CoPay"
+              }
+            ],
+            "text": "Patient Co-Payment"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "eligible",
+                "display": "Eligible Amount"
+              }
+            ],
+            "text": "Amount of the change which is considered for adjudication."
+          },
+          "amount": {
+            "value": 224.11,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "deductible",
+                "display": "Deductible"
+              }
+            ],
+            "text": "Amount deducted from the eligible amount prior to adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit",
+                "display": "Benefit Amount"
+              }
+            ],
+            "text": "Amount payable under the coverage"
+          },
+          "amount": {
+            "value": 224.11,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "noncovered",
+                "display": "Noncovered"
+              }
+            ],
+            "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+                "code": "innetwork",
+                "display": "In Network"
+              }
+            ],
+            "text": "Indicates the claim or claim line was paid in network. This does not indicate the contracting status of the provider"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 6,
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://www.ama-assn.org/go/cpt",
+            "code": "37228"
+          }
+        ]
+      },
+      "servicedDate": "2020-08-04",
+      "locationCodeableConcept": {
+        "coding": [
+          {
+            "system": "https://www.cms.gov/Medicare/Coding/place-of-service-codes/Place_of_Service_Code_Set",
+            "code": "21"
+          }
+        ],
+        "text": "HOSPITAL - INPATIENT HOSPITAL"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "submitted",
+                "display": "Submitted Amount"
+              }
+            ],
+            "text": "The total submitted amount for the claim or group or line item."
+          },
+          "amount": {
+            "value": -751.2,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "copay",
+                "display": "CoPay"
+              }
+            ],
+            "text": "Patient Co-Payment"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "eligible",
+                "display": "Eligible Amount"
+              }
+            ],
+            "text": "Amount of the change which is considered for adjudication."
+          },
+          "amount": {
+            "value": -224.11,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "deductible",
+                "display": "Deductible"
+              }
+            ],
+            "text": "Amount deducted from the eligible amount prior to adjudication."
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+                "code": "benefit",
+                "display": "Benefit Amount"
+              }
+            ],
+            "text": "Amount payable under the coverage"
+          },
+          "amount": {
+            "value": 0.0,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+                "code": "noncovered",
+                "display": "Noncovered"
+              }
+            ],
+            "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+          },
+          "amount": {
+            "value": -224.11,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBPayerAdjudicationStatus",
+                "code": "innetwork",
+                "display": "In Network"
+              }
+            ],
+            "text": "Indicates the claim or claim line was paid in network. This does not indicate the contracting status of the provider"
+          }
+        }
+      ]
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "submitted",
+            "display": "Submitted Amount"
+          }
+        ],
+        "text": "The total submitted amount for the claim or group or line item."
+      },
+      "amount": {
+        "value": 820.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "eligible",
+            "display": "Eligible Amount"
+          }
+        ],
+        "text": "Amount of the change which is considered for adjudication."
+      },
+      "amount": {
+        "value": 258.91,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "deductible",
+            "display": "Deductible"
+          }
+        ],
+        "text": "Amount deducted from the eligible amount prior to adjudication."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "copay",
+            "display": "CoPay"
+          }
+        ],
+        "text": "Patient Co-Payment"
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "noncovered",
+            "display": "Noncovered"
+          }
+        ],
+        "text": "The portion of the cost of this service that was deemed not eligible by the insurer because the service or member was not covered by the subscriber contract."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/adjudication",
+            "code": "benefit",
+            "display": "Benefit Amount"
+          }
+        ],
+        "text": "Amount payable under the coverage"
+      },
+      "amount": {
+        "value": 258.91,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/carin-bb/CodeSystem/C4BBAdjudication",
+            "code": "memberliability",
+            "display": "Member liability"
+          }
+        ],
+        "text": "The amount of the member's liability."
+      },
+      "amount": {
+        "value": 0.0,
+        "currency": "USD"
+      }
+    }
+  ]
+}
