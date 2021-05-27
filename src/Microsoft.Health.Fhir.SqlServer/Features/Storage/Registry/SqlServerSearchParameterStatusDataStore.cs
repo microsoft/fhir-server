@@ -79,7 +79,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
-                        (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
+                        (short id, string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
                             VLatest.SearchParam.Uri,
                             VLatest.SearchParam.Status,
                             VLatest.SearchParam.LastUpdated,
@@ -94,8 +95,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
-                        var resourceSearchParameterStatus = new ResourceSearchParameterStatus()
+                        var resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
                         {
+                            Id = id,
                             Uri = new Uri(uri),
                             Status = status,
                             IsPartiallySupported = (bool)isPartiallySupported,
@@ -140,17 +142,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
 
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
-                {
-                    while (await sqlDataReader.ReadAsync())
-                    {
-                        // The upsert procedure returns the search parameters that were new.
-                        (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
+            }
+        }
 
-                        // Add the new search parameters to the FHIR model dictionary.
-                        _fhirModel.AddSearchParamIdToUriMapping(searchParamUri, searchParamId);
-                    }
-                }
+        // Synchronize the FHIR model dictionary with the data in SQL search parameter status table
+        public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        {
+            foreach (ResourceSearchParameterStatus resourceSearchParameterStatus in statuses)
+            {
+                var status = (SqlServerResourceSearchParameterStatus)resourceSearchParameterStatus;
+
+                // Add the new search parameters to the FHIR model dictionary.
+                _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.ToString(), status.Id);
             }
         }
     }

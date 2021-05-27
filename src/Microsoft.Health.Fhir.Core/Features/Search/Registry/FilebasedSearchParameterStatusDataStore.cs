@@ -81,5 +81,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // File based registry does not persist runtime updates
             return Task.CompletedTask;
         }
+
+        public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        {
+            // Do nothing. This is only required for SQL.
+        }
     }
 }
