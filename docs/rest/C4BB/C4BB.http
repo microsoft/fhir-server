@@ -127,3 +127,8 @@ Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./Profiles/C4BBEOBPharmacy.json
+
+### Check Profiles Were Added
+Get {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
