@@ -70,7 +70,7 @@ GET {{hostname}}/Patient?_has:Observation:patient:code=527
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Reverse chained search 2
-GET {{hostname}}/Patient?_has:Observation:patient:_has:AuditEvent:entity:user=janedoe
+GET {{hostname}}/Patient?_has:Observation:patient:_has:AuditEvent:entity:agent:Practitioner.name=janedoe
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ### Composite search

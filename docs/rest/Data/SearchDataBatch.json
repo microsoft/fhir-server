@@ -43,9 +43,14 @@
                     }
                 ],
                 "gender": "female",
-                "generalPractitioner": {
-                    "reference": "Practitioner/searchpractioner1"
-                }
+                "generalPractitioner": [
+                    {
+                        "reference": "Practitioner/searchpractitioner1"
+                    },
+                    {
+                        "reference": "Practitioner/searchpractitioner2"
+                    }
+                ]
             },
             "request": {
                 "method": "PUT",
@@ -74,7 +79,7 @@
                 "birthDate": "1987-02-20",
                 "gender": "male",
                 "generalPractitioner": {
-                    "reference": "Practitioner/searchpractioner2"
+                    "reference": "Practitioner/searchpractitioner2"
                 }
             },
             "request": {
@@ -105,7 +110,7 @@
                 "birthDate": "1975-01-12",
                 "gender": "male",
                 "generalPractitioner": {
-                    "reference": "Practitioner/searchpractioner3"
+                    "reference": "Practitioner/searchpractitioner3"
                 }
             },
             "request": {
@@ -344,7 +349,7 @@
                 "name": [
                     {
                         "given": [
-                            "janedow"
+                            "janedoe"
                         ]
                     }
                 ],
@@ -370,7 +375,7 @@
                 "agent": [
                     {
                         "who": {
-                            "reference": "Practitioner/searchpractioner3"
+                            "reference": "Practitioner/searchpractitioner3"
                         }
                     }
                 ],
