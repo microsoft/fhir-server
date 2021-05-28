@@ -565,6 +565,7 @@
   </data>
   <data name="InvalidEverythingOperationPhase" xml:space="preserve">
     <value>The phase '{0}' in $everything operation is invalid.</value>
+  </data>
   <data name="ConditionalRequestTooCostly" xml:space="preserve">
     <value>The operation was stopped due to the underlying request being too resource intensive. If possible, try narrowing or changing the criteria.</value>
   </data>
