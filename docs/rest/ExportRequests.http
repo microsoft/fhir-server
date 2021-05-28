@@ -19,8 +19,9 @@ grant_type=client_credentials
 # @name batch
 POST https://{{hostname}}
 Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
 
-< .\ExportDataBatch.json
+< .\Data\ExportDataBatch.json
 
 ### Record group id
 @groupId = {{batch.response.body.entry[2].resource.id}}
