@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [SkippableFact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
+            Skip.If(true);
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-AppointmentStatus");
             searchParam.Name = randomName;
@@ -143,6 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [SkippableFact]
         public async Task GivenASearchParam_WhenUpdatingParam_ThenResourcesIndexedWithUpdatedParam()
         {
+            Skip.If(true);
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = randomName } } };
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter");
@@ -206,7 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Theory]
+        [Theory(Skip = "true")]
         [InlineData("SearchParameterBadSyntax", "A search parameter with the same code value 'diagnosis' already exists for base type 'Encounter'")]
         [InlineData("SearchParameterExpressionWrongProperty", "not supported")]
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]

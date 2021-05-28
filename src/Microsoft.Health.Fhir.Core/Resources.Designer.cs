@@ -575,6 +575,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The phase &apos;{0}&apos; in $everything operation is invalid..
+        /// </summary>
+        internal static string InvalidEverythingOperationPhase {
+            get {
+                return ResourceManager.GetString("InvalidEverythingOperationPhase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &apos;handling&apos; value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
         internal static string InvalidHandlingValue {

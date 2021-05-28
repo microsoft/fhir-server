@@ -22,5 +22,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public static readonly Uri ResourceTypeUri = new Uri("http://hl7.org/fhir/SearchParameter/Resource-type");
 
         public static readonly Uri TypeUri = new Uri("http://hl7.org/fhir/SearchParameter/type");
+
+        public const string Date = "date";
+
+        public static readonly Uri ClinicalDateUri = new Uri("http://hl7.org/fhir/SearchParameter/clinical-date");
+
+        public const string Include = "_include";
     }
 }

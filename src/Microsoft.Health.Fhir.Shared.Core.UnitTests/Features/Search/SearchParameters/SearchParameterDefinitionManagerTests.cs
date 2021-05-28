@@ -67,7 +67,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
-                _mediator);
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
 
             _searchParameterStatusDataStore.GetSearchParameterStatuses()
                 .Returns(new[]
@@ -458,7 +459,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _searchParameterStatusDataStore,
                 searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
-                _mediator);
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
 
             await statusManager.EnsureInitializedAsync(CancellationToken.None);
 

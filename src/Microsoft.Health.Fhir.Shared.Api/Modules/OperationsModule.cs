@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -66,6 +67,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<OperationsCapabilityProvider>()
                 .Transient()
                 .AsService<IProvideCapability>();
+
+            services.AddSingleton<IPatientEverythingService, PatientEverythingService>();
 
             services.Add<ImportResourceLoader>()
                 .Transient()
