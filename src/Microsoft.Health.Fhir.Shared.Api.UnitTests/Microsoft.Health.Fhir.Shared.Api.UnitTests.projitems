@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\MemberMatchControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />
