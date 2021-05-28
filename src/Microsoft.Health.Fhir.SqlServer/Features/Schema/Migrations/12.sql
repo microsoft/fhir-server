@@ -2936,7 +2936,7 @@ AS
         (
             SELECT *
             FROM [dbo].[TaskInfo]
-            WHERE TaskId = @taskId or (TaskTypeId = @taskTypeId and (Status <> 3 and IsCanceled = 0))
+            WHERE TaskId = @taskId or (TaskTypeId = @taskTypeId and Status <> 3)
         ) 
         BEGIN
             THROW 50409, 'Task already existed', 1;
@@ -3301,7 +3301,7 @@ AS
     INSERT INTO @availableJobs
     SELECT TOP(@count) TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
     FROM dbo.TaskInfo
-    WHERE (QueueId = @queueId AND ((Status = 1 OR (Status = 2 AND HeartbeatDateTime <= @expirationDateTime)) AND IsCanceled = 0))
+    WHERE (QueueId = @queueId AND (Status = 1 OR (Status = 2 AND HeartbeatDateTime <= @expirationDateTime)))
     ORDER BY HeartbeatDateTime
 
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()

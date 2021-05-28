@@ -93,6 +93,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             try
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException();
+                }
+
                 Func<long, long> sequenceIdGenerator = (index) => _inputData.BeginSequenceId + index;
 
                 // Clean imported resource after last checkpoint.
@@ -214,7 +219,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public void Cancel()
         {
-            _cancellationTokenSource?.Cancel();
+            if (!_cancellationTokenSource.IsCancellationRequested)
+            {
+                _cancellationTokenSource?.Cancel();
+            }
         }
 
         public bool IsCancelling()

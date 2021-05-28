@@ -155,5 +155,64 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             TaskInfo canceledTask = await sqlServerTaskManager.CancelTaskAsync(taskId, CancellationToken.None);
             Assert.True(canceledTask.IsCanceled);
         }
+
+        [Fact]
+        public async Task GivenASqlTaskManager_WhenCreateTaskByTypeTwice_ConflictShouldBeReturned()
+        {
+            string queueId = Guid.NewGuid().ToString();
+            string inputData = "inputData";
+            short uniqueType = 1234;
+
+            TaskInfo taskInfo = new TaskInfo()
+            {
+                TaskId = Guid.NewGuid().ToString(),
+                QueueId = queueId,
+                TaskTypeId = uniqueType,
+                InputData = inputData,
+            };
+
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, true, CancellationToken.None);
+
+            taskInfo = new TaskInfo()
+            {
+                TaskId = Guid.NewGuid().ToString(),
+                QueueId = queueId,
+                TaskTypeId = uniqueType,
+                InputData = inputData,
+            };
+
+            await Assert.ThrowsAnyAsync<TaskConflictException>(async () => await sqlServerTaskManager.CreateTaskAsync(taskInfo, true, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task GivenATaskCanceledButNotComplete_WhenCreateTaskBySameType_ConflictShouldBeReturned()
+        {
+            string queueId = Guid.NewGuid().ToString();
+            string inputData = "inputData";
+            short uniqueType = 4321;
+
+            TaskInfo taskInfo = new TaskInfo()
+            {
+                TaskId = Guid.NewGuid().ToString(),
+                QueueId = queueId,
+                TaskTypeId = uniqueType,
+                InputData = inputData,
+            };
+
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, true, CancellationToken.None);
+            _ = await sqlServerTaskManager.CancelTaskAsync(taskInfo.TaskId, CancellationToken.None);
+
+            taskInfo = new TaskInfo()
+            {
+                TaskId = Guid.NewGuid().ToString(),
+                QueueId = queueId,
+                TaskTypeId = uniqueType,
+                InputData = inputData,
+            };
+
+            await Assert.ThrowsAnyAsync<TaskConflictException>(async () => await sqlServerTaskManager.CreateTaskAsync(taskInfo, true, CancellationToken.None));
+        }
     }
 }

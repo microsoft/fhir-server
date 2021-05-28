@@ -378,6 +378,49 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             Assert.Equal(TaskResult.Success, taskResult1.Result);
         }
 
+        [Fact]
+        public async Task GivenTaskRunning_WhenCancel_ThenTaskShouldBeCompleteWithCancelledStatus()
+        {
+            TaskInfo taskInfo0 = new TaskInfo();
+            taskInfo0.TaskId = Guid.NewGuid().ToString();
+            taskInfo0.TaskTypeId = 0;
+
+            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0 });
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            AutoResetEvent autoResetEvent1 = new AutoResetEvent(false);
+            AutoResetEvent autoResetEvent2 = new AutoResetEvent(false);
+            TestTaskFactory factory = new TestTaskFactory(t =>
+            {
+                return new TestTask(
+                        () =>
+                        {
+                            autoResetEvent2.Set();
+                            autoResetEvent1.WaitOne();
+
+                            tokenSource.Cancel();
+
+                            return Task.FromResult(new TaskResultData(TaskResult.Canceled, string.Empty));
+                        },
+                        () =>
+                        {
+                            autoResetEvent1.Set();
+                        });
+            });
+
+            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            taskHosting.PollingFrequencyInSeconds = 0;
+            taskHosting.MaxRunningTaskCount = 1;
+
+            Task hostingTask = taskHosting.StartAsync(tokenSource);
+            autoResetEvent2.WaitOne();
+            taskInfo0.IsCanceled = true;
+
+            await hostingTask;
+
+            TaskResultData taskResult = JsonConvert.DeserializeObject<TaskResultData>(taskInfo0.Result);
+            Assert.Equal(TaskResult.Canceled, taskResult.Result);
+        }
+
         [Fact(Skip = "Fault injection test require local environment.")]
         public async Task GivenTaskThrowException_WhenTaskHostingStart_ThenTaskHostingShouldKeepRunning()
         {

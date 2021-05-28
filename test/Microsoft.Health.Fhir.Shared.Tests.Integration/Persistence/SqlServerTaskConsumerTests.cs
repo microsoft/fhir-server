@@ -363,5 +363,40 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
             await Assert.ThrowsAsync<TaskNotExistException>(async () => await sqlServerTaskConsumer.CompleteAsync(taskInfo.TaskId, result, "invalid", CancellationToken.None));
             await Assert.ThrowsAsync<TaskNotExistException>(async () => await sqlServerTaskConsumer.ResetAsync(taskInfo.TaskId, result, "invalid", CancellationToken.None));
         }
+
+        [Fact]
+        public async Task GivenATaskCreated_WhenTaskCanceled_ThenCanBePickedUp()
+        {
+            string queueId = Guid.NewGuid().ToString();
+            TaskHostingConfiguration config = new TaskHostingConfiguration()
+            {
+                Enabled = true,
+                QueueId = queueId,
+                TaskHeartbeatTimeoutThresholdInSeconds = 60,
+            };
+
+            IOptions<TaskHostingConfiguration> taskHostingConfig = Substitute.For<IOptions<TaskHostingConfiguration>>();
+            taskHostingConfig.Value.Returns(config);
+            SqlServerTaskManager sqlServerTaskManager = new SqlServerTaskManager(_fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskManager>.Instance);
+            SqlServerTaskConsumer sqlServerTaskConsumer = new SqlServerTaskConsumer(taskHostingConfig, _fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerTaskConsumer>.Instance);
+
+            string taskId = Guid.NewGuid().ToString();
+            string inputData = "inputData";
+
+            TaskInfo taskInfo = new TaskInfo()
+            {
+                TaskId = taskId,
+                QueueId = queueId,
+                TaskTypeId = SqlServerTaskConsumerTestsTypeId,
+                InputData = inputData,
+                MaxRetryCount = 1,
+            };
+
+            _ = await sqlServerTaskManager.CreateTaskAsync(taskInfo, false, CancellationToken.None);
+            _ = await sqlServerTaskManager.CancelTaskAsync(taskInfo.TaskId, CancellationToken.None);
+
+            var taskInfoResult = (await sqlServerTaskConsumer.GetNextMessagesAsync(1, 60, CancellationToken.None)).First();
+            Assert.Equal(taskInfo.TaskId, taskInfoResult.TaskId);
+        }
     }
 }
