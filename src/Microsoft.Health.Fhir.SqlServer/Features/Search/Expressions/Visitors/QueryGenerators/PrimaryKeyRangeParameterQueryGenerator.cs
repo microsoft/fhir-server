@@ -27,9 +27,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, null, primaryKeyRange.CurrentValue.ResourceTypeId, includeInParameterHash: false);
                 context.StringBuilder.Append(" AND ");
                 VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, null, primaryKeyRange.CurrentValue.ResourceSurrogateId, includeInParameterHash: false);
-                context.StringBuilder.AppendLine();
-                context.StringBuilder.Append("OR ");
-                AppendColumnName(context, VLatest.Resource.ResourceTypeId, (int?)null).Append(" IN (");
 
                 bool first = true;
                 for (short i = 0; i < primaryKeyRange.NextResourceTypeIds.Count; i++)
@@ -38,6 +35,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         if (first)
                         {
+                            context.StringBuilder.AppendLine();
+                            context.StringBuilder.Append("OR ");
+                            AppendColumnName(context, VLatest.Resource.ResourceTypeId, (int?)null).Append(" IN (");
                             first = false;
                         }
                         else
@@ -49,7 +49,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                 }
 
-                context.StringBuilder.AppendLine(")");
+                if (!first)
+                {
+                    context.StringBuilder.AppendLine(")");
+                }
             }
 
             context.StringBuilder.AppendLine(")");
