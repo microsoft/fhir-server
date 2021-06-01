@@ -611,6 +611,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Links can&apos;t be created for bundle.
+        /// </summary>
+        internal static string LinksCantBeCreated {
+            get {
+                return ResourceManager.GetString("LinksCantBeCreated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Malformed search value &apos;{0}&apos;..
         /// </summary>
         internal static string MalformedSearchValue {

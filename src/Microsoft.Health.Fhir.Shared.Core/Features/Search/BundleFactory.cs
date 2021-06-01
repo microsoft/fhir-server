@@ -73,12 +73,52 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             });
         }
 
+        private void CreateLinks(SearchResult result, Bundle bundle)
+        {
+            bool problemWithLinks = false;
+            if (result.ContinuationToken != null)
+            {
+                try
+                {
+                    bundle.NextLink = _urlResolver.ResolveRouteUrl(
+                        result.UnsupportedSearchParameters,
+                        result.SortOrder,
+                        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
+                        true);
+                }
+                catch (UriFormatException)
+                {
+                    problemWithLinks = true;
+                }
+            }
+
+            try
+            {
+                // Add the self link to indicate which search parameters were used.
+                bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.SortOrder);
+            }
+            catch (UriFormatException)
+            {
+                problemWithLinks = true;
+            }
+
+            if (problemWithLinks)
+            {
+                _fhirRequestContextAccessor.RequestContext.BundleIssues.Add(
+                          new OperationOutcomeIssue(
+                              OperationOutcomeConstants.IssueSeverity.Warning,
+                              OperationOutcomeConstants.IssueType.NotSupported,
+                              string.Format(Core.Resources.LinksCantBeCreated)));
+            }
+        }
+
         private ResourceElement CreateBundle(SearchResult result, Bundle.BundleType type, Func<SearchResultEntry, Bundle.EntryComponent> selectionFunction)
         {
             EnsureArg.IsNotNull(result, nameof(result));
 
             // Create the bundle from the result.
             var bundle = new Bundle();
+            CreateLinks(result, bundle);
 
             if (_fhirRequestContextAccessor.RequestContext.BundleIssues.Any())
             {
@@ -101,19 +141,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(selectionFunction);
 
             bundle.Entry.AddRange(entries);
-
-            if (result.ContinuationToken != null)
-            {
-                bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                    result.UnsupportedSearchParameters,
-                    result.SortOrder,
-                    Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
-                    true);
-            }
-
-            // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.SortOrder);
-
             bundle.Id = _fhirRequestContextAccessor.RequestContext.CorrelationId;
             bundle.Type = type;
             bundle.Total = result?.TotalCount;
