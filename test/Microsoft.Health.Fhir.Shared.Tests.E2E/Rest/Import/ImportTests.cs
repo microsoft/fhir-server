@@ -348,7 +348,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
-        [Fact]
+        [Fact(Skip = "long running tests for invalid url")]
         public async Task GivenImportOperationEnabled_WhenImportInvalidResourceUrl_ThenBadRequestShouldBeReturned()
         {
             var request = new ImportRequest()
