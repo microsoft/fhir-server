@@ -48,25 +48,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenResourceWithVariousValues_WhenSearchedWithMultipleParams_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             // Create various resources.
+            string tag = Guid.NewGuid().ToString();
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "Seattle", "Robinson"),
-                p => SetPatientInfo(p, "Portland", "Williamas"),
-                p => SetPatientInfo(p, "Seattle", "Jones"));
+                p => SetPatientInfo(p, "Seattle", "Robinson", tag),
+                p => SetPatientInfo(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            await ExecuteAndValidateBundle("Patient?address-city=seattle&family=Jones", patients[2]);
-
-            void SetPatientInfo(Patient patient, string city, string family)
-            {
-                patient.Address = new List<Address>()
-                {
-                    new Address() { City = city },
-                };
-
-                patient.Name = new List<HumanName>()
-                {
-                    new HumanName() { Family = family },
-                };
-            }
+            await ExecuteAndValidateBundle($"Patient?address-city=seattle&family=Jones&_tag={tag}", patients[2]);
         }
 
         [Fact]
@@ -77,30 +65,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "seattle", "Robinson"), // match
-                p => SetPatientInfo(p, "Portland", "Williamas"),
-                p => SetPatientInfo(p, "SEATTLE", "Skouras"), // match
-                p => SetPatientInfo(p, "Sea", "Luecke"),
-                p => SetPatientInfo(p, "Seattle", "Jones"), // match
-                p => SetPatientInfo(p, "New York", "Cook"),
-                p => SetPatientInfo(p, "Amsterdam", "Hill"));
+                p => SetPatientInfo(p, "seattle", "Robinson", tag), // match
+                p => SetPatientInfo(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "SEATTLE", "Skouras", tag), // match
+                p => SetPatientInfo(p, "Sea", "Luecke", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag), // match
+                p => SetPatientInfo(p, "New York", "Cook", tag),
+                p => SetPatientInfo(p, "Amsterdam", "Hill", tag));
 
-            await ExecuteAndValidateBundle("Patient?address-city=Seattle", patients[0], patients[2], patients[4]);
-
-            void SetPatientInfo(Patient patient, string city, string family)
-            {
-                patient.Meta = new Meta();
-                patient.Meta.Tag.Add(new Coding(null, tag));
-                patient.Address = new List<Address>()
-                {
-                    new Address() { City = city },
-                };
-
-                patient.Name = new List<HumanName>()
-                {
-                    new HumanName() { Family = family },
-                };
-            }
+            await ExecuteAndValidateBundle($"Patient?address-city=Seattle&_tag={tag}", patients[0], patients[2], patients[4]);
         }
 
         [Fact]
@@ -190,6 +163,68 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={organization.Id}");
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", organization.Id));
             ValidateBundle(bundle, $"?_type=Patient,Observation&_id={organization.Id}");
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenMultiplePagesOfVariousTypesOfResourcesInSql_WhenUsingTypeParameterToSearchForMultipleResourceTypes_ThenCorrectResourcesAreReturned()
+        {
+            // Create various resources.
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "city1", "name1", tag),
+                p => SetPatientInfo(p, "city2", "name2", tag),
+                p => SetPatientInfo(p, "city3", "name3", tag),
+                p => SetPatientInfo(p, "city4", "name4", tag));
+
+            Observation[] observations = await Client.CreateResourcesAsync<Observation>(
+                o => SetObservationInfo(o, tag),
+                o => SetObservationInfo(o, tag));
+
+            List<Resource> expectedResources = new List<Resource>();
+            foreach (Observation observation in observations)
+            {
+                expectedResources.Add(observation);
+            }
+
+            foreach (Patient patient in patients)
+            {
+                expectedResources.Add(patient);
+            }
+
+            await ExecuteAndValidateBundle($"?_type=Patient,Observation&_tag={tag}&_count=3", sort: false, pageSize: 3, expectedResources.ToArray());
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenMultiplePagesOfVariousTypesOfResourcesInCosmos_WhenUsingTypeParameterToSearchForMultipleResourceTypes_ThenCorrectResourcesAreReturned()
+        {
+            // Create various resources.
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "city1", "name1", tag),
+                p => SetPatientInfo(p, "city2", "name2", tag),
+                p => SetPatientInfo(p, "city3", "name3", tag),
+                p => SetPatientInfo(p, "city4", "name4", tag));
+
+            Observation[] observations = await Client.CreateResourcesAsync<Observation>(
+                o => SetObservationInfo(o, tag),
+                o => SetObservationInfo(o, tag));
+
+            List<Resource> expectedResources = new List<Resource>();
+            foreach (Patient patient in patients)
+            {
+                expectedResources.Add(patient);
+            }
+
+            foreach (Observation observation in observations)
+            {
+                expectedResources.Add(observation);
+            }
+
+            await ExecuteAndValidateBundle($"?_type=Patient,Observation&_tag={tag}&_count=3", sort: false, pageSize: 3, expectedResources.ToArray());
         }
 
         [Fact]
@@ -943,6 +978,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
 
             return patients;
+        }
+
+        private void SetPatientInfo(Patient patient, string city, string family, string tag)
+        {
+            if (tag != null)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(new Coding(null, tag));
+            }
+
+            patient.Address = new List<Address>()
+                {
+                    new Address() { City = city },
+                };
+
+            patient.Name = new List<HumanName>()
+                {
+                    new HumanName() { Family = family },
+                };
+        }
+
+        private void SetObservationInfo(Observation observation, string tag)
+        {
+            observation.Status = ObservationStatus.Final;
+            observation.Code = new CodeableConcept
+            {
+                Coding = new List<Coding> { new Coding(null, tag) },
+            };
+            observation.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
         }
     }
 }
