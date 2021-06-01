@@ -79,15 +79,6 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Chained expression is not supported..
-        /// </summary>
-        internal static string ChainedExpressionNotSupported {
-            get {
-                return ResourceManager.GetString("ChainedExpressionNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Sub-queries in a chained expression cannot return more than {0} results, please use a more selective criteria..
         /// </summary>
         internal static string ChainedExpressionSubqueryLimit {

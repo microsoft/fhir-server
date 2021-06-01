@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
             var patientValues = _searchIndexer.Extract(patient);
             var expressions = new List<Expression>();
             var reverseChainExpressions = new List<Expression>();
-            expressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, "Patient", false)));
+            expressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.Patient, false)));
             foreach (var patientValue in patientValues)
             {
                 if (IgnoreInSearch(patientValue))
@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                     modifier = ":exact";
                 }
 
-                expressions.Add(_expressionParser.Parse(new[] { "Patient" }, patientValue.SearchParameter.Code + modifier, patientValue.Value.ToString()));
+                expressions.Add(_expressionParser.Parse(new[] { KnownResourceTypes.Patient }, patientValue.SearchParameter.Code + modifier, patientValue.Value.ToString()));
             }
 
             foreach (var coverageValue in coverageValues)
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                     modifier = ":exact";
                 }
 
-                reverseChainExpressions.Add(_expressionParser.Parse(new[] { "Coverage" }, coverageValue.SearchParameter.Code + modifier, coverageValue.Value.ToString()));
+                reverseChainExpressions.Add(_expressionParser.Parse(new[] { KnownResourceTypes.Coverage }, coverageValue.SearchParameter.Code + modifier, coverageValue.Value.ToString()));
             }
 
             if (reverseChainExpressions.Count != 0)
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.MemberMatch
                     reverseChainedExpression = Expression.And(reverseChainExpressions);
                 }
 
-                var expression = Expression.Chained(new string[] { "Coverage" }, _coverageBeneficiaryParameter, new string[] { "Patient" }, true, reverseChainedExpression);
+                var expression = Expression.Chained(new[] { KnownResourceTypes.Coverage }, _coverageBeneficiaryParameter, new[] { KnownResourceTypes.Patient }, true, reverseChainedExpression);
                 expressions.Add(expression);
             }
 
