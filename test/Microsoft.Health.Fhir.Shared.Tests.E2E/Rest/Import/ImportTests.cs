@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
-        public async Task GivenAUserWithoutImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
+        public async Task GivenAUserWithoutImportPermissions_WhenImportData_TheServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -377,6 +377,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         await Task.Delay(TimeSpan.FromSeconds(5));
                     }
                 });
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
         [Fact]
@@ -412,6 +413,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                         await Task.Delay(TimeSpan.FromSeconds(5));
                     }
                 });
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenImportOperationEnabled_WhenImportInvalidResourceType_ThenBadRequestShouldBeReturned()
+        {
+            string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
+
+            var request = new ImportRequest()
+            {
+                InputFormat = "application/fhir+ndjson",
+                InputSource = new Uri("https://other-server.example.org"),
+                StorageDetail = new ImportRequestStorageDetail() { Type = "azure-blob" },
+                Input = new List<InputResource>()
+                {
+                    new InputResource()
+                    {
+                        Url = location,
+                        Type = "Invalid",
+                    },
+                },
+            };
+
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(
+                async () => await ImportTestHelper.CreateImportTaskAsync(_client, request));
+
+            Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
         private async Task<Uri> ImportCheckAsync(ImportRequest request, TestFhirClient client = null)
