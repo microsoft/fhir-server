@@ -6,10 +6,6 @@
 @tenantid= <SUBSCRIPTION ID>
 @contentType = application/json
 
-### Get Metadata - Allows you to get the current capability statement
-# this will update as you add search parameters and profiles to the database
-GET {{fhirurl}}/metadata
-
 ### Get access token
 # @name getAADToken
 POST https://login.microsoftonline.com/{{tenantid}}/oauth2/token
@@ -20,29 +16,11 @@ grant_type=client_credentials
 &client_id={{clientid}}
 &client_secret={{clientsecret}}
 
-### 
-GET {{fhirurl}}/StructureDefinition?url=http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-FormularyDrug
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
 ### Capture access token from getToken request
 @token={{getAADToken.response.body.access_token}}
 
-
-### Variables for creating resources
-# Add values to each ID as you create them.
-# You need to create in order and add IDs as you go or references will not work
-
-@formularydrugV1002=<formularydrugV1002>
-@FormularyDrugV3001=<FormularyDrugV3001>
-@cmsip9=<cmsip9>
-@CoveragePlanV1002=<CoveragePlanV1002>
-@CoveragePlanV3001=<CoveragePlanV3001>
-@CoveragePlanV3002=<CoveragePlanV3002>
-@CoveragePlanV3004t=<CoveragePlanV3004t>
-@FormularyDrugV3002=<FormularyDrugV3002>
-
 ### Create formularydrugV1002
+# @name formularydrugV1002
 POST {{fhirurl}}/MedicationKnowledge
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
@@ -100,14 +78,79 @@ content-type: {{contentType}}
   }
 }
 
-### Create FormularyDrugV3001
+@formularydrugV1002_ID={{formularydrugV1002.response.body.id}}
+
+
+### Create FormularyDrugV3002
+# @name formularyDrugV3002
 POST {{fhirurl}}/MedicationKnowledge
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 {
   "resourceType": "MedicationKnowledge",
-  "id": "FormularyDrugV3001",
+  "id": "formularyDrugV3002",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-FormularyDrug"
+    ]
+  },
+  "text": {
+    "status": "extensions",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>Drug Tier ID</b>: <span title=\"Codes: {http://hl7.org/fhir/us/davinci-drug-formulary/CodeSystem/usdf-DrugTierCS brand}\">Brand: Brand name drugs that cost more than ‘preferred brand’ drugs.</span></p><p><b>Prior Authorization</b>: false</p><p><b>Step Therapy Limit</b>: false</p><p><b>Quantity Limit</b>: false</p><p><b>Plan ID</b>: 40308VA0240008</p><p><b>code</b>: <span title=\"Codes: {http://www.nlm.nih.gov/research/umls/rxnorm 209459}\">Tylenol Extra Strength 500 MG Oral Tablet</span></p></div>"
+  },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-DrugTierID-extension",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/davinci-drug-formulary/CodeSystem/usdf-DrugTierCS",
+            "code": "brand",
+            "display": "Brand: Brand name drugs that cost more than ‘preferred brand’ drugs."
+          }
+        ]
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-PriorAuthorization-extension",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-StepTherapyLimit-extension",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-QuantityLimit-extension",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-PlanID-extension",
+      "valueString": "40308VA0240008"
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+        "code": "209459",
+        "display": "Tylenol Extra Strength 500 MG Oral Tablet"
+      }
+    ]
+  }
+}
+
+@formularyDrugV3002_ID={{formularyDrugV3002.response.body.id}}
+
+### Create FormularyDrugV3001
+# @name formularyDrugV3001
+POST {{fhirurl}}/MedicationKnowledge
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "MedicationKnowledge",
+  "id": "formularyDrugV3001",
   "meta": {
     "profile": [
       "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-FormularyDrug"
@@ -149,7 +192,7 @@ content-type: {{contentType}}
     {
       "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-DrugAlternatives-extension",
       "valueReference": {
-        "reference": "MedicationKnowledge/FormularyDrugV3002",
+        "reference": "MedicationKnowledge/{{formularyDrugV3002_ID}}",
         "display": "Tylenol Extra Strength 500 MG Oral Tablet"
       }
     }
@@ -164,6 +207,70 @@ content-type: {{contentType}}
     ]
   }
 }
+
+@formularyDrugV3001_ID={{formularyDrugV3001.response.body.id}}
+
+### Create cmsip9
+# @name cmsip9
+POST {{fhirurl}}/MedicationKnowledge
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "MedicationKnowledge",
+  "id": "cmsip9",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-FormularyDrug"
+    ]
+  },
+  "text": {
+    "status": "extensions",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>Drug Tier ID</b>: <span title=\"Codes: {http://hl7.org/fhir/us/davinci-drug-formulary/CodeSystem/usdf-DrugTierCS generic}\">Generic: Commonly prescribed generic drugs that cost more than drugs in the ‘preferred generic’ tier.</span></p><p><b>Prior Authorization</b>: false</p><p><b>Step Therapy Limit</b>: true</p><p><b>Quantity Limit</b>: true</p><p><b>Plan ID</b>: 40308VA0240008</p><p><b>code</b>: <span title=\"Codes: {http://www.nlm.nih.gov/research/umls/rxnorm 1000091}\">doxepin HCl 5 % Topical Cream</span></p></div>"
+  },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-DrugTierID-extension",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/us/davinci-drug-formulary/CodeSystem/usdf-DrugTierCS",
+            "code": "generic",
+            "display": "Generic: Commonly prescribed generic drugs that cost more than drugs in the ‘preferred generic’ tier."
+          }
+        ]
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-PriorAuthorization-extension",
+      "valueBoolean": false
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-StepTherapyLimit-extension",
+      "valueBoolean": true
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-QuantityLimit-extension",
+      "valueBoolean": true
+    },
+    {
+      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-PlanID-extension",
+      "valueString": "40308VA0240008"
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+        "code": "1000091",
+        "display": "doxepin HCl 5 % Topical Cream"
+      }
+    ]
+  }
+}
+
+@cmsip9_ID={{cmsip9.response.body.id}}
+
 
 ### Create CoveragePlanV1002
 POST {{fhirurl}}/List
@@ -292,7 +399,7 @@ content-type: {{contentType}}
   "entry": [
     {
       "item": {
-        "reference": "MedicationKnowledge/{{formularydrugV1002}}"
+        "reference": "MedicationKnowledge/{{formularydrugV1002_ID}}"
       }
     }
   ]
@@ -581,7 +688,7 @@ content-type: {{contentType}}
   "entry": [
     {
       "item": {
-        "reference": "MedicationKnowledge/{{FormularyDrugV3001}}"
+        "reference": "MedicationKnowledge/{{formularyDrugV3001_ID}}"
       }
     }
   ]
@@ -870,70 +977,11 @@ content-type: {{contentType}}
   "entry": [
     {
       "item": {
-        "reference": "MedicationKnowledge/{{FormularyDrugV3001}}"
+        "reference": "MedicationKnowledge/{{formularyDrugV3001_ID}}"
       }
     }
   ]
 }
-
-### Create cmsip9
-POST {{fhirurl}}/MedicationKnowledge
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-{
-  "resourceType": "MedicationKnowledge",
-  "id": "cmsip9",
-  "meta": {
-    "profile": [
-      "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-FormularyDrug"
-    ]
-  },
-  "text": {
-    "status": "extensions",
-    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>Drug Tier ID</b>: <span title=\"Codes: {http://hl7.org/fhir/us/davinci-drug-formulary/CodeSystem/usdf-DrugTierCS generic}\">Generic: Commonly prescribed generic drugs that cost more than drugs in the ‘preferred generic’ tier.</span></p><p><b>Prior Authorization</b>: false</p><p><b>Step Therapy Limit</b>: true</p><p><b>Quantity Limit</b>: true</p><p><b>Plan ID</b>: 40308VA0240008</p><p><b>code</b>: <span title=\"Codes: {http://www.nlm.nih.gov/research/umls/rxnorm 1000091}\">doxepin HCl 5 % Topical Cream</span></p></div>"
-  },
-  "extension": [
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-DrugTierID-extension",
-      "valueCodeableConcept": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/us/davinci-drug-formulary/CodeSystem/usdf-DrugTierCS",
-            "code": "generic",
-            "display": "Generic: Commonly prescribed generic drugs that cost more than drugs in the ‘preferred generic’ tier."
-          }
-        ]
-      }
-    },
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-PriorAuthorization-extension",
-      "valueBoolean": false
-    },
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-StepTherapyLimit-extension",
-      "valueBoolean": true
-    },
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-QuantityLimit-extension",
-      "valueBoolean": true
-    },
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-PlanID-extension",
-      "valueString": "40308VA0240008"
-    }
-  ],
-  "code": {
-    "coding": [
-      {
-        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-        "code": "1000091",
-        "display": "doxepin HCl 5 % Topical Cream"
-      }
-    ]
-  }
-}
-
 
 
 ### Create CoveragePlanV3004t
@@ -2118,66 +2166,8 @@ content-type: {{contentType}}
   "entry": [
     {
       "item": {
-        "reference": "MedicationKnowledge/{{cmsip9}}"
+        "reference": "MedicationKnowledge/{{cmsip9_ID}}"
       }
     }
   ]
-}
-
-### Create FormularyDrugV3002
-POST {{fhirurl}}/MedicationKnowledge
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-{
-  "resourceType": "MedicationKnowledge",
-  "id": "FormularyDrugV3002",
-  "meta": {
-    "profile": [
-      "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-FormularyDrug"
-    ]
-  },
-  "text": {
-    "status": "extensions",
-    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>Drug Tier ID</b>: <span title=\"Codes: {http://hl7.org/fhir/us/davinci-drug-formulary/CodeSystem/usdf-DrugTierCS brand}\">Brand: Brand name drugs that cost more than ‘preferred brand’ drugs.</span></p><p><b>Prior Authorization</b>: false</p><p><b>Step Therapy Limit</b>: false</p><p><b>Quantity Limit</b>: false</p><p><b>Plan ID</b>: 40308VA0240008</p><p><b>code</b>: <span title=\"Codes: {http://www.nlm.nih.gov/research/umls/rxnorm 209459}\">Tylenol Extra Strength 500 MG Oral Tablet</span></p></div>"
-  },
-  "extension": [
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-DrugTierID-extension",
-      "valueCodeableConcept": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/us/davinci-drug-formulary/CodeSystem/usdf-DrugTierCS",
-            "code": "brand",
-            "display": "Brand: Brand name drugs that cost more than ‘preferred brand’ drugs."
-          }
-        ]
-      }
-    },
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-PriorAuthorization-extension",
-      "valueBoolean": false
-    },
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-StepTherapyLimit-extension",
-      "valueBoolean": false
-    },
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-QuantityLimit-extension",
-      "valueBoolean": false
-    },
-    {
-      "url": "http://hl7.org/fhir/us/davinci-drug-formulary/StructureDefinition/usdf-PlanID-extension",
-      "valueString": "40308VA0240008"
-    }
-  ],
-  "code": {
-    "coding": [
-      {
-        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-        "code": "209459",
-        "display": "Tylenol Extra Strength 500 MG Oral Tablet"
-      }
-    ]
-  }
 }
