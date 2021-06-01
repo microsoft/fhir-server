@@ -268,10 +268,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Patient resource = Samples.GetJsonSample("Patient-f001").ToPoco<Patient>();
 
-            // Create 101 patients that exceed the sub-query limit
-            for (var i = 0; i < 101; i++)
+            // Create 1001 patients that exceed the sub-query limit
+            foreach (IEnumerable<int> batch in Enumerable.Range(1, 1001).TakeBatch(100))
             {
-                await Client.CreateAsync(resource);
+                await Task.WhenAll(batch.Select(_ => Client.CreateAsync(resource)));
             }
 
             await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Observation, query));

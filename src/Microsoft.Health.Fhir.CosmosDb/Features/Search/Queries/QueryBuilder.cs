@@ -57,9 +57,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 {
                     AppendSelectFromRoot("VALUE COUNT(1)");
                 }
-                else if (queryOptions.Projection == QueryProjection.Id)
+                else if (queryOptions.Projection == QueryProjection.IdAndType)
                 {
-                    AppendSelectFromRoot($"r.{KnownResourceWrapperProperties.ResourceId}", queryOptions.Includes);
+                    AppendSelectFromRoot($"r.{KnownResourceWrapperProperties.ResourceId}, r.{KnownResourceWrapperProperties.ResourceTypeName}", queryOptions.Includes);
                 }
                 else if (queryOptions.Projection == QueryProjection.ReferencesOnly)
                 {

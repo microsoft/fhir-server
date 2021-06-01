@@ -187,10 +187,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return null;
         }
 
+        /// <summary>
+        /// Implemented in <see cref="FhirCosmosSearchService"/>
+        /// </summary>
         public object VisitChained(ChainedExpression expression, Context context)
         {
             // Chained expressions require additional queries and are handled in the FhirCosmosSearchService.
-            throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
+            return null;
         }
 
         public object VisitSortParameter(SortExpression expression, Context context)
