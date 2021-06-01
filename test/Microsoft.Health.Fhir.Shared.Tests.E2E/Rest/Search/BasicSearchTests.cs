@@ -48,12 +48,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenResourceWithVariousValues_WhenSearchedWithMultipleParams_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             // Create various resources.
+            string tag = Guid.NewGuid().ToString();
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "Seattle", "Robinson", tag: null),
-                p => SetPatientInfo(p, "Portland", "Williamas", tag: null),
-                p => SetPatientInfo(p, "Seattle", "Jones", tag: null));
+                p => SetPatientInfo(p, "Seattle", "Robinson", tag),
+                p => SetPatientInfo(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            await ExecuteAndValidateBundle("Patient?address-city=seattle&family=Jones", patients[2]);
+            await ExecuteAndValidateBundle($"Patient?address-city=seattle&family=Jones&_tag={tag}", patients[2]);
         }
 
         [Fact]
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, "New York", "Cook", tag),
                 p => SetPatientInfo(p, "Amsterdam", "Hill", tag));
 
-            await ExecuteAndValidateBundle("Patient?address-city=Seattle", patients[0], patients[2], patients[4]);
+            await ExecuteAndValidateBundle($"Patient?address-city=Seattle&_tag={tag}", patients[0], patients[2], patients[4]);
         }
 
         [Fact]
