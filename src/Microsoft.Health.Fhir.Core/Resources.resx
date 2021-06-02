@@ -576,7 +576,6 @@
   <data name="ImportOperationCompleted" xml:space="preserve">
     <value>Import operation has already completed</value>
   </data>
-</root>
   <data name="ConditionalRequestTooCostly" xml:space="preserve">
     <value>The operation was stopped due to the underlying request being too resource intensive. If possible, try narrowing or changing the criteria.</value>
   </data>
