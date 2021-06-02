@@ -2079,6 +2079,9 @@ GO
 --     @searchParams
 --         * The updated existing search parameters or the new search parameters
 --
+-- RETURN VALUE
+--     The IDs and URIs of the search parameters that were inserted (not updated).
+--
 CREATE PROCEDURE dbo.UpsertSearchParams
     @searchParams dbo.SearchParamTableType_1 READONLY
 AS
@@ -2090,6 +2093,8 @@ AS
 
     DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 
+    DECLARE @summaryOfChanges TABLE(Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL, Action varchar(20) NOT NULL)
+
     -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
     MERGE INTO dbo.SearchParam WITH (TABLOCKX) AS target
     USING @searchParams AS source
@@ -2100,7 +2105,14 @@ AS
     WHEN NOT MATCHED BY target THEN
         INSERT
             (Uri, Status, LastUpdated, IsPartiallySupported)
-            VALUES (source.Uri, source.Status, @lastUpdated, source.IsPartiallySupported);
+            VALUES (source.Uri, source.Status, @lastUpdated, source.IsPartiallySupported)
+    OUTPUT source.Uri, $action INTO @summaryOfChanges;
+
+    SELECT SearchParamId, SearchParam.Uri
+    FROM dbo.SearchParam searchParam
+    INNER JOIN @summaryOfChanges upsertedSearchParam
+    ON searchParam.Uri = upsertedSearchParam.Uri
+    WHERE upsertedSearchParam.Action = 'INSERT'
 
     COMMIT TRANSACTION
 GO

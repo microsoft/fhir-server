@@ -142,7 +142,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
 
-                await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
+                {
+                    while (await sqlDataReader.ReadAsync())
+                    {
+                        // The upsert procedure returns the search parameters that were new.
+                        (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
+
+                        // Add the new search parameters to the FHIR model dictionary.
+                        _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+                    }
+                }
             }
         }
 
