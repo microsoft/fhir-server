@@ -58,6 +58,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Everything = "$everything";
         public const string PatientEverythingById = "Patient/" + IdRouteSegment + "/" + Everything;
 
+        public const string Import = "$import";
+        public const string ImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Import;
+        public const string ImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment;
+
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";

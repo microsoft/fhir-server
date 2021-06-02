@@ -7,7 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public interface IAccessTokenProvider
     {

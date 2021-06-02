@@ -71,6 +71,8 @@ jobs:
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
             enableConvertData = $true
+            enableImport = $true
+            backgroundTaskCount = 5
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             imageTag = '${{ parameters.imageTag }}'
         }

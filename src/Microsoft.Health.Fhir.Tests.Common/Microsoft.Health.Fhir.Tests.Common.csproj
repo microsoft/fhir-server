@@ -37,9 +37,14 @@
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\Appointment.json" />
+    <None Remove="TestFiles\Normative\BulkImportRequest.json" />
     <None Remove="TestFiles\Normative\CarePlan.json" />
     <None Remove="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <None Remove="TestFiles\Normative\Coverage.json" />
+    <None Remove="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
+    <None Remove="TestFiles\Normative\Import-InvalidPatient.ndjson" />
+    <None Remove="TestFiles\Normative\Import-Patient.ndjson" />
+    <None Remove="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
     <None Remove="TestFiles\Normative\MoneyWithWrongDecimal.json" />
     <None Remove="TestFiles\Normative\Profile-CarePlan-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
@@ -243,8 +248,13 @@
     <EmbeddedResource Include="TestFiles\Normative\Appointment.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Normative\BulkImportRequest.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />
@@ -430,6 +440,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
   </ItemGroup>
 </Project>

@@ -21,6 +21,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         internal override bool TryGenerateRow(int offset, short searchParamId, DateTimeSearchValue searchValue, out BulkDateTimeSearchParamTableTypeV1Row row)
         {
+            // For composite generator contains BulkDateTimeSearchParameterV1RowGenerator, it is possible to call TryGenerateRow before GenerateRow on this Generator.
+            EnsureInitialized();
+
             if (searchParamId == _lastUpdatedSearchParamId)
             {
                 // this value is already stored on the Resource table.

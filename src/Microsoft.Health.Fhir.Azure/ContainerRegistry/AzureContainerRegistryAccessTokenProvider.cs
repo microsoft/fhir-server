@@ -13,9 +13,9 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Newtonsoft.Json;
 using Polly;
 

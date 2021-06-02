@@ -11,8 +11,10 @@ using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -67,6 +69,26 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<IProvideCapability>();
 
             services.AddSingleton<IPatientEverythingService, PatientEverythingService>();
+
+            services.Add<ImportResourceLoader>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<ImportResourceParser>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<ImportErrorStoreFactory>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<ImportErrorSerializer>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
         }
     }
 }

@@ -10,7 +10,11 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
 using Microsoft.Health.Fhir.Azure;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -32,6 +36,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
                 .AddContainerRegistryTokenProvider()
+                .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
                 .AddMemberMatch();
 
@@ -43,6 +48,12 @@ namespace Microsoft.Health.Fhir.Web
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
                 fhirServerBuilder.AddSqlServer(Configuration);
+            }
+
+            // Set task hosting and related background service
+            if (bool.TryParse(Configuration["TaskHosting:Enabled"], out bool taskHostingsOn) && taskHostingsOn)
+            {
+                AddTaskHostingService(services);
             }
 
             /*
@@ -72,6 +83,21 @@ namespace Microsoft.Health.Fhir.Web
             }
 
             AddApplicationInsightsTelemetry(services);
+        }
+
+        private void AddTaskHostingService(IServiceCollection services)
+        {
+            services.Add<TaskHosting>()
+                .Scoped()
+                .AsSelf();
+            services.AddFactory<IScoped<TaskHosting>>();
+
+            services.AddHostedService<TaskHostingBackgroundService>();
+            services.Add<TaskFactory>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+            services.Configure<TaskHostingConfiguration>(options => Configuration.GetSection("TaskHosting").Bind(options));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

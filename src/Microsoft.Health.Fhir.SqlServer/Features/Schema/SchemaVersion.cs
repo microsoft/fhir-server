@@ -21,5 +21,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V9 = 9,
         V10 = 10,
         V11 = 11,
+        V12 = 12,
     }
 }

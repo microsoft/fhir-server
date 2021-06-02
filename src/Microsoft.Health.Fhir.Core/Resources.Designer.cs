@@ -485,6 +485,33 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import operation has already completed.
+        /// </summary>
+        internal static string ImportOperationCompleted {
+            get {
+                return ResourceManager.GetString("ImportOperationCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There is already an import task running..
+        /// </summary>
+        internal static string ImportTaskIsRunning {
+            get {
+                return ResourceManager.GetString("ImportTaskIsRunning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested import task &quot;{0}&quot; was not found..
+        /// </summary>
+        internal static string ImportTaskNotFound {
+            get {
+                return ResourceManager.GetString("ImportTaskNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The _include search cannot be used against the base route..
         /// </summary>
         internal static string IncludeCannotBeAgainstBase {

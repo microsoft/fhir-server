@@ -12,5 +12,8 @@
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="$(IdentityModelVersion)" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="$(IdentityModelVersion)" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
+  </ItemGroup>
   <Import Project="..\Microsoft.Health.Fhir.Shared.Client\Microsoft.Health.Fhir.Shared.Client.projitems" Label="Shared" />
 </Project>

@@ -106,6 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sqlConnectionStringProvider,
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
+            SqlServerFhirModel = sqlServerFhirModel;
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
 
@@ -209,6 +210,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
+
+        internal SqlServerFhirModel SqlServerFhirModel { get; }
 
         public async Task InitializeAsync()
         {

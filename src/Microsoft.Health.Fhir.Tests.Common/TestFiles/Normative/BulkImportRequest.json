@@ -1,0 +1,14 @@
+{
+	"inputFormat": "application/fhir+ndjson",
+	"inputSource": "https://other-server.example.org",
+	"storageDetail": { "type": "azure-blob" },
+	"input": [{
+		"etag": "0x8D7BB438A51F973",
+        "type": "Patient",
+		"url": "https://adfasia.blob.core.windows.net/synthea/synthea200000_test/Patient.ndjson"
+	},{
+		"etag": "0x8D7BB42CC175E81",
+        "type": "Practitioner",
+		"url": "https://adfasia.blob.core.windows.net/synthea/synthea200000_test/Practitioner.ndjson"
+	}]
+}
