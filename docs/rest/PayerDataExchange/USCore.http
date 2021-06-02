@@ -8,7 +8,7 @@
 
 ### Get Metadata - Allows you to get the current capability statement
 # this will update as you add profiles to the database
-GET https://caitlinjune.azurewebsites.net/Patient/57dfd262-a0b7-4901-84d2-4909195d9022/$everything
+GET {{fhirurl}}/metadata
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 

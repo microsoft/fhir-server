@@ -1,4 +1,4 @@
-# This file includes all the search parameters, reindex operation, and profiles to load to get the necessary pieces for the Carin Blue Button IG
+# This file includes all the sample data to load for the PDex IG
 ### REST Client
 @fhirurl=<FHIR SERVER URL>
 @clientid=<Client Application ID>
