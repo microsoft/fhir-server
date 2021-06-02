@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             row = new ReferenceSearchParamTableTypeV2Row(
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
-                searchValue.ResourceType == null ? (short?)null : Model.GetResourceTypeId(searchValue.ResourceType),
+                searchValue.ResourceType == null ? null : Model.GetResourceTypeId(searchValue.ResourceType),
                 searchValue.ResourceId,
                 ReferenceResourceVersion: null);
 

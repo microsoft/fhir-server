@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
                 resource.Request = new Bundle.RequestComponent
                 {
-                    Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,
+                    Method = hasVerb ? httpVerb : null,
                     Url = hasVerb ? $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}" : null,
                 };
                 resource.Response = new Bundle.ResponseComponent
