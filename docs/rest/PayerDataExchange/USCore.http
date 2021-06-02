@@ -258,3 +258,8 @@ Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
 < ./US_Core_Profiles/Medication.json
+
+### Check for profiles
+GET {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
