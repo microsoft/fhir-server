@@ -22,10 +22,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerFhirDataBulkImportOperation : IFhirDataBulkImportOperation
     {
-        private const int LongRunningCommandTimeoutInSec = 60 * 30;
+        private const int LongRunningCommandTimeoutInSec = 60 * 60 * 2; // 2 hours for long running operations.
         private const int BulkOperationRunningCommandTimeoutInSec = 60 * 10;
         private const int MaxDeleteDuplicateOperationCount = 3;
-        private const int MaximumConcurrentRebuildIndexOperationCount = 6;
+        private const int MaximumConcurrentRebuildIndexOperationCount = 3;
         private const int CleanResourceBatchSize = 1000;
 
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
