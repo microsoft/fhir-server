@@ -76,8 +76,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
 
             object operationDefinition = ModelInfoProvider.Version == FhirSpecification.Stu3
-                ? capabilityStatement.Resource.ToTypedElement().Scalar("CapabilityStatement.rest.operation.where(name = 'everything').definition.reference")
-                : capabilityStatement.Resource.ToTypedElement().Scalar("CapabilityStatement.rest.operation.where(name = 'everything').definition");
+                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationTypes.PatientEverything}').definition.reference")
+                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationTypes.PatientEverything}').definition");
 
             Assert.Equal(OperationTypes.PatientEverythingUri, operationDefinition.ToString());
         }
@@ -90,8 +90,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
 
             object operationDefinition = ModelInfoProvider.Version == FhirSpecification.Stu3
-                ? capabilityStatement.Resource.ToTypedElement().Scalar("CapabilityStatement.rest.operation.where(name = 'everything').definition.reference")
-                : capabilityStatement.Resource.ToTypedElement().Scalar("CapabilityStatement.rest.operation.where(name = 'everything').definition");
+                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationTypes.PatientEverything}').definition.reference")
+                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationTypes.PatientEverything}').definition");
 
             Assert.Null(operationDefinition);
         }
