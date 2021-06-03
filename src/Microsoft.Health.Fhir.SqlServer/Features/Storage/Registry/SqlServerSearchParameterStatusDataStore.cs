@@ -79,7 +79,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
-                        (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
+                        (short id, string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
                             VLatest.SearchParam.Uri,
                             VLatest.SearchParam.Status,
                             VLatest.SearchParam.LastUpdated,
@@ -94,8 +95,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
-                        var resourceSearchParameterStatus = new ResourceSearchParameterStatus()
+                        var resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
                         {
+                            Id = id,
                             Uri = new Uri(uri),
                             Status = status,
                             IsPartiallySupported = (bool)isPartiallySupported,
@@ -148,9 +150,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
 
                         // Add the new search parameters to the FHIR model dictionary.
-                        _fhirModel.AddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+                        _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
                     }
                 }
+            }
+        }
+
+        // Synchronize the FHIR model dictionary with the data in SQL search parameter status table
+        public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        {
+            foreach (ResourceSearchParameterStatus resourceSearchParameterStatus in statuses)
+            {
+                var status = (SqlServerResourceSearchParameterStatus)resourceSearchParameterStatus;
+
+                // Add the new search parameters to the FHIR model dictionary.
+                _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.ToString(), status.Id);
             }
         }
     }
