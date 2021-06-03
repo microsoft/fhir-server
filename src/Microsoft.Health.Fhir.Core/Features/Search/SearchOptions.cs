@@ -99,6 +99,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public bool SortQuerySecondPhase { get; internal set; } = false;
 
+        public bool SortWithFilter { get; internal set; } = false;
+
         /// <summary>
         /// Performs a shallow clone of this instance
         /// </summary>

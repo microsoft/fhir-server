@@ -743,10 +743,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void HandleTableKindIncludeUnionAll(SearchOptions context)
         {
             StringBuilder.Append("SELECT Sid1, IsMatch, IsPartial ");
-            var (supportedSortParam, _) = context.Sort.Count == 0 ? default : context.Sort[0];
+            bool supportedSortParamExists = IsSortValueNeeded(context);
 
             // In union, any valid sort param is ok, except _lastUpdated, which gets a special treatment.
-            bool supportedSortParamExists = supportedSortParam != null && supportedSortParam.Code != KnownQueryParameterNames.LastUpdated;
             if (supportedSortParamExists)
             {
                 StringBuilder.AppendLine(", SortValue");

@@ -42,6 +42,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
+            // If we only need the count, we don't want to execute any sort specific queries.
+            if (context.CountOnly)
+            {
+                return expression;
+            }
+
             bool matchFound = false;
             for (int i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
@@ -62,8 +68,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 // We are running a sort query where the parameter by which we are sorting
                 // is not present as part of other search parameters in the query.
 
-                if (context.SortQuerySecondPhase)
+                if (context.SortQuerySecondPhase ||
+                    (continuationToken != null && continuationToken.ResourceSurrogateId == 0 && continuationToken.SortValue == "sentinelSortValue"))
                 {
+                    context.ContinuationToken = null;
                     if (context.Sort[0].sortOrder == SortOrder.Descending)
                     {
                         // Now add the missing expression
@@ -85,6 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
                 else if (continuationToken == null || continuationToken.SortValue == null)
                 {
+                    // TODO: why do we need this null check for continuationToken above?
                     if (context.Sort[0].sortOrder == SortOrder.Ascending)
                     {
                         // Now add the missing expression
@@ -107,6 +116,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             SearchParamTableExpressionKind sortKind = matchFound ? SearchParamTableExpressionKind.SortWithFilter : SearchParamTableExpressionKind.Sort;
+            if (sortKind == SearchParamTableExpressionKind.SortWithFilter)
+            {
+                context.SortWithFilter = true;
+            }
 
             var queryGenerator = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
 

@@ -92,24 +92,61 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            SearchResult searchResult;
+            SearchResult searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
+            int resultCount = searchResult.Results.Count();
+            if (!searchOptions.SortWithFilter &&
+                searchResult.ContinuationToken == null &&
+                resultCount <= searchOptions.MaxItemCount &&
+                searchOptions.Sort != null &&
+                searchOptions.Sort.Count > 0 &&
+                searchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+            {
+                // we seem to have run a sort which has returned less results than what max we can return
+
+                // Logic here to determine whether we need to execute another query or not.
+                // This will depend on the sort order and the current query.
+                if ((searchOptions.Sort[0].sortOrder == SortOrder.Ascending && _didWeSearchForSortValue.HasValue && !_didWeSearchForSortValue.Value) ||
+                    (searchOptions.Sort[0].sortOrder == SortOrder.Descending && _didWeSearchForSortValue.HasValue && _didWeSearchForSortValue.Value))
+                {
+                    searchOptions.SortQuerySecondPhase = true;
+
+                    if (searchOptions.MaxItemCount - resultCount == 0)
+                    {
+                        var ct = new ContinuationToken(new object[]
+                            {
+                                    "sentinelSortValue",
+                                    0,
+                            });
+
+                        searchResult = new SearchResult(searchResult.Results, ct.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+                    }
+                    else
+                    {
+                        searchOptions.MaxItemCount -= resultCount;
+                        var origResults = searchResult.Results;
+                        searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
+
+                        var finalResultsInOrder = new List<SearchResultEntry>();
+                        finalResultsInOrder.AddRange(origResults);
+                        finalResultsInOrder.AddRange(searchResult.Results);
+
+                        searchResult = new SearchResult(
+                            finalResultsInOrder,
+                            searchResult.ContinuationToken,
+                            searchResult.SortOrder,
+                            searchResult.UnsupportedSearchParameters);
+                    }
+                }
+            }
 
             // If we should include the total count of matching search results
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
-
                 // If this is the first page and there aren't any more pages
                 if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
                     // Count the match results on the page.
                     searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
-
-                    if (searchResult.TotalCount == 0 && searchOptions.Sort != null)
-                    {
-                        // it could mean that we searched for "null" values and ended up returning nothing.
-                        searchOptions.SortQuerySecondPhase = true;
-                    }
                 }
                 else
                 {
@@ -127,40 +164,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         // Ensure search options is set to its original state.
                         searchOptions.CountOnly = false;
-                    }
-                }
-            }
-            else
-            {
-                searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
-                int resultCount = searchResult.Results.Count();
-                if (resultCount < searchOptions.MaxItemCount &&
-                    searchOptions.Sort != null &&
-                    searchOptions.Sort.Count > 0 &&
-                    searchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
-                {
-                    // we seem to have run a sort which has returned less results than what max we can return
-
-                    // Logic here to determine whether we need to execute another query or not.
-                    // This will depend on the sort order and the current query.
-                    if ((searchOptions.Sort[0].sortOrder == SortOrder.Ascending && _didWeSearchForSortValue.HasValue && !_didWeSearchForSortValue.Value) ||
-                        (searchOptions.Sort[0].sortOrder == SortOrder.Descending && _didWeSearchForSortValue.HasValue && _didWeSearchForSortValue.Value))
-                    {
-                        searchOptions.SortQuerySecondPhase = true;
-                        searchOptions.MaxItemCount = searchOptions.MaxItemCount - searchResult.Results.Count();
-
-                        var origResults = searchResult.Results;
-                        searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
-
-                        var finalResultsInOrder = new List<SearchResultEntry>();
-                        finalResultsInOrder.AddRange(origResults);
-                        finalResultsInOrder.AddRange(searchResult.Results);
-
-                        searchResult = new SearchResult(
-                            finalResultsInOrder,
-                            searchResult.ContinuationToken,
-                            searchResult.SortOrder,
-                            searchResult.UnsupportedSearchParameters);
                     }
                 }
             }
