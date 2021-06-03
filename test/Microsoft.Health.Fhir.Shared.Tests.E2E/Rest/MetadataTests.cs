@@ -8,10 +8,10 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -76,10 +76,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
 
             object operationDefinition = ModelInfoProvider.Version == FhirSpecification.Stu3
-                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationTypes.PatientEverything}').definition.reference")
-                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationTypes.PatientEverything}').definition");
+                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition.reference")
+                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition");
 
-            Assert.Equal(OperationTypes.PatientEverythingUri, operationDefinition.ToString());
+            Assert.Equal(OperationsConstants.PatientEverythingUri, operationDefinition.ToString());
         }
 
         [Fact]
@@ -90,8 +90,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
 
             object operationDefinition = ModelInfoProvider.Version == FhirSpecification.Stu3
-                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationTypes.PatientEverything}').definition.reference")
-                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationTypes.PatientEverything}').definition");
+                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition.reference")
+                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition");
 
             Assert.Null(operationDefinition);
         }

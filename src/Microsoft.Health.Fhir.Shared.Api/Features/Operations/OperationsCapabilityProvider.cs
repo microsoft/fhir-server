@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
@@ -100,10 +99,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             {
                 capabilityStatement.Rest.Server().Operation.Add(new OperationComponent
                 {
-                    Name = OperationTypes.PatientEverything,
+                    Name = OperationsConstants.PatientEverything,
                     Definition = new ReferenceComponent
                     {
-                        Reference = OperationTypes.PatientEverythingUri,
+                        Reference = OperationsConstants.PatientEverythingUri,
                     },
                 });
             }
@@ -111,8 +110,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             {
                 capabilityStatement.Rest.Server().Operation.Add(new OperationComponent
                 {
-                    Name = OperationTypes.PatientEverything,
-                    Definition = OperationTypes.PatientEverythingUri,
+                    Name = OperationsConstants.PatientEverything,
+                    Definition = OperationsConstants.PatientEverythingUri,
                 });
             }
         }

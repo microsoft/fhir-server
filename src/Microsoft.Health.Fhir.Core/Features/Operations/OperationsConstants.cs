@@ -28,5 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string ConvertData = "convert-data";
 
         public const string MemberMatch = "member-match";
+
+        public const string PatientEverything = "patient-everything";
+
+        public const string PatientEverythingUri = "https://www.hl7.org/fhir/patient-operation-everything.html";
     }
 }
