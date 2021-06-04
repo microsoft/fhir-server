@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
@@ -83,37 +82,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddMemberMatchDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.MemberMatch);
-        }
-
-        public void AddPatientEverythingDetails(ListedCapabilityStatement capabilityStatement)
-        {
-            using IScoped<ISearchService> search = _searchServiceFactory();
-
-            // Will remove this when enabled in SQL Server
-            if (string.Equals(search.Value.GetType().Name, "SqlServerSearchService", StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            if (ModelInfoProvider.Version.Equals(FhirSpecification.Stu3))
-            {
-                capabilityStatement.Rest.Server().Operation.Add(new OperationComponent
-                {
-                    Name = OperationsConstants.PatientEverything,
-                    Definition = new ReferenceComponent
-                    {
-                        Reference = OperationsConstants.PatientEverythingUri,
-                    },
-                });
-            }
-            else
-            {
-                capabilityStatement.Rest.Server().Operation.Add(new OperationComponent
-                {
-                    Name = OperationsConstants.PatientEverything,
-                    Definition = OperationsConstants.PatientEverythingUri,
-                });
-            }
         }
     }
 }
