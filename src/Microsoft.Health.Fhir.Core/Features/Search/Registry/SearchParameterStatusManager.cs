@@ -173,6 +173,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
+            if (!updatedSearchParameterStatus.Any())
+            {
+                return;
+            }
+
             var updated = new List<SearchParameterInfo>();
 
             foreach (var paramStatus in updatedSearchParameterStatus)
