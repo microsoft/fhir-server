@@ -11,6 +11,8 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
@@ -145,7 +147,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 new TestDataGenerator("Table2", 2),
             };
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, NullLogger<SqlResourceBulkImporter>.Instance);
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -170,7 +175,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
             List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, NullLogger<SqlResourceBulkImporter>.Instance);
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -203,7 +211,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 });
             List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, NullLogger<SqlResourceBulkImporter>.Instance);
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -286,10 +297,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 new TestDataGenerator("Table2", 2),
             };
 
-            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, NullLogger<SqlResourceBulkImporter>.Instance);
-            importer.MaxResourceCountInBatch = maxResourceCountInBatch;
-            importer.MaxConcurrentCount = maxConcurrentCount;
-            importer.CheckpointBatchResourceCount = checkpointBatchCount;
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            OperationsConfiguration operationsConfig = new OperationsConfiguration();
+            operationsConfig.Import.MaxBatchSizeForImportOperation = maxResourceCountInBatch;
+            operationsConfig.Import.MaxImportOperationConcurrentCount = maxConcurrentCount;
+            operationsConfig.Import.BatchSizeForCheckpoint = checkpointBatchCount;
+            operationsConfiguration.Value.Returns(operationsConfig);
+
+            SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);
 
             List<string> errorLogs = new List<string>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();

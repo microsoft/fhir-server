@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -22,7 +24,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerFhirDataBulkImportOperation : IFhirDataBulkImportOperation
     {
-        private const int LongRunningCommandTimeoutInSec = 60 * 60 * 2; // 2 hours for long running operations.
         private const int BulkOperationRunningCommandTimeoutInSec = 60 * 10;
         private const int MaxDeleteDuplicateOperationCount = 3;
         private const int MaximumConcurrentRebuildIndexOperationCount = 3;
@@ -31,22 +32,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
         private SqlServerFhirModel _model;
+        private readonly ImportTaskConfiguration _importTaskConfiguration;
         private ILogger<SqlServerFhirDataBulkImportOperation> _logger;
 
         public SqlServerFhirDataBulkImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ISqlServerTransientFaultRetryPolicyFactory sqlServerTransientFaultRetryPolicyFactory,
             SqlServerFhirModel model,
+            IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlServerFhirDataBulkImportOperation> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(sqlServerTransientFaultRetryPolicyFactory, nameof(sqlServerTransientFaultRetryPolicyFactory));
             EnsureArg.IsNotNull(model, nameof(model));
+            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _sqlServerTransientFaultRetryPolicyFactory = sqlServerTransientFaultRetryPolicyFactory;
             _model = model;
+            _importTaskConfiguration = operationsConfig.Value.Import;
             _logger = logger;
         }
 
@@ -235,7 +240,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.LongRunningOperationTimeoutInSec;
 
                     VLatest.RebuildIndexes.PopulateCommand(sqlCommandWrapper, new IndexTableTypeV1Row[] { index });
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -256,7 +261,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.LongRunningOperationTimeoutInSec;
 
                     VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -277,7 +282,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    sqlCommandWrapper.CommandTimeout = LongRunningCommandTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.LongRunningOperationTimeoutInSec;
 
                     VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);

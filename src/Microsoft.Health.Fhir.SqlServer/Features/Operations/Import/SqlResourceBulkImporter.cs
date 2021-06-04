@@ -13,6 +13,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
@@ -22,29 +24,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     internal class SqlResourceBulkImporter : IResourceBulkImporter
     {
-        private const int DefaultCheckpointBatchResourceCount = 5000;
-        private const int DefaultMaxResourceCountInBatch = 1000;
-        private const int DefaultMaxConcurrentCount = 3;
-
         private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
         private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
         private IFhirDataBulkImportOperation _fhirDataBulkOperation;
+        private readonly ImportTaskConfiguration _importTaskConfiguration;
         private ILogger<SqlResourceBulkImporter> _logger;
 
         public SqlResourceBulkImporter(
             IFhirDataBulkImportOperation fhirDataBulkOperation,
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators,
+            IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlResourceBulkImporter> logger)
         {
             EnsureArg.IsNotNull(fhirDataBulkOperation, nameof(fhirDataBulkOperation));
             EnsureArg.IsNotNull(sqlBulkCopyDataWrapperFactory, nameof(sqlBulkCopyDataWrapperFactory));
             EnsureArg.IsNotNull(generators, nameof(generators));
+            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataBulkOperation = fhirDataBulkOperation;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
             _generators = generators;
+            _importTaskConfiguration = operationsConfig.Value.Import;
             _logger = logger;
         }
 
@@ -68,6 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenTextSearchParamsTableBulkCopyDataGenerator tokenTextSearchParamsTableBulkCopyDataGenerator,
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator,
+            IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlResourceBulkImporter> logger)
         {
             EnsureArg.IsNotNull(fhirDataBulkOperation, nameof(fhirDataBulkOperation));
@@ -89,6 +92,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(tokenTextSearchParamsTableBulkCopyDataGenerator, nameof(tokenTextSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(uriSearchParamsTableBulkCopyDataGenerator, nameof(uriSearchParamsTableBulkCopyDataGenerator));
+            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataBulkOperation = fhirDataBulkOperation;
@@ -112,14 +116,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _generators.Add(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(uriSearchParamsTableBulkCopyDataGenerator);
 
+            _importTaskConfiguration = operationsConfig.Value.Import;
             _logger = logger;
         }
-
-        public int MaxResourceCountInBatch { get; set; } = DefaultMaxResourceCountInBatch;
-
-        public int MaxConcurrentCount { get; set; } = DefaultMaxConcurrentCount;
-
-        public int CheckpointBatchResourceCount { get; set; } = DefaultCheckpointBatchResourceCount;
 
         public (Channel<ImportProcessingProgress> progressChannel, Task importTask) Import(Channel<ImportResource> inputChannel, IImportErrorStore importErrorStore, CancellationToken cancellationToken)
         {
@@ -185,7 +184,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         succeedCount++;
                     }
 
-                    bool shouldCreateCheckpoint = resource.Index - lastCheckpointIndex >= CheckpointBatchResourceCount;
+                    bool shouldCreateCheckpoint = resource.Index - lastCheckpointIndex >= _importTaskConfiguration.BatchSizeForCheckpoint;
                     if (shouldCreateCheckpoint)
                     {
                         // Create checkpoint for all tables not empty
@@ -211,7 +210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     {
                         // import table >= MaxResourceCountInBatch
                         string[] tableNameNeedImport =
-                                    resourceBuffer.Where(r => r.Value.Rows.Count >= MaxResourceCountInBatch).Select(r => r.Key).ToArray();
+                                    resourceBuffer.Where(r => r.Value.Rows.Count >= _importTaskConfiguration.MaxBatchSizeForImportOperation).Select(r => r.Key).ToArray();
 
                         foreach (string tableName in tableNameNeedImport)
                         {
@@ -294,7 +293,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task<Task<ImportProcessingProgress>> EnqueueTaskAsync(Queue<Task<ImportProcessingProgress>> importTasks, Func<Task<ImportProcessingProgress>> newTaskFactory, Channel<ImportProcessingProgress> progressChannel)
         {
-            while (importTasks.Count >= MaxConcurrentCount)
+            while (importTasks.Count >= _importTaskConfiguration.MaxImportOperationConcurrentCount)
             {
                 ImportProcessingProgress progress = await importTasks.Dequeue();
                 if (progress != null)

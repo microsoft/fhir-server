@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 InputFormat = request.InputFormat,
                 InputSource = request.InputSource,
                 StorageDetail = request.StorageDetail,
-                MaxConcurrentProcessingTaskCount = _importTaskConfiguration.MaximumConcurrency,
+                MaxConcurrentProcessingTaskCount = _importTaskConfiguration.MaxRunningProcessingTaskCount,
                 ProcessingTaskQueueId = processingTaskQueueId,
                 ProcessingTaskMaxRetryCount = _importTaskConfiguration.MaxRetryCount,
                 TaskId = taskId,
@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (TaskConflictException)
             {
+                _logger.LogInformation("Already a running import task.");
                 throw new OperationFailedException(Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
             }
 
