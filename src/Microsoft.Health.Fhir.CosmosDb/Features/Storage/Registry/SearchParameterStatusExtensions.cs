@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                 Uri = status.Uri,
                 Status = status.Status,
                 LastUpdated = status.LastUpdated,
-                IsPartiallySupported = status.IsPartiallySupported ? true : (bool?)null,
+                IsPartiallySupported = status.IsPartiallySupported ? true : null,
                 SortStatus = status.SortStatus,
             };
         }

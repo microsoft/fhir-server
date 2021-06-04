@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     continue;
                 }
 
-                int? actualComponentIndex = i == 0 ? null : (int?)(i - 1);
+                int? actualComponentIndex = i == 0 ? null : (i - 1);
 
                 string targetResourceType = actualComponentIndex == null
                     ? searchParameter.TargetResourceTypes.Single()

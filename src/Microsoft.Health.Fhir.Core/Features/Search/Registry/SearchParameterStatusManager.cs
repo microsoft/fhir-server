@@ -191,6 +191,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
 
+            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
+
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 

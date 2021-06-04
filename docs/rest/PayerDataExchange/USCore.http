@@ -1,0 +1,265 @@
+# This file includes all the US Core profiles to load for the Payer Data Exchange test
+### REST Client
+@fhirurl= <FHIR URL>
+@clientid= <CLIENT ID>
+@clientsecret= <CLIENT SECRET>
+@tenantid= <SUBSCRIPTION ID>
+@contentType = application/json
+
+### Get Metadata - Allows you to get the current capability statement
+# this will update as you add profiles to the database
+GET {{fhirurl}}/metadata
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+### Get access token
+# @name getAADToken
+POST https://login.microsoftonline.com/{{tenantid}}/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&resource={{fhirurl}}
+&client_id={{clientid}}
+&client_secret={{clientsecret}}
+
+### Capture access token from getToken request
+@token={{getAADToken.response.body.access_token}}
+
+### Load US Core Profiles
+
+### US Core Provenance
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Provenance.json
+
+### US Core Procedure
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Procedure.json
+
+### US Core PractitionerRole
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/PractitionerRole.json
+
+### US Core Practitioner
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Practitioner.json
+
+### US Core Organzation
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Organization.json
+
+### Vital Signs
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/vitalsign.json
+
+### US Core Patient
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Patient.json
+
+### US Core AllergyIntolerance
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/AllergyIntolerance.json
+
+### US Core CarePlan
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/CarePlan.json
+
+### US Core CareTeam
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/CareTeam.json
+
+### US Core Condition
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Condition.json
+
+### US Core Implantable Device
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Implantable-Device.json
+
+### US Core DiagnosticReport-Lab.json
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/DiagnosticReport-Lab.json
+
+### US Core DiagnosticReport-Note.json
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/DiagnosticReport-Note.json
+
+### US Core DocumentReference.json
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/DocumentReference.json
+
+### US Core Encounter
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Encounter.json
+
+### US Core Observation Lab
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Observation-Lab.json
+
+
+### US Core Ped BMI for Age
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/pediatric-bmi-for-age.json
+
+### US Core Ped Weight for Height
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/pediatric-weight-for-height.json
+
+### US Core Pulse Ox
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/pulse-oximetry.json
+
+### US Core Smoking Status
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/smokingstatus.json
+
+### US Core Blood Pressure
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/bp.json
+
+### US Core Body Height
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/bodyheight.json
+
+### US Core Body Weight
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/bodyweight.json
+
+### US Core Heart Rate
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/heartrate.json
+
+### US Core Resp Rate
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/resprate.json
+
+### US Core Body Temp
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/bodytemp.json
+
+### US Core Goal
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Goal.json
+
+### US Core Immunization
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Immunization.json
+
+### US Core Location
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Location.json
+
+### US Core MedicationRequest
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/MedicationRequest.json
+
+### US Core Head Circum
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/headcircum.json
+
+### US Core Medication
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./US_Core_Profiles/Medication.json
+
+### Check for profiles
+GET {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
