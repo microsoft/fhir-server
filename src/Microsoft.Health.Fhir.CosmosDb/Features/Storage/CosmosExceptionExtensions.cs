@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             return int.TryParse(cosmosHeaders.Get(CosmosDbHeaders.SubStatus), NumberStyles.Integer, CultureInfo.InvariantCulture, out int subStatusCode)
                 ? subStatusCode
-                : (int?)null;
+                : null;
         }
 
         /// <summary>

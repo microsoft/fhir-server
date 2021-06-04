@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     if (searchParameterExpression.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.SearchParamTable))
                     {
-                        extractedCommonResourceExpressions = extractedCommonResourceExpressions == null ? (Expression)currentExpression : Expression.And(extractedCommonResourceExpressions, currentExpression);
+                        extractedCommonResourceExpressions = extractedCommonResourceExpressions == null ? currentExpression : Expression.And(extractedCommonResourceExpressions, currentExpression);
                     }
                     else
                     {
