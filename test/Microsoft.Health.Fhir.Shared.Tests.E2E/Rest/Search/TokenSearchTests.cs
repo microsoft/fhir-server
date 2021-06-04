@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameter_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"value-concept={queryValue}");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"?_tag={Fixture.Tag}&value-concept={queryValue}");
 
             Observation[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
 
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("text2", 3, 6)]
         public async Task GivenATokenSearchParameterWithTextModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"value-concept:text={queryValue}");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"?_tag={Fixture.Tag}&value-concept:text={queryValue}");
 
             Observation[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
 
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"value-concept:not={queryValue}");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"?_tag={Fixture.Tag}&value-concept:not={queryValue}");
 
             Observation[] expected = Fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
 
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearchedOverMissingValue_ThenCorrectBundleShouldBeReturned()
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"category:not=test");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"?_tag={Fixture.Tag}&category:not=test");
 
             Observation[] expected = Fixture.Observations.Where((_, i) => i != 8).ToArray();
 
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("code1", 0, 5, 6, 8)]
         public async Task GivenMultipleTokenSearchParametersWithNotModifiers_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"category:not=test&value-concept:not={queryValue}");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"?_tag={Fixture.Tag}&category:not=test&value-concept:not={queryValue}");
 
             Observation[] expected = Fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
 
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(2)]
         public async Task GivenIdWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(int count)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"_id:not={string.Join(",", Fixture.Observations.Take(count).Select(x => x.Id))}");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"?_tag={Fixture.Tag}&_id:not={string.Join(",", Fixture.Observations.Take(count).Select(x => x.Id))}");
 
             Observation[] expected = Fixture.Observations.Skip(count).ToArray();
 
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearchedWithType_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {
-            Bundle bundle = await Client.SearchAsync($"?_type={ResourceType.Observation}&value-concept:not={queryValue}");
+            Bundle bundle = await Client.SearchAsync($"?_tag={Fixture.Tag}&_type={ResourceType.Observation}&value-concept:not={queryValue}");
 
             Observation[] expected = Fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
 
