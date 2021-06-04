@@ -173,30 +173,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
-            if (updatedSearchParameterStatus.Any())
+            if (!updatedSearchParameterStatus.Any())
             {
-                var updated = new List<SearchParameterInfo>();
-
-                foreach (var paramStatus in updatedSearchParameterStatus)
-                {
-                    var param = _searchParameterDefinitionManager.GetSearchParameter(paramStatus.Uri);
-
-                    var tempStatus = EvaluateSearchParamStatus(paramStatus);
-
-                    param.IsSearchable = tempStatus.IsSearchable;
-                    param.IsSupported = tempStatus.IsSupported;
-                    param.IsPartiallySupported = tempStatus.IsPartiallySupported;
-                    param.SortStatus = paramStatus.SortStatus;
-
-                    updated.Add(param);
-                }
-
-                _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
-
-                _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
-
-                await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+                return;
             }
+
+            var updated = new List<SearchParameterInfo>();
+
+            foreach (var paramStatus in updatedSearchParameterStatus)
+            {
+                var param = _searchParameterDefinitionManager.GetSearchParameter(paramStatus.Uri);
+
+                var tempStatus = EvaluateSearchParamStatus(paramStatus);
+
+                param.IsSearchable = tempStatus.IsSearchable;
+                param.IsSupported = tempStatus.IsSupported;
+                param.IsPartiallySupported = tempStatus.IsPartiallySupported;
+                param.SortStatus = paramStatus.SortStatus;
+
+                updated.Add(param);
+            }
+
+            _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
+
+            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
+
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
         private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
