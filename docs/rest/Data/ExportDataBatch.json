@@ -1,0 +1,116 @@
+{
+    "resourceType": "Bundle",
+    "type": "batch",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "export0",
+                "name": [
+                    {
+                        "family": "Chalmers",
+                        "given": [
+                            "James"
+                        ]
+                    }
+                ],
+                "gender": "male"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/export0"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "export1",
+                "name": [
+                    {
+                        "family": "Chalmers",
+                        "given": [
+                            "Susan"
+                        ]
+                    }
+                ],
+                "gender": "female"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/export1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Group",
+                "type": "person",
+                "actual": "false",
+                "member": [
+                    {
+                        "entity": {
+                            "reference": "Patient/export0"
+                        }
+                    }
+                ]
+            },
+            "request":{
+                "method": "POST",
+                "url": "Group"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "status": "registered",
+                "code":{
+                    "coding": [{
+                        "system": "system",
+                        "code": "code"
+                    }]
+                },
+                "subject": {
+                    "reference": "Patient/export0"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Observation"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "status": "final",
+                "code":{
+                    "coding": [{
+                        "system": "system2",
+                        "code": "code2"
+                    }]
+                },
+                "subject": {
+                    "reference": "Patient/export1"
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Observation"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Observation",
+                "status": "amended",
+                "code":{
+                    "coding": [{
+                        "system": "system3",
+                        "code": "code3"
+                    }]
+                }
+            },
+            "request": {
+                "method": "POST",
+                "url": "Observation"
+            }
+        }
+    ]
+}
