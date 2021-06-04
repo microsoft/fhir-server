@@ -329,7 +329,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     bundle = await Client.SearchAsync(searchUrl);
                     Assert.DoesNotContain(searchParam.Code, bundle.SelfLink.ToString());
                 }
-                while (!success && retryCount < 3);
+                while (!success && retryCount < 10);
 
                 Assert.True(success);
             }
