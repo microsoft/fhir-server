@@ -143,21 +143,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (TaskCanceledException taskCanceledEx)
             {
-                _logger.LogWarning(taskCanceledEx, "Import task canceled. {0}", taskCanceledEx.Message);
+                _logger.LogInformation(taskCanceledEx, "Import task canceled. {0}", taskCanceledEx.Message);
 
                 await CancelProcessingTasksAsync();
                 taskResultData = new TaskResultData(TaskResult.Canceled, taskCanceledEx.Message);
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogWarning(canceledEx, "Import task canceled. {0}", canceledEx.Message);
+                _logger.LogInformation(canceledEx, "Import task canceled. {0}", canceledEx.Message);
 
                 await CancelProcessingTasksAsync();
                 taskResultData = new TaskResultData(TaskResult.Canceled, canceledEx.Message);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
-                _logger.LogError(integrationDataStoreEx, "Failed to access input files.");
+                _logger.LogInformation(integrationDataStoreEx, "Failed to access input files.");
 
                 ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
                 errorResult.HttpStatusCode = integrationDataStoreEx.StatusCode;
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
-                _logger.LogError(eTagEx, "Import file etag not match.");
+                _logger.LogInformation(eTagEx, "Import file etag not match.");
 
                 ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
                 errorResult.HttpStatusCode = HttpStatusCode.BadRequest;
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (ImportProcessingException processingEx)
             {
-                _logger.LogError(processingEx, "Failed to process input resources.");
+                _logger.LogInformation(processingEx, "Failed to process input resources.");
 
                 ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
                 errorResult.HttpStatusCode = HttpStatusCode.BadRequest;
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to import data.");
+                _logger.LogInformation(ex, "Failed to import data.");
 
                 ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
                 errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed at postprocess step.");
+                    _logger.LogInformation(ex, "Failed at postprocess step.");
 
                     ImportTaskErrorResult errorResult = new ImportTaskErrorResult();
                     errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;

@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to bulk copy data.");
+                    _logger.LogInformation(ex, "Failed to bulk copy data.");
 
                     throw;
                 }
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException sqlEx)
                 {
-                    _logger.LogError(sqlEx, $"Failed to disable indexes.");
+                    _logger.LogInformation(sqlEx, "Failed to disable indexes.");
 
                     throw;
                 }
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (SqlException sqlEx)
             {
-                _logger.LogError(sqlEx, $"Failed to delete duplicate resources.");
+                _logger.LogInformation(sqlEx, "Failed to delete duplicate resources.");
 
                 throw;
             }
@@ -247,7 +247,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException sqlEx)
                 {
-                    _logger.LogError(sqlEx, $"Failed to rebuild indexes.");
+                    _logger.LogInformation(sqlEx, "Failed to rebuild indexes.");
 
                     throw;
                 }
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException sqlEx)
                 {
-                    _logger.LogError(sqlEx, $"Failed to delete resoueces duplicate search paramters.");
+                    _logger.LogInformation(sqlEx, "Failed to delete resoueces duplicate search paramters.");
 
                     throw;
                 }
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException sqlEx)
                 {
-                    _logger.LogError(sqlEx, $"Failed to delete duplicate search paramters.");
+                    _logger.LogInformation(sqlEx, "Failed to delete duplicate search paramters.");
 
                     throw;
                 }
@@ -317,7 +317,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (SqlException sqlEx)
                     {
-                        _logger.LogError(sqlEx, $"Failed batch delete Resource.");
+                        _logger.LogInformation(sqlEx, "Failed batch delete Resource.");
 
                         throw;
                     }
@@ -346,7 +346,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (SqlException sqlEx)
                     {
-                        _logger.LogError(sqlEx, $"Failed batch delete ResourceWriteClaims.");
+                        _logger.LogInformation(sqlEx, "Failed batch delete ResourceWriteClaims.");
 
                         throw;
                     }
@@ -375,7 +375,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                     catch (SqlException sqlEx)
                     {
-                        _logger.LogError(sqlEx, $"Failed batch delete ResourceParams.");
+                        _logger.LogInformation(sqlEx, "Failed batch delete ResourceParams.");
 
                         throw;
                     }

@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to import data.");
+                    _logger.LogInformation(ex, "Failed to import data.");
                     throw new RetriableTaskException("Failed to import data.", ex);
                 }
 
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to load data.");
+                    _logger.LogInformation(ex, "Failed to load data.");
                     throw new RetriableTaskException("Failed to load data", ex);
                 }
 
@@ -190,12 +190,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (TaskCanceledException canceledEx)
             {
-                _logger.LogError(canceledEx, "Data processing task is canceled.");
+                _logger.LogInformation(canceledEx, "Data processing task is canceled.");
                 return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
             }
             catch (OperationCanceledException canceledEx)
             {
-                _logger.LogError(canceledEx, "Data processing task is canceled.");
+                _logger.LogInformation(canceledEx, "Data processing task is canceled.");
                 return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
             }
             catch (RetriableTaskException)
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Critical error in data processing task.");
+                _logger.LogInformation(ex, "Critical error in data processing task.");
 
                 throw new RetriableTaskException(ex.Message);
             }
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to clean batch resource.");
+                _logger.LogInformation(ex, "Failed to clean batch resource.");
                 throw new RetriableTaskException("Failed to clean resource before import task start.", ex);
             }
         }

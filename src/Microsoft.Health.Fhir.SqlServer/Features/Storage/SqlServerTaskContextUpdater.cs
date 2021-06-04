@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException sqlEx)
                 {
-                    _logger.LogError(sqlEx, $"Failed to update context.");
+                    _logger.LogInformation(sqlEx, "Failed to update context.");
 
                     if (sqlEx.Number == SqlErrorCodes.NotFound)
                     {

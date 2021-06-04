@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to upload error logs.");
+                _logger.LogInformation(ex, "Failed to upload error logs.");
                 throw;
             }
 
@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to import table. {0}", table.TableName);
+                _logger.LogInformation(ex, "Failed to import table. {0}", table.TableName);
 
                 throw;
             }
