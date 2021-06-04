@@ -94,24 +94,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             SearchResult searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
             int resultCount = searchResult.Results.Count();
-            if (!searchOptions.SortWithFilter &&
+            if (!searchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
                 resultCount <= searchOptions.MaxItemCount &&
                 searchOptions.Sort != null &&
                 searchOptions.Sort.Count > 0 &&
                 searchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
             {
-                // we seem to have run a sort which has returned less results than what max we can return
-
-                // Logic here to determine whether we need to execute another query or not.
-                // This will depend on the sort order and the current query.
+                // We seem to have run a sort which has returned less results than what max we can return.
+                // Let's determine whether we need to execute another query or not.
                 if ((searchOptions.Sort[0].sortOrder == SortOrder.Ascending && _didWeSearchForSortValue.HasValue && !_didWeSearchForSortValue.Value) ||
                     (searchOptions.Sort[0].sortOrder == SortOrder.Descending && _didWeSearchForSortValue.HasValue && _didWeSearchForSortValue.Value))
                 {
-                    searchOptions.SortQuerySecondPhase = true;
-
                     if (searchOptions.MaxItemCount - resultCount == 0)
                     {
+                        // Since we are already returning MaxItemCount number of resources we don't want
+                        // to execute another search right now just to drop all the resources. We will return
+                        // a "special" ct so that we the subsequent request will be handled correctly.
                         var ct = new ContinuationToken(new object[]
                             {
                                     "sentinelSortValue",
@@ -122,14 +121,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
                     else
                     {
+                        var finalResultsInOrder = new List<SearchResultEntry>();
+                        finalResultsInOrder.AddRange(searchResult.Results);
+                        searchOptions.SortQuerySecondPhase = true;
                         searchOptions.MaxItemCount -= resultCount;
-                        var origResults = searchResult.Results;
+
                         searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
 
-                        var finalResultsInOrder = new List<SearchResultEntry>();
-                        finalResultsInOrder.AddRange(origResults);
                         finalResultsInOrder.AddRange(searchResult.Results);
-
                         searchResult = new SearchResult(
                             finalResultsInOrder,
                             searchResult.ContinuationToken,
@@ -383,7 +382,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 Core.Resources.TruncatedIncludeMessage));
                     }
 
-                    // If we had a sort query, lets keep track of whether we actually searched for sort values.
+                    // If this is a sort query, lets keep track of whether we actually searched for sort values.
                     if (searchOptions.Sort != null &&
                         searchOptions.Sort.Count > 0 &&
                         searchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)

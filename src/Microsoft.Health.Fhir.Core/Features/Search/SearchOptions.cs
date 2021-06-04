@@ -97,9 +97,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
 
+        /// <summary>
+        /// Marks whether we need to execute the second set of queries for (certain types of) sort.
+        /// </summary>
         public bool SortQuerySecondPhase { get; internal set; } = false;
 
-        public bool SortWithFilter { get; internal set; } = false;
+        /// <summary>
+        /// Sets whether this search query is of type sort with filter.
+        /// </summary>
+        public bool IsSortWithFilter { get; internal set; } = false;
 
         /// <summary>
         /// Performs a shallow clone of this instance

@@ -68,13 +68,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 // We are running a sort query where the parameter by which we are sorting
                 // is not present as part of other search parameters in the query.
 
+                // Check whether we have to execute the second phase of the search for a sort query.
+                // This can occur when SearchService decides to run a second search while processing the current query.
+                // Or it could be a query from the client with a hardcoded "special" continuation token.
                 if (context.SortQuerySecondPhase ||
                     (continuationToken != null && continuationToken.ResourceSurrogateId == 0 && continuationToken.SortValue == "sentinelSortValue"))
                 {
                     context.ContinuationToken = null;
                     if (context.Sort[0].sortOrder == SortOrder.Descending)
                     {
-                        // Now add the missing expression
+                        // For descending order, the second phase of the sort query deals with searching
+                        // for resources that do not have a value for the _sort parameter.
                         var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
                         var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
                         var notExistsExpression = new SearchParamTableExpression(
@@ -86,17 +90,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                         return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
                     }
-                    else
-                    {
-                        // for ascending we don't have anything to do.
-                    }
+
+                    // For ascending, the second phase of the sort query deals with searching
+                    // for resources that have a value for the _sort parameter. So we will generate
+                    // the appropriate Sort expression below.
                 }
-                else if (continuationToken == null || continuationToken.SortValue == null)
+                else if (continuationToken != null && continuationToken.SortValue == null)
                 {
-                    // TODO: why do we need this null check for continuationToken above?
+                    // We have a ct for resourceid but not for the sort value.
+                    // This means we are paging through resources that do not have values for the _sort parameter.
+                    var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
+                    var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
+                    var notExistsExpression = new SearchParamTableExpression(
+                        queryGenForMissing,
+                        missingExpression,
+                        SearchParamTableExpressionKind.NotExists);
+
+                    newTableExpressions.Add(notExistsExpression);
+
+                    return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+                }
+                else if (continuationToken == null)
+                {
+                    // This means we are in the first "phase" of searching for resources for the _sort query.
+                    // For ascending order, we will search for resources that do not have a value for the
+                    // corresponding _sort parameter.
                     if (context.Sort[0].sortOrder == SortOrder.Ascending)
                     {
-                        // Now add the missing expression
+                        // This scenarip re
                         var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
                         var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
                         var notExistsExpression = new SearchParamTableExpression(
@@ -108,29 +129,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                         return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
                     }
-                    else if (context.Sort[0].sortOrder == SortOrder.Descending)
-                    {
-                        if (continuationToken != null && continuationToken.SortValue == null)
-                        {
-                            var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
-                            var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
-                            var notExistsExpression = new SearchParamTableExpression(
-                                queryGenForMissing,
-                                missingExpression,
-                                SearchParamTableExpressionKind.NotExists);
 
-                            newTableExpressions.Add(notExistsExpression);
-
-                            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
-                        }
-                    }
+                    // For descending order, we will search for resources that have a value for the
+                    // corresponding _sort parameter. We will generate the appropriate Sort expression below.
                 }
             }
 
             SearchParamTableExpressionKind sortKind = matchFound ? SearchParamTableExpressionKind.SortWithFilter : SearchParamTableExpressionKind.Sort;
             if (sortKind == SearchParamTableExpressionKind.SortWithFilter)
             {
-                context.SortWithFilter = true;
+                context.IsSortWithFilter = true;
             }
 
             var queryGenerator = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
