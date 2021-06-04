@@ -108,9 +108,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                         return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
                     }
-                    else
+                    else if (context.Sort[0].sortOrder == SortOrder.Descending)
                     {
-                        // for descending we don't have anything to do.
+                        if (continuationToken != null && continuationToken.SortValue == null)
+                        {
+                            var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
+                            var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
+                            var notExistsExpression = new SearchParamTableExpression(
+                                queryGenForMissing,
+                                missingExpression,
+                                SearchParamTableExpressionKind.NotExists);
+
+                            newTableExpressions.Add(notExistsExpression);
+
+                            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+                        }
                     }
                 }
             }

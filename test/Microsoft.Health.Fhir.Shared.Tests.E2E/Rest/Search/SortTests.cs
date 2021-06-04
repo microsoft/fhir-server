@@ -480,8 +480,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true", false, expected_resources.ToArray());
         }
 
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [SkippableFact]
         public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -490,14 +489,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family", sort: false, patients[0..5]);
         }
 
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder(int count)
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family&_count=3", sort: false, pageSize: 3, patients[0..5]);
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family&_count={count}", sort: false, pageSize: count, patients[0..5]);
         }
 
         [Fact]
@@ -511,19 +512,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
+        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder(int count)
         {
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
             List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count=3", sort: false, pageSize: 3, expectedPatients.ToArray());
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients.ToArray());
         }
 
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [SkippableFact]
         public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult()
         {
             var tag = Guid.NewGuid().ToString();
@@ -533,15 +536,53 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family", sort: false, expectedPatients);
         }
 
-        [Fact]
-        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult()
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult(int count)
         {
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
 
             var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).ToArray();
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family&_count=3", sort: false, pageSize: 3, expectedPatients);
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family&_count={count}", sort: false, pageSize: count, expectedPatients);
+        }
+
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyNameWithHyphen_ThenThosePatientsAreIncludedInResult(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
+
+            var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).Reverse().ToArray();
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients);
+        }
+
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyNameWithTotal_ThenCorrectTotalReturned(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithMissingFamilyNames(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort=family&_count={count}&_total=accurate");
+            Assert.Equal(7, response.Resource.Total);
+        }
+
+        [SkippableFact]
+        public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyNameWithTotal_ThenCorrectTotalReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithMissingFamilyNames(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort=family&_total=accurate");
+            Assert.Equal(7, response.Resource.Total);
         }
 
         private async Task<Patient[]> CreatePatients(string tag)
