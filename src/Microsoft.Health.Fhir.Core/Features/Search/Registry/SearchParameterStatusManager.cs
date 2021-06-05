@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
         {
             var updated = new List<SearchParameterInfo>();
-            var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses();
+            var searchParamResourceStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             var parameters = searchParamResourceStatus.ToDictionary(x => x.Uri);
             _latestSearchParams = parameters.Values.Select(p => p.LastUpdated).Max();
 
@@ -107,11 +107,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken = default)
         {
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
-            var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses())
+            var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
                 .ToDictionary(x => x.Uri);
 
             foreach (string uri in searchParameterUris)
@@ -147,27 +147,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
-            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList);
+            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList, cancellationToken);
 
-            await _mediator.Publish(new SearchParametersUpdatedNotification(updated));
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
-        internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris)
+        internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken = default)
         {
             // new search parameters are added as supported, until reindexing occurs, when
             // they will be fully enabled
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported);
+            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported, cancellationToken);
         }
 
-        internal async Task DeleteSearchParameterStatusAsync(string url)
+        internal async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken = default)
         {
             var searchParamUris = new List<string>() { url };
-            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted);
+            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
         }
 
-        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates()
+        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken = default)
         {
-            var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses();
+            var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();
         }
 

@@ -57,27 +57,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _fhirModel = fhirModel;
         }
 
-        // TODO: Make cancellation token an input.
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken = default)
         {
             // If the search parameter table in SQL does not yet contain status columns
             if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
             {
                 // Get status information from file.
-                return await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
+                return await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             }
 
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.GetSearchParamStatuses.PopulateCommand(sqlCommandWrapper);
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    while (await sqlDataReader.ReadAsync())
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         (short id, string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
                             VLatest.SearchParam.SearchParamId,
@@ -121,8 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
-        // TODO: Make cancellation token an input.
-        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -137,14 +135,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
 
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
 
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    while (await sqlDataReader.ReadAsync())
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         // The upsert procedure returns the search parameters that were new.
                         (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);

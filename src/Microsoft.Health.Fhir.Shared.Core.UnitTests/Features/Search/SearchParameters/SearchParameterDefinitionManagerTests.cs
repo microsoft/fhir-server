@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
-            _searchParameterStatusDataStore.GetSearchParameterStatuses()
+            _searchParameterStatusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(new[]
                 {
                     new ResourceSearchParameterStatus

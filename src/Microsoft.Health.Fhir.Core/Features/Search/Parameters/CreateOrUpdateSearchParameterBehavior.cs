@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 // Before committing the SearchParameter resource to the data store, add it to the SearchParameterDefinitionManager
                 // and parse the fhirPath, as well as validate the parameter type
-                await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance);
+                await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance, cancellationToken);
             }
 
             // Allow the resource to be updated with the normal handler
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
                 // to the fhirpath or the datatype
-                await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource);
+                await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource, cancellationToken);
             }
 
             // Now allow the resource to updated per the normal behavior

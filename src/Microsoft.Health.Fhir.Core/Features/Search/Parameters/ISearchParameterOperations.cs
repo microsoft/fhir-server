@@ -12,11 +12,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public interface ISearchParameterOperations
     {
-        Task AddSearchParameterAsync(ITypedElement searchParam);
+        Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken = default);
 
-        Task DeleteSearchParameterAsync(RawResource searchParamResource);
+        Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken = default);
 
-        Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam);
+        Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// This method should be called periodically to get any updates to SearchParameters
@@ -25,6 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A task.</returns>
-        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken);
+        Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default);
     }
 }

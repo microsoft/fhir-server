@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
             _testParameterUri = new Uri("/test", UriKind.Relative);
             searchParameterStatusDataStore
-                .GetSearchParameterStatuses()
+                .GetSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(new[]
                 {
                     new ResourceSearchParameterStatus
