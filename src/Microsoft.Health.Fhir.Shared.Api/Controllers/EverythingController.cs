@@ -59,62 +59,35 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Returns resources defined in $everything operation
         /// </summary>
         /// <param name="idParameter">The resource ID</param>
+        /// <param name="start">The start date relates to care dates</param>
+        /// <param name="end">The end date relates to care dates</param>
+        /// <param name="since">Resources that have been updated since this time will be included in the response</param>
+        /// <param name="type">Comma-delimited FHIR resource types to include in the return resources</param>
+        /// <param name="ct">The continuation token</param>
         [HttpGet]
         [Route(KnownRoutes.PatientEverythingById, Name = RouteNames.PatientEverythingById)]
         [AuditEventType(AuditEventSubType.Everything)]
-        public async Task<IActionResult> PatientEverythingById(string idParameter)
+        public async Task<IActionResult> PatientEverythingById(
+            string idParameter,
+            [FromQuery(Name = EverythingOperationParameterNames.Start)] PartialDateTime start,
+            [FromQuery(Name = EverythingOperationParameterNames.End)] PartialDateTime end,
+            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Type)] string type,
+            string ct)
         {
-            ValidateAndGetParameters(out PartialDateTime start, out PartialDateTime end, out PartialDateTime since, out string type, out string ct, out IReadOnlyList<Tuple<string, string>> unsupportedParameters);
+            IReadOnlyList<Tuple<string, string>> unsupportedParameters = ReadUnsupportedParameters();
 
             EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct, unsupportedParameters), HttpContext.RequestAborted);
 
             return FhirResult.Create(result.Bundle);
         }
 
-        private void ValidateAndGetParameters(
-            out PartialDateTime start,
-            out PartialDateTime end,
-            out PartialDateTime since,
-            out string type,
-            out string ct,
-            out IReadOnlyList<Tuple<string, string>> unsupportedParameters)
+        private IReadOnlyList<Tuple<string, string>> ReadUnsupportedParameters()
         {
-            IReadOnlyList<Tuple<string, string>> inputParameters = Request.Query
+            IReadOnlyList<Tuple<string, string>> parameters = Request.Query
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value))
                 .ToArray();
 
-            start = ReadPartialDateTimeParameter(inputParameters, EverythingOperationParameterNames.Start);
-            end = ReadPartialDateTimeParameter(inputParameters, EverythingOperationParameterNames.End);
-            since = ReadPartialDateTimeParameter(inputParameters, KnownQueryParameterNames.Since);
-            type = ReadStringParameter(inputParameters, KnownQueryParameterNames.Type);
-            ct = ReadStringParameter(inputParameters, KnownQueryParameterNames.ContinuationToken);
-            unsupportedParameters = ReadUnsupportedParameters(inputParameters);
-        }
-
-        private static string ReadStringParameter(IReadOnlyList<Tuple<string, string>> inputParameters, string parameterName)
-        {
-            return inputParameters
-                .Where(x => string.Equals(x.Item1, parameterName, StringComparison.OrdinalIgnoreCase))
-                .Select(x => x.Item2)
-                .FirstOrDefault();
-        }
-
-        private static PartialDateTime ReadPartialDateTimeParameter(IReadOnlyList<Tuple<string, string>> inputParameters, string parameterName)
-        {
-            string value = ReadStringParameter(inputParameters, parameterName);
-
-            try
-            {
-                return string.IsNullOrEmpty(value) ? null : PartialDateTime.Parse(value);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private IReadOnlyList<Tuple<string, string>> ReadUnsupportedParameters(IReadOnlyList<Tuple<string, string>> parameters)
-        {
             var unsupportedParameters = parameters.Where(x => !_supportedParameters.Contains(x.Item1.ToLower(CultureInfo.CurrentCulture))).ToList();
 
             foreach (Tuple<string, string> unsupportedParameter in unsupportedParameters)

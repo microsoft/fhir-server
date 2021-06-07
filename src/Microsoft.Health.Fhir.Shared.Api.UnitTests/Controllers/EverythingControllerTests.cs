@@ -9,9 +9,7 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -32,10 +30,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         public EverythingControllerTests()
         {
-            _everythingController = GetController();
-            _everythingController.ControllerContext = new ControllerContext
+            _everythingController = new EverythingController(_mediator, _fhirRequestContextAccessor)
             {
-                HttpContext = new DefaultHttpContext(),
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext(),
+                },
             };
         }
 
@@ -44,12 +44,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             _mediator.Send(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
 
-            var result = await _everythingController.PatientEverythingById(idParameter: "123") as FhirResult;
+            var result = await _everythingController.PatientEverythingById(
+                idParameter: "123",
+                start: PartialDateTime.Parse("2019"),
+                end: PartialDateTime.Parse("2020"),
+                since: PartialDateTime.Parse("2021"),
+                type: ResourceType.Observation.ToString(),
+                ct: null) as FhirResult;
 
             await _mediator.Received().Send(
-                Arg.Is<EverythingOperationRequest>(r =>
-                    string.Equals(r.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal) &&
-                    string.Equals(r.ResourceId.ToString(), "123", StringComparison.OrdinalIgnoreCase)),
+                Arg.Is<EverythingOperationRequest>(
+                    r => string.Equals(r.EverythingOperationType, ResourceType.Patient.ToString(), StringComparison.Ordinal)
+                         && string.Equals(r.ResourceId.ToString(), "123", StringComparison.OrdinalIgnoreCase)
+                         && string.Equals(r.Start.ToString(), "2019", StringComparison.Ordinal)
+                         && string.Equals(r.End.ToString(), "2020", StringComparison.Ordinal)
+                         && string.Equals(r.Since.ToString(), "2021", StringComparison.Ordinal)
+                         && string.Equals(r.ResourceTypes, ResourceType.Observation.ToString(), StringComparison.Ordinal)
+                         && r.ContinuationToken == null),
                 Arg.Any<CancellationToken>());
 
             _mediator.ClearReceivedCalls();
@@ -57,16 +68,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var bundleResource = (result?.Result as ResourceElement)?.ResourceInstance as Bundle;
             Assert.Equal(System.Net.HttpStatusCode.OK, result?.StatusCode);
             Assert.Equal(Bundle.BundleType.Searchset, bundleResource?.Type);
-        }
-
-        private EverythingController GetController()
-        {
-            var featureConfig = new FeatureConfiguration();
-
-            IOptions<FeatureConfiguration> optionsFeatureConfiguration = Substitute.For<IOptions<FeatureConfiguration>>();
-            optionsFeatureConfiguration.Value.Returns(featureConfig);
-
-            return new EverythingController(_mediator, _fhirRequestContextAccessor);
         }
 
         private static EverythingOperationResponse GetEverythingOperationResponse()
