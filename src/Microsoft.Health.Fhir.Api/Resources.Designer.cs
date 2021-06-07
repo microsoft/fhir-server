@@ -232,6 +232,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Initial import mode is not enabled. Please update service configuration to enable initial import mode..
+        /// </summary>
+        public static string InitialImportModeNotEnabled {
+            get {
+                return ResourceManager.GetString("InitialImportModeNotEnabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The input data type &apos;{0}&apos; and default template collection &apos;{1}&apos; are inconsistent..
         /// </summary>
         public static string InputDataTypeAndDefaultTemplateCollectionInconsistent {
