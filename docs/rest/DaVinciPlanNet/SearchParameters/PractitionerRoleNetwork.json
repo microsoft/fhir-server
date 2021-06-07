@@ -1,0 +1,56 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "practitionerrole-network",
+    "text": {
+      "status": "generated"
+        },
+    "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-network",
+    "version": "1.0.0",
+    "name": "network",
+    "status": "active",
+    "date": "2018-05-23T00:00:00+00:00",
+    "publisher": "HL7 Financial Management Working Group",
+    "contact": [
+      {
+        "name": "HL7 Financial Management Working Group",
+        "telecom": [
+          {
+            "system": "url",
+            "value": "http://www.hl7.org/Special/committees/fm/index.cfm"
+          },
+          {
+            "system": "email",
+            "value": "fm@lists.HL7.org"
+          }
+        ]
+      }
+    ],
+    "description": "Select roles where the practitioner is a member of the specified health insurance provider network",
+    "jurisdiction": [
+      {
+        "coding": [
+          {
+            "system": "urn:iso:std:iso:3166",
+            "code": "US"
+          }
+        ]
+      }
+    ],
+    "code": "network",
+    "base": [
+      "PractitionerRole"
+    ],
+    "type": "reference",
+    "expression": "PractitionerRole.extension.where(url='http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference').value.as(Reference)",
+    "target": [
+      "Organization"
+    ],
+    "multipleOr": true,
+    "multipleAnd": true,
+    "chain": [
+      "name",
+      "address",
+      "partof",
+      "type"
+    ]
+  }
