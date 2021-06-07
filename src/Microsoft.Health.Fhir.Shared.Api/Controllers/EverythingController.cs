@@ -64,9 +64,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Everything)]
         public async Task<IActionResult> PatientEverythingById(string idParameter)
         {
-            ValidateAndGetParameters(out PartialDateTime start, out PartialDateTime end, out PartialDateTime since, out string type, out string ct);
+            ValidateAndGetParameters(out PartialDateTime start, out PartialDateTime end, out PartialDateTime since, out string type, out string ct, out IReadOnlyList<Tuple<string, string>> unsupportedParameters);
 
-            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct), HttpContext.RequestAborted);
+            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct, unsupportedParameters), HttpContext.RequestAborted);
 
             return FhirResult.Create(result.Bundle);
         }
@@ -76,7 +76,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             out PartialDateTime end,
             out PartialDateTime since,
             out string type,
-            out string ct)
+            out string ct,
+            out IReadOnlyList<Tuple<string, string>> unsupportedParameters)
         {
             IReadOnlyList<Tuple<string, string>> inputParameters = Request.Query
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value))
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             since = ReadPartialDateTimeParameter(inputParameters, KnownQueryParameterNames.Since);
             type = ReadStringParameter(inputParameters, KnownQueryParameterNames.Type);
             ct = ReadStringParameter(inputParameters, KnownQueryParameterNames.ContinuationToken);
-            ProcessUnsupportedInputParameters(inputParameters);
+            unsupportedParameters = ReadUnsupportedParameters(inputParameters);
         }
 
         private static string ReadStringParameter(IReadOnlyList<Tuple<string, string>> inputParameters, string parameterName)
@@ -112,15 +113,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void ProcessUnsupportedInputParameters(IReadOnlyList<Tuple<string, string>> inputParameters)
+        private IReadOnlyList<Tuple<string, string>> ReadUnsupportedParameters(IReadOnlyList<Tuple<string, string>> parameters)
         {
-            inputParameters.Where(x => !_supportedParameters.Contains(x.Item1.ToLower(CultureInfo.CurrentCulture)))
-                .ToList()
-                .ForEach(x =>
-                    _fhirRequestContextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
-                        OperationOutcomeConstants.IssueSeverity.Warning,
-                        OperationOutcomeConstants.IssueType.NotSupported,
-                        string.Format(CultureInfo.InvariantCulture, Resources.UnsupportedParameter, x.Item1))));
+            var unsupportedParameters = parameters.Where(x => !_supportedParameters.Contains(x.Item1.ToLower(CultureInfo.CurrentCulture))).ToList();
+
+            foreach (Tuple<string, string> unsupportedParameter in unsupportedParameters)
+            {
+                _fhirRequestContextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Warning,
+                    OperationOutcomeConstants.IssueType.NotSupported,
+                    string.Format(CultureInfo.InvariantCulture, Resources.UnsupportedParameter, unsupportedParameter.Item1)));
+            }
+
+            return unsupportedParameters;
         }
     }
 }

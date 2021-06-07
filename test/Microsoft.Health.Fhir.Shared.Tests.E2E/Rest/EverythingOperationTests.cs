@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -151,8 +153,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Bundle bundle = await Client.SearchAsync(searchUrl);
             OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+
+            // Resources in scope are returned
             ValidateBundle(bundle, Fixture.Patient, Fixture.Organization, outcome);
+
+            // OperationOutcome is added for unsupported parameters
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+
+            // Unsupported parameters are removed from Bundle.link.url
+            Assert.True(bundle.Link.All(x => !x.Url.Contains("_count", StringComparison.OrdinalIgnoreCase) && !x.Url.Contains("foo", StringComparison.OrdinalIgnoreCase)));
         }
 
         [Fact]
@@ -168,14 +177,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
             OperationOutcome firstOutcome = GetAndValidateOperationOutcome(firstBundle);
+
+            // Resources in scope are returned
             ValidateBundle(firstBundle, Fixture.Patient, firstOutcome);
+
+            // OperationOutcome is added for unsupported parameters
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, firstOutcome);
+
+            // Unsupported parameters are removed from Bundle.link.url
+            Assert.True(firstBundle.Resource.Link.All(x => !x.Url.Contains("foo", StringComparison.OrdinalIgnoreCase)));
 
             var nextLink = firstBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
-            OperationOutcome secondOutcome = GetAndValidateOperationOutcome(secondBundle);
-            ValidateBundle(secondBundle, Fixture.Observation, secondOutcome);
-            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, secondOutcome);
+            ValidateBundle(secondBundle, Fixture.Observation);
         }
 
         [Fact]
