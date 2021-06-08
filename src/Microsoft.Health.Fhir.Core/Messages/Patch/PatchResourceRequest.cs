@@ -9,10 +9,11 @@ using MediatR;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
-    public class PatchResourceRequest : IRequest<PatchResourceResponse>, IRequireCapability
+    public class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
     {
         public PatchResourceRequest(ResourceKey resourceKey, JsonPatchDocument patchDocument)
         {

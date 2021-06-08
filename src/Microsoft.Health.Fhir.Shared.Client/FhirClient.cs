@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<FhirResponse<T>> PatchAsync<T>(T resource, string body, CancellationToken cancellationToken = default)
         where T : Resource
         {
-            using var message = new HttpRequestMessage(HttpMethod.Patch, $"{resource.ResourceType}/{resource.Id}")
+            using var message = new HttpRequestMessage(HttpMethod.Patch, $"{resource.TypeName}/{resource.Id}")
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };

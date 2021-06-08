@@ -4,13 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.FhirPath;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -18,14 +20,23 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, PatchResourceResponse>
+    public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, UpsertResourceResponse>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
+
+        private readonly ISet<string> _immutableProperties = new HashSet<string>
+        {
+            "Resource.id",
+            "Resource.meta.lastUpdated",
+            "Resource.meta.version",
+            "Resource.text.div",
+            "Resource.text.status",
+        };
 
         public PatchResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -41,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public async Task<PatchResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -69,36 +80,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
             }
 
+            if (request.WeakETag != null && request.WeakETag.VersionId != currentDoc.Version)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
+            }
+
+            if (currentDoc.RawResource.Format != FhirResourceFormat.Json)
+            {
+                throw new RequestNotValidException(Core.Resources.PatchResourceMustBeJson);
+            }
+
             try
             {
-                ISourceNode node = FhirJsonNode.Parse(currentDoc.RawResource.Data);
-                Resource resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPoco<Resource>();
-                JObject nodeJson = node.ToJObject();
-                string narrative = resource.Scalar(KnownFhirPaths.ResourceNarrative) as string;
-                string narrativeStatus = (string)nodeJson["text"]["status"];
+                // Use low-level JSON parser
+                var node = (FhirJsonNode)FhirJsonNode.Parse(currentDoc.RawResource.Data);
 
-                request.PatchDocument.ApplyTo(nodeJson);
+                // Capture the state of properties that are immutable
+                ITypedElement resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+                (string path, object result)[] preState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
-                FhirJsonNode nodePatch = (FhirJsonNode)FhirJsonNode.Create(nodeJson);
-                Resource resourcePatch = nodePatch.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider).ToPoco<Resource>();
-                string narrativePatch = resourcePatch.Scalar(KnownFhirPaths.ResourceNarrative) as string;
-                string narrativeStatusPatch = (string)nodeJson["text"]["status"];
+                request.PatchDocument.ApplyTo(node.JsonObject);
 
-                if (resource.Id != resourcePatch.Id ||
-                    resource.VersionId != resourcePatch.VersionId ||
-                    resource.Meta.LastUpdated.Value != resourcePatch.Meta.LastUpdated.Value ||
-                    narrative != narrativePatch ||
-                    narrativeStatus != narrativeStatusPatch)
+                // Check immutable properties are not modified
+                resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+                (string path, object result)[] postState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
+
+                if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))
                 {
                     throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
                 }
 
-                ResourceWrapper resourceWrapper = CreateResourceWrapper(resourcePatch, deleted: false, keepMeta: true);
-                bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
-                UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, request.WeakETag, false, keepHistory, cancellationToken);
-                resourcePatch.VersionId = result.Wrapper.Version;
+                // Persist
+                Resource resourcePoco = resource.ToPoco<Resource>();
 
-                return new PatchResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
+                ResourceWrapper resourceWrapper = CreateResourceWrapper(resourcePoco, deleted: false, keepMeta: true);
+                bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(currentDoc.ResourceTypeName, cancellationToken);
+                UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, WeakETag.FromVersionId(currentDoc.Version), false, keepHistory, cancellationToken);
+
+                return new(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
             }
             catch (Exception e)
             {

@@ -791,6 +791,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The resource to patch must be in JSON format..
+        /// </summary>
+        internal static string PatchResourceMustBeJson {
+            get {
+                return ResourceManager.GetString("PatchResourceMustBeJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Patching a specific record version is not supported..
         /// </summary>
         internal static string PatchVersionNotAllowed {
