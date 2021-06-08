@@ -4,7 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
@@ -13,7 +16,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class PatchTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
@@ -25,11 +28,97 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAServerThatDoesNotSupportIt_WhenSubmittingAPatch_ThenMethodNotAllowedIsReturned()
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingALevel1PropertyPatch_ThenServerShouldPatchCorrectly()
         {
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync("Patient/1234", "patch content"));
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.Equal(AdministrativeGender.Male, response.Resource.Gender);
+            Assert.NotNull(response.Resource.Address);
 
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, ex.StatusCode);
+            string patchDocument =
+                "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
+
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Equal(AdministrativeGender.Female, patch.Resource.Gender);
+            Assert.Empty(patch.Resource.Address);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingALevel2PropertyPatch_ThenServerShouldPatchCorrectly()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            poco.Address.Clear();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.Empty(response.Resource.Address);
+
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/address\",\"value\":[]},{\"op\":\"add\",\"path\":\"/address/0\",\"value\":{\"use\":\"home\",\"line\":[\"23 thule st\",\"avon\"],\"city\":\"Big Smoke\",\"country\":\"erewhon\",\"text\":\"23 thule st\"}}]";
+            using FhirResponse<Patient> patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Single(patch.Resource.Address);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAnInvalidPropertyPatch_ThenAnErrorShouldBeReturned()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument = "[{\"op\":\"add\",\"path\":\"/dummyProperty\",\"value\":\"dummy\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+                response.Resource,
+                patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("/versionId", "100")]
+        [InlineData("/resourceType", "DummyResource")]
+        [InlineData("/text/div", "<div>dummy narrative</div>")]
+        [InlineData("/text/status", "extensions")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAForbiddenPropertyPatch_ThenAnErrorShouldBeReturned(
+            string propertyName, string value)
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"replace\",\"path\":\"" + propertyName + "\",\"value\":\"" + value + "\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+                response.Resource,
+                patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("/gender", "dummyGender")]
+        [InlineData("/birthDate", "abc")]
+        [InlineData("/address/0/use", "dummyAddress")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingAInvalidValuePatch_ThenAnErrorShouldBeReturned(
+            string propertyName, string value)
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"replace\",\"path\":\"" + propertyName + "\",\"value\":\"" + value + "\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+                response.Resource,
+                patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
     }
 }

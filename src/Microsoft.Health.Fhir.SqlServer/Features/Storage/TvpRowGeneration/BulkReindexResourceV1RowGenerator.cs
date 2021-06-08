@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
    internal class BulkReindexResourceV1RowGenerator : ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkReindexResourceTableTypeV1Row>
     {
-        private readonly SqlServerFhirModel _model;
+        private readonly ISqlServerFhirModel _model;
 
-        public BulkReindexResourceV1RowGenerator(SqlServerFhirModel model)
+        public BulkReindexResourceV1RowGenerator(ISqlServerFhirModel model)
         {
             EnsureArg.IsNotNull(model, nameof(model));
             _model = model;
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     index,
                     resourceTypeId,
                     resourceId,
-                    resource.Version == null ? null : (int?)etag,
+                    resource.Version == null ? null : etag,
                     resource.SearchParameterHash);
             }
         }

@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     /// Short-circuits the pipeline if they are invalid.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
-    internal class ValidateExportRequestFilterAttribute : ActionFilterAttribute
+    internal sealed class ValidateExportRequestFilterAttribute : ActionFilterAttribute
     {
         private static readonly HashSet<string> SupportedOutputFormats = new HashSet<string>(StringComparer.Ordinal)
         {

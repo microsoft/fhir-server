@@ -15,6 +15,7 @@ using Hl7.Fhir.ElementModel;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly CancellationToken _cancellationToken;
 
         private ExportJobOutcome _lastExportJobOutcome;
-        private IFhirRequestContextAccessor _contextAccessor;
+        private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         public ExportJobTaskTests()
         {
@@ -402,7 +403,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(x =>
                 {
-                    _contextAccessor.FhirRequestContext.BundleIssues.Add(issue);
+                    _contextAccessor.RequestContext.BundleIssues.Add(issue);
 
                     return CreateSearchResult();
                 });
@@ -2082,7 +2083,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceElement>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceElement>(0).Instance.Value.ToString()));
             _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId))));
 
-            _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
             return new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),

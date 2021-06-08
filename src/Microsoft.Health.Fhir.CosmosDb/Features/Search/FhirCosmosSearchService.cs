@@ -12,7 +12,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -34,10 +36,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
-        private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly ICosmosDbCollectionPhysicalPartitionInfo _physicalPartitionInfo;
         private readonly QueryPartitionStatisticsCache _queryPartitionStatisticsCache;
+        private readonly ILogger<FhirCosmosSearchService> _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
         private const int _chainedSearchMaxSubqueryItemLimit = 100;
@@ -47,10 +50,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            IFhirRequestContextAccessor requestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             CosmosDataStoreConfiguration cosmosConfig,
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
-            QueryPartitionStatisticsCache queryPartitionStatisticsCache)
+            QueryPartitionStatisticsCache queryPartitionStatisticsCache,
+            ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -60,6 +64,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(cosmosConfig, nameof(cosmosConfig));
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(queryPartitionStatisticsCache, nameof(queryPartitionStatisticsCache));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
             _queryBuilder = queryBuilder;
@@ -67,11 +72,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _cosmosConfig = cosmosConfig;
             _physicalPartitionInfo = physicalPartitionInfo;
             _queryPartitionStatisticsCache = queryPartitionStatisticsCache;
+            _logger = logger;
             _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
             _resourceIdSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.Id);
         }
 
-        protected override async Task<SearchResult> SearchInternalAsync(
+        public override async Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
@@ -130,7 +136,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
-            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken, _) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions, new QueryBuilderOptions(includeExpressions)),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
@@ -176,7 +182,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private async Task<List<Expression>> PerformChainedSearch(SearchOptions searchOptions, IReadOnlyList<ChainedExpression> chainedExpressions, CancellationToken cancellationToken)
         {
             if (!_cosmosConfig.EnableChainedSearch &&
-                !(_requestContextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(KnownHeaders.EnableChainSearch, out StringValues featureSetting) &&
+                !(_requestContextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.EnableChainSearch, out StringValues featureSetting) &&
                   string.Equals(featureSetting.FirstOrDefault(), "true", StringComparison.OrdinalIgnoreCase)))
             {
                 throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
@@ -284,16 +290,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // When reverse chained, we take the ids and types from the child object and use it to filter the parent objects.
                 // e.g. Patient?_has:Group:member:_id=group1. In this case we would have run the query there Group.id = group1
                 // and returned the indexed entries for Group.member. The following query will use these items to filter the parent Patient query.
-                chainedExpressionReferences = chainedResults.results.SelectMany(x =>
-                        x.ReferencesToInclude.Select(include =>
-                            Expression.And(
-                                Expression.SearchParameter(
-                                    _resourceIdSearchParameter,
-                                    Expression.Equals(FieldName.TokenCode, null, include.ResourceId)),
-                                Expression.SearchParameter(
-                                    _resourceTypeSearchParameter,
-                                    Expression.Equals(FieldName.TokenCode, null, include.ResourceTypeName)))))
-                    .ToArray<Expression>();
+                chainedExpressionReferences = chainedResults.results.SelectMany(x => x.ReferencesToInclude.Select(y => y)).Distinct()
+                           .Select(include => Expression.And(
+                                  Expression.SearchParameter(
+                                      _resourceIdSearchParameter,
+                                      Expression.Equals(FieldName.TokenCode, null, include.ResourceId)),
+                                  Expression.SearchParameter(
+                                      _resourceTypeSearchParameter,
+                                      Expression.Equals(FieldName.TokenCode, null, include.ResourceTypeName))))
+                .ToArray<Expression>();
             }
 
             return chainedExpressionReferences.Length > 1 ? Expression.Or(chainedExpressionReferences) : chainedExpressionReferences.FirstOrDefault();
@@ -303,7 +308,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken, _) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.GenerateHistorySql(searchOptions),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
@@ -327,7 +332,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
-            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken, _) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 queryDefinition,
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
@@ -338,11 +343,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), continuationToken);
         }
 
-        private async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteSearchAsync<T>(
+        /// <summary>
+        /// Executes a search query. Determines whether to parallelize the query across physical partitions based on previous performance of similar queries, unless <paramref name="queryRequestOptionsOverride"/> is specified.
+        /// </summary>
+        /// <typeparam name="T">The result type.</typeparam>
+        /// <param name="sqlQuerySpec">The query to execute</param>
+        /// <param name="searchOptions">The <see cref="SearchOptions"/> for this query.</param>
+        /// <param name="continuationToken">The continuation token or null.</param>
+        /// <param name="searchEnumerationTimeoutOverrideIfSequential">If method determines to execute the query sequentially across partitions, this optional value overrides the maximum amount of time to wait to attempt to obtain results.</param>
+        /// <param name="queryRequestOptionsOverride">Specifies the <see cref="QueryRequestOptions"/> instead of this method determining them. Optional.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A tuple with the results, a possible continuation token, and the maximum degree of parallelism that was applied to the query. The latter corresponds to <see cref="QueryRequestOptions.MaxConcurrency"/></returns>
+        private async Task<(IReadOnlyList<T> results, string continuationToken, int? maxConcurrency)> ExecuteSearchAsync<T>(
             QueryDefinition sqlQuerySpec,
             SearchOptions searchOptions,
             string continuationToken,
-            TimeSpan? searchEnumerationTimeoutInSecondsOverride,
+            TimeSpan? searchEnumerationTimeoutOverrideIfSequential,
             QueryRequestOptions queryRequestOptionsOverride,
             CancellationToken cancellationToken)
         {
@@ -389,7 +405,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
                         // knows to add the individual ResponseMessages sent as part of this search.
 
-                        fhirRequestContext = _requestContextAccessor.FhirRequestContext;
+                        fhirRequestContext = _requestContextAccessor.RequestContext;
                         if (fhirRequestContext != null)
                         {
                             messagesList = new ConcurrentBag<ResponseMessage>();
@@ -401,14 +417,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             try
             {
-                var result = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, searchEnumerationTimeoutInSecondsOverride, cancellationToken);
+                (IReadOnlyList<T> results, string nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
 
                 if (queryPartitionStatistics != null && messagesList != null)
                 {
-                    if (result.results.Count < feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor && string.IsNullOrEmpty(result.continuationToken))
+                    var desiredItemCount = feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor;
+
+                    if (results.Count < desiredItemCount && !string.IsNullOrEmpty(nextContinuationToken))
                     {
                         // ExecuteDocumentQueryAsync gave up on filling the pages. This suggests that we would have been better off querying in parallel.
                         queryPartitionStatistics.Update(_physicalPartitionInfo.PhysicalPartitionCount);
+
+                        _logger.LogInformation(
+                            "Failed to fill items, found {ItemCount}, needed {DesiredItemCount}. Updating statistics to {PhysicalPartitionCount}",
+                            results.Count,
+                            desiredItemCount,
+                            _physicalPartitionInfo.PhysicalPartitionCount);
                     }
                     else
                     {
@@ -418,7 +442,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     }
                 }
 
-                return result;
+                return (results, nextContinuationToken, feedOptions.MaxConcurrency);
             }
             finally
             {
@@ -438,7 +462,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             int? averagePartitionCount = queryPartitionStatistics.GetAveragePartitionCount();
 
-            if (averagePartitionCount.HasValue)
+            if (averagePartitionCount.HasValue && _cosmosConfig.UseQueryStatistics)
             {
                 // this is not a new query
 
@@ -446,6 +470,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 if (fractionOfPartitionsHit >= 0.5)
                 {
+                    _logger.LogInformation(
+                        "Query was Selective. Avg. Partitions: {AvgPartitions} / Physical Partitions: {PhysicalPartitionCount} = {FractionOfPartitionsHit}",
+                        averagePartitionCount.Value,
+                        _physicalPartitionInfo.PhysicalPartitionCount,
+                        fractionOfPartitionsHit);
+
                     return true;
                 }
             }
@@ -469,7 +499,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             if (includesTruncated)
             {
-                _requestContextAccessor.FhirRequestContext.BundleIssues.Add(
+                _requestContextAccessor.RequestContext.BundleIssues.Add(
                     new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Warning,
                         OperationOutcomeConstants.IssueType.Incomplete,
@@ -541,43 +571,97 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     SearchParameterExpression referenceExpression = Expression.SearchParameter(
                         referenceSearchParameter,
                         Expression.Or(
-                            matches.Select(m =>
-                                Expression.And(
-                                    Expression.Equals(FieldName.ReferenceResourceType, null, m.ResourceTypeName),
-                                    Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId))).ToList()));
+                            matches
+                                .GroupBy(m => m.ResourceTypeName)
+                                .Select(g =>
+                                    Expression.And(
+                                        Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
+                                        Expression.Or(g.Select(m => Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId)).ToList()))).ToList()));
 
                     Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
 
                     var revIncludeSearchOptions = new SearchOptions
                     {
                         Expression = expression,
-                        MaxItemCount = (int)((maxIncludeCount - includes.Count) / CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor),
                         Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
                     };
 
                     QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions);
 
-                    (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
-                    do
+                    (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken, int? maxConcurrency) includeResponse = default;
+
+                    for (int i = 0; i == 0 || !string.IsNullOrEmpty(includeResponse.continuationToken); i++)
                     {
+                        // inflate the item count so that we we get at least maxIncludeCount - includes.Count results back
+                        revIncludeSearchOptions.MaxItemCount = (int)((maxIncludeCount - includes.Count) / CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor);
+
+                        switch (i)
+                        {
+                            case 0:
+
+                                // First time around. The query may or may not execute in parallel depending on past performance. If it is not going to execute in parallel, we give it 5 seconds before cancelling. After that, we will force parallelism.
+
+                                includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                                    revIncludeQuery,
+                                    revIncludeSearchOptions,
+                                    null,
+                                    TimeSpan.FromSeconds(5),
+                                    queryRequestOptionsOverride: null,
+                                    cancellationToken);
+
+                                // check if we will restart the query in the next iteration (see next case below)
+                                // if not, take the results now
+                                if (includeResponse.continuationToken == null || includeResponse.maxConcurrency != null || includeResponse.results.Count >= maxIncludeCount)
+                                {
+                                    includes.AddRange(includeResponse.results);
+                                }
+
+                                break;
+
+                            case 1 when includeResponse.maxConcurrency == null:
+
+                                // The previous iteration executed sequentially and did not retrieve the desired number of results. We will switch to parallel execution.
+                                // Note that we are not passing in the continuation token, because if we do, the SDK does not execute in parallel.
+
+                                var queryRequestOptionsOverride = new QueryRequestOptions { MaxItemCount = revIncludeSearchOptions.MaxItemCount, MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency };
+
+                                includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                                    revIncludeQuery,
+                                    revIncludeSearchOptions,
+                                    null,
+                                    null,
+                                    queryRequestOptionsOverride,
+                                    cancellationToken);
+
+                                includes.AddRange(includeResponse.results);
+                                break;
+
+                            default:
+
+                                // follow the continuation
+
+                                includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                                    revIncludeQuery,
+                                    revIncludeSearchOptions,
+                                    includeResponse.continuationToken,
+                                    null,
+                                    null,
+                                    cancellationToken);
+
+                                includes.AddRange(includeResponse.results);
+                                break;
+                        }
+
                         if (includes.Count >= maxIncludeCount)
                         {
                             int toRemove = includes.Count - maxIncludeCount;
                             includes.RemoveRange(includes.Count - toRemove, toRemove);
                             includesTruncated = true;
+
+                            // break from the for loop because enough results have been found
                             break;
                         }
-
-                        includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                            revIncludeQuery,
-                            revIncludeSearchOptions,
-                            includeResponse.continuationToken,
-                            searchEnumerationTimeoutInSecondsOverride: includeResponse.continuationToken == null ? TimeSpan.FromSeconds(5) : null, // if we don't get an initial page of results within 5 seconds, we will switch to parallel queries
-                            includeResponse.continuationToken == null ? null : new QueryRequestOptions { MaxItemCount = revIncludeSearchOptions.MaxItemCount, MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency }, // force the query to go in parallel
-                            cancellationToken);
-                        includes.AddRange(includeResponse.results);
                     }
-                    while (!string.IsNullOrEmpty(includeResponse.continuationToken));
                 }
             }
 

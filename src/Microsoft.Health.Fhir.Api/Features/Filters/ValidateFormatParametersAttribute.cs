@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     /// Validate format related parameters in query string and headers.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class)]
-    internal class ValidateFormatParametersAttribute : ActionFilterAttribute
+    internal sealed class ValidateFormatParametersAttribute : ActionFilterAttribute
     {
         private readonly IFormatParametersValidator _parametersValidator;
 
@@ -43,8 +43,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             await _parametersValidator.CheckRequestedContentTypeAsync(httpContext);
 
             // If the request is a put or post and has a content-type, check that it's supported
-            if (httpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.InvariantCultureIgnoreCase) ||
-                httpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.InvariantCultureIgnoreCase))
+            if (httpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.OrdinalIgnoreCase) ||
+                httpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.OrdinalIgnoreCase))
             {
                 if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
                 {

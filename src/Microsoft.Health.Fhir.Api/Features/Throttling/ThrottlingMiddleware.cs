@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         {
             Interlocked.Increment(ref _currentPeriodRejectedCount);
 
-            _logger.LogWarning($"{Resources.TooManyConcurrentRequests} Limit is {_concurrentRequestLimit}. Requests in flight {_requestsInFlight}");
+            _logger.LogWarning(Resources.TooManyConcurrentRequests + " Limit is {limit}. Requests in flight {requests}", _concurrentRequestLimit, _requestsInFlight);
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
@@ -313,7 +313,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             _samplingLoopTask.Dispose();
         }
 
-        public void Dispose() => DisposeAsync().GetAwaiter().GetResult();
+        public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
         private class MethodPathTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<(string method, string path)>
         {

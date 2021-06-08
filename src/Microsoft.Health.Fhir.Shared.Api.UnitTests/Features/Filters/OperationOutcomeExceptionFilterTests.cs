@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     public class OperationOutcomeExceptionFilterTests
     {
         private readonly ActionExecutedContext _context;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly string _correlationId = Guid.NewGuid().ToString();
 
@@ -47,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 FilterTestsHelper.CreateMockFhirController());
 
             _fhirRequestContext.CorrelationId = _correlationId;
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
         }
 
         [Fact]
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData(HttpStatusCode.NotFound)]
         public void GivenATransactionFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(HttpStatusCode statusCode)
         {
-            ValidateOperationOutcome(new FhirTransactionFailedException("Transaction failed.", statusCode, new List<OperationOutcomeIssue>()), statusCode);
+            ValidateOperationOutcome(new FhirTransactionFailedException("Transaction failed.", statusCode, Array.Empty<OperationOutcomeIssue>()), statusCode);
         }
 
         [Fact]

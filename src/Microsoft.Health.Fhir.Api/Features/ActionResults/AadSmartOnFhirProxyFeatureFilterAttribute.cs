@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-    public class AadSmartOnFhirProxyFeatureFilterAttribute : ActionFilterAttribute
+    public sealed class AadSmartOnFhirProxyFeatureFilterAttribute : ActionFilterAttribute
     {
         private readonly SecurityConfiguration _securityConfiguration;
 
@@ -21,15 +21,15 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             _securityConfiguration = securityConfiguration.Value;
         }
 
-        public override void OnActionExecuting(ActionExecutingContext filterContext)
+        public override void OnActionExecuting(ActionExecutingContext context)
         {
             if (!_securityConfiguration.EnableAadSmartOnFhirProxy)
             {
-                filterContext.Result = new UnauthorizedResult();
+                context.Result = new UnauthorizedResult();
             }
             else
             {
-                base.OnActionExecuting(filterContext);
+                base.OnActionExecuting(context);
             }
         }
     }

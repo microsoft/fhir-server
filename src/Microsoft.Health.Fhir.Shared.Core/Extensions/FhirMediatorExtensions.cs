@@ -9,12 +9,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -59,6 +61,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(key, nameof(key));
 
             var result = await mediator.Send(new DeleteResourceRequest(key, hardDelete), cancellationToken);
+
+            return result;
+        }
+
+        public static async Task<PatchResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, JsonPatchDocument patchDocument, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(key, nameof(key));
+
+            var result = await mediator.Send(new PatchResourceRequest(key, patchDocument), cancellationToken);
 
             return result;
         }

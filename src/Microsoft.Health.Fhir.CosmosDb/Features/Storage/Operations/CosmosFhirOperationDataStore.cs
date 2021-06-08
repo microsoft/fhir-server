@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                             .WithParameter(HashParameterName, hash),
                         new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) }));
 
-                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync();
+                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync(cancellationToken);
 
                 if (result.Count == 1)
                 {
@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                var replaceResult = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                var replaceResult = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     () => _containerScope.Value.ReplaceItemAsync(
                         cosmosExportJob,
                         jobRecord.Id,
@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         {
             try
             {
-                var response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                var response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _acquireExportJobs.ExecuteAsync(
                         _containerScope.Value.Scripts,
                         maximumNumberOfConcurrentJobsAllowed,
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         {
             try
             {
-                StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosReindexJobRecordWrapper>> response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosReindexJobRecordWrapper>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _acquireReindexJobs.ExecuteAsync(
                         _containerScope.Value.Scripts,
                         maximumNumberOfConcurrentJobsAllowed,
@@ -318,7 +318,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                         new QueryDefinition(CheckActiveJobsByStatusQuery),
                         new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) }));
 
-                FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync();
+                FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync(cancellationToken);
 
                 if (result.Any())
                 {
@@ -367,7 +367,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
                 }
 
-                _logger.LogError(dce, $"Failed to get reindex job by id: {jobId}.");
+                _logger.LogError(dce, "Failed to get reindex job by id: {jobId}.", jobId);
                 throw;
             }
         }
@@ -387,7 +387,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                var replaceResult = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                var replaceResult = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     () => _containerScope.Value.ReplaceItemAsync(
                         cosmosReindexJob,
                         jobRecord.Id,

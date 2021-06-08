@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             public Func<SearchOptions, SearchResult> SearchImplementation { get; set; }
 
-            protected override Task<SearchResult> SearchInternalAsync(
+            public override Task<SearchResult> SearchAsync(
                 SearchOptions searchOptions,
                 CancellationToken cancellationToken)
             {

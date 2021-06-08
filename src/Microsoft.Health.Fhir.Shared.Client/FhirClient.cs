@@ -217,6 +217,22 @@ namespace Microsoft.Health.Fhir.Client
             return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
+        public async Task<FhirResponse<T>> PatchAsync<T>(T resource, string body, CancellationToken cancellationToken = default)
+        where T : Resource
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Patch, $"{resource.ResourceType}/{resource.Id}")
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+            };
+            message.Headers.Accept.Add(_mediaType);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<T>(response);
+        }
+
         public async Task<FhirResponse> PatchAsync(string uri, string content, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
@@ -294,7 +310,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Resource>> PostAsync(string resourceType, string body, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}")
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}")
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
@@ -474,6 +490,23 @@ namespace Microsoft.Health.Fhir.Client
             return new FhirResponse<T>(
                 response,
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
+        }
+
+        public async Task<Parameters> MemberMatch(Patient patient, Coverage coverage, CancellationToken cancellationToken = default)
+        {
+            var inParams = new Parameters();
+            inParams.Add("MemberPatient", patient);
+            inParams.Add("OldCoverage", coverage);
+
+            using var message = new HttpRequestMessage(HttpMethod.Post, "Patient/$member-match");
+            message.Headers.Accept.Add(_mediaType);
+            message.Content = CreateStringContent(inParams);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<Parameters>(response);
         }
     }
 }

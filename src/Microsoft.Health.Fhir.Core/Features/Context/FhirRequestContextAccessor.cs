@@ -4,14 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
+using Microsoft.Health.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
-    public class FhirRequestContextAccessor : IFhirRequestContextAccessor
+    public class FhirRequestContextAccessor : RequestContextAccessor<IFhirRequestContext>
     {
         private readonly AsyncLocal<IFhirRequestContext> _fhirRequestContextCurrent = new AsyncLocal<IFhirRequestContext>();
 
-        public IFhirRequestContext FhirRequestContext
+        public override IFhirRequestContext RequestContext
         {
             get => _fhirRequestContextCurrent.Value;
 

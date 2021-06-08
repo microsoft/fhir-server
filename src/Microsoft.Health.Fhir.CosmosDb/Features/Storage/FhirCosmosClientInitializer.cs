@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -15,7 +14,6 @@ using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -99,7 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger.LogInformation("Opening CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             try
             {
-                await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(async () =>
+                await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(async () =>
                     await _testProvider.PerformTest(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
 
                 _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
@@ -127,7 +125,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     _logger.LogInformation("CreateDatabaseIfNotExists {DatabaseId}", cosmosDataStoreConfiguration.DatabaseId);
 
-                    await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                    await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                         async () =>
                             await client.CreateDatabaseIfNotExistsAsync(
                                 cosmosDataStoreConfiguration.DatabaseId,

@@ -63,20 +63,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         }
 
         /// <inheritdoc />
-        public int CompareTo(ISupportSortSearchValue supportSortSearchValue, ComparisonRange range)
+        public int CompareTo(ISupportSortSearchValue other, ComparisonRange range)
         {
-            if (supportSortSearchValue == null)
+            if (other == null)
             {
                 throw new ArgumentException("Value to be compared to cannot be null");
             }
 
-            var otherValue = supportSortSearchValue as StringSearchValue;
+            var otherValue = other as StringSearchValue;
             if (otherValue == null)
             {
                 throw new ArgumentException($"Value to be compared should be of type {typeof(StringSearchValue)}");
             }
 
+            // We want to do a case and accent insensitive comparison here.
+            // This is to be in-line with the collation used in our SQL tables for the StringSearchParam values
+#pragma warning disable CA1309
             return string.Compare(ToString(), otherValue.ToString(), CultureInfo.InvariantCulture, CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreCase);
+#pragma warning restore CA1309
         }
 
         public bool Equals([AllowNull] ISearchValue other)
@@ -93,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 return false;
             }
 
-            return String.Equals(stringSearchValueOther.String, System.StringComparison.OrdinalIgnoreCase);
+            return String.Equals(stringSearchValueOther.String, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />

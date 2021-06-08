@@ -112,9 +112,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             return null;
         }
 
-        public async Task<bool> IsFormatSupportedAsync(string contentType)
+        public async Task<bool> IsFormatSupportedAsync(string format)
         {
-            ResourceFormat resourceFormat = ContentType.GetResourceFormatFromContentType(contentType);
+            ResourceFormat resourceFormat = ContentType.GetResourceFormatFromContentType(format);
 
             return await IsFormatSupportedAsync(resourceFormat);
         }
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 return isSupported;
             }
 
-            ResourceElement typedStatement = await _conformanceProvider.GetCapabilityStatementAsync();
+            ResourceElement typedStatement = await _conformanceProvider.GetCapabilityStatementOnStartup();
 
             IEnumerable<string> formats = typedStatement.Select("CapabilityStatement.format").Select(x => (string)x.Value);
 
