@@ -12,11 +12,15 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\CompartmentIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\SearchCompartmentHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceBuilderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationContinuationTokenTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\EverythingOperationHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Everything\PatientEverythingServiceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilitiesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTaskTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalDelete.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Persistence\ResourceWrapperFactoryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\BooleanToBooleanSearchValueConverterTests.cs" />

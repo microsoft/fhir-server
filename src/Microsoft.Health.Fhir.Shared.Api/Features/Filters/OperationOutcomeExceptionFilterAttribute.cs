@@ -106,6 +106,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case RequestNotValidException _:
                     case BundleEntryLimitExceededException _:
                     case ProvenanceHeaderException _:
+                    case RequestTooCostlyException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
                     case ResourceConflictException _:
@@ -145,6 +146,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case FetchTemplateCollectionFailedException _:
                     case ConvertDataUnhandledException _:
+                    case EverythingOperationException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
                     case ConvertDataTimeoutException _:

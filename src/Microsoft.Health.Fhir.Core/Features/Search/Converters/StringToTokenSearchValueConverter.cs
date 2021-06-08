@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -16,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public class StringToTokenSearchValueConverter : FhirTypedElementToSearchValueConverter<TokenSearchValue>
     {
         public StringToTokenSearchValueConverter()
-            : base("string")
+            : base("string", "System.String")
         {
         }
 

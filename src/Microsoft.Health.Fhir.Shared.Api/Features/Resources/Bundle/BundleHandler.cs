@@ -41,6 +41,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
+using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
 
@@ -446,7 +447,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 var entryComponentResource = _fhirJsonParser.Parse<Resource>(bodyContent);
 
-                if (entryComponentResource.ResourceType == ResourceType.OperationOutcome)
+                if (entryComponentResource.TypeName == KnownResourceTypes.OperationOutcome)
                 {
                     entryComponent.Response.Outcome = entryComponentResource;
                 }

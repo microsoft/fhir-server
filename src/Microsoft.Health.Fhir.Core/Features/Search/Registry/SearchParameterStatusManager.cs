@@ -10,40 +10,44 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class SearchParameterStatusManager : INotificationHandler<StorageInitializedNotification>
+    public class SearchParameterStatusManager : INotificationHandler<SearchParameterDefinitionManagerInitialized>
     {
         private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
+        private readonly ILogger<SearchParameterStatusManager> _logger;
         private DateTimeOffset _latestSearchParams;
 
         public SearchParameterStatusManager(
             ISearchParameterStatusDataStore searchParameterStatusDataStore,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterSupportResolver searchParameterSupportResolver,
-            IMediator mediator)
+            IMediator mediator,
+            ILogger<SearchParameterStatusManager> logger)
         {
             EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _searchParameterStatusDataStore = searchParameterStatusDataStore;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _mediator = mediator;
+            _logger = logger;
 
-            _latestSearchParams = DateTime.MinValue;
+            _latestSearchParams = DateTimeOffset.MinValue;
         }
 
         internal async Task EnsureInitializedAsync(CancellationToken cancellationToken)
@@ -63,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     if (result.Status == SearchParameterStatus.Disabled)
                     {
                         // Re-check if this parameter is now supported.
-                        (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(p);
+                        (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
                         tempStatus.IsSupported = supportedResult.Supported;
                         tempStatus.IsPartiallySupported = supportedResult.IsPartiallySupported;
                     }
@@ -86,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     p.IsSearchable = false;
 
                     // Check if this parameter is now supported.
-                    (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(p);
+                    (bool Supported, bool IsPartiallySupported) supportedResult = CheckSearchParameterSupport(p);
                     p.IsSupported = supportedResult.Supported;
                     p.IsPartiallySupported = supportedResult.IsPartiallySupported;
 
@@ -94,10 +98,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
-            await _mediator.Publish(new SearchParametersUpdated(updated), cancellationToken);
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+            await _mediator.Publish(new SearchParametersInitializedNotification(), cancellationToken);
         }
 
-        public async Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        public async Task Handle(SearchParameterDefinitionManagerInitialized notification, CancellationToken cancellationToken)
         {
             await EnsureInitializedAsync(cancellationToken);
         }
@@ -113,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             {
                 var searchParamUri = new Uri(uri);
 
-                var paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
+                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
                 updated.Add(paramInfo);
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                 paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
@@ -144,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList);
 
-            await _mediator.Publish(new SearchParametersUpdated(updated));
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated));
         }
 
         internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris)
@@ -168,6 +173,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
+            if (!updatedSearchParameterStatus.Any())
+            {
+                return;
+            }
+
             var updated = new List<SearchParameterInfo>();
 
             foreach (var paramStatus in updatedSearchParameterStatus)
@@ -186,7 +196,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
 
-            await _mediator.Publish(new SearchParametersUpdated(updated), cancellationToken);
+            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
+
+            await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
+        }
+
+        private (bool Supported, bool IsPartiallySupported) CheckSearchParameterSupport(SearchParameterInfo parameterInfo)
+        {
+            try
+            {
+                return _searchParameterSupportResolver.IsSearchParameterSupported(parameterInfo);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning("Unable to resolve search parameter {0}. Exception: {1}", parameterInfo?.Code, ex);
+                return (false, false);
+            }
         }
 
         private static TempStatus EvaluateSearchParamStatus(ResourceSearchParameterStatus paramStatus)

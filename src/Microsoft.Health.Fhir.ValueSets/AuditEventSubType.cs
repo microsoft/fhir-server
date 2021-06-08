@@ -64,5 +64,7 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string Validate = "validate";
 
         public const string MemberMatch = "member-match";
+
+        public const string Everything = "everything";
     }
 }

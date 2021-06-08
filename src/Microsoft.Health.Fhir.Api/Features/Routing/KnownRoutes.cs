@@ -55,6 +55,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string MemberMatch = "Patient/$member-match";
         public const string MemberMatchOperationDefinition = OperationDefinition + "/" + OperationsConstants.MemberMatch;
 
+        public const string Everything = "$everything";
+        public const string PatientEverythingById = "Patient/" + IdRouteSegment + "/" + Everything;
+
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";

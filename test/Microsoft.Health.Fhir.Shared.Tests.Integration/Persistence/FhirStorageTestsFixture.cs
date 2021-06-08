@@ -5,7 +5,6 @@
 
 using System;
 using System.Net.Http;
-using System.Security.AccessControl;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -137,6 +136,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     ResourceElement resource = x.ArgAt<ResourceElement>(0);
                     var searchParamHash = SearchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
+
+                    if (string.IsNullOrEmpty(searchParamHash))
+                    {
+                        searchParamHash = "hash";
+                    }
 
                     return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null, searchParamHash);
                 });

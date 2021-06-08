@@ -51,5 +51,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value whether we need to run profile validation during resource update.
         /// </summary>
         public bool ProfileValidationOnUpdate { get; set; } = false;
+
+        /// <summary>
+        /// Maximum items allowed to be deleted when using Conditional Delete.
+        /// </summary>
+        public int ConditionalDeleteMaxItems { get; set; } = 100;
     }
 }

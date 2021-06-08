@@ -1,0 +1,44 @@
+{
+  "resourceType": "SearchParameter",
+  "id": "us-core-race",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>id</b>: us-core-race</p><p><b>url</b>: <a href=\"http://hl7.org/fhir/us/core/SearchParameter/us-core-race\">http://hl7.org/fhir/us/core/SearchParameter/us-core-race</a></p><p><b>version</b>: 3.1.1</p><p><b>name</b>: USCoreRace</p><p><b>status</b>: active</p><p><b>date</b>: 2019-05-21</p><p><b>publisher</b>: US Realm Steering Committee</p><p><b>contact</b>: http://www.healthit.gov/</p><p><b>description</b>: Returns patients with a race extension matching the specified code.</p><p><b>jurisdiction</b>: <span title=\"Codes: {urn:iso:std:iso:3166 US}\">United States of America</span></p><p><b>code</b>: race</p><p><b>base</b>: Patient</p><p><b>type</b>: token</p><p><b>expression</b>: Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.value.code</p><p><b>xpath</b>: f:Patient/f:extension[@url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-race']/f:extension/f:valueCoding/f:code/@value</p><p><b>xpathUsage</b>: normal</p></div>"
+  },
+  "url": "http://hl7.org/fhir/us/core/SearchParameter/us-core-race",
+  "version": "3.1.1",
+  "name": "USCoreRace",
+  "status": "active",
+  "date": "2019-05-21",
+  "publisher": "US Realm Steering Committee",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "other",
+          "value": "http://www.healthit.gov/"
+        }
+      ]
+    }
+  ],
+  "description": "Returns patients with a race extension matching the specified code.",
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US",
+          "display": "United States of America"
+        }
+      ]
+    }
+  ],
+  "code": "race",
+  "base": [
+    "Patient"
+  ],
+  "type": "token",
+  "expression": "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.value.code",
+  "xpath": "f:Patient/f:extension[@url='http://hl7.org/fhir/us/core/StructureDefinition/us-core-race']/f:extension/f:valueCoding/f:code/@value",
+  "xpathUsage": "normal"
+}

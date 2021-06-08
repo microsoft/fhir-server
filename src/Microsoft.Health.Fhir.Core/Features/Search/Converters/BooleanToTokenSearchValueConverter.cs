@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     public class BooleanToTokenSearchValueConverter : FhirTypedElementToSearchValueConverter<TokenSearchValue>
     {
         public BooleanToTokenSearchValueConverter()
-            : base("boolean")
+            : base("boolean", "System.Boolean")
         {
         }
 

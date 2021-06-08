@@ -50,7 +50,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private bool CanRead(Type modelType, string contentType)
         {
-            var formatter = new FhirJsonOutputFormatter(new FhirJsonSerializer(), Deserializers.ResourceDeserializer, ArrayPool<char>.Shared, new BundleSerializer());
+            var formatter = new FhirJsonOutputFormatter(
+               new FhirJsonSerializer(),
+               Deserializers.ResourceDeserializer,
+               ArrayPool<char>.Shared,
+               new BundleSerializer(),
+               ModelInfoProvider.Instance);
 
             var defaultHttpContext = new DefaultHttpContext();
             defaultHttpContext.Request.ContentType = contentType;

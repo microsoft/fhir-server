@@ -176,7 +176,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         protected static SearchParameterQueryGeneratorContext VisitSimpleString(StringExpression expression, SearchParameterQueryGeneratorContext context, StringColumn column, string value)
         {
-            AppendColumnName(context, column, expression);
+            if (expression.StringOperator != StringOperator.LeftSideStartsWith)
+            {
+                AppendColumnName(context, column, expression);
+            }
 
             bool needsEscaping = false;
             switch (expression.StringOperator)
@@ -209,6 +212,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     SqlParameter startsWithParameter = context.Parameters.AddParameter(column, $"{value}%", true);
                     context.StringBuilder.Append(" LIKE ").Append(startsWithParameter.ParameterName);
                     break;
+                case StringOperator.LeftSideStartsWith:
+                    needsEscaping = TryEscapeValueForLike(ref value);
+                    SqlParameter leftParameter = context.Parameters.AddParameter(column, $"{value}", true);
+                    context.StringBuilder.Append(leftParameter.ParameterName).Append(" LIKE ");
+                    AppendColumnName(context, column, expression);
+                    context.StringBuilder.Append("+'%'");
+                    break;
+
                 default:
                     throw new ArgumentOutOfRangeException(expression.StringOperator.ToString());
             }

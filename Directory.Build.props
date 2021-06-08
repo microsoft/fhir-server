@@ -24,12 +24,12 @@
   </PropertyGroup>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <IdentityModelVersion>6.11.0</IdentityModelVersion>
+    <IdentityModelVersion>6.11.1</IdentityModelVersion>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
-    <AspNetPackageVersion>5.0.5</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>2.1.15</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
-   </PropertyGroup>
+    <AspNetPackageVersion>5.0.6</AspNetPackageVersion>
+    <HealthcareSharedPackageVersion>2.1.25</HealthcareSharedPackageVersion>
+    <Hl7FhirVersion>3.2.0</Hl7FhirVersion>
+  </PropertyGroup>
 
   <Choose>
     <When Condition="$(MSBuildProjectName.Contains('Test'))">

@@ -198,6 +198,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (FailedToAnonymizeResourceException ex)
+            {
+                _logger.LogError(ex, "Failed to anonymize resource. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Resources.FailedToAnonymizeResource, ex.Message), HttpStatusCode.BadRequest);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (AnonymizationConfigurationNotFoundException ex)
             {
                 _logger.LogError(ex, "Cannot found anonymization configuration. The job will be marked as failed.");
@@ -619,7 +626,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (anonymizer != null)
                 {
-                    element = anonymizer.Anonymize(element);
+                    try
+                    {
+                        element = anonymizer.Anonymize(element);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new FailedToAnonymizeResourceException(ex.Message, ex);
+                    }
                 }
 
                 // Serialize into NDJson and write to the file.

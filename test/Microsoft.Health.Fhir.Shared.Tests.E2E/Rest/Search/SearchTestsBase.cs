@@ -7,10 +7,12 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using static Hl7.Fhir.Model.OperationOutcome;
@@ -20,7 +22,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     public abstract class SearchTestsBase<TFixture> : IClassFixture<TFixture>
         where TFixture : HttpIntegrationTestFixture
     {
-        private const string ContinuationToken = "&ct";
+        private Regex _continuationToken = new Regex("[?&]ct");
 
         protected SearchTestsBase(TFixture fixture)
         {
@@ -82,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
 
                 // Truncating host and appending continuation token
-                nextLink = selfLink + nextLink.Substring(nextLink.IndexOf(ContinuationToken));
+                nextLink = selfLink + nextLink.Substring(_continuationToken.Match(nextLink).Index);
                 ValidateBundle(secondBundle, nextLink, sort, expectedResources.ToList().GetRange(pageSize, expectedResources.Length - pageSize).ToArray());
             }
 
@@ -99,10 +101,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string actualUrl;
 
             // checking if continuation token is present in the link
-            if (bundle.SelfLink.AbsoluteUri.Contains(ContinuationToken))
+            if (_continuationToken.IsMatch(bundle.SelfLink.AbsoluteUri))
             {
                 // avoiding url decode of continuation token
-                int tokenIndex = bundle.SelfLink.AbsoluteUri.IndexOf(ContinuationToken, StringComparison.Ordinal);
+                int tokenIndex = _continuationToken.Match(bundle.SelfLink.AbsoluteUri).Index;
                 actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri.Substring(0, tokenIndex)) + bundle.SelfLink.AbsoluteUri.Substring(tokenIndex);
             }
             else
@@ -139,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected OperationOutcome GetAndValidateOperationOutcome(Bundle bundle)
         {
-            var outcomeEnity = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.OperationOutcome).FirstOrDefault();
+            var outcomeEnity = bundle.Entry.FirstOrDefault(x => x.Resource.TypeName == KnownResourceTypes.OperationOutcome);
             Assert.NotNull(outcomeEnity);
             var outcome = outcomeEnity.Resource as OperationOutcome;
             Assert.NotNull(outcome);

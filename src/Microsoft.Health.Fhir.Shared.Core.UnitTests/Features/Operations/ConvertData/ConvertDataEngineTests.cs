@@ -17,11 +17,11 @@ using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
-using Microsoft.Health.Fhir.Liquid.Converter.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
+using DataType = Microsoft.Health.Fhir.Liquid.Converter.Models.DataType;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.ConvertData

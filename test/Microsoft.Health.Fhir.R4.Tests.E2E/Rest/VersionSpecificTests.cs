@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Resource actual = await _client.CreateAsync(mp);
 
             Assert.NotNull(actual);
-            Assert.Equal(ResourceType.MedicinalProduct, actual.ResourceType);
+            Assert.Equal(ResourceType.MedicinalProduct.ToString(), actual.TypeName);
 
             // We should also be able to search.
             Bundle bundle = await _client.SearchAsync(ResourceType.MedicinalProduct, $"identifier={testId}");

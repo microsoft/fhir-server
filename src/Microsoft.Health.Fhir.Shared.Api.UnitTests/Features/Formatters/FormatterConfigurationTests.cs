@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         private readonly FeatureConfiguration _featureConfiguration = new FeatureConfiguration();
         private readonly FhirJsonInputFormatter _fhirJsonInputFormatter = new FhirJsonInputFormatter(new FhirJsonParser(), ArrayPool<char>.Shared);
         private readonly FhirXmlInputFormatter _fhirXmlInputFormatter = new FhirXmlInputFormatter(new FhirXmlParser());
-        private readonly FhirXmlOutputFormatter _fhirXmlOutputFormatter = new FhirXmlOutputFormatter(new FhirXmlSerializer(), Deserializers.ResourceDeserializer, NullLogger<FhirXmlOutputFormatter>.Instance);
+        private readonly FhirXmlOutputFormatter _fhirXmlOutputFormatter = new FhirXmlOutputFormatter(new FhirXmlSerializer(), Deserializers.ResourceDeserializer, ModelInfoProvider.Instance);
         private readonly HtmlOutputFormatter _htmlOutputFormatter;
         private readonly FhirJsonOutputFormatter _fhirJsonOutputFormatter;
         private readonly FormatterConfiguration _configuration;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             var serializer = new FhirJsonSerializer();
 
             _htmlOutputFormatter = new HtmlOutputFormatter(serializer, NullLogger<HtmlOutputFormatter>.Instance, new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance), ArrayPool<char>.Shared);
-            _fhirJsonOutputFormatter = new FhirJsonOutputFormatter(serializer, Deserializers.ResourceDeserializer, ArrayPool<char>.Shared, new BundleSerializer());
+            _fhirJsonOutputFormatter = new FhirJsonOutputFormatter(serializer, Deserializers.ResourceDeserializer, ArrayPool<char>.Shared, new BundleSerializer(), ModelInfoProvider.Instance);
 
             _configuration = new FormatterConfiguration(
                 Options.Create(_featureConfiguration),

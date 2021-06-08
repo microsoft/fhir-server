@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             public const string Incomplete = "Incomplete";
             public const string Informational = "Informational";
             public const string Throttled = "Throttled";
+            public const string TooCostly = "TooCostly";
         }
     }
 }

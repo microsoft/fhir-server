@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:5.0.202-alpine3.12 AS build
+FROM mcr.microsoft.com/dotnet/sdk:5.0.203-alpine3.12 AS build
 
 ARG FHIR_VERSION
 
@@ -24,6 +24,9 @@ COPY ./src/Microsoft.Health.Fhir.Core/Microsoft.Health.Fhir.Core.csproj \
 
 COPY ./src/Microsoft.Health.Fhir.Azure/Microsoft.Health.Fhir.Azure.csproj \
      ./src/Microsoft.Health.Fhir.Azure/Microsoft.Health.Fhir.Azure.csproj
+	 
+COPY ./src/Microsoft.Health.TaskManagement/Microsoft.Health.TaskManagement.csproj \
+     ./src/Microsoft.Health.TaskManagement/Microsoft.Health.TaskManagement.csproj
 
 COPY ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj \
      ./src/Microsoft.Health.Fhir.SqlServer/Microsoft.Health.Fhir.SqlServer.csproj
@@ -63,7 +66,7 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:5.0.5-alpine3.12 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:5.0.6-alpine3.12 AS runtime
 
 ARG FHIR_VERSION
 

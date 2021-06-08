@@ -60,8 +60,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                     var result = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco());
                     return result.Response;
                 },
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().ResourceType.ToString()),
-                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().ResourceType.ToString()));
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().TypeName),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 1, resourceType: Samples.GetDefaultObservation().ToPoco().TypeName));
         }
 
         [Fact]
@@ -84,8 +84,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             await ExecuteAndValidate(
                 () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()),
-                (type: typeof(CosmosStorageRequestMetricsNotification), count: 10, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().TypeName),
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 10, resourceType: Samples.GetDefaultBatch().ToPoco().TypeName));
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             await ExecuteAndValidate(
                 () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().TypeName));
         }
 
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 
             await ExecuteAndValidate(
                 () => _client.PostBundleAsync(requestBundle),
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: requestBundle.ResourceType.ToString()));
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: requestBundle.TypeName));
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)

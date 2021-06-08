@@ -1,0 +1,134 @@
+# This file includes all the search parameters, reindex operation, and profiles to load to get the necessary pieces for the Carin Blue Button IG
+### REST Client
+@fhirurl= <FHIR URL>
+@clientid= <CLIENT ID>
+@clientsecret= <CLIENT SECRET>
+@tenantid= <SUBSCRIPTION ID>
+@contentType = application/json
+
+@reindexJobId = <REINDEX JOB ID>
+
+### Get Metadata - Allows you to get the current capability statement
+# this will update as you add search parameters and profiles to the database
+GET {{fhirurl}}/metadata
+
+### Get access token
+# @name getAADToken
+POST https://login.microsoftonline.com/{{tenantid}}/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&resource={{fhirurl}}
+&client_id={{clientid}}
+&client_secret={{clientsecret}}
+
+### Capture access token from getToken request
+@token={{getAADToken.response.body.access_token}}
+
+### Create SearchParameters
+# There are three non-standard search parameters that need to be created for C4BB
+# Run the commands below to create type, service-date, and insurer SearchParameters for EOB
+
+### ExplanationOfBenefit-Type
+POST {{fhirurl}}/SearchParameter
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./SearchParameters/EOBType.json
+
+### ExplanationOfBenefit - service-date
+POST {{fhirurl}}/SearchParameter
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./SearchParameters/EOBServiceDate.json
+
+
+### ExplanationOfBenefit - Insurer
+POST {{fhirurl}}/SearchParameter
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./SearchParameters/EOBInsurer.json
+
+### Trigger reindex
+# You need to trigger a reindex to get the search parameters to be fully supported in your database
+# Copy the ID from the response's Content-Location header and paste it in the reindexJobId variable at the top of the file
+POST {{fhirurl}}/$reindex HTTP/1.1
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{  "resourceType": "Parameters", "parameter": [] }
+
+### Check status of reindex job
+GET {{fhirurl}}/_operations/reindex/{{reindexJobId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+### Get SearchParameters - Allows you to see all the search parameters you have created
+GET {{fhirurl}}/SearchParameter
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+### Load Profiles
+# There are 8 profiles to load for this IG
+
+### C4BB Coverage
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./Profiles/C4BBCoverage.json
+
+### C4BB Practitioner
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./Profiles/C4BBPractioner.json
+
+### C4BB Patient
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./Profiles/C4BBPatient.json
+
+### C4BB Organization
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./Profiles/C4BBOrganization.json
+
+### C4BB ExplanationOfBenefit Professional NonClinician
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./Profiles/C4BBEOBProfessional.json
+
+### C4BB ExplanationOfBenefit Outpatient Institutional
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./Profiles/C4BBEOBOutpatientInstitutional.json
+
+### C4BB ExplanationOfBenefit Inpatient Institutional
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./Profiles/C4BBEOBInpatientInstitutional.json
+
+### C4BB ExplanationOfBenefit Pharmacy
+POST {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+< ./Profiles/C4BBEOBPharmacy.json
+
+### Check Profiles Were Added
+Get {{fhirurl}}/StructureDefinition
+Authorization: Bearer {{token}}
+content-type: {{contentType}}

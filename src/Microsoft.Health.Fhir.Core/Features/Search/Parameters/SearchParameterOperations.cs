@@ -78,10 +78,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
-                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
+                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
 
-                var searchParameterUrl = searchParam.GetStringScalar("url");
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url });
             }
             catch (FhirException fex)
             {
@@ -108,6 +107,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             try
             {
+                // We need to make sure we have the latest search parameters before trying to delete
+                // existing search parameter. This is to avoid trying to update a search parameter that
+                // was recently added and that hasn't propogated to all fhir-server instances.
+                await GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
                 var searchParameterUrl = searchParam.GetStringScalar("url");
 
@@ -142,6 +146,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             try
             {
+                // We need to make sure we have the latest search parameters before trying to update
+                // existing search parameter. This is to avoid trying to update a search parameter that
+                // was recently added and that hasn't propogated to all fhir-server instances.
+                await GetAndApplySearchParameterUpdates(CancellationToken.None);
+
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
                 (bool Supported, bool IsPartiallySupported) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(searchParameterInfo);
@@ -215,7 +224,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (searchParamResource == null)
                 {
-                    _logger.LogWarning(
+                    _logger.LogInformation(
                         "Updated SearchParameter status found for SearchParameter: {0}, but did not find any SearchParameter resources when querying for this url.",
                         searchParam.Uri);
                     continue;
@@ -234,12 +243,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             if (paramsToAdd.Any())
             {
                 _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
-
-                // Once added to the definition manager we can update their status
-                await _searchParameterStatusManager.ApplySearchParameterStatus(
-                    updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted).ToList(),
-                    cancellationToken);
             }
+
+            // Once added to the definition manager we can update their status
+            await _searchParameterStatusManager.ApplySearchParameterStatus(
+                updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted).ToList(),
+                cancellationToken);
         }
 
         private void DeleteSearchParameter(string url)

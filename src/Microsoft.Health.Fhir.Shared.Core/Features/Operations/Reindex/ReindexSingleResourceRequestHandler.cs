@@ -13,6 +13,7 @@ using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchIndexer _searchIndexer;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ISearchParameterOperations _searchParameterOperations;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         private const string HttpPostName = "POST";
 
@@ -37,19 +39,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IFhirDataStore fhirDataStore,
             ISearchIndexer searchIndexer,
             IResourceDeserializer deserializer,
-            ISearchParameterOperations searchParameterOperations)
+            ISearchParameterOperations searchParameterOperations,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
             EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
             _authorizationService = authorizationService;
             _fhirDataStore = fhirDataStore;
             _searchIndexer = searchIndexer;
             _resourceDeserializer = deserializer;
             _searchParameterOperations = searchParameterOperations;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
         public async Task<ReindexSingleResourceResponse> Handle(ReindexSingleResourceRequest request, CancellationToken cancellationToken)
@@ -100,6 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async System.Threading.Tasks.Task ProcessPostReindexSingleResourceRequest(ResourceWrapper originalResource, IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
+            var hashValue = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(originalResource.ResourceTypeName);
             ResourceWrapper updatedResource = new ResourceWrapper(
                 originalResource.ResourceId,
                 originalResource.Version,
@@ -110,7 +116,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 deleted: false,
                 searchIndices,
                 originalResource.CompartmentIndices,
-                originalResource.LastModifiedClaims);
+                originalResource.LastModifiedClaims,
+                hashValue);
 
             await _fhirDataStore.UpdateSearchParameterIndicesAsync(updatedResource, WeakETag.FromVersionId(originalResource.Version), CancellationToken.None);
         }

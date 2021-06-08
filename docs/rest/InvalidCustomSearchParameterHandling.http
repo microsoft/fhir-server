@@ -1,0 +1,152 @@
+# This test flow confirms that we handle search parameters with invalid code
+# values appropriately. New search parameters can't have the same code value
+# as an existing search parameter with a matching base type.
+#
+# This test assumes the following local environment setup:
+# 1. appsettings.json has Security.Enabled = false
+
+@baseUrl = https://localhost:44348
+@contentType = application/json
+
+###
+# Create a search parameter resource with a code value that already exists.
+# This should fail and indicate that "identifier" already used by an
+# existing search parameter that also has Patient as a base resource type.
+POST {{baseUrl}}/SearchParameter HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "resourceType" : "SearchParameter",
+  "id" : "us-core-patient-identifier",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>SearchParameter: USCorePatientIdentifier</h2><p><b> description</b> : A patient identifier<br/>\n<em>NOTE</em>: This US Core SearchParameter definition extends the usage context of\n<a href=\"http://hl7.org/fhir/R4/extension-capabilitystatement-expectation.html\">capabilitystatement-expectation</a>\n extension to formally express implementer conformance expectations for these elements:<br/>\n - multipleAnd<br/>\n - multipleOr<br/>\n - comparator<br/>\n - modifier<br/>\n - chain<br/>\n\n </p><br/><p><b> id</b> us-core-patient-identifier</p><p><b> url</b> : <b> http://hl7.org/fhir/us/core/SearchParameter/us-core-patient-identifier</b>\n\t\t\t</p><p><b> version</b> : 4.0.1</p><p><b> name</b> : USCorePatientIdentifier</p><p><b> derivedFrom</b> : http://hl7.org/fhir/SearchParameter/Patient-identifier\n\t\t\t</p><p><b> status</b> : active</p><p><b> experimental</b>  False</p><p><b> date</b> : 2020-07-01</p><p><b> publisher</b> : HL7 International - US Realm Steering Committee</p><p><b> contact</b> : http://www.hl7.org/Special/committees/usrealm/index.cfm</p><p><b> useContext</b> : </p><p><b> jurisdiction</b> : United States of America (the) <span> (Details : {urn:iso:std:iso:3166 code 'US' = 'United States of America', given as 'United\n           States of America (the)'})</span>\n\t\t\t</p>  <!-- <p>\n\t\t<b> purpose</b> : Need to search by identifier for various infrastructural cases - mainly retrieving packages,\n         and matching as part of a chain</p> --><p><b> code</b> : <code>identifier</code>\n\t\t\t</p><p><b> base</b> :Patient</p><p><b> type</b> : token</p><p><b> expression</b> : <code>Patient.identifier</code>\n\t\t\t</p><p><b> xpath</b> : <code>f:Patient/f:identifier</code>\n\t\t\t</p><p><b> xpathUsage</b> : normal</p><p><b> mulitpleOr</b> : True   (Conformance Expectation = MAY)</p><p><b> mulitpleAnd</b> : True  ( Conformance Expectation = MAY)</p></div>"
+  },
+  "url" : "http://hl7.org/fhir/us/core/SearchParameter/us-core-patient-identifier",
+  "version" : "3.1.1",
+  "name" : "USCorePatientIdentifier",
+  "derivedFrom" : "http://hl7.org/fhir/SearchParameter/Patient-identifier",
+  "status" : "active",
+  "experimental" : false,
+  "date" : "2020-07-01T21:51:57.604969Z",
+  "publisher" : "HL7 International - US Realm Steering Committee",
+  "contact" : [
+    {
+      "telecom" : [
+        {
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/usrealm/index.cfm"
+        }
+      ]
+    }
+  ],
+  "description" : "A patient identifier<br />\n<em>NOTE</em>: This US Core SearchParameter definition extends the usage context of\n<a href=\"http://hl7.org/fhir/R4/extension-capabilitystatement-expectation.html\">capabilitystatement-expectation</a>\n extension to formally express implementer conformance expectations for these elements:<br />\n - multipleAnd<br />\n - multipleOr<br />\n - comparator<br />\n - modifier<br />\n - chain<br />\n\n ",
+  "jurisdiction" : [
+    {
+      "coding" : [
+        {
+          "system" : "urn:iso:std:iso:3166",
+          "code" : "US",
+          "display" : "United States of America"
+        }
+      ]
+    }
+  ],
+  "code" : "identifier",
+  "base" : [
+    "Patient"
+  ],
+  "type" : "token",
+  "expression" : "Patient.identifier",
+  "xpath" : "f:Patient/f:identifier",
+  "xpathUsage" : "normal",
+  "multipleOr" : true,
+  "_multipleOr" : {
+    "extension" : [
+      {
+        "url" : "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+        "valueCode" : "MAY"
+      }
+    ]
+  },
+  "multipleAnd" : true,
+  "_multipleAnd" : {
+    "extension" : [
+      {
+        "url" : "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+        "valueCode" : "MAY"
+      }
+    ]
+  }
+}
+
+###
+# Now, create the search parameter resource with a code value that is unique.
+# This should succeed.
+POST {{baseUrl}}/SearchParameter HTTP/1.1
+content-type: {{contentType}}
+
+{
+  "resourceType" : "SearchParameter",
+  "id" : "us-core-patient-identifier",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>SearchParameter: USCorePatientIdentifier</h2><p><b> description</b> : A patient identifier<br/>\n<em>NOTE</em>: This US Core SearchParameter definition extends the usage context of\n<a href=\"http://hl7.org/fhir/R4/extension-capabilitystatement-expectation.html\">capabilitystatement-expectation</a>\n extension to formally express implementer conformance expectations for these elements:<br/>\n - multipleAnd<br/>\n - multipleOr<br/>\n - comparator<br/>\n - modifier<br/>\n - chain<br/>\n\n </p><br/><p><b> id</b> us-core-patient-identifier</p><p><b> url</b> : <b> http://hl7.org/fhir/us/core/SearchParameter/us-core-patient-identifier</b>\n\t\t\t</p><p><b> version</b> : 4.0.1</p><p><b> name</b> : USCorePatientIdentifier</p><p><b> derivedFrom</b> : http://hl7.org/fhir/SearchParameter/Patient-identifier\n\t\t\t</p><p><b> status</b> : active</p><p><b> experimental</b>  False</p><p><b> date</b> : 2020-07-01</p><p><b> publisher</b> : HL7 International - US Realm Steering Committee</p><p><b> contact</b> : http://www.hl7.org/Special/committees/usrealm/index.cfm</p><p><b> useContext</b> : </p><p><b> jurisdiction</b> : United States of America (the) <span> (Details : {urn:iso:std:iso:3166 code 'US' = 'United States of America', given as 'United\n           States of America (the)'})</span>\n\t\t\t</p>  <!-- <p>\n\t\t<b> purpose</b> : Need to search by identifier for various infrastructural cases - mainly retrieving packages,\n         and matching as part of a chain</p> --><p><b> code</b> : <code>identifier</code>\n\t\t\t</p><p><b> base</b> :Patient</p><p><b> type</b> : token</p><p><b> expression</b> : <code>Patient.identifier</code>\n\t\t\t</p><p><b> xpath</b> : <code>f:Patient/f:identifier</code>\n\t\t\t</p><p><b> xpathUsage</b> : normal</p><p><b> mulitpleOr</b> : True   (Conformance Expectation = MAY)</p><p><b> mulitpleAnd</b> : True  ( Conformance Expectation = MAY)</p></div>"
+  },
+  "url" : "http://hl7.org/fhir/us/core/SearchParameter/us-core-patient-identifier",
+  "version" : "3.1.1",
+  "name" : "USCorePatientIdentifier",
+  "derivedFrom" : "http://hl7.org/fhir/SearchParameter/Patient-identifier",
+  "status" : "active",
+  "experimental" : false,
+  "date" : "2020-07-01T21:51:57.604969Z",
+  "publisher" : "HL7 International - US Realm Steering Committee",
+  "contact" : [
+    {
+      "telecom" : [
+        {
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/usrealm/index.cfm"
+        }
+      ]
+    }
+  ],
+  "description" : "A patient identifier<br />\n<em>NOTE</em>: This US Core SearchParameter definition extends the usage context of\n<a href=\"http://hl7.org/fhir/R4/extension-capabilitystatement-expectation.html\">capabilitystatement-expectation</a>\n extension to formally express implementer conformance expectations for these elements:<br />\n - multipleAnd<br />\n - multipleOr<br />\n - comparator<br />\n - modifier<br />\n - chain<br />\n\n ",
+  "jurisdiction" : [
+    {
+      "coding" : [
+        {
+          "system" : "urn:iso:std:iso:3166",
+          "code" : "US",
+          "display" : "United States of America"
+        }
+      ]
+    }
+  ],
+  "code" : "uniqueidentifier",
+  "base" : [
+    "Patient"
+  ],
+  "type" : "token",
+  "expression" : "Patient.identifier",
+  "xpath" : "f:Patient/f:identifier",
+  "xpathUsage" : "normal",
+  "multipleOr" : true,
+  "_multipleOr" : {
+    "extension" : [
+      {
+        "url" : "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+        "valueCode" : "MAY"
+      }
+    ]
+  },
+  "multipleAnd" : true,
+  "_multipleAnd" : {
+    "extension" : [
+      {
+        "url" : "http://hl7.org/fhir/StructureDefinition/capabilitystatement-expectation",
+        "valueCode" : "MAY"
+      }
+    ]
+  }
+}

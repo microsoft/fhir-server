@@ -7,14 +7,23 @@ namespace Microsoft.Health.Fhir.Core.Features
 {
     internal static class KnownHeaders
     {
+        // FHIR Headers
         public const string IfNoneExist = "If-None-Exist";
-        public const string PartiallyIndexedParamsHeaderName = "x-ms-use-partial-indices";
-        public const string RetryAfterMilliseconds = "x-ms-retry-after-ms";
-        public const string RetryAfter = "Retry-After";
         public const string ProvenanceHeader = "X-Provenance";
+
+        // HTTP Headers
+        public const string RetryAfter = "Retry-After";
         public const string Prefer = "Prefer";
         public const string RequestId = "X-Request-Id";
         public const string CorrelationId = "X-Correlation-Id";
+
+        // Microsoft Headers (external to our application)
+        public const string RetryAfterMilliseconds = "x-ms-retry-after-ms";
+
+        // FHIR Server for Azure Headers
+        // Note, the "x-" convention is obsolete: [https://datatracker.ietf.org/doc/html/rfc6648](https://datatracker.ietf.org/doc/html/rfc6648)
+        public const string ItemsDeleted = "Items-Deleted";
+        public const string PartiallyIndexedParamsHeaderName = "x-ms-use-partial-indices";
         public const string EnableChainSearch = "x-ms-enable-chained-search";
         public const string ProfileValidation = "x-ms-profile-validation";
     }

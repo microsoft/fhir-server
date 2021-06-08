@@ -1,0 +1,80 @@
+# .SUMMARY Sample requests for export
+# To test since set the timestamp to be between when you started loadeding the database and when you finished
+
+@hostname = localhost:44348
+@since = 2021-05-27T00:00:00.000
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+
+### Setup test data
+# @name batch
+POST https://{{hostname}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\ExportDataBatch.json
+
+### Record group id
+@groupId = {{batch.response.body.entry[2].resource.id}}
+
+### Record export id
+@exportLocation = {{export.response.headers.Content-Location}}
+
+### Create Export request
+# @name export
+GET https://{{hostname}}/$export
+Accept: application/fhir+json
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Patient Export
+# @name export
+GET https://{{hostname}}/Patient/$export
+Accept: application/fhir+json
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Group Export
+# @name export
+GET https://{{hostname}}/Group/{{groupId}}/$export
+Accept: application/fhir+json
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Export with since
+# @name export
+GET https://{{hostname}}/$export?_since={{since}}
+Accept: application/fhir+json
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Export with type
+# @name export
+GET https://{{hostname}}/$export?_type=Observation,Patient
+Accept: application/fhir+json
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Export with typeFilter
+# @name export
+GET https://{{hostname}}/$export?_type=Observation,Patient&_typeFilter=Patient%3Fgender%3Dfemale
+Accept: application/fhir+json
+Prefer: respond-async
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get Export request
+GET {{exportLocation}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Cancel Export request
+DELETE {{exportLocation}}
+Authorization: Bearer {{bearer.response.body.access_token}}
