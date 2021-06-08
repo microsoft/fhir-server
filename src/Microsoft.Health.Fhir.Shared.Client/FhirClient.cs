@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Client
             return DeleteAsync($"{resource.TypeName}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> PatchAsync<T>(T resource, string body, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> PatchAsync<T>(T resource, string body, string ifMatchVersion = null, CancellationToken cancellationToken = default)
         where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Patch, $"{resource.TypeName}/{resource.Id}")
@@ -226,6 +226,13 @@ namespace Microsoft.Health.Fhir.Client
             };
             message.Headers.Accept.Add(_mediaType);
 
+            if (ifMatchVersion != null)
+            {
+                var weakETag = $"W/\"{ifMatchVersion}\"";
+
+                message.Headers.Add(IfMatchHeaderName, weakETag);
+            }
+
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
@@ -233,13 +240,20 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<T>(response);
         }
 
-        public async Task<FhirResponse> PatchAsync(string uri, string content, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse> PatchAsync(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
             {
                 Content = new StringContent(content),
             };
             message.Headers.Accept.Add(_mediaType);
+
+            if (ifMatchVersion != null)
+            {
+                var weakETag = $"W/\"{ifMatchVersion}\"";
+
+                message.Headers.Add(IfMatchHeaderName, weakETag);
+            }
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
