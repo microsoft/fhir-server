@@ -86,7 +86,7 @@ If you want to update the manifest, see the details below:
 				"Application"
 			],
 			"description": "fhir oss exporter",
-			"displayName": "globalWriter",
+			"displayName": "globalExporter",
 			"id": "fbf16161-ddf3-42a7-8607-758a3660afe1",
 			"isEnabled": true,
 			"value": "globalExporter"

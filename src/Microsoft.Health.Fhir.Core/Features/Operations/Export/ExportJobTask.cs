@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IMediator _mediator;
-        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILogger _logger;
 
         private ExportJobRecord _exportJobRecord;
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IResourceDeserializer resourceDeserializer,
             IScoped<IAnonymizerFactory> anonymizerFactory,
             IMediator mediator,
-            IFhirRequestContextAccessor contextAccessor,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -94,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _weakETag = weakETag;
             _fileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
 
-            var existingFhirRequestContext = _contextAccessor.FhirRequestContext;
+            var existingFhirRequestContext = _contextAccessor.RequestContext;
 
             try
             {
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     IsBackgroundTask = true,
                 };
 
-                _contextAccessor.FhirRequestContext = fhirRequestContext;
+                _contextAccessor.RequestContext = fhirRequestContext;
 
                 string connectionHash = string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection) ?
                     string.Empty :
@@ -197,6 +198,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (FailedToAnonymizeResourceException ex)
+            {
+                _logger.LogError(ex, "Failed to anonymize resource. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Resources.FailedToAnonymizeResource, ex.Message), HttpStatusCode.BadRequest);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (AnonymizationConfigurationNotFoundException ex)
             {
                 _logger.LogError(ex, "Cannot found anonymization configuration. The job will be marked as failed.");
@@ -222,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             finally
             {
-                _contextAccessor.FhirRequestContext = existingFhirRequestContext;
+                _contextAccessor.RequestContext = existingFhirRequestContext;
             }
         }
 
@@ -239,9 +247,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
         {
-            if (_contextAccessor?.FhirRequestContext?.BundleIssues != null)
+            if (_contextAccessor?.RequestContext?.BundleIssues != null)
             {
-                foreach (OperationOutcomeIssue issue in _contextAccessor.FhirRequestContext.BundleIssues)
+                foreach (OperationOutcomeIssue issue in _contextAccessor.RequestContext.BundleIssues)
                 {
                     _exportJobRecord.Issues.Add(issue);
                 }
@@ -254,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
 
-                _contextAccessor.FhirRequestContext.BundleIssues.Clear();
+                _contextAccessor.RequestContext.BundleIssues.Clear();
             }
         }
 
@@ -618,7 +626,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (anonymizer != null)
                 {
-                    element = anonymizer.Anonymize(element);
+                    try
+                    {
+                        element = anonymizer.Anonymize(element);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new FailedToAnonymizeResourceException(ex.Message, ex);
+                    }
                 }
 
                 // Serialize into NDJson and write to the file.

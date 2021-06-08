@@ -263,11 +263,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     }
                 }
 
-                if (completionSource != null)
-                {
-                    // complete the task to let the request proceed.
-                    completionSource.SetResult(true);
-                }
+                // complete the task to let the request proceed.
+                completionSource?.SetResult(true);
             }
         }
 
@@ -313,7 +310,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             _samplingLoopTask.Dispose();
         }
 
-        public void Dispose() => DisposeAsync().GetAwaiter().GetResult();
+        public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
         private class MethodPathTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<(string method, string path)>
         {

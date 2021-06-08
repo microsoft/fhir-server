@@ -6,6 +6,7 @@
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public async Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
+        public async Task Invoke(HttpContext context, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
         {
             HttpRequest request = context.Request;
 
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             context.Response.Headers[KnownHeaders.RequestId] = correlationId;
 
-            fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
+            fhirRequestContextAccessor.RequestContext = fhirRequestContext;
 
             // Call the next delegate/middleware in the pipeline
             await _next(context);

@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                await store.Value.UpdateSearchParameterIndicesBatchAsync(updateSearchIndices, cancellationToken);
+                await store.Value.BulkUpdateSearchParameterIndicesAsync(updateSearchIndices, cancellationToken);
             }
         }
 

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.FhirPath;
 using Hl7.FhirPath;
 using MediatR;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -17,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 
@@ -25,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     public class SearchParameterFixtureData
     {
         // this type is immutable and is safe to reuse
-        private static FhirNodeToSearchValueTypeConverterManager _fhirNodeToSearchValueTypeConverterManager;
+        private static FhirTypedElementToSearchValueConverterManager _fhirTypedElementToSearchValueConverterManager;
 
         private SearchParameterDefinitionManager _searchDefinitionManager;
         private SupportedSearchParameterDefinitionManager _supportedSearchDefinitionManager;
@@ -48,32 +50,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return _supportedSearchDefinitionManager ??= new SupportedSearchParameterDefinitionManager(await GetSearchDefinitionManagerAsync());
         }
 
-        public static async Task<FhirNodeToSearchValueTypeConverterManager> GetFhirNodeToSearchValueTypeConverterManagerAsync()
+        public static async Task<FhirTypedElementToSearchValueConverterManager> GetFhirTypedElementToSearchValueConverterManagerAsync()
         {
-            return _fhirNodeToSearchValueTypeConverterManager ??= await CreateFhirElementToSearchValueTypeConverterManagerAsync();
+            return _fhirTypedElementToSearchValueConverterManager ??= await CreateFhirTypedElementToSearchValueConverterManagerAsync();
         }
 
-        private static async Task<FhirNodeToSearchValueTypeConverterManager> CreateFhirElementToSearchValueTypeConverterManagerAsync()
+        private static async Task<FhirTypedElementToSearchValueConverterManager> CreateFhirTypedElementToSearchValueConverterManagerAsync()
         {
-            var types = typeof(ITypedElementToSearchValueTypeConverter)
+            var types = typeof(ITypedElementToSearchValueConverter)
                 .Assembly
                 .GetTypes()
-                .Where(x => typeof(ITypedElementToSearchValueTypeConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
+                .Where(x => typeof(ITypedElementToSearchValueConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
             var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor());
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 
-            var fhirNodeToSearchValueTypeConverters =
-                types.Select(x => (ITypedElementToSearchValueTypeConverter)Mock.TypeWithArguments(x, referenceSearchValueParser, codeSystemResolver));
+            var fhirElementToSearchValueConverters =
+                types.Select(x => (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(x, referenceSearchValueParser, codeSystemResolver));
 
-            return new FhirNodeToSearchValueTypeConverterManager(fhirNodeToSearchValueTypeConverters);
+            return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
         }
 
         public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManagerAsync(IModelInfoProvider modelInfoProvider, IMediator mediator)
         {
-            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator);
+            var searchService = Substitute.For<ISearchService>();
+            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             await definitionManager.StartAsync(CancellationToken.None);
+            await definitionManager.EnsureInitializedAsync(CancellationToken.None);
 
             var statusRegistry = new FilebasedSearchParameterStatusDataStore(
                 definitionManager,
@@ -81,8 +85,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var statusManager = new SearchParameterStatusManager(
                 statusRegistry,
                 definitionManager,
-                new SearchParameterSupportResolver(definitionManager, await GetFhirNodeToSearchValueTypeConverterManagerAsync()),
-                Substitute.For<IMediator>());
+                new SearchParameterSupportResolver(await GetFhirTypedElementToSearchValueConverterManagerAsync()),
+                Substitute.For<IMediator>(),
+                NullLogger<SearchParameterStatusManager>.Instance);
             await statusManager.EnsureInitializedAsync(CancellationToken.None);
 
             return definitionManager;

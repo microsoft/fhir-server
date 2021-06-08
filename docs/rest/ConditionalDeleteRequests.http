@@ -1,0 +1,82 @@
+# .SUMMARY Sample requests to verify FHIR Conditional Delete
+# The assumption for the requests and resources below:
+# The FHIR version is R4 or R5
+
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+
+### POST one or more Patient resources to test the scenarios below:
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\ConditionalDeletePatient.json
+
+###
+# View patients with the known Identifier
+
+GET https://{{hostname}}/Patient?identifier=1032704&_total=accurate
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###############################################################################
+### The Delete requests
+
+### Traditional DELETE
+DELETE https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Post One Patient above and Delete one resource conditionally 
+DELETE https://{{hostname}}/Patient?identifier=1032704
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Access last inserted Patient by history url (verify hard delete below)
+GET https://{{hostname}}/Patient/{{patient.response.body.id}}/_history/1
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Hard Delete one resource conditionally 
+DELETE https://{{hostname}}/Patient?identifier=1032704&hardDelete=true
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Delete multiple resources conditionally (no criteria = fails)
+DELETE https://{{hostname}}/Patient?_count=100
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Delete multiple resources conditionally 
+DELETE https://{{hostname}}/Patient?identifier=1032704&_count=100
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Delete multiple resources conditionally (out of range = fails)
+DELETE https://{{hostname}}/Patient?identifier=1032704&_count=-1
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Hard Delete multiple resources conditionally 
+DELETE https://{{hostname}}/Patient?identifier=1032704&hardDelete=true&_count=100
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}

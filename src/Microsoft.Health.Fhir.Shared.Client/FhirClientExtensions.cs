@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Client
 
                 foreach (Bundle.EntryComponent entry in bundle.Entry)
                 {
-                    await client.DeleteAsync(entry.FullUrl);
+                   using var response = await client.DeleteAsync(entry.FullUrl);
                 }
             }
         }
@@ -41,7 +41,8 @@ namespace Microsoft.Health.Fhir.Client
             {
                 TResource resource = new TResource();
 
-                resources[i] = await client.CreateAsync(resource);
+                using var response = await client.CreateAsync(resource);
+                resources[i] = response;
             }
 
             return resources;
@@ -65,8 +66,8 @@ namespace Microsoft.Health.Fhir.Client
                 TResource resource = new TResource();
 
                 resourceCustomizer[i](resource);
-
-                resources[i] = await client.CreateAsync(resource);
+                using var response = await client.CreateAsync(resource);
+                resources[i] = response;
             }
 
             return resources;

@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     {
         private readonly ActionExecutingContext _actionExecutingContext;
         private readonly ActionExecutedContext _actionExecutedContext;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
         private readonly IAuditEventTypeMapping _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
         private readonly string _correlationId = Guid.NewGuid().ToString();
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 FilterTestsHelper.CreateMockFhirController());
 
             _fhirRequestContext.CorrelationId = _correlationId;
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
+            _fhirRequestContextAccessor.RequestContext.Returns(_fhirRequestContext);
 
             _filterAttribute = new FhirRequestContextRouteDataPopulatingFilterAttribute(_fhirRequestContextAccessor, _auditEventTypeMapping);
         }
@@ -135,9 +136,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             _filterAttribute.OnActionExecuting(_actionExecutingContext);
 
-            Assert.NotNull(_fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(expectedAuditEventType, _fhirRequestContextAccessor.FhirRequestContext.AuditEventType);
-            Assert.Equal(RouteName, _fhirRequestContextAccessor.FhirRequestContext.RouteName);
+            Assert.NotNull(_fhirRequestContextAccessor.RequestContext.AuditEventType);
+            Assert.Equal(expectedAuditEventType, _fhirRequestContextAccessor.RequestContext.AuditEventType);
+            Assert.Equal(RouteName, _fhirRequestContextAccessor.RequestContext.RouteName);
         }
     }
 }

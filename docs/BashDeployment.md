@@ -66,7 +66,7 @@ Or deploy without OAuth:
 az group deployment create -g msftfhirserver --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json --parameters serviceName=msftexamplefhir
 ```
 
-You can use [Postman to test the FHIR server](PostmanTesting.md). 
+You can use [Postman to test the FHIR server](https://docs.microsoft.com/azure/healthcare-apis/fhir/access-fhir-postman-tutorial). 
 
 ## Clean up Azure AD App Registrations
 

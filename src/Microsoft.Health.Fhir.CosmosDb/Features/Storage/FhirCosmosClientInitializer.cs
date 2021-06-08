@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger.LogInformation("Opening CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             try
             {
-                await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(async () =>
+                await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(async () =>
                     await _testProvider.PerformTest(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration));
 
                 _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     _logger.LogInformation("CreateDatabaseIfNotExists {DatabaseId}", cosmosDataStoreConfiguration.DatabaseId);
 
-                    await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                    await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                         async () =>
                             await client.CreateDatabaseIfNotExistsAsync(
                                 cosmosDataStoreConfiguration.DatabaseId,

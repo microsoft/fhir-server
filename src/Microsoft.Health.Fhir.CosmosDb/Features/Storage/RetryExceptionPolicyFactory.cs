@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -20,12 +21,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class RetryExceptionPolicyFactory
     {
         private const string RetryEndTimeContextKey = "RetryEndTime";
-        private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly AsyncPolicy _sdkOnlyRetryPolicy;
         private readonly AsyncPolicy _bundleActionRetryPolicy;
         private readonly AsyncPolicy _backgroundJobRetryPolicy;
 
-        public RetryExceptionPolicyFactory(CosmosDataStoreConfiguration configuration, IFhirRequestContextAccessor requestContextAccessor)
+        public RetryExceptionPolicyFactory(CosmosDataStoreConfiguration configuration, RequestContextAccessor<IFhirRequestContext> requestContextAccessor)
         {
             _requestContextAccessor = requestContextAccessor;
             EnsureArg.IsNotNull(configuration, nameof(configuration));
@@ -35,19 +36,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             _bundleActionRetryPolicy = configuration.IndividualBatchActionRetryOptions.MaxNumberOfRetries > 0
                 ? CreateExtendedRetryPolicy(configuration.IndividualBatchActionRetryOptions.MaxNumberOfRetries / configuration.RetryOptions.MaxNumberOfRetries, configuration.IndividualBatchActionRetryOptions.MaxWaitTimeInSeconds)
-                : (AsyncPolicy)Policy.NoOpAsync();
+                : Policy.NoOpAsync();
 
             _backgroundJobRetryPolicy = CreateExtendedRetryPolicy(3, configuration.RetryOptions.MaxWaitTimeInSeconds * 3);
         }
 
-        public AsyncPolicy GetRetryPolicy()
+        public AsyncPolicy RetryPolicy
         {
-            return _requestContextAccessor.FhirRequestContext switch
+            get
             {
-                null or { IsBackgroundTask: true } => _backgroundJobRetryPolicy,
-                { ExecutingBatchOrTransaction: true } => _bundleActionRetryPolicy,
-                _ => _sdkOnlyRetryPolicy,
-            };
+                return _requestContextAccessor.RequestContext switch
+                {
+                    null or { IsBackgroundTask: true } => _backgroundJobRetryPolicy,
+                    { ExecutingBatchOrTransaction: true } => _bundleActionRetryPolicy,
+                    _ => _sdkOnlyRetryPolicy,
+                };
+            }
         }
 
         private static AsyncRetryPolicy CreateExtendedRetryPolicy(int maxRetries, int maxWaitTimeInSeconds)

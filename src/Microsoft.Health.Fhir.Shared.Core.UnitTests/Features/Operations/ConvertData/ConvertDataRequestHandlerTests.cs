@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
+using DataType = Microsoft.Health.Fhir.Liquid.Converter.Models.DataType;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.ConvertData

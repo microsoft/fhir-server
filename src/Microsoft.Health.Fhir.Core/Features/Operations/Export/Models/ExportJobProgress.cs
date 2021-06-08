@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         /// Indicates if all the filters for the job have been evaluated.
         /// </summary>
         [JsonProperty(JobRecordProperties.FilteredSearchesComplete)]
-        public List<ExportJobFilter> CompletedFilters { get; private set; }
+        public ICollection<ExportJobFilter> CompletedFilters { get; private set; }
 
         [JsonProperty(JobRecordProperties.TriggeringResourceId)]
         public string TriggeringResourceId { get; private set; }

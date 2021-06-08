@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             if (_modelInfoProvider == null)
             {
-                throw new Exception("Please call SetProvider before using methods on this class.");
+                throw new InvalidOperationException("Please call SetProvider before using methods on this class.");
             }
         }
 

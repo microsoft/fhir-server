@@ -9,23 +9,26 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Net.Http.Headers;
 
-public class WeakETagBinder : IModelBinder
+namespace Microsoft.Health.Fhir.Api.Controllers
 {
-    public Task BindModelAsync(ModelBindingContext bindingContext)
+    public class WeakETagBinder : IModelBinder
     {
-        EnsureArg.IsNotNull(bindingContext, nameof(bindingContext));
-
-        var suppliedWeakETag = bindingContext.HttpContext.Request.Headers[HeaderNames.IfMatch];
-
-        WeakETag model = null;
-        if (!string.IsNullOrWhiteSpace(suppliedWeakETag))
+        public Task BindModelAsync(ModelBindingContext bindingContext)
         {
-            model = WeakETag.FromWeakETag(suppliedWeakETag);
+            EnsureArg.IsNotNull(bindingContext, nameof(bindingContext));
+
+            var suppliedWeakETag = bindingContext.HttpContext.Request.Headers[HeaderNames.IfMatch];
+
+            WeakETag model = null;
+            if (!string.IsNullOrWhiteSpace(suppliedWeakETag))
+            {
+                model = WeakETag.FromWeakETag(suppliedWeakETag);
+            }
+
+            bindingContext.Model = model;
+            bindingContext.Result = ModelBindingResult.Success(model);
+
+            return Task.CompletedTask;
         }
-
-        bindingContext.Model = model;
-        bindingContext.Result = ModelBindingResult.Success(model);
-
-        return Task.CompletedTask;
     }
 }

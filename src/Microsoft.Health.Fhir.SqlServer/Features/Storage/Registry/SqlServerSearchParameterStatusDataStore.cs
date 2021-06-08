@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
+            _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
@@ -80,7 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
-                        (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
+                        (short id, string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.SearchParamId,
                             VLatest.SearchParam.Uri,
                             VLatest.SearchParam.Status,
                             VLatest.SearchParam.LastUpdated,
@@ -90,13 +93,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         {
                             // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
                             // They should be populated as soon as they are added to the table and should never be null.
-                            throw new NullReferenceException(Resources.SearchParameterStatusShouldNotBeNull);
+                            throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
                         }
 
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
-                        var resourceSearchParameterStatus = new ResourceSearchParameterStatus()
+                        var resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
                         {
+                            Id = id,
                             Uri = new Uri(uri),
                             Status = status,
                             IsPartiallySupported = (bool)isPartiallySupported,
@@ -130,7 +134,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         }
 
         // TODO: Make cancellation token an input.
-        public async Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -148,7 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses));
+                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
 
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
                 {
@@ -158,9 +162,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
 
                         // Add the new search parameters to the FHIR model dictionary.
-                        _fhirModel.AddSearchParamIdToUriMapping(searchParamUri, searchParamId);
+                        _fhirModel.TryAddSearchParamIdToUriMapping(searchParamUri, searchParamId);
                     }
                 }
+            }
+        }
+
+        // Synchronize the FHIR model dictionary with the data in SQL search parameter status table
+        public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        {
+            foreach (ResourceSearchParameterStatus resourceSearchParameterStatus in statuses)
+            {
+                var status = (SqlServerResourceSearchParameterStatus)resourceSearchParameterStatus;
+
+                // Add the new search parameters to the FHIR model dictionary.
+                _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.ToString(), status.Id);
             }
         }
     }

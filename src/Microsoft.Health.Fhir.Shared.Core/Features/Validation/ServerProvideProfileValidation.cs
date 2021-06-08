@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                             {
                                 using (var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes(searchItem.Resource.RawResource.Data)))
                                 {
-                                    var navStream = new JsonNavigatorStream(memoryStream);
+                                    using var navStream = new JsonNavigatorStream(memoryStream);
                                     Action<ArtifactSummaryPropertyBag> setOrigin =
                                         (properties) =>
                                         {
@@ -169,9 +169,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return LoadBySummary(summary);
         }
 
-        public IEnumerable<string> GetSupportedProfiles(string resourceType, bool disablePull = false)
+        public IEnumerable<string> GetSupportedProfiles(string resourceType, bool disableCacheRefresh = false)
         {
-            var summary = ListSummaries(false, disablePull);
+            var summary = ListSummaries(false, disableCacheRefresh);
             return summary.Where(x => x.ResourceType == ResourceType.StructureDefinition)
                 .Where(x =>
                     {

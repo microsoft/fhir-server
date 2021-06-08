@@ -1,0 +1,22 @@
+parameters:
+- name: webAppName
+  type: string
+- name: subscription
+  type: string
+
+jobs:
+- job: provisionEnvironment
+  pool:
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
+  steps:  
+  - task: AzureAppServiceManage@0
+    displayName: 'Azure App Service Restart'
+    inputs:
+      azureSubscription: '${{ parameters.subscription }}'
+      action: 'Restart Azure App Service'
+      WebAppName: '${{ parameters.webAppName }}'
+
+  - template: ./provision-healthcheck.yml
+    parameters: 
+      webAppName: ${{ parameters.webAppName }}

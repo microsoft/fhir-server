@@ -4,14 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
+using DotLiquid.Tags;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -27,12 +31,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
-        private static readonly List<string> IncludeIterateModifiers = new List<string> { "_include:iterate", "_include:recurse" };
-        private static readonly List<string> RevIncludeIterateModifiers = new List<string> { "_revinclude:iterate", "_revinclude:recurse" };
-        private static readonly List<string> AllIterateModifiers = IncludeIterateModifiers.Concat(RevIncludeIterateModifiers).ToList();
-
         private readonly IExpressionParser _expressionParser;
-        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISortingValidator _sortingValidator;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
-            IFhirRequestContextAccessor contextAccessor,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISortingValidator sortingValidator,
             ILogger<SearchOptionsFactory> logger)
         {
@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return Create(null, null, resourceType, queryParameters);
         }
 
+        [SuppressMessage("Design", "CA1308", Justification = "ToLower() is required to format parameter output correctly.")]
         public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
             var searchOptions = new SearchOptions();
@@ -118,7 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     if (badTypes.Count != 0)
                     {
-                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
                             new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.NotSupported,
@@ -192,7 +193,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 
-                    _contextAccessor.FhirRequestContext?.BundleIssues.Add(
+                    _contextAccessor.RequestContext?.BundleIssues.Add(
                         new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,
@@ -279,29 +280,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     })
                 .Where(item => item != null));
 
-            if (searchParams.Include?.Count > 0)
-            {
-                searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(resourceTypesString, q, false /* not reversed */, false /* no iterate */))
-                    .Where(item => item != null));
-            }
-
-            if (searchParams.RevInclude?.Count > 0)
-            {
-                searchExpressions.AddRange(searchParams.RevInclude.Select(
-                    q => _expressionParser.ParseInclude(resourceTypesString, q, true /* reversed */, false /* no iterate */))
-                    .Where(item => item != null));
-            }
-
             // Parse _include:iterate (_include:recurse) parameters.
-            // :iterate (:recurse) modifiers are not supported by Hl7.Fhir.Rest, hence not added to the Include collection and exist in the Parameters list.
-            // See https://github.com/FirelyTeam/fhir-net-api/issues/222
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
             // when applied on a circular reference
-            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams));
-
-            // remove _include:iterate and _revinclude:iterate parameters from unsupportedSearchParameters
-            unsupportedSearchParameters.RemoveAll(p => AllIterateModifiers.Contains(p.Item1));
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false));
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true));
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -332,8 +315,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (unsupportedSearchParameters.Any())
             {
                 bool throwForUnsupported = false;
-                if (_contextAccessor.FhirRequestContext.RequestHeaders != null &&
-                    _contextAccessor.FhirRequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var values))
+                if (_contextAccessor.RequestContext?.RequestHeaders != null &&
+                    _contextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var values))
                 {
                     var handlingValue = values.FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));
                     if (handlingValue != default)
@@ -366,7 +349,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     foreach (var unsupported in unsupportedSearchParameters)
                     {
-                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                        _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                               OperationOutcomeConstants.IssueSeverity.Warning,
                               OperationOutcomeConstants.IssueType.NotSupported,
                               string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString))));
@@ -381,7 +364,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
                 bool sortingsValid = true;
 
-                foreach (Tuple<string, Hl7.Fhir.Rest.SortOrder> sorting in searchParams.Sort)
+                foreach ((string, Hl7.Fhir.Rest.SortOrder) sorting in searchParams.Sort)
                 {
                     try
                     {
@@ -391,7 +374,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (SearchParameterNotSupportedException)
                     {
                         sortingsValid = false;
-                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                        _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Warning,
                             OperationOutcomeConstants.IssueType.NotSupported,
                             string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, string.Join(", ", resourceTypesString))));
@@ -411,7 +394,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         foreach (var errorMessage in errorMessages)
                         {
-                            _contextAccessor.FhirRequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                            _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.NotSupported,
                                 errorMessage));
@@ -432,36 +415,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             return searchOptions;
 
-            IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(SearchParams searchParams)
+            IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(
+                IList<(string query, IncludeModifier modifier)> includes, string[] typesString, bool isReversed)
             {
-                return searchParams.Parameters
-                .Where(p => p != null && AllIterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
-                .Select(p =>
+                return includes.Select(p =>
                 {
-                    var includeResourceType = p.Item2?.Split(':')[0];
-                    if (!ModelInfoProvider.IsKnownResource(includeResourceType))
+                    var includeResourceTypeList = typesString;
+                    var iterate = p.modifier == IncludeModifier.Iterate || p.modifier == IncludeModifier.Recurse;
+
+                    if (iterate)
                     {
-                        throw new ResourceNotSupportedException(includeResourceType);
+                        var includeResourceType = p.query?.Split(':')[0];
+                        if (!ModelInfoProvider.IsKnownResource(includeResourceType))
+                        {
+                            throw new ResourceNotSupportedException(includeResourceType);
+                        }
+
+                        includeResourceTypeList = new[] { includeResourceType };
                     }
 
-                    var reversed = RevIncludeIterateModifiers.Contains(p.Item1);
-                    var expression = _expressionParser.ParseInclude(new[] { includeResourceType }, p.Item2, reversed, true);
+                    var expression = _expressionParser.ParseInclude(includeResourceTypeList, p.query, isReversed, iterate);
 
                     // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
-                    if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null && expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
+                    if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null &&
+                        expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
                     {
-                        throw new BadRequestException(string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.Item2));
+                        throw new BadRequestException(
+                            string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.query));
                     }
 
                     // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
                     // See https://www.hl7.org/fhir/search.html#revinclude.
                     if (expression.Iterate && expression.CircularReference)
                     {
-                        _contextAccessor.FhirRequestContext?.BundleIssues.Add(
-                        new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Information,
-                            OperationOutcomeConstants.IssueType.Informational,
-                            string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, p.Item1, p.Item2)));
+                        var issueProperty = string.Concat(isReversed ? "_revinclude" : "_include", ":", p.modifier.ToString().ToLowerInvariant());
+                        _contextAccessor.RequestContext?.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, issueProperty, p.query)));
                     }
 
                     return expression;

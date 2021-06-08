@@ -170,11 +170,11 @@ namespace Microsoft.Health.Fhir.Core.Models
             Match match = DateTimeRegex.Match(inputString);
 
             int year = int.Parse(match.Groups[YearCapture].Value);
-            int? month = GetIsDateTimePartSpecified(MonthCapture) ? parsedDateTimeOffset.Month : (int?)null;
-            int? day = GetIsDateTimePartSpecified(DayCapture) ? parsedDateTimeOffset.Day : (int?)null;
-            int? hour = GetIsDateTimePartSpecified(HourCapture) ? parsedDateTimeOffset.Hour : (int?)null;
-            int? minute = GetIsDateTimePartSpecified(MinuteCapture) ? parsedDateTimeOffset.Minute : (int?)null;
-            int? second = GetIsDateTimePartSpecified(SecondCapture) ? parsedDateTimeOffset.Second : (int?)null;
+            int? month = GetIsDateTimePartSpecified(MonthCapture) ? parsedDateTimeOffset.Month : null;
+            int? day = GetIsDateTimePartSpecified(DayCapture) ? parsedDateTimeOffset.Day : null;
+            int? hour = GetIsDateTimePartSpecified(HourCapture) ? parsedDateTimeOffset.Hour : null;
+            int? minute = GetIsDateTimePartSpecified(MinuteCapture) ? parsedDateTimeOffset.Minute : null;
+            int? second = GetIsDateTimePartSpecified(SecondCapture) ? parsedDateTimeOffset.Second : null;
 
             decimal? fraction = null;
 
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                 throw new FormatException(string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString));
             }
 
-            TimeSpan? utcOffset = GetIsDateTimePartSpecified(TimeZoneCapture) ? parsedDateTimeOffset.Offset : (TimeSpan?)null;
+            TimeSpan? utcOffset = GetIsDateTimePartSpecified(TimeZoneCapture) ? parsedDateTimeOffset.Offset : null;
 
             // If hour and minutes are specified but time zone information is not, then we will default to UTC
             // because all dates without time zone information are stored with a UTC timestamp on the server.

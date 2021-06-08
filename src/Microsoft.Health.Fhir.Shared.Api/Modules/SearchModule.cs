@@ -58,7 +58,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<ISearchParameterDefinitionManager>()
                 .AsService<IHostedService>()
-                .ReplaceService<INotificationHandler<SearchParametersUpdated>>();
+                .ReplaceService<INotificationHandler<SearchParametersUpdatedNotification>>()
+                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
 
             services.Add<SearchableSearchParameterDefinitionManager>()
                 .Singleton()
@@ -79,12 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<SearchParameterStatusManager>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
-
-            services.Add<SearchParameterResourceDataStore>()
-                .Singleton()
-                .AsSelf()
-                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
+                .ReplaceService<INotificationHandler<SearchParameterDefinitionManagerInitialized>>();
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()
@@ -93,15 +89,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // TypedElement based converters
             // These always need to be added as they are also used by the SearchParameterSupportResolver
-            services.TypesInSameAssemblyAs<ITypedElementToSearchValueTypeConverter>()
-                .AssignableTo<ITypedElementToSearchValueTypeConverter>()
+            services.TypesInSameAssemblyAs<ITypedElementToSearchValueConverter>()
+                .AssignableTo<ITypedElementToSearchValueConverter>()
                 .Singleton()
-                .AsService<ITypedElementToSearchValueTypeConverter>();
+                .AsService<ITypedElementToSearchValueConverter>();
 
-            services.Add<FhirNodeToSearchValueTypeConverterManager>()
+            services.Add<FhirTypedElementToSearchValueConverterManager>()
                 .Singleton()
                 .AsSelf()
-                .AsService<ITypedElementToSearchValueTypeConverterManager>();
+                .AsService<ITypedElementToSearchValueConverterManager>();
 
             services.Add<CodeSystemResolver>()
                 .Singleton()

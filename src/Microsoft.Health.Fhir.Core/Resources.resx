@@ -544,4 +544,29 @@
   <data name="ReindexingResourceNotFound" xml:space="preserve">
     <value>One or more resources to be reindexed were not found, indicating that they have been deleted since the reindex job kicked off.</value>
   </data>
+  <data name="UnableToUpdateSearchParameter" xml:space="preserve">
+    <value>Attempt to update SearchParameter {0} failed.</value>
+    <comment>{0} the uri identifying the search parameter.</comment>
+  </data>
+  <data name="MemberMatchMultipleMatchesFound" xml:space="preserve">
+    <value>Found multiple matches, narrow search criteria.</value>
+  </data>
+  <data name="MemberMatchNoMatchFound" xml:space="preserve">
+    <value>No match found.</value>
+  </data>
+  <data name="ConditionalDeleteCountOutOfRange" xml:space="preserve">
+    <value>The _count parameter must be between {0} and {1}.</value>
+  </data>
+  <data name="SearchParameterDefinitionConflictingCodeValue" xml:space="preserve">
+    <value>A search parameter with the same code value '{0}' already exists for base type '{1}'.</value>
+  </data>
+  <data name="FailedToAnonymizeResource" xml:space="preserve">
+    <value>Failed to anonymize resource. The job will be marked as failed. {0}</value>
+  </data>
+  <data name="InvalidEverythingOperationPhase" xml:space="preserve">
+    <value>The phase '{0}' in $everything operation is invalid.</value>
+  </data>
+  <data name="ConditionalRequestTooCostly" xml:space="preserve">
+    <value>The operation was stopped due to the underlying request being too resource intensive. If possible, try narrowing or changing the criteria.</value>
+  </data>
 </root>

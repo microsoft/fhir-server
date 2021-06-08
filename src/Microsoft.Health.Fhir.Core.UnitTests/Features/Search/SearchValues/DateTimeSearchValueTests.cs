@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             DateTimeSearchValue value = DateTimeSearchValue.Parse("2017");
 
             Assert.NotNull(value);
-            Assert.Equal("2017-01-01T00:00:00.0000000+00:00-2017-12-31T23:59:59.9999999+00:00", value.ToString());
+            Assert.Equal("2017", value.ToString());
         }
 
         [Theory]

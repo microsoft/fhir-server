@@ -18,6 +18,7 @@
     "kind": [ "capability" ],
     "fhirVersion": "3.0.1",
     "format": [
+        "application/fhir+json",
         "json"
     ],
     "acceptUnknown": "both",
