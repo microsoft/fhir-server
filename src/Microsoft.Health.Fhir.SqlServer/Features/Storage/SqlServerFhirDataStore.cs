@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     rawResource: stream,
                     tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
             }
-            else if (_schemaInformation.Current == SchemaVersionConstants.SearchParameterHashSchemaVersion)
+            else if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
             {
                 V8.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     rawResource: stream,
                     tableValuedParameters: _upsertResourceTvpGeneratorV8.Generate(new List<ResourceWrapper> { resource }));
             }
-            else if (_schemaInformation.Current == SchemaVersionConstants.SupportForReferencesWithMissingTypeVersion)
+            else if (_schemaInformation.Current >= SchemaVersionConstants.SupportForReferencesWithMissingTypeVersion)
             {
                 V7.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,

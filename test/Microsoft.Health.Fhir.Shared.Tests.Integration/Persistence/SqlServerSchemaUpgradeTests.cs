@@ -234,11 +234,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
-                if (schemaDifference.TargetObject.ObjectType.Name == "Table")
+                if (schemaDifference.Name == "SqlTable" &&
+                    (schemaDifference.SourceObject.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
+                    schemaDifference.SourceObject.Name.ToString() == "[dbo].[StringSearchParam]"))
                 {
                     foreach (SchemaDifference child in schemaDifference.Children)
                     {
-                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
+                        if (child.TargetObject == null && child.SourceObject == null && (child.Name == "PartitionColumn" || child.Name == "PartitionScheme"))
+                        {
+                            // Expected
+                            continue;
+                        }
+                        else if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
                         {
                             // Expected
                             continue;

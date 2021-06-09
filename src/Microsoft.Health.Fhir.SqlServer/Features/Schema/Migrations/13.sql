@@ -780,6 +780,11 @@ ON dbo.DateTimeSearchParam
     EndDateTime,
     ResourceSurrogateId
 )
+INCLUDE
+(
+    IsMin,
+    IsMax
+)
 WHERE IsHistory = 0 AND IsLongerThanADay = 1
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 

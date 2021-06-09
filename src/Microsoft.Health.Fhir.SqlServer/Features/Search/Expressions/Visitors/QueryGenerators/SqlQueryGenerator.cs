@@ -449,7 +449,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Everything in the top expression is considered a match
             string selectStatement = sortExpression == null ? "SELECT DISTINCT" : "SELECT";
-            StringBuilder.Append($"{selectStatement} TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
+            StringBuilder.Append($"{selectStatement} TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") T1, Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                 .Append("FROM ").AppendLine(tableExpressionName);
 
@@ -885,7 +885,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!string.IsNullOrEmpty(sortColumnName) && searchParamTableExpression.QueryGenerator != null)
             {
-                StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
+                StringBuilder.Append("SELECT ")
+                    .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
                     .Append(sortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 

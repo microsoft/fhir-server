@@ -39,18 +39,18 @@ ON dbo.StringSearchParam
 )
 INCLUDE
 (
-    TextOverflow, -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
+    TextOverflow, -- will not be needed when all servers are targeting at least this version.
     IsMin,
     IsMax
 )
-WHERE IsHistory = 0 AND TextOverflow IS NULL
+WHERE IsHistory = 0
 WITH 
 (
     DATA_COMPRESSION = PAGE,
     DROP_EXISTING = ON,
     ONLINE = ON
 )
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON [PartitionScheme_ResourceTypeId](ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 ON dbo.StringSearchParam
@@ -72,7 +72,7 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON [PartitionScheme_ResourceTypeId](ResourceTypeId)
 
 IF TYPE_ID(N'BulkDateTimeSearchParamTableType_2') IS NULL
 BEGIN
@@ -118,7 +118,7 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON [PartitionScheme_ResourceTypeId](ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
 ON dbo.DateTimeSearchParam
@@ -141,7 +141,7 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON [PartitionScheme_ResourceTypeId](ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
 ON dbo.DateTimeSearchParam
@@ -163,7 +163,7 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON [PartitionScheme_ResourceTypeId](ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
 ON dbo.DateTimeSearchParam
@@ -185,7 +185,7 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+ON [PartitionScheme_ResourceTypeId](ResourceTypeId)
 
 GO
 
@@ -258,7 +258,7 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_4
+CREATE OR ALTER PROCEDURE dbo.UpsertResource_4
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -562,6 +562,7 @@ AS
     COMMIT TRANSACTION
 GO
 
+--
 -- STORED PROCEDURE
 --     ReindexResource_2
 --
@@ -610,7 +611,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE PROCEDURE dbo.ReindexResource_2
+CREATE OR ALTER PROCEDURE dbo.ReindexResource_2
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
@@ -834,7 +835,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE PROCEDURE dbo.BulkReindexResources_2
+CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_2
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
