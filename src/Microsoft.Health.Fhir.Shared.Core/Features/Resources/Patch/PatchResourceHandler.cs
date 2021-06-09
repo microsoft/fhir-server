@@ -14,6 +14,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using MediatR;
+using Microsoft.AspNetCore.JsonPatch.Exceptions;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         {
             "Resource.id",
             "Resource.meta.lastUpdated",
-            "Resource.meta.version",
+            "Resource.meta.versionId",
             "Resource.text.div",
             "Resource.text.status",
         };
@@ -118,6 +119,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, WeakETag.FromVersionId(currentDoc.Version), false, keepHistory, cancellationToken);
 
                 return new(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
+            }
+            catch (JsonPatchException e)
+            {
+                throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
             }
             catch (Exception e)
             {

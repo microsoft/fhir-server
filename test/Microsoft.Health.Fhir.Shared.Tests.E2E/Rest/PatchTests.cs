@@ -82,6 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("/id", "abc")]
         [InlineData("/versionId", "100")]
+        [InlineData("/meta/versionId", "100")]
         [InlineData("/resourceType", "DummyResource")]
         [InlineData("/text/div", "<div>dummy narrative</div>")]
         [InlineData("/text/status", "extensions")]
@@ -167,7 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Patient> response = await _client.CreateAsync(poco);
 
             string patchDocument =
-                "[{\"op\":\"add\",\"path\":\"/deceasedDateTime\",\"value\":\"2015-02-14T13:42:00+10:00\"}]";
+                "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}]";
 
             var patch = await _client.PatchAsync(response.Resource, patchDocument, ifMatchVersion: "1");
 
@@ -210,6 +211,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patch = await _client.PatchAsync(response.Resource, patchDocument);
 
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnExistingResourceWithCorrectData_WhenPatchingWithPatchTest_ThenResourceShouldBePatched()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            poco.Deceased = new FhirBoolean(false);
+
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"test\",\"path\":\"/deceasedBoolean\",\"value\": false}, {\"op\":\"replace\",\"path\":\"/deceasedBoolean\",\"value\":\"true\"}]";
+
+            var patch = await _client.PatchAsync(response.Resource, patchDocument);
+
+            Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
+            Assert.Equal(new FhirBoolean(true).ToString(), patch.Resource.Deceased.ToString());
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnExistingResourceWithMismatchingData_WhenPatchingWithPatchTest_ThenTheServerShouldError()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            poco.Deceased = new FhirBoolean(false);
+
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"test\",\"path\":\"/deceasedBoolean\",\"value\": true}, {\"op\":\"replace\",\"path\":\"/deceasedBoolean\",\"value\":\"false\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+                response.Resource,
+                patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
     }
 }
