@@ -32,12 +32,13 @@ END
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
 ON dbo.StringSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
-    Text
+    Text,
+    ResourceSurrogateId
 )
 INCLUDE
 (
-    ResourceTypeId,
     TextOverflow, -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
     IsMin,
     IsMax
@@ -49,16 +50,18 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 ON dbo.StringSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
-    Text
+    Text,
+    ResourceSurrogateId
 )
 INCLUDE
 (
-    ResourceTypeId,
     IsMin,
     IsMax
 )
@@ -69,6 +72,7 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 IF TYPE_ID(N'BulkDateTimeSearchParamTableType_2') IS NULL
 BEGIN
@@ -96,13 +100,14 @@ END
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
 ON dbo.DateTimeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     StartDateTime,
-    EndDateTime
+    EndDateTime,
+    ResourceSurrogateId
 )
 INCLUDE
 (
-    ResourceTypeId,
     IsLongerThanADay,
     IsMin,
     IsMax
@@ -113,17 +118,19 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime
 ON dbo.DateTimeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     EndDateTime,
-    StartDateTime
+    StartDateTime,
+    ResourceSurrogateId
 )
 INCLUDE
 (
-    ResourceTypeId,
     IsLongerThanADay,
     IsMin,
     IsMax
@@ -134,18 +141,19 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
-
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime_Long
 ON dbo.DateTimeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     StartDateTime,
-    EndDateTime
+    EndDateTime,
+    ResourceSurrogateId
 )
 INCLUDE
 (
-    ResourceTypeId,
     IsMin,
     IsMax
 )
@@ -155,17 +163,19 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long
 ON dbo.DateTimeSearchParam
 (
+    ResourceTypeId,
     SearchParamId,
     EndDateTime,
-    StartDateTime
+    StartDateTime,
+    ResourceSurrogateId
 )
 INCLUDE
 (
-    ResourceTypeId,
     IsMin,
     IsMax
 )
@@ -175,6 +185,7 @@ WITH
     DROP_EXISTING = ON,
     ONLINE = ON
 )
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 GO
 
@@ -247,7 +258,7 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE OR ALTER PROCEDURE dbo.UpsertResource_4
+CREATE PROCEDURE dbo.UpsertResource_4
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -332,70 +343,70 @@ AS
             -- Set the existing resource as history
             UPDATE dbo.Resource
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             -- Set the indexes for this resource as history.
             -- Note there is no IsHistory column on ResourceWriteClaim since we do not query it.
 
             UPDATE dbo.CompartmentAssignment
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.ReferenceSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.TokenSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.TokenText
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.StringSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.UriSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.NumberSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.QuantitySearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.DateTimeSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.ReferenceTokenCompositeSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.TokenTokenCompositeSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.TokenDateTimeCompositeSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.TokenQuantityCompositeSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.TokenStringCompositeSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             UPDATE dbo.TokenNumberNumberCompositeSearchParam
             SET IsHistory = 1
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
         END
         ELSE BEGIN
@@ -403,55 +414,55 @@ AS
             -- Not keeping history. Delete the current resource and all associated indexes.
 
             DELETE FROM dbo.Resource
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.ResourceWriteClaim
             WHERE ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.CompartmentAssignment
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.ReferenceSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenText
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.StringSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.UriSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.NumberSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.QuantitySearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.DateTimeSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.ReferenceTokenCompositeSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenTokenCompositeSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenDateTimeCompositeSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenQuantityCompositeSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenStringCompositeSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.TokenNumberNumberCompositeSearchParam
-            WHERE ResourceSurrogateId = @previousResourceSurrogateId
+            WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
         END
     END
@@ -599,7 +610,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE OR ALTER PROCEDURE dbo.ReindexResource_2
+CREATE PROCEDURE dbo.ReindexResource_2
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
@@ -645,56 +656,56 @@ AS
 
     UPDATE dbo.Resource
     SET SearchParamHash = @searchParamHash
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     -- First, delete all the resource's indices.
     DELETE FROM dbo.ResourceWriteClaim
     WHERE ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.CompartmentAssignment
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.ReferenceSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.TokenSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.TokenText
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.StringSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.UriSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.NumberSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.QuantitySearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.DateTimeSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.ReferenceTokenCompositeSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.TokenTokenCompositeSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.TokenDateTimeCompositeSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.TokenQuantityCompositeSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.TokenStringCompositeSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     DELETE FROM dbo.TokenNumberNumberCompositeSearchParam
-    WHERE ResourceSurrogateId = @resourceSurrogateId
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
 
     -- Next, insert all the new indices.
     INSERT INTO dbo.ResourceWriteClaim
@@ -823,7 +834,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_2
+CREATE PROCEDURE dbo.BulkReindexResources_2
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
@@ -892,7 +903,7 @@ AS
     SET resourceInDB.SearchParamHash = resourceToReindex.SearchParamHash
     FROM @computedValues resourceToReindex
     INNER JOIN dbo.Resource resourceInDB
-        ON resourceInDB.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON resourceInDB.ResourceTypeId = resourceToReindex.ResourceTypeId AND resourceInDB.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     -- First, delete all the indices of the resources to reindex.
     DELETE searchIndex FROM dbo.ResourceWriteClaim searchIndex
@@ -901,63 +912,63 @@ AS
 
     DELETE searchIndex FROM dbo.CompartmentAssignment searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.ReferenceSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.TokenSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.TokenText searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.StringSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.UriSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.NumberSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.QuantitySearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.DateTimeSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.ReferenceTokenCompositeSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.TokenTokenCompositeSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.TokenDateTimeCompositeSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.TokenQuantityCompositeSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.TokenStringCompositeSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     DELETE searchIndex FROM dbo.TokenNumberNumberCompositeSearchParam searchIndex
     INNER JOIN @computedValues resourceToReindex
-        ON searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
+        ON searchIndex.ResourceTypeId = resourceToReindex.ResourceTypeId AND searchIndex.ResourceSurrogateId = resourceToReindex.ResourceSurrogateId
 
     -- Next, insert all the new indices.
     INSERT INTO dbo.ResourceWriteClaim

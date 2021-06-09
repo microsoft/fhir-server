@@ -449,7 +449,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             // Everything in the top expression is considered a match
             string selectStatement = sortExpression == null ? "SELECT DISTINCT" : "SELECT";
-            StringBuilder.Append($"{selectStatement} TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
+            StringBuilder.Append($"{selectStatement} TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1, includeInHash: false)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                 .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                 .Append("FROM ").AppendLine(tableExpressionName);
 
@@ -906,9 +906,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         var sortOperand = searchSort == SortOrder.Ascending ? ">" : "<";
 
                         delimited.BeginDelimitedElement();
-                        StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue));
-                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId)).Append(")");
-                        StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue)).AppendLine(")");
+                        StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue, includeInHash: false));
+                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
+                        StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue, includeInHash: false)).AppendLine(")");
                     }
 
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);

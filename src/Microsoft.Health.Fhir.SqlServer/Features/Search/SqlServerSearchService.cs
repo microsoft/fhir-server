@@ -352,7 +352,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                     {
                                         SearchParameterNames.ResourceType => (object)newContinuationType,
                                         SearchParameterNames.LastUpdated => newContinuationId,
-                                        _ => sortValue.Value.ToString("o"),
+                                        _ => sortValue,
                                     }).ToArray())
                             : null;
 

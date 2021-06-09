@@ -6,8 +6,10 @@
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
@@ -15,10 +17,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
     public class SqlServerSortingValidatorTests
     {
         private SqlServerSortingValidator _sqlServerSortingValidator;
+        private SchemaInformation _schemaInformation;
 
         public SqlServerSortingValidatorTests()
         {
-            _sqlServerSortingValidator = new SqlServerSortingValidator();
+            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Max, SchemaVersionConstants.Max);
+            _sqlServerSortingValidator = new SqlServerSortingValidator(_schemaInformation);
         }
 
         [Theory]

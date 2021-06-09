@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -17,45 +18,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal class SqlServerSortingValidator : ISortingValidator
     {
         private readonly SchemaInformation _schemaInformation;
-        private readonly HashSet<Uri> _supportedParameterUrisBeforeTablePartitioning;
-        private readonly HashSet<Uri> _supportedParameterUrisAfterTablePartitioning;
 
-        public SqlServerSortingValidator(SchemaInformation schemaInformation)
-        {
-            _schemaInformation = schemaInformation;
-            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-
-            _supportedParameterUrisBeforeTablePartitioning = new HashSet<Uri>()
-            {
-                SearchParameterNames.LastUpdatedUri,
-                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
-                new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
-                new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-date"),
-                new Uri("http://hl7.org/fhir/SearchParameter/Condition-onset-date"),
-                new Uri("http://hl7.org/fhir/SearchParameter/DiagnosticReport-issued"),
-                new Uri("http://hl7.org/fhir/SearchParameter/Claim-created"),
-                new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-created"),
-                new Uri("http://hl7.org/fhir/SearchParameter/DocumentManifest-created"),
-                new Uri("http://hl7.org/fhir/SearchParameter/ExplanationOfBenefit-created"),
-                new Uri("http://hl7.org/fhir/SearchParameter/Media-created"),
-                new Uri("http://hl7.org/fhir/SearchParameter/PaymentNotice-created"),
-                new Uri("http://hl7.org/fhir/SearchParameter/PaymentReconciliation-created"),
-                new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-started"),
-                new Uri("http://hl7.org/fhir/SearchParameter/MedicationRequest-authoredon"),
-            };
-
-            _supportedParameterUrisAfterTablePartitioning = new HashSet<Uri>(_supportedParameterUrisBeforeTablePartitioning)
-            {
-                SearchParameterNames.ResourceTypeUri,
-            };
-        }
-
-        internal HashSet<Uri> SupportedParameterUris => _schemaInformation.Current < SchemaVersionConstants.PartitionedTables ? _supportedParameterUrisBeforeTablePartitioning : _supportedParameterUrisAfterTablePartitioning;
         internal static readonly HashSet<SearchParamType> SupportedSortParamTypes = new HashSet<SearchParamType>()
         {
             SearchParamType.Date,
             SearchParamType.String,
         };
+
+        public SqlServerSortingValidator(SchemaInformation schemaInformation)
+        {
+            _schemaInformation = schemaInformation;
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+        }
 
         public bool ValidateSorting(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sorting, out IReadOnlyList<string> errorMessages)
         {

@@ -47,7 +47,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
@@ -55,7 +54,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
-            _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
