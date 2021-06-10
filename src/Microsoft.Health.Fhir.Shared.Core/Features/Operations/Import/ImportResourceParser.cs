@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
@@ -11,6 +13,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.IO;
 
@@ -38,11 +41,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportResource Parse(string rawContent)
         {
             Resource resource = _parser.Parse<Resource>(rawContent);
+            CheckConditionalReferenceInResource(resource);
+
             ITypedElement element = resource.ToTypedElement();
             ResourceElement resourceElement = new ResourceElement(element);
             ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
             return new ImportResource(resourceWapper, WriteCompressedRawResource(resourceWapper.RawResource.Data));
+        }
+
+        private static void CheckConditionalReferenceInResource(Resource resource)
+        {
+            IEnumerable<ResourceReference> references = resource.GetAllChildren<ResourceReference>();
+            foreach (ResourceReference reference in references)
+            {
+                if (string.IsNullOrWhiteSpace(reference.Reference))
+                {
+                    continue;
+                }
+
+                if (reference.Reference.Contains("?", StringComparison.Ordinal))
+                {
+                    throw new NotSupportedException("Conditional reference not supported for initial import.");
+                }
+            }
         }
 
         private byte[] WriteCompressedRawResource(string rawResource)
