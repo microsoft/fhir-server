@@ -370,4 +370,7 @@
   <data name="InitialImportModeNotEnabled" xml:space="preserve">
     <value>Initial import mode is not enabled. Please update service configuration to enable initial import mode.</value>
   </data>
+  <data name="LockedForInitialImportMode" xml:space="preserve">
+    <value>Service is locked for initial import mode.</value>
+  </data>
 </root>

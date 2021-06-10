@@ -358,6 +358,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Service is locked for initial import mode..
+        /// </summary>
+        public static string LockedForInitialImportMode {
+            get {
+                return ResourceManager.GetString("LockedForInitialImportMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to $member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid..
         /// </summary>
         public static string MemberMatchInvalidParameter {

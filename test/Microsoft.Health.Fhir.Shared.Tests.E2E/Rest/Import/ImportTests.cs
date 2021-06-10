@@ -62,12 +62,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            request.Mode = ImportConstants.InitialLoadMode;
             await ImportCheckAsync(request, tempClient);
         }
 
         [Fact]
-        public async Task GivenAUserWithoutImportPermissions_WhenImportData_TheServerShouldReturnForbidden()
+        public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
@@ -89,6 +88,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             request.Mode = ImportConstants.InitialLoadMode;
+            request.Force = true;
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
@@ -142,6 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             request.Mode = ImportConstants.InitialLoadMode;
+            request.Force = true;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.ImportAsync(request.ToParameters(), CancellationToken.None));
             Assert.Equal(HttpStatusCode.Conflict, fhirException.StatusCode);
