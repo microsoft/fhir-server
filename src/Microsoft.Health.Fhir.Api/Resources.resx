@@ -367,4 +367,10 @@
   <data name="OnlyInitialImportOperationSupported" xml:space="preserve">
     <value>Only initial load import is supported. Please add "InitialLoad" mode to parameters.</value>
   </data>
+  <data name="InitialImportModeNotEnabled" xml:space="preserve">
+    <value>Initial import mode is not enabled. Please update service configuration to enable initial import mode.</value>
+  </data>
+  <data name="LockedForInitialImportMode" xml:space="preserve">
+    <value>Service is locked for initial import mode.</value>
+  </data>
 </root>

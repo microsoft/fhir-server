@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
         public const string EtagParamterName = "etag";
         public const string StorageDetailParamterName = "storageDetail";
         public const string ModeParamterName = "mode";
+        public const string ForceParamterName = "force";
         public const string DefaultStorageDetailType = "azure-blob";
 
         public static Parameters ToParameters(this ImportRequest importRequest)
@@ -78,6 +79,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (!string.IsNullOrEmpty(importRequest.Mode))
             {
                 paramters.Add(ModeParamterName, new FhirString(importRequest.Mode));
+            }
+
+            if (importRequest.Force)
+            {
+                paramters.Add(ForceParamterName, new FhirBoolean(true));
             }
 
             return paramters;
@@ -141,6 +147,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             if (parameters.TryGetStringValue(ModeParamterName, out string mode))
             {
                 importRequest.Mode = mode;
+            }
+
+            if (parameters.TryGetBooleanValue(ForceParamterName, out bool force))
+            {
+                importRequest.Force = force;
             }
 
             return importRequest;

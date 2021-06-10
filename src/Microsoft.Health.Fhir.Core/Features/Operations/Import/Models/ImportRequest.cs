@@ -35,5 +35,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import.Models
         /// Import operation mode
         /// </summary>
         public string Mode { get; set; }
+
+        /// <summary>
+        /// Force import, ignore server status and import mode check
+        /// </summary>
+        public bool Force { get; set; }
     }
 }

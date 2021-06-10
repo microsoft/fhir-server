@@ -98,6 +98,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(Resources.OnlyInitialImportOperationSupported);
             }
 
+            if (!importRequest.Force && !_importConfig.InitalImportMode)
+            {
+                throw new RequestNotValidException(Resources.InitialImportModeNotEnabled);
+            }
+
             CreateImportResponse response = await _mediator.BulkImportAsync(
                  _fhirRequestContextAccessor.RequestContext.Uri,
                  importRequest.InputFormat,

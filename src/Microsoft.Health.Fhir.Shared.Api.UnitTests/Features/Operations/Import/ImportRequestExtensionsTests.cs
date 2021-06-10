@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
     public class ImportRequestExtensionsTests
     {
         [Fact]
-        public void GivenImportReuqestInParamtersFormat_WhenConvert_ImportRequestShouldBeReturned()
+        public void GivenImportReuqestInParamtersFormat_WhenConvert_ThenImportRequestShouldBeReturned()
         {
             ImportRequest input = new ImportRequest();
             input.InputFormat = "test";
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public void GivenEmptyImportReuqestInParamtersFormat_WhenConvert_DefaultValueShouldBeFilled()
+        public void GivenEmptyImportReuqestInParamtersFormat_WhenConvert_ThenDefaultValueShouldBeFilled()
         {
             ImportRequest input = new ImportRequest();
 
