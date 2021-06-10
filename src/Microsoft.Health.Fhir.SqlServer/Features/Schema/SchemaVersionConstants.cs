@@ -13,5 +13,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SupportForReferencesWithMissingTypeVersion = (int)SchemaVersion.V7;
         public const int SearchParameterHashSchemaVersion = (int)SchemaVersion.V8;
         public const int PartitionedTables = (int)SchemaVersion.V9;
+        public const int SearchParameterSynchronizationVersion = (int)SchemaVersion.V12;
     }
 }

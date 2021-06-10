@@ -1,0 +1,37 @@
+{
+  "resourceType": "SearchParameter",
+  "id": "Resource-id",
+  "url": "http://hl7.org/fhir/SearchParameter/Resource-test-id",
+  "name": "test-id-name",
+  "status": "active",
+  "experimental": false,
+  "date": "2019-10-24T11:53:00+11:00",
+  "publisher": "Health Level Seven International (FHIR Infrastructure)",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://hl7.org/fhir"
+        }
+      ]
+    },
+    {
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+        }
+      ]
+    }
+  ],
+  "code": "test-id-code",
+  "base": [
+    "Resource"
+  ],
+  "type": "token",
+  "description": "Logical id of this artifact",
+  "expression": "Resource.id",
+  "xpath": "f:Resource/f:id",
+  "xpathUsage": "normal"
+}

@@ -3,14 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
@@ -25,19 +28,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         private readonly OperationsConfiguration _operationConfiguration;
         private readonly FeatureConfiguration _featureConfiguration;
         private readonly IUrlResolver _urlResolver;
+        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
 
         public OperationsCapabilityProvider(
             IOptions<OperationsConfiguration> operationConfiguration,
             IOptions<FeatureConfiguration> featureConfiguration,
-            IUrlResolver urlResolver)
+            IUrlResolver urlResolver,
+            Func<IScoped<ISearchService>> searchServiceFactory)
         {
             EnsureArg.IsNotNull(operationConfiguration?.Value, nameof(operationConfiguration));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
 
             _operationConfiguration = operationConfiguration.Value;
             _featureConfiguration = featureConfiguration.Value;
             _urlResolver = urlResolver;
+            _searchServiceFactory = searchServiceFactory;
         }
 
         public void Build(ICapabilityStatementBuilder builder)
@@ -58,6 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             }
 
             builder.Apply(AddMemberMatchDetails);
+            builder.Apply(AddPatientEverythingDetails);
         }
 
         public void AddAnonymizedExportDetails(ListedCapabilityStatement capabilityStatement)

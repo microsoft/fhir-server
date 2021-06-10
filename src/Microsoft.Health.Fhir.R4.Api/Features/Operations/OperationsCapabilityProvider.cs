@@ -4,9 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
@@ -27,6 +29,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
+        }
+
+        public void AddPatientEverythingDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            using IScoped<ISearchService> search = _searchServiceFactory();
+
+            // Will remove this when enabled in SQL Server
+            if (string.Equals(search.Value.GetType().Name, "SqlServerSearchService", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            capabilityStatement.Rest.Server().Operation.Add(new OperationComponent
+            {
+                Name = OperationsConstants.PatientEverything,
+                Definition = OperationsConstants.PatientEverythingUri,
+            });
         }
 
         private void GetAndAddOperationDefinitionUriToCapabilityStatement(ListedCapabilityStatement capabilityStatement, string operationType)

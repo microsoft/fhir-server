@@ -41,45 +41,37 @@ stages:
   displayName: 'Redeploy STU3 Site'
   dependsOn: []
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./jobs/restart-webapp.yml
     parameters: 
-      version: Stu3
       webAppName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
 
 - stage: redeployStu3Sql
   displayName: 'Redeploy STU3 SQL Site'
   dependsOn: []
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./jobs/restart-webapp.yml
     parameters: 
-      version: Stu3
       webAppName: $(DeploymentEnvironmentNameSql)
       subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
 
 - stage: redeployR4
   displayName: 'Redeploy R4 Site'
   dependsOn: []
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./jobs/restart-webapp.yml
     parameters: 
-      version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
       subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
 
 - stage: redeployR4Sql
   displayName: 'Redeploy R4 SQL Site'
   dependsOn: []
   jobs:
-  - template: ./jobs/redeploy-webapp.yml
+  - template: ./jobs/restart-webapp.yml
     parameters: 
-      version: R4
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'

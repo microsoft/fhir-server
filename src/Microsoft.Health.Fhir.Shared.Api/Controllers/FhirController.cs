@@ -30,13 +30,11 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Everything;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -513,31 +511,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
 
             return FhirResult.Create(bundleResponse);
-        }
-
-        /// <summary>
-        /// Returns resources defined in $everything operation
-        /// </summary>
-        /// <param name="idParameter">The resource ID</param>
-        /// <param name="start">The start date relates to care dates</param>
-        /// <param name="end">The end date relates to care dates</param>
-        /// <param name="since">Resources updated after this period will be included in the response</param>
-        /// <param name="type">Comma-delimited FHIR resource types to include in the return resources</param>
-        /// <param name="ct">The continuation token</param>
-        [HttpGet]
-        [Route(KnownRoutes.PatientEverythingById, Name = RouteNames.PatientEverythingById)]
-        [AuditEventType(AuditEventSubType.Everything)]
-        public async Task<IActionResult> PatientEverythingById(
-            string idParameter,
-            [FromQuery(Name = EverythingOperationParameterNames.Start)] PartialDateTime start,
-            [FromQuery(Name = EverythingOperationParameterNames.End)] PartialDateTime end,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Type)] string type,
-            string ct)
-        {
-            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct), HttpContext.RequestAborted);
-
-            return FhirResult.Create(result.Bundle);
         }
     }
 }
