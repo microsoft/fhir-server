@@ -3,13 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using Hl7.Fhir.ElementModel;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
 
@@ -17,11 +16,15 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public sealed class ExtensionToTokenSearchValueConverterTests // : FhirInstanceToSearchValueConverterTests<Extension>
+    public sealed class ExtensionToTokenSearchValueConverterTests : FhirInstanceToSearchValueConverterTests<Extension>
     {
-        private Extension Element { get; } = new();
+        protected override async Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync()
+        {
+            FhirTypedElementToSearchValueConverterManager fhirTypedElementToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
+            fhirTypedElementToSearchValueConverterManager.TryGetConverter("Extension", typeof(TokenSearchValue), out ITypedElementToSearchValueConverter extensionConverter);
 
-        private ITypedElement TypedElement => Element.ToTypedElement();
+            return extensionConverter;
+        }
 
         public static IEnumerable<object[]> GetTokenExtensionDataSource()
         {
@@ -37,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         [Theory]
         [MemberData(nameof(GetTokenExtensionDataSource))]
-        public async Task GivenATokenExtension_WhenConverted_ThenOneTokenSearchValueShouldBeCreated(Extension extension, Token expected)
+        public async Task GivenATokenExtension_WhenConverted_ThenATokenSearchValueShouldBeCreated(Extension extension, Token expected)
         {
             await TestExtensionAsync(
                 ext =>
@@ -47,22 +50,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 },
                 ValidateToken,
                 expected);
-        }
-
-        // TODO: Make this non-token specific?
-        private async Task TestExtensionAsync(Action<Extension> setup, Action<Token, ISearchValue> validator, params Token[] expected)
-        {
-            setup(Element);
-
-            FhirTypedElementToSearchValueConverterManager fhirTypedElementToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
-
-            fhirTypedElementToSearchValueConverterManager.TryGetConverter("Extension", typeof(TokenSearchValue), out ITypedElementToSearchValueConverter extensionConverter);
-            IEnumerable<ISearchValue> values = extensionConverter.ConvertTo(TypedElement);
-
-            Assert.NotNull(values);
-            Assert.Collection(
-                values,
-                expected.Select(e => new Action<ISearchValue>(sv => validator(e, sv))).ToArray());
         }
     }
 }
