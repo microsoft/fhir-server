@@ -162,6 +162,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // The reindex job was updated externally.
                 _logger.LogInformation("The job was updated by another process.");
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("The reindex job was canceled.");
+            }
             catch (Exception ex)
             {
                 await HandleException(ex);
@@ -177,7 +181,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             // Build query based on new search params
             // Find supported, but not yet searchable params
-            var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
+            var possibleNotYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSearchParametersRequiringReindexing();
+            var notYetIndexedParams = new List<SearchParameterInfo>();
+
+            var resourceList = new HashSet<string>();
+
+            // filter list of SearchParameters by the target resource types
+            if (_reindexJobRecord.TargetResourceTypes.Any())
+            {
+                foreach (var searchParam in possibleNotYetIndexedParams)
+                {
+                    var searchParamResourceTypes = GetDerivedResourceTypes(searchParam.BaseResourceTypes);
+                    var matchingResourceTypes = searchParamResourceTypes.Intersect(_reindexJobRecord.TargetResourceTypes);
+                    if (matchingResourceTypes.Any())
+                    {
+                        notYetIndexedParams.Add(searchParam);
+
+                        // add matching resource types to the set of resource types which we will reindex
+                        resourceList.UnionWith(matchingResourceTypes);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Search parameter {url} is not being reindexed as it does not match the target types of reindex job {reindexid}.", searchParam.Url, _reindexJobRecord.Id);
+                    }
+                }
+            }
+            else
+            {
+                notYetIndexedParams.AddRange(possibleNotYetIndexedParams);
+
+                // From the param list, get the list of necessary resources which should be
+                // included in our query
+                foreach (var param in notYetIndexedParams)
+                {
+                    var searchParamResourceTypes = GetDerivedResourceTypes(param.BaseResourceTypes);
+                    resourceList.UnionWith(searchParamResourceTypes);
+                }
+            }
 
             // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
             if (!notYetIndexedParams.Any())
@@ -191,44 +231,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 return false;
             }
 
-            // From the param list, get the list of necessary resources which should be
-            // included in our query
-            var resourceList = new HashSet<string>();
-            foreach (var param in notYetIndexedParams)
-            {
-                foreach (var baseResourceType in param.BaseResourceTypes)
-                {
-                    if (baseResourceType == KnownResourceTypes.Resource)
-                    {
-                        resourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
-
-                        // We added all possible resource types, so no need to continue
-                        break;
-                    }
-
-                    if (baseResourceType == KnownResourceTypes.DomainResource)
-                    {
-                        var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
-
-                        // Remove types that inherit from Resource directly
-                        domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
-                        domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
-                        domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
-
-                        resourceList.UnionWith(domainResourceChildResourceTypes);
-                    }
-                    else
-                    {
-                        resourceList.UnionWith(new[] { baseResourceType });
-                    }
-                }
-            }
-
+            // Save the list of resource types in the reindexjob document
             foreach (var resource in resourceList)
             {
                 _reindexJobRecord.Resources.Add(resource);
             }
 
+            // save the list of search parameters to the reindexjob document
             foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.ToString()))
             {
                 _reindexJobRecord.SearchParams.Add(searchParams);
@@ -629,7 +638,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task UpdateParametersAndCompleteJob()
         {
-            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams.ToList(), _cancellationToken);
+            // here we check if all the resource types which are base types of the search parameter
+            // were reindexed by this job.  If so, then we should mark the search parameters
+            // as fully reindexed
+            var fullyIndexexParams = new List<string>();
+            var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.Resources);
+            foreach (var searchParam in _reindexJobRecord.SearchParams)
+            {
+                var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(new Uri(searchParam));
+                if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes))
+                {
+                    fullyIndexexParams.Add(searchParam);
+                }
+            }
+
+            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(fullyIndexexParams, _cancellationToken);
 
             if (success)
             {
@@ -647,6 +670,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await MoveToFinalStatusAsync(OperationStatus.Failed);
             }
+        }
+
+        private ICollection<string> GetDerivedResourceTypes(IReadOnlyCollection<string> resourceTypes)
+        {
+            var completeResourceList = new HashSet<string>(resourceTypes);
+
+            foreach (var baseResourceType in resourceTypes)
+            {
+                if (baseResourceType == KnownResourceTypes.Resource)
+                {
+                    completeResourceList.UnionWith(_modelInfoProvider.GetResourceTypeNames().ToHashSet());
+
+                    // We added all possible resource types, so no need to continue
+                    break;
+                }
+
+                if (baseResourceType == KnownResourceTypes.DomainResource)
+                {
+                    var domainResourceChildResourceTypes = _modelInfoProvider.GetResourceTypeNames().ToHashSet();
+
+                    // Remove types that inherit from Resource directly
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Binary);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Bundle);
+                    domainResourceChildResourceTypes.Remove(KnownResourceTypes.Parameters);
+
+                    completeResourceList.UnionWith(domainResourceChildResourceTypes);
+                }
+            }
+
+            return completeResourceList;
         }
 
         public void Dispose()

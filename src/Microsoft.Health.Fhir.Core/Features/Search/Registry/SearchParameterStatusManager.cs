@@ -194,7 +194,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 updated.Add(param);
             }
 
-            _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
+            if (updatedSearchParameterStatus.Any())
+            {
+                _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
+            }
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
