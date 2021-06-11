@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         await Task.Delay(10000);
                     }
                 }
-                while (!success && retryCount < 3);
+                while (!success && retryCount < 10);
 
                 Assert.True(success);
             }
