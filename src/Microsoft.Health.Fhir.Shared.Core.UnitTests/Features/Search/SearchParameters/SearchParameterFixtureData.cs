@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -66,8 +68,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 
-            var fhirElementToSearchValueConverters =
-                types.Select(x => (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(x, referenceSearchValueParser, codeSystemResolver));
+            var fhirElementToSearchValueConverters = new List<ITypedElementToSearchValueConverter>();
+
+            foreach (Type type in types)
+            {
+                // The extension converters will be added to the converter dictionary by the converter manager
+                if (!type.Name.Contains("ExtensionConverter"))
+                {
+                    var x = (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(type, referenceSearchValueParser, codeSystemResolver);
+                    fhirElementToSearchValueConverters.Add(x);
+                }
+            }
 
             return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
         }

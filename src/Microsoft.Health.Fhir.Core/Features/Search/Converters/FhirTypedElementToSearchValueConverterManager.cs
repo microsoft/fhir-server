@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             return _converterDictionary.TryGetValue((fhirType, searchValueType), out converter);
         }
 
-        private class ExtensionConverter<T> : ITypedElementToSearchValueConverter
+        internal class ExtensionConverter<T> : ITypedElementToSearchValueConverter
         {
             private readonly IEnumerable<ITypedElementToSearchValueConverter> _underlying;
             private readonly Type _type;
