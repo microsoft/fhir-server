@@ -79,13 +79,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Fact]
-        public async Task GivenUnparsableTime_WhenRequestionExportWithIt_ThenServerShouldReturnBadRequest()
+        [Theory]
+        [InlineData("time")]
+        [InlineData("2021-06-13T00:00:00Z ")]
+        public async Task GivenUnparsableTime_WhenRequestionExportWithIt_ThenServerShouldReturnBadRequest(string time)
         {
             var queryParam = new Dictionary<string, string>()
             {
-                { KnownQueryParameterNames.Since, "time"},
                 { KnownQueryParameterNames.Type, "Patient" },
+                { KnownQueryParameterNames.Since, time},
             };
             using HttpRequestMessage request = GenerateExportRequest("$export", queryParams: queryParam);
 
