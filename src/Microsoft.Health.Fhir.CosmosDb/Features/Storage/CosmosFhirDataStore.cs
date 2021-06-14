@@ -62,9 +62,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         /// <summary>
         /// This is the maximum degree of parallelism for the SDK to use when querying physical partitions in parallel.
-        /// -1 means "System Decides", int.MaxValue sets the limit high enough that it shouldn't be limited.
+        /// -1 means "System Decides", any other value and the SDK will choose min(physical partitions, value).
+        /// During testing we noticed unexpected behavior when executing queries with max degree of parallelism values
+        /// higher than 1000 and hence we are setting a conservative value.for now.
         /// </summary>
-        internal const int MaxQueryConcurrency = int.MaxValue;
+        internal const int MaxQueryConcurrency = 500;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
