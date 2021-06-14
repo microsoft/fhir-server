@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -372,7 +373,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
             Assert.NotEqual(saveResult.RawResourceElement.VersionId, deletedResourceKey.ResourceKey.VersionId);
 
@@ -385,7 +386,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             string id = "missingid";
 
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), DeleteOperation.SoftDelete);
 
             Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
@@ -400,9 +401,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var resourceKey = new ResourceKey("Observation", saveResult.RawResourceElement.Id);
 
-            await Mediator.DeleteResourceAsync(resourceKey, false);
+            await Mediator.DeleteResourceAsync(resourceKey, DeleteOperation.SoftDelete);
 
-            var deletedResourceKey2 = await Mediator.DeleteResourceAsync(resourceKey, false);
+            var deletedResourceKey2 = await Mediator.DeleteResourceAsync(resourceKey, DeleteOperation.SoftDelete);
 
             Assert.Null(deletedResourceKey2.ResourceKey.VersionId);
 
@@ -417,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), true);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.HardDelete);
 
             Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
@@ -441,11 +442,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var deserializedResult = createResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
             string resourceId = createResult.RawResourceElement.Id;
 
-            var deleteResult = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), false);
+            var deleteResult = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), DeleteOperation.SoftDelete);
             var updateResult = await Mediator.UpsertResourceAsync(deserializedResult);
 
             // Hard-delete the resource.
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), true);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), DeleteOperation.HardDelete);
 
             Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
@@ -483,14 +484,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task WhenDeletingSpecificVersion_ThenMethodNotAllowedIsThrown()
         {
             await Assert.ThrowsAsync<MethodNotAllowedException>(
-                async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), false); });
+                async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), DeleteOperation.SoftDelete); });
         }
 
         [Fact]
         public async Task GivenADeletedResource_WhenUpsertingWithValidETagHeader_ThenTheDeletedResourceIsRevived()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
             Assert.NotEqual(saveResult.RawResourceElement.VersionId, deletedResourceKey.ResourceKey.VersionId);
             await Assert.ThrowsAsync<ResourceGoneException>(

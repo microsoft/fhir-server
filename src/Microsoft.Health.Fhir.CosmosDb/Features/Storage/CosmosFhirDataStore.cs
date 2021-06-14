@@ -289,18 +289,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
             try
             {
-                _logger.LogDebug("Obliterating {resourceType}/{id}", key.ResourceType, key.Id);
+                _logger.LogDebug("Obliterating {resourceType}/{id}. Keep current version: {keepCurrentVersion}", key.ResourceType, key.Id, keepCurrentVersion);
 
                 StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _containerScope.Value.Scripts,
                         key,
+                        keepCurrentVersion,
                         ct),
                     cancellationToken);
 

@@ -284,8 +284,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
+            if (keepCurrentVersion)
+            {
+                throw new NotImplementedException();
+            }
+
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {

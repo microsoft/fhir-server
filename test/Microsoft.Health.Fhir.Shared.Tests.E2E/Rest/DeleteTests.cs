@@ -121,6 +121,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPurging_ThenServerShouldDeleteHistoryAndKeepCurrentVersion()
+        {
+            using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+
+            string resourceId = response.Resource.Id;
+            string historyVersion = response.Resource.Meta.VersionId;
+
+            response.Resource.Meta.Tag.Add(new Coding("tests", Guid.NewGuid().ToString()));
+
+            using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(response.Resource);
+
+            // Delete the resource.
+            await _client.DeleteAsync($"{nameof(Observation)}/{resourceId}/$purge");
+
+            // Subsequent read on the resource should return Gone.
+            var currentVersion = await _client.ReadAsync<Observation>(ResourceType.Observation, resourceId);
+            Assert.Equal(updateResponse.Resource.Meta.VersionId, currentVersion.Resource.Meta.VersionId);
+
+            // Subsequent read on the specific version should still work.
+            await _client.VReadAsync<Observation>(ResourceType.Observation, resourceId, updateResponse.Resource.Meta.VersionId);
+
+            // Subsequent read on the deleted version should return Gone.
+            await GivenExecuteAndValidateNotFoundStatus(() => _client.VReadAsync<Observation>(ResourceType.Observation, resourceId, historyVersion));
+        }
+
         [Fact]
         public async Task GivenAResourceWithLargeNumberOfHistory_WhenHardDeleting_ThenServerShouldDeleteAllRelatedResourcesSuccessfully()
         {
@@ -145,37 +173,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await _client.HardDeleteAsync(observation);
 
             // Getting the resource should result in NotFound.
-            await ExecuteAndValidateNotFoundStatus(() => _client.ReadAsync<Observation>(ResourceType.Observation, resourceId));
+            await GivenExecuteAndValidateNotFoundStatus(() => _client.ReadAsync<Observation>(ResourceType.Observation, resourceId));
 
             // Each version read should also result in NotFound.
             foreach (string versionId in versionIds)
             {
-                await ExecuteAndValidateNotFoundStatus(() => _client.VReadAsync<Observation>(ResourceType.Observation, resourceId, versionId));
+                await GivenExecuteAndValidateNotFoundStatus(() => _client.VReadAsync<Observation>(ResourceType.Observation, resourceId, versionId));
             }
 
             // History API should return NotFound.
-            await ExecuteAndValidateNotFoundStatus(() => _client.SearchAsync($"Observation/{resourceId}/_history"));
+            await GivenExecuteAndValidateNotFoundStatus(() => _client.SearchAsync($"Observation/{resourceId}/_history"));
+        }
 
-            async Task ExecuteAndValidateNotFoundStatus(Func<Task> action)
+        private async Task GivenExecuteAndValidateNotFoundStatus(Func<Task> action)
+        {
+            FhirException exception = null;
+
+            do
             {
-                FhirException exception = null;
-
-                do
+                if (exception?.StatusCode == (HttpStatusCode)429)
                 {
-                    if (exception?.StatusCode == (HttpStatusCode)429)
-                    {
-                        // Wait for a little bit before retrying if we are geting throttled.
-                        await Task.Delay(500);
-                    }
-
-                    exception = await Assert.ThrowsAsync<FhirException>(action);
+                    // Wait for a little bit before retrying if we are geting throttled.
+                    await Task.Delay(500);
                 }
-                while (exception.StatusCode == (HttpStatusCode)429);
 
-                Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
-
-                exception.Dispose();
+                exception = await Assert.ThrowsAsync<FhirException>(action);
             }
+            while (exception.StatusCode == (HttpStatusCode)429);
+
+            Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
+
+            exception.Dispose();
         }
     }
 }

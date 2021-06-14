@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions requiredDataAction = request.HardDelete ? DataActions.Delete | DataActions.HardDelete : DataActions.Delete;
+            DataActions requiredDataAction = request.DeleteOperation == DeleteOperation.SoftDelete ? DataActions.Delete : DataActions.HardDelete | DataActions.Delete;
             if (await AuthorizationService.CheckAccess(requiredDataAction, cancellationToken) != requiredDataAction)
             {
                 throw new UnauthorizedFhirActionException();
@@ -49,27 +49,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 
             string version = null;
 
-            if (request.HardDelete)
+            switch (request.DeleteOperation)
             {
-                await FhirDataStore.HardDeleteAsync(key, cancellationToken);
-            }
-            else
-            {
-                var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceKey.ResourceType));
-                emptyInstance.Id = request.ResourceKey.Id;
+                case DeleteOperation.SoftDelete:
+                    var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(request.ResourceKey.ResourceType));
+                    emptyInstance.Id = request.ResourceKey.Id;
 
-                ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true, keepMeta: false);
+                    ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true, keepMeta: false);
 
-                bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
+                    bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 
-                UpsertOutcome result = await FhirDataStore.UpsertAsync(
-                    deletedWrapper,
-                    weakETag: null,
-                    allowCreate: true,
-                    keepHistory: keepHistory,
-                    cancellationToken: cancellationToken);
+                    UpsertOutcome result = await FhirDataStore.UpsertAsync(
+                        deletedWrapper,
+                        weakETag: null,
+                        allowCreate: true,
+                        keepHistory: keepHistory,
+                        cancellationToken: cancellationToken);
 
-                version = result?.Wrapper.Version;
+                    version = result?.Wrapper.Version;
+                    break;
+                case DeleteOperation.HardDelete:
+                case DeleteOperation.Purge:
+                    await FhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.Purge, cancellationToken);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(request));
             }
 
             if (string.IsNullOrWhiteSpace(version))

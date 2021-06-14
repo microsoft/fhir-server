@@ -28,6 +28,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -275,11 +276,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenAFhirMediator_WhenDeletingAResourceByVersionId_ThenMethodNotAllowedIsThrown(bool hardDelete)
+        [InlineData(DeleteOperation.HardDelete)]
+        [InlineData(DeleteOperation.SoftDelete)]
+        public async Task GivenAFhirMediator_WhenDeletingAResourceByVersionId_ThenMethodNotAllowedIsThrown(DeleteOperation deleteOperation)
         {
-            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await _mediator.DeleteResourceAsync(new ResourceKey<Observation>("id1", "version1"), hardDelete));
+            await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await _mediator.DeleteResourceAsync(new ResourceKey<Observation>("id1", "version1"), deleteOperation));
         }
 
         [Fact]
@@ -288,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), null, true, true, Arg.Any<CancellationToken>()).Returns(default(UpsertOutcome));
 
             var resourceKey = new ResourceKey<Observation>("id1");
-            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, false)).ResourceKey;
+            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.SoftDelete)).ResourceKey;
 
             Assert.Equal(resourceKey.Id, resultKey.Id);
             Assert.Equal("Observation", resultKey.ResourceType);
@@ -302,9 +303,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             ResourceKey resourceKey = new ResourceKey<Observation>("id1");
 
-            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, true)).ResourceKey;
+            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.HardDelete)).ResourceKey;
 
-            await _fhirDataStore.Received(1).HardDeleteAsync(resourceKey, Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received(1).HardDeleteAsync(resourceKey, Arg.Any<bool>(), Arg.Any<CancellationToken>());
 
             Assert.NotNull(resultKey);
             Assert.Equal(resourceKey.Id, resultKey.Id);
@@ -320,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             ResourceKey resourceKey = new ResourceKey<Observation>("id1");
 
-            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.DeleteResourceAsync(resourceKey, true));
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.HardDelete));
         }
 
         [Fact]

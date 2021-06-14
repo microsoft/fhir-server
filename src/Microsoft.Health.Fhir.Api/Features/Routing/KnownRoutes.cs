@@ -58,6 +58,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Everything = "$everything";
         public const string PatientEverythingById = "Patient/" + IdRouteSegment + "/" + Everything;
 
+        public const string Purge = "$purge";
+        public const string PurgeResourceTypeById = ResourceTypeById + "/" + Purge;
+
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";
