@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
     {
         SoftDelete,
         HardDelete,
-        Purge,
+        PurgeHistory,
     }
 }

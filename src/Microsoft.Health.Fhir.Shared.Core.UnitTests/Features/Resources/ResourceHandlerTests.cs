@@ -278,6 +278,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         [Theory]
         [InlineData(DeleteOperation.HardDelete)]
         [InlineData(DeleteOperation.SoftDelete)]
+        [InlineData(DeleteOperation.PurgeHistory)]
         public async Task GivenAFhirMediator_WhenDeletingAResourceByVersionId_ThenMethodNotAllowedIsThrown(DeleteOperation deleteOperation)
         {
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await _mediator.DeleteResourceAsync(new ResourceKey<Observation>("id1", "version1"), deleteOperation));
@@ -322,6 +323,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             ResourceKey resourceKey = new ResourceKey<Observation>("id1");
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.HardDelete));
+        }
+
+        [Theory]
+        [InlineData(DataActions.Delete)]
+        [InlineData(DataActions.HardDelete)]
+        public async Task GivenAFhirMediator_WhenPurgingHistoryWithInsufficientPermissions_ThenFails(DataActions permittedActions)
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>(), Arg.Any<CancellationToken>()).Returns(permittedActions);
+
+            ResourceKey resourceKey = new ResourceKey<Observation>("id1");
+
+            await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _mediator.DeleteResourceAsync(resourceKey, DeleteOperation.PurgeHistory));
         }
 
         [Fact]

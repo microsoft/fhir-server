@@ -375,11 +375,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
         [HttpDelete]
-        [Route(KnownRoutes.PurgeResourceTypeById)]
+        [Route(KnownRoutes.PurgeHistoryResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
-        public async Task<IActionResult> Purge(string typeParameter, string idParameter)
+        public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter)
         {
-            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), DeleteOperation.Purge, HttpContext.RequestAborted);
+            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), DeleteOperation.PurgeHistory, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
         }

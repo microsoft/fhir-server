@@ -136,9 +136,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(response.Resource);
 
             // Delete the resource.
-            await _client.DeleteAsync($"{nameof(Observation)}/{resourceId}/$purge");
+            await _client.DeleteAsync($"{nameof(Observation)}/{resourceId}/$purge-history");
 
-            // Subsequent read on the resource should return Gone.
+            // Current resource should be returned.
             var currentVersion = await _client.ReadAsync<Observation>(ResourceType.Observation, resourceId);
             Assert.Equal(updateResponse.Resource.Meta.VersionId, currentVersion.Resource.Meta.VersionId);
 

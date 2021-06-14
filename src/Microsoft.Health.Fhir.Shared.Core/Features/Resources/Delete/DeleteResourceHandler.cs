@@ -69,8 +69,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                     version = result?.Wrapper.Version;
                     break;
                 case DeleteOperation.HardDelete:
-                case DeleteOperation.Purge:
-                    await FhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.Purge, cancellationToken);
+                case DeleteOperation.PurgeHistory:
+                    await FhirDataStore.HardDeleteAsync(key, request.DeleteOperation == DeleteOperation.PurgeHistory, cancellationToken);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(request));
