@@ -59,6 +59,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             public IEnumerable<ISearchValue> ConvertTo(ITypedElement value)
             {
+                if (value == null)
+                {
+                    return new List<ISearchValue>();
+                }
+
                 var typed = value.Select("value").FirstOrDefault();
                 var converter = _underlying.Where(x => x.FhirTypes.Contains(typed.InstanceType)).First();
                 return converter.ConvertTo(typed);
