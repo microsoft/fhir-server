@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var queryParam = new Dictionary<string, string>()
             {
-                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString() },
+                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.ffzzz") },
                 { KnownQueryParameterNames.Type, "Patient" },
                 { KnownQueryParameterNames.Container, "test-container" },
             };
