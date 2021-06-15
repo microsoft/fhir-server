@@ -286,15 +286,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
-            if (keepCurrentVersion)
-            {
-                throw new NotImplementedException();
-            }
-
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
+                if (_schemaInformation.Current >= SchemaVersionConstants.PurgeHistoryVersion)
+                {
+                    VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id, Convert.ToInt16(keepCurrentVersion));
+                }
+                else if (!keepCurrentVersion)
+                {
+                    V12.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
+                }
+                else
+                {
+                    throw new BadRequestException(Resources.SchemaVersionNeedsToBeUpgraded);
+                }
 
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
             }

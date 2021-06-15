@@ -121,7 +121,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPurging_ThenServerShouldDeleteHistoryAndKeepCurrentVersion()
