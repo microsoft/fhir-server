@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenImportedResourceWithVariousValues_WhenSearchedWithMultipleParams_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             Patient patientAddressCityAndFamily = _fixture.PatientAddressCityAndFamily;
-            string query = string.Format("Patient?address-city={0}&family={1}", patientAddressCityAndFamily.Address[0].City, patientAddressCityAndFamily.Name[0].Family);
+            string query = string.Format("Patient?address-city={0}&family={1}&_tag={2}", patientAddressCityAndFamily.Address[0].City, patientAddressCityAndFamily.Name[0].Family, _fixture.FixtureTag);
 
             await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, query, patientAddressCityAndFamily);
         }
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Fact]
         public async Task GivenImportedResourceWithVariousValues_WhenSearchedWithCityParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
-            string query = string.Format("Patient?address-city={0}", _fixture.PatientWithSameCity1.Address[0].City);
+            string query = string.Format("Patient?address-city={0}&_tag={1}", _fixture.PatientWithSameCity1.Address[0].City, _fixture.FixtureTag);
 
             await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, query, _fixture.PatientWithSameCity1, _fixture.PatientWithSameCity2);
         }
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Fact]
         public async Task GivenImportedResourceWithVariousValues_WhenSearchedWithTheMissingModifer_ThenOnlyTheResourcesWithMissingOrPresentParametersAreReturned()
         {
-            string queryMissingFalse = string.Format("Patient?gender:missing=false", _fixture.PatientWithSameCity1.Address[0].City);
+            string queryMissingFalse = string.Format("Patient?gender:missing=false&_tag={0}", _fixture.FixtureTag);
             await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, queryMissingFalse, _fixture.PatientWithGender);
 
             string queryMissing = string.Format("Patient?gender:missing=true", _fixture.PatientWithSameCity1.Address[0].City);

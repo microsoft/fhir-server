@@ -19,27 +19,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
         }
 
-        public string Tag { get; private set; }
+        public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
         public IReadOnlyList<Observation> Observations { get; private set; }
 
         protected override async Task OnInitializedAsync()
         {
-            Tag = Guid.NewGuid().ToString();
-
-            // Prepare the resources used for number search tests.
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
-            await TestFhirClient.DeleteAllResources(ResourceType.Patient);
-
             await TestFhirClient.CreateResourcesAsync<Patient>(p =>
             {
-                p.Meta = new Meta
-                {
-                    Tag = new List<Coding>
-                    {
-                        new Coding("testTag", Tag),
-                    },
-                };
+                p.AddTestTag(FixtureTag);
             });
 
             Observations = await ImportTestHelper.ImportToServerAsync<Observation>(
@@ -73,13 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             void SetObservation(Observation observation, Action<CodeableConcept> codeableConceptCustomizer)
             {
-                observation.Meta = new Meta
-                {
-                    Tag = new List<Coding>
-                    {
-                        new Coding("testTag", Tag),
-                    },
-                };
+                observation.AddTestTag(FixtureTag);
                 observation.Code = new CodeableConcept("system", "code");
                 observation.Status = ObservationStatus.Registered;
 
@@ -89,12 +71,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
                 observation.Value = codeableConcept;
             }
-        }
-
-        protected override async Task OnDisposedAsync()
-        {
-            await TestFhirClient.DeleteAllResources(ResourceType.Patient);
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
         }
     }
 }

@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData("general-practitioner=p2", 4)]
         public async Task GivenAReferenceSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string query, params int[] matchIndices)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.Patient, query);
+            Bundle bundle = await _client.SearchAsync(ResourceType.Patient, $"{query}&_tag={_fixture.FixtureTag}");
 
             Patient[] expected = matchIndices.Select(i => _fixture.Patients[i]).ToArray();
 

@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
 
@@ -21,10 +20,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public IReadOnlyList<Observation> Observations { get; private set; }
 
+        public string FixtureTag { get; } = Guid.NewGuid().ToString();
+
         protected override async Task OnInitializedAsync()
         {
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
-
             Observations = await ImportTestHelper.ImportToServerAsync<Observation>(
                 TestFhirClient,
                 CloudStorageAccount,
@@ -42,14 +41,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             {
                 observation.Code = new CodeableConcept("system", "code");
                 observation.Status = ObservationStatus.Registered;
-
+                observation.AddTestTag(FixtureTag);
                 observation.Value = new Quantity(quantity, unit, system);
             }
-        }
-
-        protected override async Task OnDisposedAsync()
-        {
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
         }
     }
 }

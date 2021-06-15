@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData("eb5.0001", 0, 1, 2)]
         public async Task GivenANumberSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.RiskAssessment, $"probability={queryValue}");
+            Bundle bundle = await _client.SearchAsync(ResourceType.RiskAssessment, $"probability={queryValue}&_tag={_fixture.FixtureTag}");
 
             RiskAssessment[] expected = expectedIndices.Select(i => _fixture.RiskAssessments[i]).ToArray();
 

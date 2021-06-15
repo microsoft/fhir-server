@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameter_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"value-concept={queryValue}");
+            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"value-concept={queryValue}&_tag={_fixture.FixtureTag}");
 
             Observation[] expected = expectedIndices.Select(i => _fixture.Observations[i]).ToArray();
 
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData("text2", 3, 6)]
         public async Task GivenATokenSearchParameterWithTextModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"value-concept:text={queryValue}");
+            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"value-concept:text={queryValue}&_tag={_fixture.FixtureTag}");
 
             Observation[] expected = expectedIndices.Select(i => _fixture.Observations[i]).ToArray();
 
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"value-concept:not={queryValue}");
+            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"value-concept:not={queryValue}&_tag={_fixture.FixtureTag}");
 
             Observation[] expected = _fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
 
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Fact]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearchedOverMissingValue_ThenCorrectBundleShouldBeReturned()
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"category:not=test");
+            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"category:not=test&_tag={_fixture.FixtureTag}");
 
             Observation[] expected = _fixture.Observations.Where((_, i) => i != 8).ToArray();
 
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData("code1", 0, 5, 6, 8)]
         public async Task GivenMultipleTokenSearchParametersWithNotModifiers_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"category:not=test&value-concept:not={queryValue}");
+            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"category:not=test&value-concept:not={queryValue}&_tag={_fixture.FixtureTag}");
 
             Observation[] expected = _fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
 
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData(2)]
         public async Task GivenIdWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(int count)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"_id:not={string.Join(",", _fixture.Observations.Take(count).Select(x => x.Id))}");
+            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"_id:not={string.Join(",", _fixture.Observations.Take(count).Select(x => x.Id))}&_tag={_fixture.FixtureTag}");
 
             Observation[] expected = _fixture.Observations.Skip(count).ToArray();
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData(ResourceType.Patient, ResourceType.Organization)]
         public async Task GivenTypeWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(params ResourceType[] resourceTypes)
         {
-            Bundle bundle = await _client.SearchAsync($"?_tag={_fixture.Tag}&_type:not={string.Join(",", resourceTypes)}");
+            Bundle bundle = await _client.SearchAsync($"?_tag={_fixture.FixtureTag}&_type:not={string.Join(",", resourceTypes)}");
 
             ImportTestHelper.VerifyBundle(bundle, _fixture.Observations.ToArray());
         }
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameterWithNotModifier_WhenSearchedWithType_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
         {
-            Bundle bundle = await _client.SearchAsync($"?_type={ResourceType.Observation}&value-concept:not={queryValue}");
+            Bundle bundle = await _client.SearchAsync($"?_type={ResourceType.Observation}&value-concept:not={queryValue}&_tag={_fixture.FixtureTag}");
 
             Observation[] expected = _fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
 

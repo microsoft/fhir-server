@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [InlineData("eb1981-01-01T00:00:00.0000001", 0, 1, 2, 3, 4, 5)] // Only dates with end time earlier than 1981-01-01T00:00:00.0000001 would match.
         public async Task GivenADateTimeSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"date={queryValue}&code={_fixture.Coding.Code}");
+            Bundle bundle = await _client.SearchAsync(ResourceType.Observation, $"date={queryValue}&_tag={_fixture.FixtureTag}");
 
             Observation[] expected = expectedIndices.Select(i => _fixture.Observations[i]).ToArray();
 

@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
@@ -39,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
         }
 
-        public string TestSessionId { get; } = Guid.NewGuid().ToString();
+        public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
         public IReadOnlyDictionary<string, Observation> Observations { get; private set; }
 
@@ -47,9 +46,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         protected override async Task OnInitializedAsync()
         {
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
-            await TestFhirClient.DeleteAllResources(ResourceType.DocumentReference);
-
             Observations = CreateResultDictionary<Observation>(ObservationTestFileNames);
             DocumentReferences = CreateResultDictionary<DocumentReference>(DocumentReferenceTestFiles);
 
@@ -61,12 +57,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 TestFhirClient,
                 CloudStorageAccount,
                 resources.ToArray());
-        }
-
-        protected override async Task OnDisposedAsync()
-        {
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
-            await TestFhirClient.DeleteAllResources(ResourceType.DocumentReference);
         }
 
         private Dictionary<string, T> CreateResultDictionary<T>(string[] files)
@@ -94,11 +84,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             switch (resource)
             {
                 case Observation o:
-                    o.Identifier.Add(new Identifier(null, TestSessionId));
+                    o.AddTestTag(FixtureTag);
                     o.Id = Guid.NewGuid().ToString("N");
                     break;
                 case DocumentReference d:
-                    d.Identifier.Add(new Identifier(null, TestSessionId));
+                    d.AddTestTag(FixtureTag);
                     d.Id = Guid.NewGuid().ToString("N");
                     break;
             }

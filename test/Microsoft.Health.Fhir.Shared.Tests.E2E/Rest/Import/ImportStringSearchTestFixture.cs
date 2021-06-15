@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
 
@@ -27,8 +26,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         protected override async Task OnInitializedAsync()
         {
-            await TestFhirClient.DeleteAllResources(ResourceType.Patient);
-
             Patients = await ImportTestHelper.ImportToServerAsync<Patient>(
                 TestFhirClient,
                 CloudStorageAccount,
@@ -53,14 +50,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                     new HumanName { Family = family, Given = new[] { given } },
                 };
 
-                patient.Meta = new Meta();
-                patient.Meta.Tag.Add(new Coding("http://e2e-test", FixtureTag));
+                patient.AddTestTag(FixtureTag);
             }
-        }
-
-        protected override async Task OnDisposedAsync()
-        {
-            await TestFhirClient.DeleteAllResources(ResourceType.Patient);
         }
     }
 }

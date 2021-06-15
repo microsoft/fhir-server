@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
 
@@ -19,21 +18,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
         }
 
-        public Coding Coding { get; private set; }
+        public string FixtureTag { get; } = Guid.NewGuid().ToString();
 
         public IReadOnlyList<Observation> Observations { get; private set; }
 
         protected override async Task OnInitializedAsync()
         {
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
-
-            // Creates a unique code for searches
-            Coding = new Coding
-            {
-                Code = Guid.NewGuid().ToString(),
-                System = "http://fhir-server-test/guid",
-            };
-
             Observations = await ImportTestHelper.ImportToServerAsync<Observation>(
                 TestFhirClient,
                 CloudStorageAccount,
@@ -48,20 +38,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             void SetObservation(Observation observation, string date)
             {
                 observation.Status = ObservationStatus.Final;
-                observation.Code = new CodeableConcept
-                {
-                    Coding = new List<Coding>
-                    {
-                        Coding,
-                    },
-                };
+                observation.AddTestTag(FixtureTag);
                 observation.Effective = new FhirDateTime(date);
             }
-        }
-
-        protected override async Task OnDisposedAsync()
-        {
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
         }
     }
 }

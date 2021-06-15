@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
 
@@ -25,8 +24,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         protected override async Task OnInitializedAsync()
         {
-            await TestFhirClient.DeleteAllResources(ResourceType.ValueSet);
-
             FixtureTag = Guid.NewGuid().ToString();
 
             ValueSets = await ImportTestHelper.ImportToServerAsync<ValueSet>(
@@ -41,14 +38,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             {
                 vs.Status = PublicationStatus.Active;
                 vs.Url = url;
-                vs.Meta = new Meta();
-                vs.Meta.Tag.Add(new Coding(null, FixtureTag));
+                vs.AddTestTag(FixtureTag);
             }
-        }
-
-        protected override async Task OnDisposedAsync()
-        {
-            await TestFhirClient.DeleteAllResources(ResourceType.ValueSet);
         }
     }
 }

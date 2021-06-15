@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Task = System.Threading.Tasks.Task;
 
@@ -45,23 +44,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
         public Patient PatientWithGender { get; set; } = new Patient() { Id = Guid.NewGuid().ToString("N"), Gender = AdministrativeGender.Male };
 
+        public string FixtureTag { get; } = Guid.NewGuid().ToString();
+
         protected override async Task OnInitializedAsync()
         {
-            await TestFhirClient.DeleteAllResources(ResourceType.Patient);
-
             await ImportTestHelper.ImportToServerAsync(
                 TestFhirClient,
                 CloudStorageAccount,
-                PatientAddressCityAndFamily,
-                PatientWithSameCity1,
-                PatientWithSameCity2,
-                PatientWithGender);
-        }
-
-        protected override async Task OnDisposedAsync()
-        {
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
-            await TestFhirClient.DeleteAllResources(ResourceType.DocumentReference);
+                PatientAddressCityAndFamily.AddTestTag(FixtureTag),
+                PatientWithSameCity1.AddTestTag(FixtureTag),
+                PatientWithSameCity2.AddTestTag(FixtureTag),
+                PatientWithGender.AddTestTag(FixtureTag));
         }
     }
 }

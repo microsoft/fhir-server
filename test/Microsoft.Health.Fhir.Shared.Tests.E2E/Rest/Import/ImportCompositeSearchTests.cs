@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             // Append the test session id.
             return await _client.SearchAsync(
                 resourceType,
-                $"identifier={_fixture.TestSessionId}&{queryValue}");
+                $"_tag={_fixture.FixtureTag}&{queryValue}");
         }
     }
 }
