@@ -273,7 +273,6 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Initiate a reindexing operation.
-# Copy the reindexing job ID into the variable below.
 # @name reindex
 POST {{baseUrl}}/$reindex HTTP/1.1
 content-type: application/json
