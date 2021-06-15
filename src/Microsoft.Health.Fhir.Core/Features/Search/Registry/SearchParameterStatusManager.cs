@@ -191,16 +191,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (var paramStatus in updatedSearchParameterStatus)
             {
-                var param = _searchParameterDefinitionManager.GetSearchParameter(paramStatus.Uri);
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri, out var param))
+                {
+                    var tempStatus = EvaluateSearchParamStatus(paramStatus);
 
-                var tempStatus = EvaluateSearchParamStatus(paramStatus);
+                    param.IsSearchable = tempStatus.IsSearchable;
+                    param.IsSupported = tempStatus.IsSupported;
+                    param.IsPartiallySupported = tempStatus.IsPartiallySupported;
+                    param.SortStatus = paramStatus.SortStatus;
 
-                param.IsSearchable = tempStatus.IsSearchable;
-                param.IsSupported = tempStatus.IsSupported;
-                param.IsPartiallySupported = tempStatus.IsPartiallySupported;
-                param.SortStatus = paramStatus.SortStatus;
-
-                updated.Add(param);
+                    updated.Add(param);
+                }
+                else if (paramStatus.Status != SearchParameterStatus.Deleted)
+                {
+                    // if we cannot find the search parameter in the search parameter definition manager
+                    // and the status is set to deleted, then it simply means a parameter was marked
+                    // deleted before it was added to this instance, and there is no issue
+                    // however if the status is not deleted, then we have an issue
+                    throw new UnableToUpdateSearchParameterException(paramStatus.Uri);
+                }
             }
 
             if (updatedSearchParameterStatus.Any())
