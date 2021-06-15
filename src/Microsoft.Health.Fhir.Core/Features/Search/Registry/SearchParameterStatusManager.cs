@@ -202,12 +202,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     updated.Add(param);
                 }
-                else if (paramStatus.Status != SearchParameterStatus.Deleted)
+                else if (!updatedSearchParameterStatus.Where(p => p.Uri.Equals(paramStatus) && p.Status == SearchParameterStatus.Deleted).Any())
                 {
                     // if we cannot find the search parameter in the search parameter definition manager
-                    // and the status is set to deleted, then it simply means a parameter was marked
-                    // deleted before it was added to this instance, and there is no issue
-                    // however if the status is not deleted, then we have an issue
+                    // and there is an entry in the list of updates with a delete status then it indicates
+                    // the search parameter was deleted before it was added to this instance, and there is no issue
+                    // however if there is no indication that the search parameter was deleted, then there is a problem
                     throw new UnableToUpdateSearchParameterException(paramStatus.Uri);
                 }
             }
