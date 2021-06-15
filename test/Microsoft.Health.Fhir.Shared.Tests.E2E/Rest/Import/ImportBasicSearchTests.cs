@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             string queryMissingFalse = string.Format("Patient?gender:missing=false&_tag={0}", _fixture.FixtureTag);
             await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, queryMissingFalse, _fixture.PatientWithGender);
 
-            string queryMissing = string.Format("Patient?gender:missing=true", _fixture.PatientWithSameCity1.Address[0].City);
+            string queryMissing = string.Format("Patient?gender:missing=true&_tag={0}", _fixture.FixtureTag);
             await ImportTestHelper.VerifySearchResultAsync(_fixture.TestFhirClient, queryMissing, _fixture.PatientAddressCityAndFamily, _fixture.PatientWithSameCity1, _fixture.PatientWithSameCity2);
         }
     }
