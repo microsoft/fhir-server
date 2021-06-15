@@ -4,35 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
 {
     public static class FhirClientExtensions
     {
-        public static async Task DeleteAllResources(this FhirClient client, ResourceType resourceType)
-        {
-            await DeleteAllResources(client, resourceType, null);
-        }
-
-        public static async Task DeleteAllResources(this FhirClient client, ResourceType resourceType, string searchUrl)
-        {
-            Bundle bundle = null;
-            while (bundle == null || bundle.NextLink != null)
-            {
-                bundle = bundle == null ? await client.SearchAsync(resourceType, searchUrl, count: 100) : await client.SearchAsync(bundle.NextLink.ToString());
-
-                foreach (Bundle.EntryComponent entry in bundle.Entry)
-                {
-                   using var response = await client.DeleteAsync(entry.FullUrl);
-                }
-            }
-        }
-
-        public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, int count)
+        public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, int count, string tag)
             where TResource : Resource, new()
         {
             TResource[] resources = new TResource[count];
@@ -40,6 +21,13 @@ namespace Microsoft.Health.Fhir.Client
             for (int i = 0; i < resources.Length; i++)
             {
                 TResource resource = new TResource();
+                resource.Meta = new Meta()
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
 
                 using var response = await client.CreateAsync(resource);
                 resources[i] = response;

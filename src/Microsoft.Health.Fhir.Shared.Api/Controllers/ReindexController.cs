@@ -71,12 +71,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             uint? maxResourcesPerQuery = (uint?)ReadNumericParameter(inputParams, JobRecordProperties.MaximumNumberOfResourcesPerQuery);
             int? queryDelay = ReadNumericParameter(inputParams, JobRecordProperties.QueryDelayIntervalInMilliseconds);
             ushort? targetDataStoreResourcePercentage = (ushort?)ReadNumericParameter(inputParams, JobRecordProperties.TargetDataStoreUsagePercentage);
+            string targetResourceTypes = ReadStringParameter(inputParams, JobRecordProperties.TargetResourceTypes);
 
             ResourceElement response = await _mediator.CreateReindexJobAsync(
                 maximumConcurrency,
                 maxResourcesPerQuery,
                 queryDelay,
                 targetDataStoreResourcePercentage,
+                targetResourceTypes,
                 HttpContext.RequestAborted);
 
             var result = FhirResult.Create(response, HttpStatusCode.Created)
@@ -218,6 +220,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 JobRecordProperties.QueryDelayIntervalInMilliseconds,
                 JobRecordProperties.MaximumNumberOfResourcesPerQuery,
                 JobRecordProperties.TargetDataStoreUsagePercentage,
+                JobRecordProperties.TargetResourceTypes,
             };
 
             var patchParams = new HashSet<string>()
