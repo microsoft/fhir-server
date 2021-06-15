@@ -432,6 +432,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             bool executingWithMaxParallelism = feedOptions.MaxConcurrency == _cosmosDataStoreConfiguration.ParallelQueryOptions.MaxQueryConcurrency && continuationToken == null;
 
+            if (executingWithMaxParallelism)
+            {
+                _logger.LogInformation("Executing {maxConcurrency} parallel queries across physical partitions", feedOptions.MaxConcurrency);
+            }
+
             var maxCount = executingWithMaxParallelism
                 ? totalDesiredCount * (mustNotExceedMaxItemCount ? 1 : ExecuteDocumentQueryAsyncMaximumFillFactor) // in this mode, the SDK likely has already fetched pages, so we might as well consume them
                 : totalDesiredCount * ExecuteDocumentQueryAsyncMinimumFillFactor;
