@@ -398,7 +398,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 if (searchOptions.Sort?.Count > 0)
                 {
-                    feedOptions.MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency;
+                    feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
                 }
                 else
                 {
@@ -411,7 +411,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         queryPartitionStatistics = _queryPartitionStatisticsCache.GetQueryPartitionStatistics(searchOptions.Expression);
                         if (IsQuerySelective(queryPartitionStatistics))
                         {
-                            feedOptions.MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency;
+                            feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
                         }
 
                         // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
@@ -501,7 +501,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             var feedOptions = new QueryRequestOptions
             {
-                MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency, // execute counts across all partitions
+                MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency, // execute counts across all partitions
             };
 
             return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
@@ -652,7 +652,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // The previous iteration executed sequentially and did not retrieve the desired number of results. We will switch to parallel execution.
                         // Note that we are not passing in the continuation token, because if we do, the SDK does not execute in parallel.
 
-                        var queryRequestOptionsOverride = new QueryRequestOptions { MaxItemCount = searchOptions.MaxItemCount, MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency };
+                        var queryRequestOptionsOverride = new QueryRequestOptions { MaxItemCount = searchOptions.MaxItemCount, MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency };
 
                         includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                             query,
