@@ -12,7 +12,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
-    internal class CompartmentAssignmentTableBulkCopyDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>
+    internal class CompartmentAssignmentTableBulkCopyDataGenerator : TableBulkCopyDataGenerator
     {
         private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkCompartmentAssignmentTableTypeV1Row> _generator;
 
@@ -27,7 +27,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _generator = generator;
         }
 
-        internal override string TableName => VLatest.CompartmentAssignment.TableName;
+        internal override string TableName
+        {
+            get
+            {
+                return VLatest.CompartmentAssignment.TableName;
+            }
+        }
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {

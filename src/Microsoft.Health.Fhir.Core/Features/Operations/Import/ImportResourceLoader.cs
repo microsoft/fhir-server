@@ -16,8 +16,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResourceLoader : IImportResourceLoader
     {
-        private const int DefaultChannelMaxCapacity = 3000;
-        private const int DefaultMaxBatchSize = 1000;
+        private const int DefaultChannelMaxCapacity = 500;
+        private const int DefaultMaxBatchSize = 100;
         private static readonly int MaxConcurrentCount = Environment.ProcessorCount * 2;
 
         private IIntegrationDataStoreClient _integrationDataStoreClient;

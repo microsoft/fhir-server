@@ -12,7 +12,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
-    internal class ResourceWriteClaimTableBulkCopyDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>
+    internal class ResourceWriteClaimTableBulkCopyDataGenerator : TableBulkCopyDataGenerator
     {
         private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkResourceWriteClaimTableTypeV1Row> _generator;
 
@@ -27,18 +27,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _generator = generator;
         }
 
-        internal override string TableName => VLatest.ResourceWriteClaim.TableName;
+        internal override string TableName
+        {
+            get
+            {
+                return VLatest.ResourceWriteClaim.TableName;
+            }
+        }
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {
             IEnumerable<BulkResourceWriteClaimTableTypeV1Row> claims = _generator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            if (claims != null)
+            foreach (var claim in claims)
             {
-                foreach (var claim in claims)
-                {
-                    FillDataTable(table, input.ResourceSurrogateId, claim);
-                }
+                FillDataTable(table, input.ResourceSurrogateId, claim);
             }
         }
 

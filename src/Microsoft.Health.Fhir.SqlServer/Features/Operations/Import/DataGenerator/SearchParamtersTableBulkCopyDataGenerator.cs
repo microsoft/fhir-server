@@ -8,7 +8,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
-    internal abstract class SearchParamtersTableBulkCopyDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>
+    internal abstract class SearchParamtersTableBulkCopyDataGenerator : TableBulkCopyDataGenerator
     {
         internal static readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
         internal static readonly BigIntColumn ResourceSurrogateId = new BigIntColumn("ResourceSurrogateId");

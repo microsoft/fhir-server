@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(Resources.InitialImportModeNotEnabled);
             }
 
-            CreateImportResponse response = await _mediator.BulkImportAsync(
+            CreateImportResponse response = await _mediator.ImportAsync(
                  _fhirRequestContextAccessor.RequestContext.Uri,
                  importRequest.InputFormat,
                  importRequest.InputSource,
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Import)]
         public async Task<IActionResult> CancelImport(string idParameter)
         {
-            CancelImportResponse response = await _mediator.CancelBulkImportAsync(idParameter, HttpContext.RequestAborted);
+            CancelImportResponse response = await _mediator.CancelImportAsync(idParameter, HttpContext.RequestAborted);
 
             _logger.LogInformation($"CancelImport {response?.StatusCode}");
             return new ImportResult(response.StatusCode);
@@ -134,8 +134,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Import)]
         public async Task<IActionResult> GetImportStatusById(string idParameter)
         {
-            var getBulkImportResult = await _mediator.GetBulkImportStatusAsync(
-                _fhirRequestContextAccessor.RequestContext.Uri,
+            var getBulkImportResult = await _mediator.GetImportStatusAsync(
                 idParameter,
                 HttpContext.RequestAborted);
 

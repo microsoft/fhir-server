@@ -17,12 +17,12 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class GetBulkImportRequestHandler : IRequestHandler<GetImportRequest, GetImportResponse>
+    public class GetImportRequestHandler : IRequestHandler<GetImportRequest, GetImportResponse>
     {
         private readonly ITaskManager _taskManager;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
-        public GetBulkImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService)
+        public GetImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(taskManager, nameof(taskManager));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));

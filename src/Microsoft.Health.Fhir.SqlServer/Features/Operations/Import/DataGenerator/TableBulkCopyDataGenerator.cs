@@ -8,7 +8,7 @@ using System.Data;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
-    internal abstract class TableBulkCopyDataGenerator<TDataType>
+    internal abstract class TableBulkCopyDataGenerator
     {
         internal abstract string TableName { get; }
 
@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             return table;
         }
 
-        internal abstract void FillDataTable(DataTable table, TDataType input);
+        internal abstract void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input);
 
         internal abstract void FillSchema(DataTable table);
 

@@ -51,7 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
             if (IsExcludedEndpoint(context.Request.Method, context.Request.Path))
             {
-                // Endpoint is exempt from concurrent request limits.
                 await _next(context);
                 return;
             }

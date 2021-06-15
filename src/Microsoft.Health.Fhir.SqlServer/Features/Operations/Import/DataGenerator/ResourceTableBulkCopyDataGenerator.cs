@@ -8,11 +8,17 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
-    internal class ResourceTableBulkCopyDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>
+    internal class ResourceTableBulkCopyDataGenerator : TableBulkCopyDataGenerator
     {
         private const string ImportMethod = "PUT";
 
-        internal override string TableName => VLatest.Resource.TableName;
+        internal override string TableName
+        {
+            get
+            {
+                return VLatest.Resource.TableName;
+            }
+        }
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {

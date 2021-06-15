@@ -17,13 +17,13 @@ using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class CancelBulkImportRequestHandler : IRequestHandler<CancelImportRequest, CancelImportResponse>
+    public class CancelImportRequestHandler : IRequestHandler<CancelImportRequest, CancelImportResponse>
     {
         private readonly ITaskManager _taskManager;
         private readonly IAuthorizationService<DataActions> _authorizationService;
-        private readonly ILogger<CancelBulkImportRequestHandler> _logger;
+        private readonly ILogger<CancelImportRequestHandler> _logger;
 
-        public CancelBulkImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService, ILogger<CancelBulkImportRequestHandler> logger)
+        public CancelImportRequestHandler(ITaskManager taskManager, IAuthorizationService<DataActions> authorizationService, ILogger<CancelImportRequestHandler> logger)
         {
             EnsureArg.IsNotNull(taskManager, nameof(taskManager));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));

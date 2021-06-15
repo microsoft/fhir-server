@@ -14,10 +14,10 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
 {
-    public class BulkImportResultExtensionsTests
+    public class ImportResultExtensionsTests
     {
         [Fact]
-        public void GivenABulkImportResult_WhenSettingAContentLocationHeader_TheBulkImportResultHasAContentLocationHeader()
+        public void GivenAnImportResult_WhenSettingAContentLocationHeader_ThenImportResultHasAContentLocationHeader()
         {
             string opName = OperationsConstants.Import;
             string id = Guid.NewGuid().ToString();
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         }
 
         [Fact]
-        public void GivenABulkImportResult_WhenSettingAContentTypeHeader_ThenBulkImportResultHasAContentTypeHeader()
+        public void GivenAnImportResult_WhenSettingAContentTypeHeader_ThenImportResultHasAContentTypeHeader()
         {
             string contentTypeValue = "application/json";
             var bulkImportResult = ImportResult.Accepted().SetContentTypeHeader(contentTypeValue);

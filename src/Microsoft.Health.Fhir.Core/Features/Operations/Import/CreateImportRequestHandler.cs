@@ -23,21 +23,21 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     /// <summary>
-    /// MediatR request handler. Called when the BulkImportController creates an BulkImport job.
+    /// MediatR request handler. Called when the ImportController creates an Import job.
     /// </summary>
-    public class CreateBulkImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
+    public class CreateImportRequestHandler : IRequestHandler<CreateImportRequest, CreateImportResponse>
     {
         private readonly ITaskManager _taskManager;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly TaskHostingConfiguration _taskHostingConfiguration;
-        private readonly ILogger<CreateBulkImportRequestHandler> _logger;
+        private readonly ILogger<CreateImportRequestHandler> _logger;
         private readonly IAuthorizationService<DataActions> _authorizationService;
 
-        public CreateBulkImportRequestHandler(
+        public CreateImportRequestHandler(
             ITaskManager taskManager,
             IOptions<OperationsConfiguration> operationsConfig,
             IOptions<TaskHostingConfiguration> taskHostingConfiguration,
-            ILogger<CreateBulkImportRequestHandler> logger,
+            ILogger<CreateImportRequestHandler> logger,
             IAuthorizationService<DataActions> authorizationService)
         {
             EnsureArg.IsNotNull(taskManager, nameof(taskManager));

@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     };
                 });
 
-            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>()
+            List<TableBulkCopyDataGenerator> generators = new List<TableBulkCopyDataGenerator>()
             {
                 new TestDataGenerator("Table1", 1),
                 new TestDataGenerator("Table2", 2),
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             IFhirDataBulkImportOperation testFhirDataBulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             ISqlBulkCopyDataWrapperFactory dataWrapperFactory = Substitute.For<ISqlBulkCopyDataWrapperFactory>();
-            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
+            List<TableBulkCopyDataGenerator> generators = new List<TableBulkCopyDataGenerator>();
 
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 {
                     throw new InvalidOperationException();
                 });
-            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
+            List<TableBulkCopyDataGenerator> generators = new List<TableBulkCopyDataGenerator>();
 
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     };
                 });
 
-            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>()
+            List<TableBulkCopyDataGenerator> generators = new List<TableBulkCopyDataGenerator>()
             {
                 new TestDataGenerator("Table1", 1),
                 new TestDataGenerator("Table2", 2),
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             Assert.Equal(expectedFailedCount, errorLogs.Count);
         }
 
-        private class TestDataGenerator : TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>
+        private class TestDataGenerator : TableBulkCopyDataGenerator
         {
             private string _tableName;
             private int _subResourceCount;

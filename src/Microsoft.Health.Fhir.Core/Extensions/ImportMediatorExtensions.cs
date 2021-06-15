@@ -14,9 +14,9 @@ using Microsoft.Health.Fhir.Core.Messages.Import;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
-    public static class BulkImportMediatorExtensions
+    public static class ImportMediatorExtensions
     {
-        public static async Task<CreateImportResponse> BulkImportAsync(
+        public static async Task<CreateImportResponse> ImportAsync(
             this IMediator mediator,
             Uri requestUri,
             string inputFormat,
@@ -34,19 +34,18 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return response;
         }
 
-        public static async Task<GetImportResponse> GetBulkImportStatusAsync(this IMediator mediator, Uri requestUri, string jobId, CancellationToken cancellationToken)
+        public static async Task<GetImportResponse> GetImportStatusAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
-            var request = new GetImportRequest(requestUri, jobId);
+            var request = new GetImportRequest(jobId);
 
             GetImportResponse response = await mediator.Send(request, cancellationToken);
             return response;
         }
 
-        public static async Task<CancelImportResponse> CancelBulkImportAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
+        public static async Task<CancelImportResponse> CancelImportAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));

@@ -24,7 +24,7 @@ using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
-    public class CancelBulkImportRequestHandlerTests
+    public class CancelImportRequestHandlerTests
     {
         private const string TaskId = "taskId";
 
@@ -35,14 +35,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
         private Func<int, TimeSpan> _sleepDurationProvider = new Func<int, TimeSpan>(retryCount => TimeSpan.FromSeconds(0));
 
-        public CancelBulkImportRequestHandlerTests()
+        public CancelImportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
             collection
-                .Add(sp => new CancelBulkImportRequestHandler(
+                .Add(sp => new CancelImportRequestHandler(
                     _taskManager,
                     DisabledFhirAuthorizationService.Instance,
-                    NullLogger<CancelBulkImportRequestHandler>.Instance))
+                    NullLogger<CancelImportRequestHandler>.Instance))
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -80,14 +80,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         public async Task GivenAFhirMediator_WhenCancelingWithNotExistTask_ThenNotFoundShouldBeReturned()
         {
             _taskManager.CancelTaskAsync(Arg.Any<string>(), _cancellationToken).Returns<Task<TaskInfo>>(_ => throw new TaskNotExistException("Task not exist."));
-            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelBulkImportAsync(TaskId, _cancellationToken));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.CancelImportAsync(TaskId, _cancellationToken));
         }
 
         private async Task<TaskInfo> SetupAndExecuteCancelImportAsync(TaskStatus taskStatus, HttpStatusCode expectedStatusCode, bool isCanceled = false)
         {
             TaskInfo taskInfo = SetupBulkImportTask(taskStatus, isCanceled);
 
-            CancelImportResponse response = await _mediator.CancelBulkImportAsync(TaskId, _cancellationToken);
+            CancelImportResponse response = await _mediator.CancelImportAsync(TaskId, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.Equal(expectedStatusCode, response.StatusCode);

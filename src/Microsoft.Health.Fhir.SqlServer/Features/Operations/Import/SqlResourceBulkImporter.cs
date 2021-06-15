@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
     internal class SqlResourceBulkImporter : IResourceBulkImporter
     {
-        private List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> _generators = new List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>>();
+        private List<TableBulkCopyDataGenerator> _generators = new List<TableBulkCopyDataGenerator>();
         private ISqlBulkCopyDataWrapperFactory _sqlBulkCopyDataWrapperFactory;
         private IFhirDataBulkImportOperation _fhirDataBulkOperation;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         public SqlResourceBulkImporter(
             IFhirDataBulkImportOperation fhirDataBulkOperation,
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
-            List<TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper>> generators,
+            List<TableBulkCopyDataGenerator> generators,
             IOptions<OperationsConfiguration> operationsConfig,
             ILogger<SqlResourceBulkImporter> logger)
         {
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         SqlBulkCopyDataWrapper dataWrapper = _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(resource);
 
                         // Fill in all tables for single resource
-                        foreach (TableBulkCopyDataGenerator<SqlBulkCopyDataWrapper> generator in _generators)
+                        foreach (TableBulkCopyDataGenerator generator in _generators)
                         {
                             if (!resourceBuffer.ContainsKey(generator.TableName))
                             {

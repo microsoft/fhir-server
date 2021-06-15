@@ -24,7 +24,7 @@ using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 {
-    public class GetBulkImportRequestHandlerTests
+    public class GetImportRequestHandlerTests
     {
         private const string TaskId = "taskId";
         private readonly ITaskManager _taskManager = Substitute.For<ITaskManager>();
@@ -32,10 +32,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         private readonly Uri _createRequestUri = new Uri("https://localhost/$import/");
         private HttpStatusCode _failureStatusCode = HttpStatusCode.BadRequest;
 
-        public GetBulkImportRequestHandlerTests()
+        public GetImportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(x => new GetBulkImportRequestHandler(_taskManager, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetImportRequestHandler(_taskManager, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         public async Task GivenAFhirMediator_WhenGettingWithNotExistTask_ThenNotFoundShouldBeReturned()
         {
             _taskManager.GetTaskAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<TaskInfo>(null));
-            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetBulkImportStatusAsync(new Uri("http://dummy"), TaskId, CancellationToken.None));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(TaskId, CancellationToken.None));
         }
 
         private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false, TaskResultData resultData = null)
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
 
             _taskManager.GetTaskAsync(taskInfo.TaskId, Arg.Any<CancellationToken>()).Returns(taskInfo);
 
-            return await _mediator.GetBulkImportStatusAsync(_createRequestUri, taskInfo.TaskId, CancellationToken.None);
+            return await _mediator.GetImportStatusAsync(taskInfo.TaskId, CancellationToken.None);
         }
     }
 }
