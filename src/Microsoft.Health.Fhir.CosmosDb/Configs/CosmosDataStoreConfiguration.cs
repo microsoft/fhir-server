@@ -56,5 +56,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         /// A list of Search Parameter URIs that will be enabled on first initialization
         /// </summary>
         public HashSet<string> InitialSortParameterUris { get; } = new();
+
+        /// <summary>
+        /// Options to determine if the parallel query execution is needed across physical partitions to speed up the selective queries
+        /// </summary>
+        public CosmosDataStoreParallelQueryOptions ParallelQueryOptions { get; } = new CosmosDataStoreParallelQueryOptions { MaxQueryConcurrency = 500 };
     }
 }
