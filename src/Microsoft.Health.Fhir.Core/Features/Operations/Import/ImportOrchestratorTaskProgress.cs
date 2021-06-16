@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
     /// </summary>
     public enum ImportOrchestratorTaskProgress
     {
-        Initalized,
+        Initialized,
         InputResourcesValidated,
         PreprocessCompleted,
         SubTaskRecordsGenerated,

@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationCanceledException();
                 }
 
-                if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.Initalized)
+                if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.Initialized)
                 {
                     await ValidateResourcesAsync(cancellationToken);
 

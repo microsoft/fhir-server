@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
     public class InitialImportLockMiddlewareTests
     {
         [Fact]
-        public async Task GivenPostResourceRequest_WhenInitalImportModeEnabled_Then423ShouldBeReturned()
+        public async Task GivenPostResourceRequest_WhenInitialImportModeEnabled_Then423ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitalImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/Patient";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -27,9 +27,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenGetResourceRequest_WhenInitalImportModeEnabled_Then200ShouldBeReturned()
+        public async Task GivenGetResourceRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitalImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/patient";
             httpContext.Request.Method = HttpMethods.Get.ToString();
@@ -39,9 +39,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenStartImportRequest_WhenInitalImportModeEnabled_Then200ShouldBeReturned()
+        public async Task GivenStartImportRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitalImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/$import";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -51,9 +51,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenCancelImportRequest_WhenInitalImportModeEnabled_Then200ShouldBeReturned()
+        public async Task GivenCancelImportRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitalImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/_operations/import/abc";
             httpContext.Request.Method = HttpMethods.Delete.ToString();
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenPostResourceRequest_WhenImportNotEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitalImportMode = true });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/Patient";
             httpContext.Request.Method = HttpMethods.Post.ToString();
@@ -75,9 +75,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenPostResourceRequest_WhenInitalImportModeNotEnabled_Then200ShouldBeReturned()
+        public async Task GivenPostResourceRequest_WhenInitialImportModeNotEnabled_Then200ShouldBeReturned()
         {
-            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitalImportMode = false });
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = false });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/Patient";
             httpContext.Request.Method = HttpMethods.Post.ToString();

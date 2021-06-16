@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(Resources.OnlyInitialImportOperationSupported);
             }
 
-            if (!importRequest.Force && !_importConfig.InitalImportMode)
+            if (!importRequest.Force && !_importConfig.InitialImportMode)
             {
                 throw new RequestNotValidException(Resources.InitialImportModeNotEnabled);
             }

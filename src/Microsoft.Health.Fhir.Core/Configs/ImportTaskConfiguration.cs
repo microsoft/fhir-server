@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Initial import mode
         /// </summary>
-        public bool InitalImportMode { get; set; }
+        public bool InitialImportMode { get; set; }
 
         /// <summary>
         /// Queue id for data processing task. it might be different from orchestraotr task for standalone runtime environment.

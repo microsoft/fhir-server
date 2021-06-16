@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
         public async Task Invoke(HttpContext context)
         {
-            if (!_importTaskConfiguration.Enabled || !_importTaskConfiguration.InitalImportMode)
+            if (!_importTaskConfiguration.Enabled || !_importTaskConfiguration.InitialImportMode)
             {
                 await _next(context);
                 return;
