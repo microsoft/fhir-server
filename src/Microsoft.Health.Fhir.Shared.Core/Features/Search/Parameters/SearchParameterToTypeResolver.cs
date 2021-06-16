@@ -326,15 +326,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static ModelInspector GetModelInspector()
         {
-            string methodName = "GetStructureDefinitionSummaryProvider";
-            MethodInfo modelInspectorMethod = typeof(ModelInfo).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-
-            if (modelInspectorMethod == null)
-            {
-                throw new MissingMethodException(nameof(ModelInfo), methodName);
-            }
-
-            return (ModelInspector)modelInspectorMethod.Invoke(null, null);
+            return ModelInspector.ForAssembly(typeof(ModelInfo).GetTypeInfo().Assembly);
         }
 
         private class Context
