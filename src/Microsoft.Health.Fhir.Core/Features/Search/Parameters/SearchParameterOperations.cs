@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (searchParamResource == null)
                 {
-                    _logger.LogWarning(
+                    _logger.LogInformation(
                         "Updated SearchParameter status found for SearchParameter: {0}, but did not find any SearchParameter resources when querying for this url.",
                         searchParam.Uri);
                     continue;
@@ -243,12 +243,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             if (paramsToAdd.Any())
             {
                 _searchParameterDefinitionManager.AddNewSearchParameters(paramsToAdd);
-
-                // Once added to the definition manager we can update their status
-                await _searchParameterStatusManager.ApplySearchParameterStatus(
-                    updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted).ToList(),
-                    cancellationToken);
             }
+
+            // Once added to the definition manager we can update their status
+            await _searchParameterStatusManager.ApplySearchParameterStatus(
+                updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted).ToList(),
+                cancellationToken);
         }
 
         private void DeleteSearchParameter(string url)

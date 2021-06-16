@@ -1,0 +1,101 @@
+# Examples of FHIR searches from our documentation: https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir/search-samples
+# The documentation contains detailed descriptions of what each search is doing.
+
+@hostname = localhost:44348
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Setup test data
+# @name batch
+POST https://{{hostname}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\SearchDataBatch.json
+
+### Include
+GET {{hostname}}/MedicationRequest?_include=MedicationRequest:patient
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Revinclude
+GET {{hostname}}/Patient?_revinclude=Encounter:subject
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Elements
+GET {{hostname}}/Patient?_elements=identifier,active
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Not modifier
+GET {{hostname}}/Patient?gender:not=female
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Missing modifier
+GET {{hostname}}/Patient?birthdate:missing=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Exact modifier
+GET {{hostname}}/Patient?name:exact=Jon
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Contains modifier
+GET {{hostname}}/Patient?address:contains=Meadow
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Chained search 1
+GET {{hostname}}/DiagnosticReport?subject:Patient.name=Sarah
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Chained search 2
+GET {{hostname}}/Encounter?subject=Patient/searchpatient3
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Chained search 3
+GET {{hostname}}/Encounter?subject:Patient.birthdate=1987-02-20
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Chained search 4
+GET {{hostname}}/Patient?general-practitioner:Practitioner.name=Sarah&general-practitioner:Practitioner.address-state=WA
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Reverse chained search 1
+GET {{hostname}}/Patient?_has:Observation:patient:code=527
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Reverse chained search 2
+GET {{hostname}}/Patient?_has:Observation:patient:_has:AuditEvent:entity:agent:Practitioner.name=janedoe
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Composite search
+GET {{hostname}}/DiagnosticReport?result.code-value-quantity=2823-3$lt9.2
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get continuation token
+# @name largeSearch
+GET {{hostname}}/Patient?_count=2
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Record continuation token
+@continuationToken = {{largeSearch.response.body.link[0].url}}
+
+### Use continuation token
+GET {{continuationToken}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Post search 1
+POST {{hostname}}/Patient/_search?_id=searchpatient1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Post search 2
+POST {{hostname}}/Patient/_search
+Content-Type: application/x-www-form-urlencoded
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+name=Jon

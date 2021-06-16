@@ -1,0 +1,51 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "healthcareservice-service-category",
+    "text": {
+      "status": "generated"
+        },
+    "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/healthcareservice-service-category",
+    "version": "1.0.0",
+    "name": "Plannet_sp_healthcareservice_category",
+    "derivedFrom": "http://hl7.org/fhir/SearchParameter/HealthcareService-service-category",
+    "status": "active",
+    "date": "2018-05-23T00:00:00+00:00",
+    "publisher": "HL7 Financial Management Working Group",
+    "contact": [
+      {
+        "name": "HL7 Financial Management Working Group",
+        "telecom": [
+          {
+            "system": "url",
+            "value": "http://www.hl7.org/Special/committees/fm/index.cfm"
+          },
+          {
+            "system": "email",
+            "value": "fm@lists.HL7.org"
+          }
+        ]
+      }
+    ],
+    "description": "Select HealthcareServices providing the specified category of services",
+    "jurisdiction": [
+      {
+        "coding": [
+          {
+            "system": "urn:iso:std:iso:3166",
+            "code": "US"
+          }
+        ]
+      }
+    ],
+    "code": "service-category",
+    "base": [
+      "HealthcareService"
+    ],
+    "type": "token",
+    "expression": "HealthcareService.category",
+    "multipleOr": true,
+    "multipleAnd": true,
+    "modifier": [
+      "text"
+    ]
+  }

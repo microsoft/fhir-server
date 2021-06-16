@@ -4,8 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
@@ -62,6 +66,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<CapabilityStatement>($"metadata?_elements={value}"));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task GivenCosmosDb_WhenGettingMetadata_TheServerShouldReturnPatientEverythingSupported()
+        {
+            FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
+
+            object operationDefinition = ModelInfoProvider.Version == FhirSpecification.Stu3
+                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition.reference")
+                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition");
+
+            Assert.Equal(OperationsConstants.PatientEverythingUri, operationDefinition.ToString());
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenSqlServer_WhenGettingMetadata_TheServerShouldReturnPatientEverythingNotSupported()
+        {
+            FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
+
+            object operationDefinition = ModelInfoProvider.Version == FhirSpecification.Stu3
+                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition.reference")
+                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition");
+
+            Assert.Null(operationDefinition);
         }
     }
 }

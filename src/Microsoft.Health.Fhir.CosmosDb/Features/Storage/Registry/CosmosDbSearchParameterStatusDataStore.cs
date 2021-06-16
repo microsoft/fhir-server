@@ -148,6 +148,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             }
         }
 
+        public void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        {
+            // Do nothing. This is only required for SQL.
+        }
+
         public void Dispose()
         {
             _statusListSemaphore?.Dispose();

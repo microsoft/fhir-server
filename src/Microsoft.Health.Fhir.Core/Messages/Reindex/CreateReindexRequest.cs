@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
+using EnsureThat;
 using MediatR;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Reindex
@@ -10,16 +12,22 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
     public class CreateReindexRequest : IRequest<CreateReindexResponse>
     {
         public CreateReindexRequest(
+            IReadOnlyCollection<string> targetResourceTypes,
             ushort? maximumConcurrency = null,
             uint? maximumResourcesPerQuery = null,
             int? queryDelayIntervalInMilliseconds = null,
             ushort? targetDataStoreUsagePercentage = null)
         {
+            EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
+
             MaximumConcurrency = maximumConcurrency;
             MaximumResourcesPerQuery = maximumResourcesPerQuery;
             QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
             TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
+            TargetResourceTypes = targetResourceTypes;
         }
+
+        public IReadOnlyCollection<string> TargetResourceTypes { get; }
 
         public ushort? MaximumConcurrency { get; }
 

@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     /// Provides Audit specific tests.
     /// </summary
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public class AuditTests : IClassFixture<AuditTestFixture>, IAsyncLifetime
+    public class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
         private const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
@@ -35,7 +35,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         private readonly AuditTestFixture _fixture;
         private readonly TestFhirClient _client;
-
         private readonly TraceAuditLogger _auditLogger;
 
         public AuditTests(AuditTestFixture fixture)
@@ -44,13 +43,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             _client = fixture.TestFhirClient;
             _auditLogger = _fixture.AuditLogger;
         }
-
-        public async Task InitializeAsync()
-        {
-            await _client.DeleteAllResources(ResourceType.Patient);
-        }
-
-        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         public async Task GivenMetadata_WhenRead_ThenAuditLogEntriesShouldNotBeCreated()

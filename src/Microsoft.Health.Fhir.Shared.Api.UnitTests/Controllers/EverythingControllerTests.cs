@@ -7,18 +7,13 @@ using System;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Everything;
 using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
@@ -27,35 +22,35 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
-    public class FhirControllerTests
+    public class EverythingControllerTests
     {
-        private readonly FhirController _fhirController;
+        private readonly EverythingController _everythingController;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
-        private readonly ILogger<FhirController> _logger = Substitute.For<ILogger<FhirController>>();
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-        private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
-        private readonly IAuthorizationService _authorizationService = Substitute.For<IAuthorizationService>();
-        private readonly HttpContext _httpContext = new DefaultHttpContext();
 
-        public FhirControllerTests()
+        public EverythingControllerTests()
         {
-            _fhirController = GetController();
-            var controllerContext = new ControllerContext { HttpContext = _httpContext };
-            _fhirController.ControllerContext = controllerContext;
+            _everythingController = new EverythingController(_mediator, _fhirRequestContextAccessor)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext(),
+                },
+            };
         }
 
         [Fact]
         public async Task GivenAnEverythingOperationRequest_WhenValid_ThenProperResponseShouldBeReturned()
         {
-            _mediator.Send(Arg.Any<EverythingOperationRequest>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
+            _mediator.Send(Arg.Any<EverythingOperationRequest>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(GetEverythingOperationResponse()));
 
-            IActionResult result = await _fhirController.PatientEverythingById(
+            var result = await _everythingController.PatientEverythingById(
                 idParameter: "123",
                 start: PartialDateTime.Parse("2019"),
                 end: PartialDateTime.Parse("2020"),
                 since: PartialDateTime.Parse("2021"),
                 type: ResourceType.Observation.ToString(),
-                ct: null);
+                ct: null) as FhirResult;
 
             await _mediator.Received().Send(
                 Arg.Is<EverythingOperationRequest>(
@@ -70,18 +65,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             _mediator.ClearReceivedCalls();
 
-            var bundleResource = (((FhirResult)result).Result as ResourceElement)?.ResourceInstance as Bundle;
+            var bundleResource = (result?.Result as ResourceElement)?.ResourceInstance as Bundle;
+            Assert.Equal(System.Net.HttpStatusCode.OK, result?.StatusCode);
             Assert.Equal(Bundle.BundleType.Searchset, bundleResource?.Type);
-        }
-
-        private FhirController GetController()
-        {
-            var featureConfig = new FeatureConfiguration();
-
-            IOptions<FeatureConfiguration> optionsFeatureConfiguration = Substitute.For<IOptions<FeatureConfiguration>>();
-            optionsFeatureConfiguration.Value.Returns(featureConfig);
-
-            return new FhirController(_mediator, _logger, _fhirRequestContextAccessor, _urlResolver, optionsFeatureConfiguration, _authorizationService);
         }
 
         private static EverythingOperationResponse GetEverythingOperationResponse()

@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             parametersResource.Id = job.Id;
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Id, Value = new FhirString(job.Id) });
+            parametersResource.Add(JobRecordProperties.Id, new FhirString(job.Id));
 
             if (job.Error != null && job.Error.Count > 0)
             {
@@ -39,22 +39,23 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             if (job.StartTime.HasValue)
             {
-                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.StartTime, Value = new FhirDateTime(job.StartTime.Value) });
+                parametersResource.Add(JobRecordProperties.StartTime, new FhirDateTime(job.StartTime.Value));
             }
 
             if (job.EndTime.HasValue)
             {
-                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.EndTime, Value = new FhirDateTime(job.EndTime.Value) });
+                parametersResource.Add(JobRecordProperties.EndTime, new FhirDateTime(job.EndTime.Value));
             }
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.QueuedTime, Value = new FhirDateTime(job.QueuedTime) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.TotalResourcesToReindex, Value = new FhirDecimal(job.Count) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.ResourcesSuccessfullyReindexed, Value = new FhirDecimal(job.Progress) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Progress, Value = new FhirDecimal(job.PercentComplete) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Status, Value = new FhirString(job.Status.ToString()) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(job.MaximumConcurrency) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Resources, Value = new FhirString(job.ResourceList) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.SearchParams, Value = new FhirString(job.SearchParamList) });
+            parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime));
+            parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(job.Count));
+            parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(job.Progress));
+            parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(job.PercentComplete));
+            parametersResource.Add(JobRecordProperties.Status, new FhirString(job.Status.ToString()));
+            parametersResource.Add(JobRecordProperties.MaximumConcurrency, new FhirDecimal(job.MaximumConcurrency));
+            parametersResource.Add(JobRecordProperties.Resources, new FhirString(job.ResourceList));
+            parametersResource.Add(JobRecordProperties.SearchParams, new FhirString(job.SearchParamList));
+            parametersResource.Add(JobRecordProperties.TargetResourceTypes, new FhirString(job.TargetResourceTypeList));
 
             return parametersResource.ToResourceElement();
         }

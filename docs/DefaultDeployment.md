@@ -52,7 +52,7 @@ Set-FhirServerUserAppRoleAssignments -UserPrincipalName myuser@mydomain.com -Api
 
 ## Deploying the FHIR Server Template
 
-We recommend starting with the SQL deployment as it offers the most features. However deployments in cosmos are still available. You can find all of our templates [here](https://github.com/microsoft/fhir-server/tree/master/samples/templates). 
+We recommend starting with the SQL deployment as it offers the most features. However deployments in cosmos are still available. You can find all of our templates [here](https://github.com/microsoft/fhir-server/tree/main/samples/templates). 
 
 Note that when you deploy from our templates, it is set to deploy with $export enabled. As part of the export setup, a storage account is automatically created along with roles. The creation of this storage account and roles requires that you have contributor access at the subscription level. If the person deploying does not have contributor access at the subscription level, the deployment will fail. To deploy successfully in this scenario, you can deploy with export set to false. If you need to use export, it can be configured to true after deployment by someone with contributor access at the subscription level. It takes a few more steps as someone will need to create and link the storage account (it won’t automatically get created) but from there it will work exactly as if you had set it to true at provisioning.
 
@@ -60,11 +60,11 @@ To deploy the backend SQL Server, Azure Web App, and FHIR server code, use the b
 
 The FHIR server can be deployed using all free Azure resources. When deploying select 'F1' as the App Service Plan Sku, 'Yes' to use the Cosmos DB Free Tier, and FhirServerCosmosDB as the Solution Type. The free app service plan and Cosmos Db account have restrictions that can be seen on their respective doc pages: [App Service plan overview](https://docs.microsoft.com/en-us/azure/app-service/overview-hosting-plans), [Cosmos DB free tier](https://docs.microsoft.com/en-us/azure/cosmos-db/optimize-dev-test#azure-cosmos-db-free-tier)
 
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank">
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmain%2Fsamples%2Ftemplates%2Fdefault-azuredeploy-docker.json" target="_blank">
     <img src="https://azuredeploy.net/deploybutton.png"/>
 </a>
 
-<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank"> 
+<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmain%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank"> 
     <img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazuregov.png">
 </a>
 
@@ -74,7 +74,7 @@ You can also deploy using PowerShell. The example below leverages the CosmosDB t
 $rg = New-AzResourceGroup -Name "RG-NAME" -Location westus2
 
 New-AzResourceGroupDeployment `
--TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
+-TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json" `
 -ResourceGroupName $rg.ResourceGroupName ` 
 -serviceName $fhirServiceName ` 
 -securityAuthenticationAuthority $apiAppReg.Authority ` 
@@ -87,7 +87,7 @@ To deploy without Authentication/Authorization:
 $rg = New-AzResourceGroup -Name "RG-NAME" -Location westus2
 
 New-AzResourceGroupDeployment `
--TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
+-TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/main/samples/templates/default-azuredeploy-docker.json" `
 -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
 

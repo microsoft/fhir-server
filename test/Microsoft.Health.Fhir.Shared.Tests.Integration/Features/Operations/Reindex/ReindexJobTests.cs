@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenLessThanMaximumRunningJobs_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated()
         {
-            var request = new CreateReindexRequest();
+            var request = new CreateReindexRequest(new List<string>());
 
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenAlreadyRunningJob_WhenCreatingAReindexJob_ThenJobConflictExceptionThrown()
         {
-            var request = new CreateReindexRequest();
+            var request = new CreateReindexRequest(new List<string>());
 
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [Fact]
         public async Task GivenNoSupportedSearchParameters_WhenRunningReindexJob_ThenJobIsCanceled()
         {
-            var request = new CreateReindexRequest();
+            var request = new CreateReindexRequest(new List<string>());
 
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter(new Uri("http://hl7.org/fhir/SearchParameter/Measure-name"));
             searchParam.IsSearchable = false;
-            var request = new CreateReindexRequest();
+            var request = new CreateReindexRequest(new List<string>());
 
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
@@ -329,7 +329,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Confirm that "foo" is dropped from the query string and all patients are returned
             Assert.Equal(4, searchResults.Results.Count());
 
-            var createReindexRequest = new CreateReindexRequest(1, 1, 500);
+            var createReindexRequest = new CreateReindexRequest(new List<string>(), 1, 1, 500);
             CreateReindexResponse response = await SetUpForReindexing(createReindexRequest);
 
             var cancellationTokenSource = new CancellationTokenSource();
@@ -535,7 +535,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             if (request == null)
             {
-                request = new CreateReindexRequest();
+                request = new CreateReindexRequest(new List<string>());
             }
 
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);

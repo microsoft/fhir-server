@@ -173,6 +173,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         internal async Task ApplySearchParameterStatus(IReadOnlyCollection<ResourceSearchParameterStatus> updatedSearchParameterStatus, CancellationToken cancellationToken)
         {
+            if (!updatedSearchParameterStatus.Any())
+            {
+                return;
+            }
+
             var updated = new List<SearchParameterInfo>();
 
             foreach (var paramStatus in updatedSearchParameterStatus)
@@ -189,7 +194,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 updated.Add(param);
             }
 
-            _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
+            if (updatedSearchParameterStatus.Any())
+            {
+                _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
+            }
+
+            _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }

@@ -178,6 +178,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 RemoveRestInteraction(resourceType, TypeRestfulInteraction.SearchType);
             }
 
+            // Add search include for resource
+            ApplyToResource(resourceType, c =>
+                {
+                    c.SearchInclude.Clear();
+                    foreach (var referenceParam in searchParams.Where(x => x.Type == SearchParamType.Reference))
+                    {
+                        c.SearchInclude.Add($"{resourceType}:{referenceParam.Code}");
+                    }
+
+                    if (c.SearchInclude.Any())
+                    {
+                        c.SearchInclude.Add("*");
+                    }
+                });
+
+            // Add search revinclude for resource
+            foreach (var referenceParam in searchParams.Where(x => x.Type == SearchParamType.Reference))
+            {
+                foreach (var targetType in referenceParam.TargetResourceTypes)
+                {
+                    ApplyToResource(targetType, c =>
+                    {
+                        c.SearchRevInclude.Add($"{resourceType}:{referenceParam.Code}");
+                    });
+                }
+            }
+
             return this;
         }
 
@@ -269,6 +296,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public ICapabilityStatementBuilder SyncSearchParameters()
         {
+            foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
+            {
+                ApplyToResource(resource, c => c.SearchRevInclude.Clear());
+            }
+
             foreach (string resource in _modelInfoProvider.GetResourceTypeNames())
             {
                 // Parameters is a non-persisted resource used to pass information into and back from an operation

@@ -47,7 +47,7 @@
     <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
     <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
-    <None Remove="TestFiles\Normative\SearchParameter.json" />
+    <None Remove="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
     <None Remove="TestFiles\Normative\SearchParameterExpressionWrongProperty.json" />
     <None Remove="TestFiles\Normative\SearchParameterInvalidBase.json" />
@@ -96,6 +96,7 @@
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
+    <None Remove="TestFiles\R4\Immunization.json" />
     <None Remove="TestFiles\R4\Parameter-Convert-Data.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.xml" />
@@ -152,6 +153,7 @@
     <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.json" />
     <None Remove="TestFiles\R5\Encounter-For-Patient-f001.json" />
+    <None Remove="TestFiles\R5\Immunization.json" />
     <None Remove="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\R5\Location-example-hq.json" />
     <None Remove="TestFiles\R5\MedicinalProduct.json" />
@@ -200,6 +202,7 @@
     <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.json" />
+    <None Remove="TestFiles\Stu3\Immunization.json" />
     <None Remove="TestFiles\Stu3\Location-example-hq.json" />
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
     <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
@@ -246,6 +249,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterMissingType.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidType.json" />
@@ -296,7 +300,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore.json" />
     <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore.json" />
     <EmbeddedResource Include="TestFiles\Normative\ProvenanceHeader.json" />
-    <EmbeddedResource Include="TestFiles\Normative\SearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Resource-idfoo.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-careplan.json" />
     <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
@@ -321,6 +325,7 @@
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
     <EmbeddedResource Include="TestFiles\Normative\Sequence.json" />
     <EmbeddedResource Include="TestFiles\Normative\Parameter-Convert-Data.json" />
+    <EmbeddedResource Include="TestFiles\R4\Immunization.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
@@ -334,6 +339,7 @@
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.json" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R5\Immunization.json" />
     <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json" />
@@ -383,6 +389,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Immunization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith1MinuteApgarScore.json" />

@@ -1,0 +1,51 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "insuranceplan-plan-type",
+    "text": {
+      "status": "generated",
+      "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>url</b>: <code>http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/insuranceplan-plan-type</code></p><p><b>version</b>: 1.0.0</p><p><b>name</b>: Plannet_sp_insuranceplan_plan_type</p><p><b>status</b>: active</p><p><b>date</b>: May 23, 2018 12:00:00 AM</p><p><b>publisher</b>: HL7 Financial Management Working Group</p><p><b>contact</b>: HL7 Financial Management Working Group: <a href=\"http://www.hl7.org/Special/committees/fm/index.cfm\">http://www.hl7.org/Special/committees/fm/index.cfm</a>,<a href=\"mailto:fm@lists.HL7.org\">fm@lists.HL7.org</a></p><p><b>description</b>: Select plans of the specified type</p><p><b>jurisdiction</b>: <span title=\"Codes: {urn:iso:std:iso:3166 US}\">United States of America</span></p><p><b>code</b>: plan-type</p><p><b>base</b>: InsurancePlan</p><p><b>type</b>: token</p><p><b>expression</b>: InsurancePlan.plan.type</p><p><b>multipleOr</b>: true</p><p><b>multipleAnd</b>: true</p><p><b>modifier</b>: text</p></div>"
+    },
+    "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/insuranceplan-plan-type",
+    "version": "1.0.0",
+    "name": "plan-type",
+    "status": "active",
+    "date": "2018-05-23T00:00:00+00:00",
+    "publisher": "HL7 Financial Management Working Group",
+    "contact": [
+      {
+        "name": "HL7 Financial Management Working Group",
+        "telecom": [
+          {
+            "system": "url",
+            "value": "http://www.hl7.org/Special/committees/fm/index.cfm"
+          },
+          {
+            "system": "email",
+            "value": "fm@lists.HL7.org"
+          }
+        ]
+      }
+    ],
+    "description": "Select plans of the specified type",
+    "jurisdiction": [
+      {
+        "coding": [
+          {
+            "system": "urn:iso:std:iso:3166",
+            "code": "US"
+          }
+        ]
+      }
+    ],
+    "code": "plan-type",
+    "base": [
+      "InsurancePlan"
+    ],
+    "type": "token",
+    "expression": "InsurancePlan.plan.type",
+    "multipleOr": true,
+    "multipleAnd": true,
+    "modifier": [
+      "text"
+    ]
+  }
