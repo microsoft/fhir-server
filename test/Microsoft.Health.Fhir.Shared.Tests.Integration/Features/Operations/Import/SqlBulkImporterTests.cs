@@ -299,9 +299,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             OperationsConfiguration operationsConfig = new OperationsConfiguration();
-            operationsConfig.Import.MaxBatchSizeForImportOperation = maxResourceCountInBatch;
-            operationsConfig.Import.MaxImportOperationConcurrentCount = maxConcurrentCount;
-            operationsConfig.Import.BatchSizeForCheckpoint = checkpointBatchCount;
+            operationsConfig.Import.SqlBatchSizeForImportOperation = maxResourceCountInBatch;
+            operationsConfig.Import.SqlMaxImportOperationConcurrentCount = maxConcurrentCount;
+            operationsConfig.Import.SqlImportBatchSizeForCheckpoint = checkpointBatchCount;
             operationsConfiguration.Value.Returns(operationsConfig);
 
             SqlResourceBulkImporter importer = new SqlResourceBulkImporter(testFhirDataBulkOperation, dataWrapperFactory, generators, operationsConfiguration, NullLogger<SqlResourceBulkImporter>.Instance);

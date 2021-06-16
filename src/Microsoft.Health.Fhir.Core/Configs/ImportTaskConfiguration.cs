@@ -9,10 +9,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         private const int DefaultMaxRunningProcessingTaskCount = 5;
         private const int DefaultMaxRetryCount = 5;
-        private const int DefaultBatchSizeForCheckpoint = 5000;
-        private const int DefaultMaxBatchSizeForImportOperation = 1000;
-        private const int DefaultMaxImportOperationConcurrentCount = 3;
-        private const int DefaultLongRunningOperationTimeoutInSec = 60 * 60 * 2;
+        private const int DefaultSqlImportBatchSizeForCheckpoint = 5000;
+        private const int DefaultSqlBatchSizeForImportOperation = 1000;
+        private const int DefaultSqlMaxImportOperationConcurrentCount = 3;
+        private const int DefaultSqlCleanResourceBatchSize = 1000;
+        private const int DefaultSqlMaxRebuildIndexOperationConcurrentCount = 3;
+        private const int DefaultSqlMaxDeleteDuplicateOperationConcurrentCount = 3;
+        private const int DefaultSqlLongRunningOperationTimeoutInSec = 60 * 60 * 2;
+        private const int DefaultSqlBulkOperationTimeoutInSec = 60 * 10;
 
         /// <summary>
         /// Determines whether bulk import is enabled or not.
@@ -42,21 +46,41 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Long running operation timeout
         /// </summary>
-        public int LongRunningOperationTimeoutInSec { get; set; } = DefaultLongRunningOperationTimeoutInSec;
+        public int SqlLongRunningOperationTimeoutInSec { get; set; } = DefaultSqlLongRunningOperationTimeoutInSec;
+
+        /// <summary>
+        /// SQL bulk operation timeout in seconds
+        /// </summary>
+        public int SqlBulkOperationTimeoutInSec { get; set; } = DefaultSqlBulkOperationTimeoutInSec;
 
         /// <summary>
         /// Max batch size for import operation
         /// </summary>
-        public int MaxBatchSizeForImportOperation { get; set; } = DefaultMaxBatchSizeForImportOperation;
+        public int SqlBatchSizeForImportOperation { get; set; } = DefaultSqlBatchSizeForImportOperation;
 
         /// <summary>
         /// Max concurrent count for import operation
         /// </summary>
-        public int MaxImportOperationConcurrentCount { get; set; } = DefaultMaxImportOperationConcurrentCount;
+        public int SqlMaxImportOperationConcurrentCount { get; set; } = DefaultSqlMaxImportOperationConcurrentCount;
 
         /// <summary>
         /// Checkpoint batch size
         /// </summary>
-        public int BatchSizeForCheckpoint { get; set; } = DefaultBatchSizeForCheckpoint;
+        public int SqlImportBatchSizeForCheckpoint { get; set; } = DefaultSqlImportBatchSizeForCheckpoint;
+
+        /// <summary>
+        /// Batch size to clean duplicated resource with same resource id.
+        /// </summary>
+        public int SqlCleanResourceBatchSize { get; set; } = DefaultSqlCleanResourceBatchSize;
+
+        /// <summary>
+        /// Concurrent count for rebuild index operation.
+        /// </summary>
+        public int SqlMaxRebuildIndexOperationConcurrentCount { get; set; } = DefaultSqlMaxRebuildIndexOperationConcurrentCount;
+
+        /// <summary>
+        /// Concurrent count for delete duplicate resource operation.
+        /// </summary>
+        public int SqlMaxDeleteDuplicateOperationConcurrentCount { get; set; } = DefaultSqlMaxDeleteDuplicateOperationConcurrentCount;
     }
 }

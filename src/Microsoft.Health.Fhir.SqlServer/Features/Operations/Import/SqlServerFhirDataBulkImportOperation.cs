@@ -24,11 +24,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     public class SqlServerFhirDataBulkImportOperation : IFhirDataBulkImportOperation
     {
-        private const int BulkOperationRunningCommandTimeoutInSec = 60 * 10;
-        private const int MaxDeleteDuplicateOperationCount = 3;
-        private const int MaximumConcurrentRebuildIndexOperationCount = 3;
-        private const int CleanResourceBatchSize = 1000;
-
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
         private SqlServerFhirModel _model;
@@ -130,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     await _sqlServerTransientFaultRetryPolicyFactory.Create().ExecuteAsync(
                         async () =>
                         {
-                            bulkCopy.BulkCopyTimeout = BulkOperationRunningCommandTimeoutInSec;
+                            bulkCopy.BulkCopyTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
                             await bulkCopy.WriteToServerAsync(dataTable.CreateDataReader());
                         });
                 }
@@ -147,12 +142,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             short resourceTypeId = _model.GetResourceTypeId(resourceType);
 
-            await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, CleanResourceBatchSize, cancellationToken);
-            await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, CleanResourceBatchSize, cancellationToken);
+            await BatchDeleteResourcesInternalAsync(beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
+            await BatchDeleteResourceWriteClaimsInternalAsync(beginSequenceId, endSequenceId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
 
             foreach (var tableName in SearchParameterTables.ToArray())
             {
-                await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, CleanResourceBatchSize, cancellationToken);
+                await BatchDeleteResourceParamsInternalAsync(tableName, beginSequenceId, endSequenceId, resourceTypeId, _importTaskConfiguration.SqlCleanResourceBatchSize, cancellationToken);
             }
         }
 
@@ -184,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             foreach (IndexTableTypeV1Row index in allIndexes)
             {
-                while (runningTasks.Count >= MaximumConcurrentRebuildIndexOperationCount)
+                while (runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
                 {
                     Task completedTask = await Task.WhenAny(runningTasks.ToArray());
                     await completedTask;
@@ -209,7 +204,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(ResourceWriteClaimTableName, cancellationToken));
                 foreach (var tableName in SearchParameterTables.ToArray())
                 {
-                    if (runningTasks.Count >= MaxDeleteDuplicateOperationCount)
+                    if (runningTasks.Count >= _importTaskConfiguration.SqlMaxDeleteDuplicateOperationConcurrentCount)
                     {
                         Task completedTask = await Task.WhenAny(runningTasks);
                         runningTasks.Remove(completedTask);
@@ -240,7 +235,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.LongRunningOperationTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
                     VLatest.RebuildIndexes.PopulateCommand(sqlCommandWrapper, new IndexTableTypeV1Row[] { index });
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -261,7 +256,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.LongRunningOperationTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
                     VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -282,7 +277,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 try
                 {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.LongRunningOperationTimeoutInSec;
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
                     VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -305,7 +300,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     try
                     {
-                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+                        sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
 
                         VLatest.BatchDeleteResources.PopulateCommand(sqlCommandWrapper, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
                         int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -334,7 +329,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     try
                     {
-                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+                        sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
 
                         VLatest.BatchDeleteResourceWriteClaims.PopulateCommand(sqlCommandWrapper, beginSequenceId, endSequenceId, batchSize);
                         int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
@@ -363,7 +358,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     try
                     {
-                        sqlCommandWrapper.CommandTimeout = BulkOperationRunningCommandTimeoutInSec;
+                        sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
 
                         VLatest.BatchDeleteResourceParams.PopulateCommand(sqlCommandWrapper, tableName, resourceTypeId, beginSequenceId, endSequenceId, batchSize);
                         int impactRows = await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);

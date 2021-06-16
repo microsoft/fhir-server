@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         succeedCount++;
                     }
 
-                    bool shouldCreateCheckpoint = resource.Index - lastCheckpointIndex >= _importTaskConfiguration.BatchSizeForCheckpoint;
+                    bool shouldCreateCheckpoint = resource.Index - lastCheckpointIndex >= _importTaskConfiguration.SqlImportBatchSizeForCheckpoint;
                     if (shouldCreateCheckpoint)
                     {
                         // Create checkpoint for all tables not empty
@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     {
                         // import table >= MaxResourceCountInBatch
                         string[] tableNameNeedImport =
-                                    resourceBuffer.Where(r => r.Value.Rows.Count >= _importTaskConfiguration.MaxBatchSizeForImportOperation).Select(r => r.Key).ToArray();
+                                    resourceBuffer.Where(r => r.Value.Rows.Count >= _importTaskConfiguration.SqlBatchSizeForImportOperation).Select(r => r.Key).ToArray();
 
                         foreach (string tableName in tableNameNeedImport)
                         {
@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
         private async Task<Task<ImportProcessingProgress>> EnqueueTaskAsync(Queue<Task<ImportProcessingProgress>> importTasks, Func<Task<ImportProcessingProgress>> newTaskFactory, Channel<ImportProcessingProgress> progressChannel)
         {
-            while (importTasks.Count >= _importTaskConfiguration.MaxImportOperationConcurrentCount)
+            while (importTasks.Count >= _importTaskConfiguration.SqlMaxImportOperationConcurrentCount)
             {
                 ImportProcessingProgress progress = await importTasks.Dequeue();
                 if (progress != null)
