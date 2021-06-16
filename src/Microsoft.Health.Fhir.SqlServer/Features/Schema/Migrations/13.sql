@@ -1748,7 +1748,7 @@ AS
     DECLARE @resourceSurrogateIds TABLE(ResourceSurrogateId bigint NOT NULL)
 
     DELETE FROM dbo.Resource
-        OUTPUT deleted.ResourceSurrogateId
+    OUTPUT deleted.ResourceSurrogateId
     INTO @resourceSurrogateIds
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId
       AND NOT(@keepCurrentVersion=1 and IsHistory=0)
