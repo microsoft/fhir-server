@@ -14,6 +14,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SearchParameterHashSchemaVersion = (int)SchemaVersion.V8;
         public const int PartitionedTables = (int)SchemaVersion.V9;
         public const int SearchParameterSynchronizationVersion = (int)SchemaVersion.V12;
-        public const int PurgeHistoryVersion = (int)SchemaVersion.V12;
+        public const int PurgeHistoryVersion = (int)SchemaVersion.V13;
     }
 }
