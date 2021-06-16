@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (retryCount >= 60)
             {
-                throw new Exception($"Export request timed out");
+                throw new Exception($"Export request timed out: {contentLocation}");
             }
 
             if (resultCode != HttpStatusCode.OK)
