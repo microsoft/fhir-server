@@ -72,8 +72,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             foreach (Type type in types)
             {
-                // The extension converters will be added to the converter dictionary by the converter manager
-                if (!type.Name.Contains("ExtensionConverter"))
+                // Filter out the extension converter because it will be added to the converter dictionary in the converter manager's constructor
+                // We can use the fact that ExtensionsConverter is a generic type to filter it out
+                if (!type.ContainsGenericParameters)
                 {
                     var x = (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(type, referenceSearchValueParser, codeSystemResolver);
                     fhirElementToSearchValueConverters.Add(x);
