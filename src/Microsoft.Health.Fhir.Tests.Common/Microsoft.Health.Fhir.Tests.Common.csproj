@@ -37,7 +37,6 @@
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\Appointment.json" />
-    <None Remove="TestFiles\Normative\BulkImportRequest.json" />
     <None Remove="TestFiles\Normative\CarePlan.json" />
     <None Remove="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <None Remove="TestFiles\Normative\Coverage.json" />
@@ -251,7 +250,6 @@
     <EmbeddedResource Include="TestFiles\Normative\Appointment.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
-    <EmbeddedResource Include="TestFiles\Normative\BulkImportRequest.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
     <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />

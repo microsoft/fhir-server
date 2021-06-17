@@ -11,7 +11,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
-    public class ImportQuantitySearchTestFixture : ImportTestFixture<StartupForImportQuantitySearchTestProvider>
+    public class ImportQuantitySearchTestFixture : ImportTestFixture<StartupForImportTestProvider>
     {
         public ImportQuantitySearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)

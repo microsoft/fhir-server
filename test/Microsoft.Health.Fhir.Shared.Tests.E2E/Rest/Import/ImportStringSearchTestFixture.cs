@@ -11,7 +11,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
-    public class ImportStringSearchTestFixture : ImportTestFixture<StartupForImportStringSearchTestProvider>
+    public class ImportStringSearchTestFixture : ImportTestFixture<StartupForImportTestProvider>
     {
         internal const string LongString = "Lorem ipsum dolor sit amet consectetur adipiscing elit. Ut eget ultricies justo. Maecenas bibendum convallis sodales. Vestibulum quis molestie dui. Nulla porta elementum tristique. Aenean neque libero convallis sit amet dui ullamcorper congue lacinia erat. Sed finibus ex ac massa tincidunt tristique. In sed auctor massa. Proin cursus porttitor arcu. Maecenas a leo nunc. Sed pretium porta volutpat. In aliquet tempor sapien vitae laoreet nisl tempor ac. Vestibulum lacus leo luctus vitae pharetra at tempus ac diam. Integer at dui eu dolor gravida vehicula. Phasellus malesuada elit orci quis maximus purus consectetur ac. In semper consequat augue sit amet ultricies.";
 

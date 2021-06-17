@@ -118,7 +118,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpDelete]
         [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.CancelImport)]
-        [ServiceFilter(typeof(ValidateImportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Import)]
         public async Task<IActionResult> CancelImport(string idParameter)
         {
@@ -130,7 +129,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         [HttpGet]
         [Route(KnownRoutes.ImportJobLocation, Name = RouteNames.GetImportStatusById)]
-        [ServiceFilter(typeof(ValidateImportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Import)]
         public async Task<IActionResult> GetImportStatusById(string idParameter)
         {

@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private ImportOrchestratorTaskInputData _orchestratorInputData;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
-        private ImportOrchestratorTaskContext _orchestratorTaskContext; // TODO : changed later
+        private ImportOrchestratorTaskContext _orchestratorTaskContext;
         private ITaskManager _taskManager;
         private ISequenceIdGenerator<long> _sequenceIdGenerator;
         private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;

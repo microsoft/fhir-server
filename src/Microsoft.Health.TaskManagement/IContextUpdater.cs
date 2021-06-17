@@ -16,7 +16,6 @@ namespace Microsoft.Health.TaskManagement
         /// <summary>
         /// Update context for the task.
         /// </summary>
-        /// <param name="taskId">Id for the task</param>
         /// <param name="context">Task context in string format</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         public Task UpdateContextAsync(string context, CancellationToken cancellationToken);

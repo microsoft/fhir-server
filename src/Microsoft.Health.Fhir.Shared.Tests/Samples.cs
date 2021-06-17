@@ -97,11 +97,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Parameter-Convert-Data");
         }
 
-        public static ImportRequest GetDefaultBulkImportRequest()
-        {
-            return GetJsonSample<ImportRequest>("BulkImportRequest");
-        }
-
         /// <summary>
         /// Gets back a resource from a json sample file.
         /// </summary>

@@ -11,7 +11,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
-    public class ImportDateSearchTestFixture : ImportTestFixture<StartupForImportDateSearchTestProvider>
+    public class ImportDateSearchTestFixture : ImportTestFixture<StartupForImportTestProvider>
     {
         public ImportDateSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
