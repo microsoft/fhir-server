@@ -429,13 +429,34 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             try
             {
-                (IReadOnlyList<T> results, string nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
+                (IReadOnlyList<T> results, string nextContinuationToken) = (null, null);
+                var desiredItemCount = feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor;
+
+                // Set timeout for sequential query execution
+                if (feedOptions.MaxConcurrency == null &&
+                    _cosmosConfig.ParallelQueryOptions.EnableConcurrencyIfQueryExceedsTimeLimit == true &&
+                    string.IsNullOrEmpty(searchOptions.ContinuationToken))
+                {
+                    searchEnumerationTimeoutOverrideIfSequential = TimeSpan.FromSeconds(5);
+
+                    // Executing query sequentially until the timeout
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, searchEnumerationTimeoutOverrideIfSequential, cancellationToken);
+
+                    // check if we need to restart the query in parallel
+                    if (results.Count < desiredItemCount && !string.IsNullOrEmpty(nextContinuationToken))
+                    {
+                        feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
+                        (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, null, cancellationToken);
+                    }
+                }
+                else
+                {
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
+                }
 
                 if (queryPartitionStatistics != null && messagesList != null)
                 {
-                    var desiredItemCount = feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor;
-
-                    if (results.Count < desiredItemCount && !string.IsNullOrEmpty(nextContinuationToken))
+                    if ((results == null || results.Count < desiredItemCount) && !string.IsNullOrEmpty(nextContinuationToken))
                     {
                         // ExecuteDocumentQueryAsync gave up on filling the pages. This suggests that we would have been better off querying in parallel.
                         queryPartitionStatistics.Update(_physicalPartitionInfo.PhysicalPartitionCount);
