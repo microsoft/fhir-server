@@ -38,6 +38,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"), // expression is null or empty.
             new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"), // expression is null or empty.
             new Uri("http://hl7.org/fhir/SearchParameter/Subscription-url"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/TestScript-scope-artifact-phase"), // referencing non existing search param.
+            new Uri("http://hl7.org/fhir/SearchParameter/TestScript-scope-artifact-conformance"), // referencing non existing search param.
         };
 
         internal static void Build(
@@ -191,10 +193,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         if (definitionUrl == null ||
                             !uriDictionary.TryGetValue(new Uri(definitionUrl), out SearchParameterInfo componentSearchParameter))
                         {
-                            AddIssue(
-                                Core.Resources.SearchParameterDefinitionInvalidComponentReference,
-                                searchParameter.Url,
-                                componentIndex);
+                            if (!(modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(searchParameter.Url))))
+                            {
+                                AddIssue(
+                                    Core.Resources.SearchParameterDefinitionInvalidComponentReference,
+                                    searchParameter.Url,
+                                    componentIndex);
+                            }
+
                             continue;
                         }
 

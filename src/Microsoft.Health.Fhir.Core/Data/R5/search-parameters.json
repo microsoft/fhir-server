@@ -30604,11 +30604,11 @@
                 "component": [
                     {
                         "definition": "http://hl7.org/fhir/SearchParameter/DocumentReference-relatesto",
-                        "expression": "code"
+                        "expression": "target"
                     },
                     {
                         "definition": "http://hl7.org/fhir/SearchParameter/DocumentReference-relation",
-                        "expression": "target"
+                        "expression": "code"
                     }
                 ]
             }

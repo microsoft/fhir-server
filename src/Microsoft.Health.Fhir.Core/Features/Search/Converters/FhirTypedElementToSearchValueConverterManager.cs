@@ -7,6 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
+using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
@@ -21,8 +24,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
             EnsureArg.IsNotNull(converters, nameof(converters));
 
-            _converterDictionary = converters
-                .SelectMany(converter => converter.FhirTypes.Select(type => new { FhirType=type, converter.SearchValueType, Converter=converter }))
+            var extensions = converters.GroupBy(x => x.SearchValueType).Select(group => new ExtensionConverter(group.Key, group.ToList())).ToArray();
+
+            _converterDictionary = converters.Concat(extensions)
+                .SelectMany(converter => converter.FhirTypes.Select(type => new { FhirType = type, converter.SearchValueType, Converter = converter }))
                 .ToDictionary(
                     converter => (converter.FhirType, converter.SearchValueType),
                     converter => converter.Converter);
@@ -35,6 +40,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             EnsureArg.IsNotNull(searchValueType, nameof(searchValueType));
 
             return _converterDictionary.TryGetValue((fhirType, searchValueType), out converter);
+        }
+
+        internal class ExtensionConverter : ITypedElementToSearchValueConverter
+        {
+            private readonly List<ITypedElementToSearchValueConverter> _searchValueTypeConverters;
+
+            public ExtensionConverter(Type searchValueSearchValueType, List<ITypedElementToSearchValueConverter> searchValueTypeConverters)
+            {
+                EnsureArg.IsNotNull(searchValueSearchValueType, nameof(searchValueSearchValueType));
+                EnsureArg.IsNotNull(searchValueTypeConverters, nameof(searchValueTypeConverters));
+                EnsureArg.HasItems(searchValueTypeConverters, nameof(searchValueTypeConverters));
+
+                _searchValueTypeConverters = searchValueTypeConverters;
+                SearchValueType = searchValueSearchValueType;
+            }
+
+            public IReadOnlyList<string> FhirTypes => new List<string> { "Extension" };
+
+            public Type SearchValueType { get; }
+
+            public IEnumerable<ISearchValue> ConvertTo(ITypedElement value)
+            {
+                if (value == null)
+                {
+                    return new List<ISearchValue>();
+                }
+
+                var typed = value.Select("value").FirstOrDefault();
+                var converter = _searchValueTypeConverters.First(x => x.FhirTypes.Contains(typed.InstanceType));
+                return converter.ConvertTo(typed);
+            }
         }
     }
 }
