@@ -165,7 +165,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                     case "extension":
                         {
-                            ClassMapping mapping = GetMapping("Extension");
                             ctx = ctx.WithPath("extension");
                             foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
                             {
