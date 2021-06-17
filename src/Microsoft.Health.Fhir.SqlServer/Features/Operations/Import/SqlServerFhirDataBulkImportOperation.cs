@@ -174,20 +174,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task PostprocessAsync(CancellationToken cancellationToken)
         {
-            IndexTableTypeV1Row[] allIndexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
-            List<Task> runningTasks = new List<Task>();
+            List<IndexTableTypeV1Row> indexes =
+                UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.table.TableName, indexRecord.index.IndexName)).ToList();
+            List<Task<IndexTableTypeV1Row>> runningTasks = new List<Task<IndexTableTypeV1Row>>();
+            HashSet<string> runningRebuildTables = new HashSet<string>();
 
-            foreach (IndexTableTypeV1Row index in allIndexes)
+            // rebuild index operation on same table would be blocked, try to parallel run rebuild operation on different table.
+            while (indexes.Count > 0)
             {
-                while (runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                // if all remine indexes' table has some running rebuild operation, need to wait until at least one operation completed.
+                while (indexes.All(ix => runningRebuildTables.Contains(ix.TableName)) || runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
                 {
-                    Task completedTask = await Task.WhenAny(runningTasks.ToArray());
-                    await completedTask;
+                    Task<IndexTableTypeV1Row> completedTask = await Task.WhenAny(runningTasks.ToArray());
+                    IndexTableTypeV1Row indexRebuilt = await completedTask;
 
+                    runningRebuildTables.Remove(indexRebuilt.TableName);
                     runningTasks.Remove(completedTask);
                 }
 
-                runningTasks.Add(ExecuteRebuildIndexTaskAsync(index, cancellationToken));
+                IndexTableTypeV1Row nextIndex = indexes.Where(ix => !runningRebuildTables.Contains(ix.TableName)).First();
+                indexes.Remove(nextIndex);
+                runningRebuildTables.Add(nextIndex.TableName);
+                runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex, cancellationToken));
             }
 
             await Task.WhenAll(runningTasks.ToArray());
@@ -228,7 +236,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task ExecuteRebuildIndexTaskAsync(IndexTableTypeV1Row index, CancellationToken cancellationToken)
+        private async Task<IndexTableTypeV1Row> ExecuteRebuildIndexTaskAsync(IndexTableTypeV1Row index, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -239,6 +247,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     VLatest.RebuildIndexes.PopulateCommand(sqlCommandWrapper, new IndexTableTypeV1Row[] { index });
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+
+                    return index;
                 }
                 catch (SqlException sqlEx)
                 {
