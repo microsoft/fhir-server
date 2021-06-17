@@ -47,7 +47,6 @@
         "http://hl7.org/fhir/SearchParameter/Measure-successor",
         "http://hl7.org/fhir/SearchParameter/MeasureReport-measure",
         "http://hl7.org/fhir/SearchParameter/MessageDefinition-parent",
-        "http://hl7.org/fhir/SearchParameter/NutritionIntake-nutrition",
         "http://hl7.org/fhir/SearchParameter/NutritionOrder-instantiates-canonical",
         "http://hl7.org/fhir/SearchParameter/OperationDefinition-base",
         "http://hl7.org/fhir/SearchParameter/OperationDefinition-input-profile",
