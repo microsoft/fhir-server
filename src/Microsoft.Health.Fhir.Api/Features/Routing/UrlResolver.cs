@@ -299,6 +299,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.MemberMatch:
                     routeName = RouteNames.MemberMatchOperationDefinition;
                     break;
+                case OperationsConstants.PurgeHistory:
+                    routeName = RouteNames.PurgeHistoryDefinition;
+                    break;
 
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));

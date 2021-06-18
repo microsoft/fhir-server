@@ -1,13 +1,14 @@
 ﻿/**
 * This stored procedure provides the following functionality:
 * - Completely delete the document and all of its histories.
-* 
+*
 * @constructor
 * @param {string} resourceTypeName - The resource type name.
 * @param {string} resourceId - The resource id.
+* @param {boolean} keepCurrentVersion - Specifies if the current version of the resource should be kept.
 */
 
-function hardDelete(resourceTypeName, resourceId) {
+function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
     const collection = getContext().getCollection();
     const collectionLink = collection.getSelfLink();
     const response = getContext().getResponse();
@@ -27,8 +28,14 @@ function hardDelete(resourceTypeName, resourceId) {
 
     function tryQueryAndHardDelete() {
         // Find the resource and all of its history.
+        let queryText = "SELECT r._self, r.id FROM ROOT r WHERE r.resourceTypeName = @resourceTypeName AND r.resourceId = @resourceId";
+
+        if(keepCurrentVersion === true){
+            queryText += " AND r.isHistory = true";
+        }
+
         let query = {
-            query: "SELECT r._self, r.id FROM ROOT r WHERE r.resourceTypeName = @resourceTypeName AND r.resourceId = @resourceId",
+            query: queryText,
             parameters: [{ name: "@resourceTypeName", value: resourceTypeName }, { name: "@resourceId", value: resourceId }]
         };
 
