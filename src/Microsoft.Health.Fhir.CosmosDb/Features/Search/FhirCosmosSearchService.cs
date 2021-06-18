@@ -435,7 +435,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 // Set timeout for sequential query execution
                 if (feedOptions.MaxConcurrency == null &&
                     _cosmosConfig.ParallelQueryOptions.EnableConcurrencyIfQueryExceedsTimeLimit == true &&
-                    string.IsNullOrEmpty(searchOptions.ContinuationToken))
+                    string.IsNullOrEmpty(searchOptions.ContinuationToken) &&
+                    searchEnumerationTimeoutOverrideIfSequential == null)
                 {
                     searchEnumerationTimeoutOverrideIfSequential = TimeSpan.FromSeconds(5);
 
