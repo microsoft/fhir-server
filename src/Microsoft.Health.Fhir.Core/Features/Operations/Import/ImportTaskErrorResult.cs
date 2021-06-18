@@ -18,5 +18,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// Details error message
         /// </summary>
         public string ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Inner error if there're multiple errors
+        /// </summary>
+        public ImportTaskErrorResult InnerError { get; set; }
     }
 }

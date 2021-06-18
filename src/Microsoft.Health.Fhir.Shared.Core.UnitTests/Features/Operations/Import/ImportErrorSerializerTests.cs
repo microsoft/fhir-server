@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Import
             string errorMessage = "Test Error";
             ImportErrorSerializer serializer = new ImportErrorSerializer(_jsonSerializer);
 
-            string outcome = serializer.Serialize(10, new Exception("Test Error"));
+            string outcome = serializer.Serialize(10, new Exception(errorMessage));
 
             FhirJsonParser parser = new FhirJsonParser();
             OperationOutcome operationOutcome = parser.Parse<OperationOutcome>(outcome);

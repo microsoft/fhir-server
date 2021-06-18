@@ -14,10 +14,12 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
     public class ImportRequestExtensionsTests
     {
         [Fact]
-        public void GivenImportReuqestInParamtersFormat_WhenConvert_ThenImportRequestShouldBeReturned()
+        public void GivenImportRequestInParamtersFormat_WhenConvert_ThenImportRequestShouldBeReturned()
         {
             ImportRequest input = new ImportRequest();
             input.InputFormat = "test";
+            input.Force = true;
+            input.Mode = "test";
             input.InputSource = new Uri("http://dummy");
             input.Input = new List<InputResource>() { new InputResource() { Etag = "etag", Type = "type", Url = new Uri("http://dummy/resource") } };
             input.StorageDetail = new ImportRequestStorageDetail() { Type = "blob" };
@@ -25,6 +27,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
             ImportRequest output = input.ToParameters().ExtractImportRequest();
             Assert.Equal(input.InputFormat, output.InputFormat);
             Assert.Equal(input.InputSource, output.InputSource);
+            Assert.Equal(input.Force, output.Force);
+            Assert.Equal(input.Mode, output.Mode);
             Assert.Equal(input.StorageDetail.Type, output.StorageDetail.Type);
             Assert.Equal(input.Input[0].Type, output.Input[0].Type);
             Assert.Equal(input.Input[0].Url, output.Input[0].Url);
@@ -32,7 +36,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public void GivenEmptyImportReuqestInParamtersFormat_WhenConvert_ThenDefaultValueShouldBeFilled()
+        public void GivenEmptyImportRequestInParamtersFormat_WhenConvert_ThenDefaultValueShouldBeFilled()
         {
             ImportRequest input = new ImportRequest();
 

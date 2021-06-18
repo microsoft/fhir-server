@@ -2868,17 +2868,17 @@ GO
     Task Table
 **************************************************************/
 CREATE TABLE [dbo].[TaskInfo](
-	[TaskId] [varchar](64) NOT NULL,
-	[QueueId] [varchar](64) NOT NULL,
-	[Status] [smallint] NOT NULL,
+    [TaskId] [varchar](64) NOT NULL,
+    [QueueId] [varchar](64) NOT NULL,
+    [Status] [smallint] NOT NULL,
     [TaskTypeId] [smallint] NOT NULL,
     [RunId] [varchar](50) null,
-	[IsCanceled] [bit] NOT NULL,
+    [IsCanceled] [bit] NOT NULL,
     [RetryCount] [smallint] NOT NULL,
     [MaxRetryCount] [smallint] NOT NULL,
-	[HeartbeatDateTime] [datetime2](7) NULL,
-	[InputData] [varchar](max) NOT NULL,
-	[TaskContext] [varchar](max) NULL,
+    [HeartbeatDateTime] [datetime2](7) NULL,
+    [InputData] [varchar](max) NOT NULL,
+    [TaskContext] [varchar](max) NULL,
     [Result] [varchar](max) NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 
@@ -2915,7 +2915,7 @@ GO
 CREATE PROCEDURE [dbo].[CreateTask_2]
     @taskId varchar(64),
     @queueId varchar(64),
-	@taskTypeId smallint,
+    @taskTypeId smallint,
     @maxRetryCount smallint = 3,
     @inputData varchar(max),
     @isUniqueTaskByType bit
@@ -2926,9 +2926,9 @@ AS
     BEGIN TRANSACTION
 
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
-	DECLARE @status smallint = 1
+    DECLARE @status smallint = 1
     DECLARE @retryCount smallint = 0
-	DECLARE @isCanceled bit = 0
+    DECLARE @isCanceled bit = 0
 
     -- Check if the task already be created
     IF (@isUniqueTaskByType = 1) BEGIN
@@ -2961,8 +2961,8 @@ AS
         (@taskId, @queueId, @status, @taskTypeId, @isCanceled, @retryCount, @maxRetryCount, @heartbeatDateTime, @inputData)
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -2987,8 +2987,8 @@ AS
     SET NOCOUNT ON
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 GO
 
 
@@ -3033,13 +3033,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET HeartbeatDateTime = @heartbeatDateTime, TaskContext = @taskContext
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET HeartbeatDateTime = @heartbeatDateTime, TaskContext = @taskContext
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3083,13 +3083,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET HeartbeatDateTime = @heartbeatDateTime
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET HeartbeatDateTime = @heartbeatDateTime
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3135,13 +3135,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @taskResult
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @taskResult
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3181,13 +3181,13 @@ AS
         THROW 50404, 'Task not exist', 1;
     END
 
-	UPDATE dbo.TaskInfo
-	SET IsCanceled = 1, HeartbeatDateTime = @heartbeatDateTime
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET IsCanceled = 1, HeartbeatDateTime = @heartbeatDateTime
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3228,7 +3228,7 @@ AS
     FROM [dbo].[TaskInfo]
     WHERE TaskId = @taskId and RunId = @runId
 
-	-- We will timestamp the jobs when we update them to track stale jobs.
+    -- We will timestamp the jobs when we update them to track stale jobs.
     IF (@retryCount IS NULL) BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
@@ -3236,19 +3236,19 @@ AS
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
     IF (@retryCount >= @maxRetryCount) BEGIN
-		UPDATE dbo.TaskInfo
-		SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @result
-		WHERE TaskId = @taskId
-	END
+        UPDATE dbo.TaskInfo
+        SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @result
+        WHERE TaskId = @taskId
+    END
     Else IF (@status <> 3) BEGIN
         UPDATE dbo.TaskInfo
-		SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
-		WHERE TaskId = @taskId
-	END
+        SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
+        WHERE TaskId = @taskId
+    END
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3272,7 +3272,7 @@ GO
 --         * Timeout threshold in seconds for heart keep alive
 CREATE PROCEDURE [dbo].[GetNextTask]
     @queueId varchar(64),
-	@count smallint,
+    @count smallint,
     @taskHeartbeatTimeoutThresholdInSeconds int = 600
 AS
     SET NOCOUNT ON
@@ -3286,17 +3286,17 @@ AS
     SELECT @expirationDateTime = DATEADD(second, -@taskHeartbeatTimeoutThresholdInSeconds, SYSUTCDATETIME())
 
     DECLARE @availableJobs TABLE (
-		TaskId varchar(64),
-		QueueId varchar(64),
-		Status smallint,
+        TaskId varchar(64),
+        QueueId varchar(64),
+        Status smallint,
         TaskTypeId smallint,
-		IsCanceled bit,
+        IsCanceled bit,
         RetryCount smallint,
-		HeartbeatDateTime datetime2,
-		InputData varchar(max),
-		TaskContext varchar(max),
+        HeartbeatDateTime datetime2,
+        InputData varchar(max),
+        TaskContext varchar(max),
         Result varchar(max)
-	)
+    )
 
     INSERT INTO @availableJobs
     SELECT TOP(@count) TaskId, QueueId, Status, TaskTypeId, IsCanceled, RetryCount, HeartbeatDateTime, InputData, TaskContext, Result
@@ -3310,8 +3310,8 @@ AS
     SET Status = 2, HeartbeatDateTime = @heartbeatDateTime, RunId = CAST(NEWID() AS NVARCHAR(50))
     FROM dbo.TaskInfo task INNER JOIN @availableJobs availableJob ON task.TaskId = availableJob.TaskId
 
-	Select task.TaskId, task.QueueId, task.Status, task.TaskTypeId, task.RunId, task.IsCanceled, task.RetryCount, task.MaxRetryCount, task.HeartbeatDateTime, task.InputData, task.TaskContext, task.Result
-	from dbo.TaskInfo task INNER JOIN @availableJobs availableJob ON task.TaskId = availableJob.TaskId
+    Select task.TaskId, task.QueueId, task.Status, task.TaskTypeId, task.RunId, task.IsCanceled, task.RetryCount, task.MaxRetryCount, task.HeartbeatDateTime, task.InputData, task.TaskContext, task.Result
+    from dbo.TaskInfo task INNER JOIN @availableJobs availableJob ON task.TaskId = availableJob.TaskId
 
     COMMIT TRANSACTION
 GO
@@ -3435,10 +3435,10 @@ AS
     DECLARE @Sql NVARCHAR(MAX);
     DECLARE @ParmDefinition NVARCHAR(512);
 
-    SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName	+ N' WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
+    SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + OBJECT_NAME(OBJECT_ID(@tableName)) + N' WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
     SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint'; 
 
-	EXECUTE sp_executesql @sql, @parmDefinition,
+    EXECUTE sp_executesql @sql, @parmDefinition,
                           @BatchSizeParam = @batchSize,
                           @ResourceTypeIdParam = @resourceTypeId,
                           @StartResourceSurrogateIdParam = @startResourceSurrogateId,
@@ -3471,11 +3471,11 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    declare commands cursor for
-    SELECT N'ALTER INDEX [' + indexes.IndexName + '] ON ' + indexes.TableName + ' Disable;'
+    DECLARE commands CURSOR FAST_FORWARD
+    FOR SELECT N'ALTER INDEX [' + indexes.IndexName + '] ON ' + OBJECT_NAME(OBJECT_ID(indexes.TableName)) + ' Disable;'
     FROM @indexes as indexes
 
-    declare @cmd varchar(max)
+    DECLARE @cmd varchar(max)
 
     open commands
     fetch next from commands into @cmd
@@ -3512,11 +3512,11 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    declare commands cursor for
-    SELECT N'ALTER INDEX [' + indexes.IndexName + '] ON ' + indexes.TableName + ' Rebuild;'
+    DECLARE commands CURSOR FAST_FORWARD
+    FOR SELECT N'ALTER INDEX [' + indexes.IndexName + '] ON ' + OBJECT_NAME(OBJECT_ID(indexes.TableName)) + ' Rebuild;'
     FROM @indexes as indexes
 
-    declare @cmd varchar(max)
+    DECLARE @cmd varchar(max)
 
     open commands
     fetch next from commands into @cmd
@@ -3553,13 +3553,13 @@ AS
     BEGIN TRANSACTION
 
     DELETE rank FROM
-		(
-			SELECT *
-			, DupRank = ROW_NUMBER() OVER (
-						  PARTITION BY ResourceId
-						  ORDER BY ResourceSurrogateId desc)
-			From dbo.Resource
-		) as rank
+        (
+            SELECT *
+            , DupRank = ROW_NUMBER() OVER (
+                          PARTITION BY ResourceId
+                          ORDER BY ResourceSurrogateId desc)
+            From dbo.Resource
+        ) as rank
     where rank.DupRank > 1
 
     COMMIT TRANSACTION
@@ -3587,12 +3587,12 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-	DECLARE @Sql NVARCHAR(MAX);
+    DECLARE @Sql NVARCHAR(MAX);
 
-	SET @Sql = N'DELETE FROM ' + @TableName
-	+ N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
+    SET @Sql = N'DELETE FROM ' + OBJECT_NAME(OBJECT_ID(@tableName))
+    + N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
 
-	EXECUTE sp_executesql @Sql
+    EXECUTE sp_executesql @Sql
 
     COMMIT TRANSACTION
 GO

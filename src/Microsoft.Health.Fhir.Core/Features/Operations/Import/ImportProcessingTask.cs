@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogInformation(ex, "Failed to import data.");
+                    _logger.LogError(ex, "Failed to import data.");
                     throw new RetriableTaskException("Failed to import data.", ex);
                 }
 
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogInformation(ex, "Failed to load data.");
+                    _logger.LogError(ex, "Failed to load data.");
                     throw new RetriableTaskException("Failed to load data", ex);
                 }
 
