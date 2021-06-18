@@ -3472,7 +3472,7 @@ AS
     BEGIN TRANSACTION
 
     DECLARE commands CURSOR FAST_FORWARD
-    FOR SELECT N'ALTER INDEX [' + indexes.IndexName + '] ON ' + OBJECT_NAME(OBJECT_ID(indexes.TableName)) + ' Disable;'
+    FOR SELECT N'ALTER INDEX ' + QUOTENAME(indexes.IndexName) + ' ON ' + OBJECT_NAME(OBJECT_ID(indexes.TableName)) + ' Disable;'
     FROM @indexes as indexes
 
     DECLARE @cmd varchar(max)
@@ -3513,7 +3513,7 @@ AS
     BEGIN TRANSACTION
 
     DECLARE commands CURSOR FAST_FORWARD
-    FOR SELECT N'ALTER INDEX [' + indexes.IndexName + '] ON ' + OBJECT_NAME(OBJECT_ID(indexes.TableName)) + ' Rebuild;'
+    FOR SELECT N'ALTER INDEX ' + QUOTENAME(indexes.IndexName) + ' ON ' + OBJECT_NAME(OBJECT_ID(indexes.TableName)) + ' Rebuild;'
     FROM @indexes as indexes
 
     DECLARE @cmd varchar(max)
