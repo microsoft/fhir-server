@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 #if R5
             ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.Device);
 #else
-            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.Device);
+            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter);
             nextLink = secondBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(thirdBundle, Fixture.Device);
