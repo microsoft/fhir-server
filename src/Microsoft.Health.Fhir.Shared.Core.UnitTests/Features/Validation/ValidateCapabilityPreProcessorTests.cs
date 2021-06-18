@@ -47,13 +47,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         }
 
         [Theory]
-        [InlineData(false)]
-        [InlineData(true)]
-        public async Task GivenARequestNotAllowed_WhenValidatingCapability_ThenMethodNotAllowedExceptionShouldThrow(bool hardDelete)
+        [InlineData(DeleteOperation.SoftDelete)]
+        [InlineData(DeleteOperation.HardDelete)]
+        public async Task GivenARequestNotAllowed_WhenValidatingCapability_ThenMethodNotAllowedExceptionShouldThrow(DeleteOperation deleteOperation)
         {
             var preProcessor = new ValidateCapabilityPreProcessor<DeleteResourceRequest>(_conformanceProvider);
 
-            var deleteResourceRequest = new DeleteResourceRequest("Observation", Guid.NewGuid().ToString(), hardDelete);
+            var deleteResourceRequest = new DeleteResourceRequest("Observation", Guid.NewGuid().ToString(), deleteOperation);
 
             await Assert.ThrowsAsync<MethodNotAllowedException>(async () => await preProcessor.Process(deleteResourceRequest, CancellationToken.None));
         }

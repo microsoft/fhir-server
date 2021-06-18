@@ -1,0 +1,15 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "purge-history",
+    "url": "[base]/OperationDefinition/purge-history",
+    "version": "1.0.0",
+    "name": "Purge a resource's history",
+    "status": "active",
+    "kind": "operation",
+    "description": "Purges a resource's history, keeping the current record.",
+    "code": "purge-history",
+    "system": false,
+    "type": false,
+    "instance": true,
+    "parameter": []
+}

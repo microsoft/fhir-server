@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            DataActions dataActions = (request.HardDelete ? DataActions.Delete | DataActions.HardDelete : DataActions.Delete) | DataActions.Read;
+            DataActions dataActions = (request.DeleteOperation == DeleteOperation.SoftDelete ? DataActions.Delete : DataActions.HardDelete | DataActions.Delete) | DataActions.Read;
 
             if (await AuthorizationService.CheckAccess(dataActions, cancellationToken) != dataActions)
             {
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
             else if (count == 1)
             {
-                return await _mediator.Send(new DeleteResourceRequest(request.ResourceType, matchedResults.First().Resource.ResourceId, request.HardDelete), cancellationToken);
+                return await _mediator.Send(new DeleteResourceRequest(request.ResourceType, matchedResults.First().Resource.ResourceId, request.DeleteOperation), cancellationToken);
             }
             else
             {
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             {
                 foreach (SearchResultEntry item in matchedResults.Take(request.MaxDeleteCount - itemsDeleted))
                 {
-                    DeleteResourceResponse result = await _mediator.Send(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.HardDelete), cancellationToken);
+                    DeleteResourceResponse result = await _mediator.Send(new DeleteResourceRequest(request.ResourceType, item.Resource.ResourceId, request.DeleteOperation), cancellationToken);
                     itemsDeleted += result.ResourcesDeleted;
                 }
 
