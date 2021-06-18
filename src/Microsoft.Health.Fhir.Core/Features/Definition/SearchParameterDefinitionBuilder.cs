@@ -176,6 +176,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // If this is a composite search parameter, then make sure components are defined.
                 if (string.Equals(searchParameter.Type, SearchParamType.Composite.GetLiteral(), StringComparison.OrdinalIgnoreCase))
                 {
+                    if (modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(searchParameter.Url)))
+                    {
+                        continue;
+                    }
+
                     var composites = searchParameter.Component;
                     if (composites.Count == 0)
                     {
@@ -193,14 +198,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         if (definitionUrl == null ||
                             !uriDictionary.TryGetValue(new Uri(definitionUrl), out SearchParameterInfo componentSearchParameter))
                         {
-                            if (!(modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(searchParameter.Url))))
-                            {
-                                AddIssue(
-                                    Core.Resources.SearchParameterDefinitionInvalidComponentReference,
-                                    searchParameter.Url,
-                                    componentIndex);
-                            }
-
+                            AddIssue(
+                                Core.Resources.SearchParameterDefinitionInvalidComponentReference,
+                                searchParameter.Url,
+                                componentIndex);
                             continue;
                         }
 

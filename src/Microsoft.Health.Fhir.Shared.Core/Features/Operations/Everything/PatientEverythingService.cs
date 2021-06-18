@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
-        private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
+        private (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
 
         public PatientEverythingService(
             Func<IScoped<ISearchService>> searchServiceFactory,
@@ -190,7 +190,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            if (types.Any() && !types.Contains(_revinclude.resourceType))
+            // R5 include device into compartment so no sence to do search.
+            // But if we expand _revinclude to be a list this should be revisted!
+            if ((ModelInfoProvider.Version == FhirSpecification.R5) ||
+                (types.Any() && !types.Contains(_revinclude.resourceType)))
             {
                 return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
             }

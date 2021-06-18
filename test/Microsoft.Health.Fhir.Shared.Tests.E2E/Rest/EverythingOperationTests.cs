@@ -36,11 +36,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var nextLink = firstBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
-            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter);
-
+#if R5
+            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.Device);
+#else
+            ValidateBundle(secondBundle, Fixture.Observation, Fixture.Appointment, Fixture.Encounter, Fixture.Device);      
             nextLink = secondBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(thirdBundle, Fixture.Device);
+#endif
         }
 
         [Fact]
@@ -49,8 +52,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAPatientEverythingOperationWithNonExistentId_WhenSearched_ThenResourcesInScopeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.NonExistentPatient.Id}/$everything";
-
+#if R5
+            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceOfNonExistentPatient);
+#else
             await ExecuteAndValidateBundle(searchUrl, true, 1, Fixture.ObservationOfNonExistentPatient, Fixture.DeviceOfNonExistentPatient);
+#endif
         }
 
         [Fact]
@@ -101,8 +107,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenStartOrEndSpecified_WhenSearched_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?end=2010";
-
+#if R5
+            await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Appointment, Fixture.Device);
+#else
             await ExecuteAndValidateBundle(searchUrl, true, 2, Fixture.Patient, Fixture.Organization, Fixture.Appointment);
+#endif
         }
 
         [Fact]
