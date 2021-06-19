@@ -58,6 +58,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Everything = "$everything";
         public const string PatientEverythingById = "Patient/" + IdRouteSegment + "/" + Everything;
 
+        public const string PurgeHistory = "$purge-history";
+        public const string PurgeHistoryResourceTypeById = ResourceTypeById + "/" + PurgeHistory;
+        public const string PurgeHistoryOperationDefinition = OperationDefinition + "/" + OperationsConstants.PurgeHistory;
+
         public const string Import = "$import";
         public const string ImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Import;
         public const string ImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment;

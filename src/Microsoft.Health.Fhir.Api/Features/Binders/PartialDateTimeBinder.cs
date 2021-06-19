@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -27,8 +28,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Binders
 
                     bindingContext.Result = ModelBindingResult.Success(result);
                 }
-                catch
+                catch (FormatException ex)
                 {
+                    bindingContext.ModelState.AddModelError(bindingContext.ModelName, ex.Message);
                     bindingContext.Result = ModelBindingResult.Failed();
                 }
             }

@@ -61,12 +61,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
-        /// This is the maximum degree of parallelism for the SDK to use when querying physical partitions in parallel.
-        /// -1 means "System Decides", int.MaxValue sets the limit high enough that it shouldn't be limited.
-        /// </summary>
-        internal const int MaxQueryConcurrency = int.MaxValue;
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
         /// </summary>
         /// <param name="containerScope">
@@ -289,18 +283,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
             try
             {
-                _logger.LogDebug("Obliterating {resourceType}/{id}", key.ResourceType, key.Id);
+                _logger.LogDebug("Obliterating {resourceType}/{id}. Keep current version: {keepCurrentVersion}", key.ResourceType, key.Id, keepCurrentVersion);
 
                 StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _containerScope.Value.Scripts,
                         key,
+                        keepCurrentVersion,
                         ct),
                     cancellationToken);
 
@@ -436,7 +431,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             using var timeoutTokenSource = new CancellationTokenSource(timeout);
             using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
-            bool executingWithMaxParallelism = feedOptions.MaxConcurrency == MaxQueryConcurrency && continuationToken == null;
+            bool executingWithMaxParallelism = feedOptions.MaxConcurrency == _cosmosDataStoreConfiguration.ParallelQueryOptions.MaxQueryConcurrency && continuationToken == null;
+
+            if (executingWithMaxParallelism)
+            {
+                _logger.LogInformation("Executing {maxConcurrency} parallel queries across physical partitions", feedOptions.MaxConcurrency);
+            }
 
             var maxCount = executingWithMaxParallelism
                 ? totalDesiredCount * (mustNotExceedMaxItemCount ? 1 : ExecuteDocumentQueryAsyncMaximumFillFactor) // in this mode, the SDK likely has already fetched pages, so we might as well consume them

@@ -13,26 +13,26 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
     public class DeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability
     {
-        public DeleteResourceRequest(ResourceKey resourceKey, bool hardDelete)
+        public DeleteResourceRequest(ResourceKey resourceKey, DeleteOperation deleteOperation)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
 
             ResourceKey = resourceKey;
-            HardDelete = hardDelete;
+            DeleteOperation = deleteOperation;
         }
 
-        public DeleteResourceRequest(string type, string id, bool hardDelete)
+        public DeleteResourceRequest(string type, string id, DeleteOperation deleteOperation)
         {
             EnsureArg.IsNotNull(type, nameof(type));
             EnsureArg.IsNotNull(id, nameof(id));
 
             ResourceKey = new ResourceKey(type, id);
-            HardDelete = hardDelete;
+            DeleteOperation = deleteOperation;
         }
 
         public ResourceKey ResourceKey { get; }
 
-        public bool HardDelete { get; }
+        public DeleteOperation DeleteOperation { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {

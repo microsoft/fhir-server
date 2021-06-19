@@ -27,15 +27,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 {
     public class ImportControllerTests
     {
-        private ImportController _bulkImportEnabledController;
         private IMediator _mediator = Substitute.For<IMediator>();
         private RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
-
-        public ImportControllerTests()
-        {
-            _bulkImportEnabledController = GetController(new ImportTaskConfiguration() { Enabled = true });
-        }
 
         public static TheoryData<ImportRequest> ValidBody =>
             new TheoryData<ImportRequest>

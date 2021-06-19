@@ -156,37 +156,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return (resourceChannel, loadTask);
                 });
 
-            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    Channel<ImportProcessingProgress> progressChannel = Channel.CreateUnbounded<ImportProcessingProgress>();
-
-                    Task loadTask = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            ImportProcessingProgress progress = new ImportProcessingProgress();
-
-                            await progressChannel.Writer.WriteAsync(progress);
-                        }
-                        finally
-                        {
-                            progressChannel.Writer.Complete();
-                        }
-                    });
-
-                    return (progressChannel, loadTask);
-                });
-
-            string context = null;
-            contextUpdater.UpdateContextAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns(callInfo =>
-                {
-                    context = (string)callInfo[0];
-
-                    return Task.CompletedTask;
-                });
-
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,

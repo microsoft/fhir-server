@@ -80,6 +80,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
+        [InlineData("time")]
+        [InlineData("2021-06-13T00:00:00Z ")]
+        public async Task GivenUnparsableTime_WhenRequestionExportWithIt_ThenServerShouldReturnBadRequest(string time)
+        {
+            var queryParam = new Dictionary<string, string>()
+            {
+                { KnownQueryParameterNames.Type, "Patient" },
+                { KnownQueryParameterNames.Since, time},
+            };
+            using HttpRequestMessage request = GenerateExportRequest("$export", queryParams: queryParam);
+
+            using HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Theory]
         [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/123456/$export")]
@@ -87,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var queryParam = new Dictionary<string, string>()
             {
-                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString() },
+                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.ffzzz") },
                 { KnownQueryParameterNames.Type, "Patient" },
                 { KnownQueryParameterNames.Container, "test-container" },
             };

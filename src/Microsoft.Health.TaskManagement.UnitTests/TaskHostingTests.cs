@@ -64,7 +64,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
             await taskHosting.StartAsync(tokenSource);
 
-            Assert.Equal(taskCount, executedTaskCount);
+            Assert.True(taskCount <= executedTaskCount);
             foreach (string resultString in taskInfos.Select(t => t.Result))
             {
                 TaskResultData result = JsonConvert.DeserializeObject<TaskResultData>(resultString);
@@ -226,9 +226,9 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         isCancelled = true;
                         tokenSource.Cancel();
                     })
-                    {
-                        RunId = Guid.NewGuid().ToString(),
-                    };
+                {
+                    RunId = Guid.NewGuid().ToString(),
+                };
             });
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
