@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenResourcesWithReference_WhenSearchedWithReferenceAndIdParameter_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             Patient patientWithMatchingReference = (await Client.CreateResourcesAsync<Patient>(p =>
