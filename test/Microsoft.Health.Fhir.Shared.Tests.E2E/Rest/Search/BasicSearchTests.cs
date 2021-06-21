@@ -183,6 +183,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task GivenTooBigPostRequest_WhenSearching_ThenDontCrashServer()
+        {
+            var sb = new StringBuilder();
+
+            for (int i = 0; i < 100_000; i++)
+            {
+                sb.Append('a');
+            }
+
+            await Client.SearchPostAsync("Patient", default, ("name", sb.ToString()));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypes_ThenOnlyResourcesMatchingTypeParameterShouldBeReturned()
         {
             var tag = Guid.NewGuid().ToString();
