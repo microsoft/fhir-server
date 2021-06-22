@@ -422,3 +422,31 @@ AS
 
     COMMIT TRANSACTION
 GO
+
+/*************************************************************
+    Stored procedures for get disabled indexes
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     GetDisabledIndexess
+--
+-- DESCRIPTION
+--     Get disabled indexes
+--
+CREATE OR ALTER PROCEDURE [dbo].[GetDisabledIndexess]
+    @indexes dbo.IndexTableType_1 READONLY
+AS
+    SET NOCOUNT ON
+    SET XACT_ABORT ON
+
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+    BEGIN TRANSACTION
+
+    SELECT  input_index.TableName, input_index.IndexName, sys_index.is_disabled
+    FROM sys.indexes sys_index
+    INNER JOIN @indexes input_index ON sys_index.name = input_index.IndexName collate Latin1_General_CI_AI
+    AND sys_index.object_id = OBJECT_ID(input_index.TableName)
+    WHERE sys_index.is_disabled = '1'
+
+    COMMIT TRANSACTION
+GO

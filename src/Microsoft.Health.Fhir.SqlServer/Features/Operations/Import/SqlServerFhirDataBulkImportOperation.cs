@@ -175,9 +175,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task PostprocessAsync(CancellationToken cancellationToken)
         {
             IndexTableTypeV1Row[] allIndexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            IndexTableTypeV1Row[] disabledIndexes = (await GetIndexesDisableStatusInternalAsync(allIndexes, cancellationToken)).ToArray();
             List<Task> runningTasks = new List<Task>();
 
-            foreach (IndexTableTypeV1Row index in allIndexes)
+            foreach (IndexTableTypeV1Row index in disabledIndexes)
             {
                 while (runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
                 {
@@ -374,6 +375,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         throw;
                     }
+                }
+            }
+        }
+
+        private async Task<IEnumerable<IndexTableTypeV1Row>> GetIndexesDisableStatusInternalAsync(IndexTableTypeV1Row[] indexes, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                try
+                {
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
+
+                    VLatest.GetDisabledIndexess.PopulateCommand(sqlCommandWrapper, indexes);
+                    using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                    {
+                        var indexesWithStatus = new List<IndexTableTypeV1Row>();
+                        while (await sqlDataReader.ReadAsync(cancellationToken))
+                        {
+                            var row = new IndexTableTypeV1Row(sqlDataReader.GetString(0), sqlDataReader.GetString(1));
+                            indexesWithStatus.Add(row);
+                        }
+
+                        return indexesWithStatus;
+                    }
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogInformation(sqlEx, "Failed get indexes disable status.");
+
+                    throw;
                 }
             }
         }
