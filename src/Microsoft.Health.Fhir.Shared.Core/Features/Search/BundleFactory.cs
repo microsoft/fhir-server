@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core;
@@ -65,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 };
                 resource.Response = new Bundle.ResponseComponent
                 {
+                    Status = ((int)HttpStatusCode.OK).ToString() + " " + HttpStatusCode.OK,
                     LastModified = r.Resource.LastModified,
                     Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
                 };
