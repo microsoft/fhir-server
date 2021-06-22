@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             Expression parsed = _compiler.Parse(parameterInfo.Expression);
-            if (parameterInfo.Component.Any(x => x.ResolvedSearchParameter == null))
+            if (parameterInfo.Component != null && parameterInfo.Component.Any(x => x.ResolvedSearchParameter == null))
             {
                 return (false, false);
             }
