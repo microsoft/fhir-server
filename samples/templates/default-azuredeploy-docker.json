@@ -210,7 +210,7 @@
             "type": "int",
             "defaultValue": 1,
             "metadata": {
-                "description": "Support parallel backgound task running"
+                "description": "Support parallel background task running"
             }
         }
     },

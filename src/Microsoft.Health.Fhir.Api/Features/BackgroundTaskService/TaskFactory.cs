@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private readonly IContextUpdaterFactory _contextUpdaterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ILoggerFactory _loggerFactory;
-        private readonly ILogger<TaskFactory> _logger;
 
         public TaskFactory(
             IFhirDataBulkImportOperation fhirDataBulkImportOperation,
@@ -41,8 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IIntegrationDataStoreClient integrationDataStoreClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            ILoggerFactory loggerFactory,
-            ILogger<TaskFactory> logger)
+            ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(fhirDataBulkImportOperation, nameof(fhirDataBulkImportOperation));
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
@@ -54,7 +52,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
-            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataBulkImportOperation = fhirDataBulkImportOperation;
             _importResourceLoader = importResourceLoader;
@@ -66,7 +63,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _contextUpdaterFactory = contextUpdaterFactory;
             _contextAccessor = contextAccessor;
             _loggerFactory = loggerFactory;
-            _logger = logger;
         }
 
         public ITask Create(TaskInfo taskInfo)
@@ -108,7 +104,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     _loggerFactory);
             }
 
-            _logger.LogWarning("Can not create task for type {taskType}", taskInfo.TaskTypeId);
             return null;
         }
     }
