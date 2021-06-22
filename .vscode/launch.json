@@ -18,6 +18,10 @@
                 "ASPNETCORE_ENVIRONMENT": "Development",
                 "DataStore": "CosmosDb",
                 "FhirServer:Security:Enabled": "false",
+                // Not a real secret!
+                // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
+                "CosmosDb:Host": "https://localhost:8081/",
+                "CosmosDb:Key": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -61,6 +65,10 @@
                 "ASPNETCORE_ENVIRONMENT": "Development",
                 "DataStore": "CosmosDb",
                 "FhirServer:Security:Enabled": "false",
+                // Not a real secret!
+                // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
+                "CosmosDb:Host": "https://localhost:8081/",
+                "CosmosDb:Key": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -104,6 +112,10 @@
                 "ASPNETCORE_ENVIRONMENT": "Development",
                 "DataStore": "CosmosDb",
                 "FhirServer:Security:Enabled": "false",
+                // Not a real secret!
+                // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
+                "CosmosDb:Host": "https://localhost:8081/",
+                "CosmosDb:Key": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
