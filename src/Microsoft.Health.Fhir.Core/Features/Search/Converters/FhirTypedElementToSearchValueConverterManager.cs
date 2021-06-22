@@ -64,11 +64,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             {
                 if (value == null)
                 {
-                    return new List<ISearchValue>();
+                    return Enumerable.Empty<ISearchValue>();
                 }
 
                 var typed = value.Select("value").FirstOrDefault();
-                var converter = _searchValueTypeConverters.First(x => x.FhirTypes.Contains(typed.InstanceType));
+                var converter = _searchValueTypeConverters.FirstOrDefault(x => x.FhirTypes.Contains(typed?.InstanceType));
+
+                // If the resource's extension type can't be converted to the user-specified search parameter type, we won't return any results.
+                // This means reindexing will succeed but the search parameter will not pick up resources with extensions that have an incompatible type.
+                if (converter == null)
+                {
+                    return Enumerable.Empty<ISearchValue>();
+                }
+
                 return converter.ConvertTo(typed);
             }
         }
