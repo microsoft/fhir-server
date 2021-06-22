@@ -217,6 +217,54 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await Assert.ThrowsAnyAsync<Exception>(async () => await sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None));
         }
 
+        [Theory]
+        [InlineData(3)]
+        [InlineData(5)]
+        [InlineData(7)]
+        public async Task GivenPartialDisabledIndexes_WhenRebuildIndexes_ThenOnlyDisabledIndexesShouldBeBuilt(int disabledIndexNumber)
+        {
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
+            SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
+
+            (string tableName, string indexName)[] indexes = SqlServerFhirDataBulkImportOperation.UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            bool[] isDisabled = indexes.Select(async index => await GetIndexDisableStatus(index.indexName)).Select(t => t.Result).ToArray();
+            int currentDisabledIndexNumber = isDisabled.Where(disable => disable).Count();
+            var tasks = new List<Task>();
+            if (currentDisabledIndexNumber > disabledIndexNumber)
+            {
+                for (int i = 0, count = disabledIndexNumber; count < currentDisabledIndexNumber; i++)
+                {
+                    if (isDisabled[i])
+                    {
+                        tasks.Add(RebuildIndex(indexes[i].tableName, indexes[i].indexName));
+                        count++;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0, count = currentDisabledIndexNumber; count < disabledIndexNumber; i++)
+                {
+                    if (!isDisabled[i])
+                    {
+                        tasks.Add(DisableIndex(indexes[i].tableName, indexes[i].indexName));
+                        count++;
+                    }
+                }
+            }
+
+            await Task.WhenAll();
+
+            currentDisabledIndexNumber = (await sqlServerFhirDataBulkOperation.GetDisabledIndexes(indexes, CancellationToken.None)).Count;
+            Assert.Equal(disabledIndexNumber, currentDisabledIndexNumber);
+
+            await sqlServerFhirDataBulkOperation.PostprocessAsync(CancellationToken.None);
+            currentDisabledIndexNumber = indexes.Select(async index => await GetIndexDisableStatus(index.indexName)).Select(t => t.Result).Count();
+            Assert.Equal(0, currentDisabledIndexNumber);
+        }
+
         private async Task VerifyDataForBulkImport(SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation, long startSurrogateId, int count, short resourceTypeId, Func<int, long, short, string, DataTable> tableGenerator, string resourceId = null)
         {
             DataTable inputTable = tableGenerator(count, startSurrogateId, resourceTypeId, resourceId);
@@ -230,6 +278,36 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None);
 
             return inputTable.TableName;
+        }
+
+        private async Task<bool> GetIndexDisableStatus(string indexName)
+        {
+            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
+            using SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
+            using SqlCommandWrapper command = connection.CreateSqlCommand();
+            command.CommandText = $"select is_disabled from sys.indexes where name = {indexName}";
+
+            return (bool)(await command.ExecuteScalarAsync(CancellationToken.None));
+        }
+
+        private async Task DisableIndex(string tableName, string indexName)
+        {
+            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
+            using SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
+            using SqlCommandWrapper command = connection.CreateSqlCommand();
+            command.CommandText = $"alter index {indexName} on {tableName} Disable";
+
+            await command.ExecuteNonQueryAsync(CancellationToken.None);
+        }
+
+        private async Task RebuildIndex(string tableName, string indexName)
+        {
+            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
+            using SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None);
+            using SqlCommandWrapper command = connection.CreateSqlCommand();
+            command.CommandText = $"alter index {indexName} on {tableName} Rebuild";
+
+            await command.ExecuteNonQueryAsync(CancellationToken.None);
         }
 
         private async Task<int> GetResourceCountAsync(string tableName, long startSurrogateId, long endSurrogateId)
