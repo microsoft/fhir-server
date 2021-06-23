@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenCosmosDb_WhenGettingMetadata_TheServerShouldReturnPatientEverythingSupported()
+        public async Task GivenBothDataStores_WhenGettingMetadata_TheServerShouldReturnPatientEverythingSupported()
         {
             FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
 
