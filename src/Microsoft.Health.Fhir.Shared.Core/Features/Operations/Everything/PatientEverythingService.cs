@@ -56,8 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            using IScoped<ISearchService> search = _searchServiceFactory();
-
             EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
                 ? new EverythingOperationContinuationToken(0, null)
                 : EverythingOperationContinuationToken.FromString(DecodeContinuationTokenFromBase64String(continuationToken));
