@@ -6,6 +6,8 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Features.ArtifactStore
 {
+    // Describes Open Container Initiative (OCI) artifacts managed in ACR
+    // https://docs.microsoft.com/en-us/azure/container-registry/container-registry-oci-artifacts
     public class OciArtifactInfo
     {
         public string LoginServer { get; set; }
