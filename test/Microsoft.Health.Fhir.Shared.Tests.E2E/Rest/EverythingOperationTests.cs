@@ -26,7 +26,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAPatientEverythingOperationWithId_WhenSearched_ThenResourcesInScopeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything";
@@ -45,7 +44,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAPatientEverythingOperationWithNonExistentId_WhenSearched_ThenResourcesInScopeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.NonExistentPatient.Id}/$everything";
@@ -55,7 +53,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenAEverythingOperationWithUnsupportedType_WhenSearched_ThenNotFoundShouldBeReturned()
         {
             string searchUrl = "Observation/bar/$everything";
@@ -67,7 +64,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenTypeSpecified_WhenAllValid_ThenResourcesOfValidTypesShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?_type=Patient,Observation";
@@ -77,7 +73,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenTypeSpecified_WhenAllInvalid_ThenAnEmptyBundleShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?_type=foo";
@@ -87,7 +82,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenTypeSpecified_WhenSomeInvalid_ThenResourcesOfValidTypesShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?_type=Patient,Device,foo";
@@ -97,7 +91,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenStartOrEndSpecified_WhenSearched_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?end=2010";
@@ -107,7 +100,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenSinceSpecified_WhenSearched_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?_since=3000";
@@ -120,7 +112,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Zm9v")]
         [InlineData("eyJQaGFzZSI6MSwgIkludGVybmFsQ29udGludWF0aW9uVG9rZW4iOiAiWm05diJ9")]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenContinuationTokenSpecified_WhenInvalid_ThenBadRequestShouldBeReturned(string continuationToken)
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?ct={continuationToken}";
@@ -132,7 +123,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenMultipleInputParametersSpecified_WhenAllValid_ThenResourcesOfSpecifiedRangeShouldBeReturned()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?_type=Patient,Observation,Encounter&start=2010&_since=2010";
@@ -142,7 +132,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenMultipleInputParametersSpecified_WhenAllInvalid_ThenInvalidInputParametersDoNotTakeEffect()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?_count=100&foo=bar";
@@ -166,7 +155,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenMultipleInputParametersSpecified_WhenSomeInvalid_ThenInvalidInputParametersDoNotTakeEffect()
         {
             string searchUrl = $"Patient/{Fixture.Patient.Id}/$everything?_type=Patient,Observation,Encounter&start=2010&_since=2010&foo=bar";
@@ -190,18 +178,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var nextLink = firstBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(secondBundle, Fixture.Observation);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenAEverythingOperationWithSqlServer_WhenSearched_ThenMethodNotAllowedShouldBeReturned()
-        {
-            string searchUrl = "Patient/bar/$everything";
-
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
-
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, ex.StatusCode);
         }
     }
 }
