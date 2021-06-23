@@ -72,14 +72,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         statusString = ((int)HttpStatusCode.Created).ToString() + " " + HttpStatusCode.Created;
                         break;
                     case Bundle.HTTPVerb.PUT:
+                    case Bundle.HTTPVerb.GET:
                         statusString = ((int)HttpStatusCode.OK).ToString() + " " + HttpStatusCode.OK;
                         break;
                     case Bundle.HTTPVerb.DELETE:
                         statusString = ((int)HttpStatusCode.NoContent).ToString() + " " + HttpStatusCode.NoContent;
                         break;
                     default:
-                        statusString = ((int)HttpStatusCode.OK).ToString() + " " + HttpStatusCode.OK;
-                        break;
+                        throw new NotImplementedException();
                 }
 
                 resource.Response = new Bundle.ResponseComponent
