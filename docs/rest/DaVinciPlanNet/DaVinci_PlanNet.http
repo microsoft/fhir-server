@@ -89,11 +89,6 @@ GET {{fhirurl}}/SearchParameter
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
 
-###
-DELETE {{fhirurl}}/SearchParameter/30401793-2e6b-46f9-9f14-b6980a360053
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
 ### Load Profiles
 # There are 9 profiles to load for this IG
 
