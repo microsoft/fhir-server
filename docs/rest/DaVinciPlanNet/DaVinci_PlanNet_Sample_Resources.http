@@ -848,7 +848,7 @@ content-type: {{contentType}}
 
 {
   "resourceType": "HealthcareService",
-  "id": "d5e3957e-7cc2-4f1f-804a-5536ebc2792f",
+  "id": "healthcareserviceID",
   "meta": {
     "lastUpdated": "2020-07-07T13:26:22.0314215+00:00",
     "profile": [
@@ -940,7 +940,7 @@ content-type: {{contentType}}
 
 {
   "resourceType": "PractitionerRole",
-  "id": "practitionerrolejoesmithrole1",
+  "id": "19f6f205-53af-4afb-b0e8-23850f2cfb2c",
   "meta": {
     "lastUpdated": "2020-07-07T13:26:22.0314215+00:00",
     "profile": [
