@@ -49,7 +49,7 @@ IF NOT EXISTS (
 BEGIN
 
      CREATE TABLE dbo.ResourceChangeType(
-         ResourceChangeTypeId tinyint IDENTITY(0,1) NOT NULL,
+         ResourceChangeTypeId tinyint NOT NULL,
          Name nvarchar(50) NOT NULL,
       CONSTRAINT PK_ResourceChangeType PRIMARY KEY CLUSTERED 
      (
@@ -61,13 +61,9 @@ BEGIN
      )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
      ) ON [PRIMARY]
 
-     SET IDENTITY_INSERT [dbo].[ResourceChangeType] ON 
-
      INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (0, N'Creation')
      INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (1, N'Update')
      INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (2, N'Deletion')
-
-     SET IDENTITY_INSERT dbo.ResourceChangeType OFF
 END
 GO
 
