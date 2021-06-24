@@ -18,7 +18,7 @@ BEGIN
         ResourceId varchar(64) NOT NULL,
         ResourceTypeId smallint NOT NULL,
         ResourceVersion int NOT NULL,
-        ResourceChangeTypeId smallint NOT NULL,
+        ResourceChangeTypeId tinyint NOT NULL,
      CONSTRAINT PK_ResourceChangeData PRIMARY KEY CLUSTERED 
     (
         [Id] ASC
@@ -49,7 +49,7 @@ IF NOT EXISTS (
 BEGIN
 
      CREATE TABLE dbo.ResourceChangeType(
-         ResourceChangeTypeId smallint IDENTITY(0,1) NOT NULL,
+         ResourceChangeTypeId tinyint IDENTITY(0,1) NOT NULL,
          Name nvarchar(50) NOT NULL,
       CONSTRAINT PK_ResourceChangeType PRIMARY KEY CLUSTERED 
      (
@@ -145,8 +145,16 @@ BEGIN
 
     SET NOCOUNT ON;
 
+    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
+    -- using the Repeatable Read isolation level to avoid skipping resource changes 
+    -- due to interleaved transactions on the resource change data table.
     SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-
+    
+    -- In Repeatable Read, the select query execution will be blocked until other open transactions are completed
+    -- for rows that match the search condition of the select statement. 
+    -- A write transaction (update/delete) on the rows that match 
+    -- the search condition of the select statement will wait until the read transaction is completed. 
+    -- But, other transactions can insert new rows.
     SELECT TOP(@pageSize) c.Id
       ,c.Timestamp
       ,c.ResourceId
