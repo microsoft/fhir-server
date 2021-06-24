@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public void Cancel()
         {
-            if (!_cancellationTokenSource.IsCancellationRequested)
+            if (_cancellationTokenSource != null && !_cancellationTokenSource.IsCancellationRequested)
             {
                 _cancellationTokenSource?.Cancel();
             }

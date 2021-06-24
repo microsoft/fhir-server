@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ILogger<ImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
+            EnsureArg.IsNotNull(operationsConfig?.Value?.Import, nameof(operationsConfig));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(features?.Value, nameof(features));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CancelImportResponse response = await _mediator.CancelImportAsync(idParameter, HttpContext.RequestAborted);
 
-            _logger.LogInformation($"CancelImport {response?.StatusCode}");
+            _logger.LogInformation($"CancelImport {response.StatusCode}");
             return new ImportResult(response.StatusCode);
         }
 
