@@ -4,13 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Hl7.Fhir.Model;
+using MediatR;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Features.QueryGraphQl;
 using Microsoft.Health.Fhir.Azure;
+using Microsoft.Health.Fhir.Shared.Api.Features.QueryGraphQl;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -24,9 +28,36 @@ namespace Microsoft.Health.Fhir.Web
         public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
+#pragma warning disable CA1041 // Provide ObsoleteAttribute message
+        [Obsolete]
+#pragma warning restore CA1041 // Provide ObsoleteAttribute message
         public virtual void ConfigureServices(IServiceCollection services)
         {
             services.AddDevelopmentIdentityProvider(Configuration);
+
+            services
+                .AddRouting()
+
+                // Adding the GraphQL server core service
+                .AddGraphQLServer()
+
+                // Adding our scheme
+                .AddDocumentFromString(@"
+                        type Patient {
+                              id: String
+                              active: Boolean
+                         }")
+
+                // Next we add the types to our schema
+                .AddQueryType(d => d.Name("Query"))
+                    .AddTypeExtension<PatientQueries>()
+                .BindComplexType<Patient>()
+
+                // Adding DataLoader to our system
+                .AddDataLoader<PatientByIdDataLoader>();
+
+            services.AddMediatR(typeof(PatientByIdDataLoader));
+            services.AddHttpContextAccessor();
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddAzureExportDestinationClient()
@@ -85,6 +116,12 @@ namespace Microsoft.Health.Fhir.Web
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
+
+            app.UseRouting();
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapGraphQL("/graphql"); // By default it is /graphql, but I can change it to /$graphql
+            });
         }
 
         /// <summary>

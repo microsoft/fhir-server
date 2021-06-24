@@ -10,6 +10,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -24,14 +25,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly IUrlResolver _urlResolver;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly IResourceDeserializer _resourceDeserializer;
 
-        public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        public BundleFactory(IUrlResolver urlResolver, IResourceDeserializer resourceDeserializer, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _urlResolver = urlResolver;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _resourceDeserializer = resourceDeserializer;
         }
 
         public ResourceElement CreateSearchBundle(SearchResult result)
@@ -123,6 +127,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             };
 
             return bundle.ToResourceElement();
+        }
+
+        // Create SearchBundleWithOutFhirUri
+        public ResourceElement SearchBundleWithOutFhirUri(SearchResult result)
+        {
+            var searchMatchOnly = result.Results.Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
+
+            var match = searchMatchOnly[0];
+            var element = _resourceDeserializer.Deserialize(match.Resource);
+
+            return element;
         }
     }
 }

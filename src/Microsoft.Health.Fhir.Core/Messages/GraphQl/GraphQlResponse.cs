@@ -3,16 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search
+namespace Microsoft.Health.Fhir.Core.Messages.GraphQl
 {
-    public interface IBundleFactory
+    public class GraphQlResponse
     {
-        ResourceElement CreateSearchBundle(SearchResult result);
+        public GraphQlResponse(ResourceElement patient)
+        {
+            EnsureArg.IsNotNull(patient, nameof(patient));
 
-        ResourceElement CreateHistoryBundle(SearchResult result);
+            Patient = patient;
+        }
 
-        ResourceElement SearchBundleWithOutFhirUri(SearchResult result);
+        public ResourceElement Patient { get; }
     }
 }
