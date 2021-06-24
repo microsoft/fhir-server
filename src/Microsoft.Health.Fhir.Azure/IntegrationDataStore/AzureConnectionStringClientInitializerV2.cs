@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                 throw new IntegrationDataStoreClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
-            CloudBlobClient blobClient = null;
+            CloudBlobClient blobClient;
             try
             {
                 blobClient = cloudAccount.CreateCloudBlobClient();

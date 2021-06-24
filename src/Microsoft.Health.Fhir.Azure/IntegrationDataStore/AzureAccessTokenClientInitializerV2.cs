@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
                 throw new IntegrationDataStoreClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
 
-            string accessToken = null;
+            string accessToken;
             try
             {
                 accessToken = await _accessTokenProvider.GetAccessTokenForResourceAsync(storageAccountUri, cancellationToken);
