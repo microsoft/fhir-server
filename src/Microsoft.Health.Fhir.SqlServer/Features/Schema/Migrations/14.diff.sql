@@ -116,6 +116,9 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
+    DECLARE @Sql NVARCHAR(MAX);
+    DECLARE @ParmDefinition NVARCHAR(512);
+
     IF OBJECT_ID(@tableName) IS NOT NULL BEGIN
         SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName + N' WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
         SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint'; 
