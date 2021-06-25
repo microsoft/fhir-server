@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -47,10 +48,20 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 parametersResource.Add(JobRecordProperties.EndTime, new FhirDateTime(job.EndTime.Value));
             }
 
+            decimal progress;
+            if (job.Count > 0 && job.Progress > 0)
+            {
+                progress = (decimal)job.Progress / job.Count * 100;
+            }
+            else
+            {
+                progress = 0;
+            }
+
             parametersResource.Add(JobRecordProperties.QueuedTime, new FhirDateTime(job.QueuedTime));
             parametersResource.Add(JobRecordProperties.TotalResourcesToReindex, new FhirDecimal(job.Count));
             parametersResource.Add(JobRecordProperties.ResourcesSuccessfullyReindexed, new FhirDecimal(job.Progress));
-            parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(job.PercentComplete));
+            parametersResource.Add(JobRecordProperties.Progress, new FhirDecimal(Math.Round(progress, 1)));
             parametersResource.Add(JobRecordProperties.Status, new FhirString(job.Status.ToString()));
             parametersResource.Add(JobRecordProperties.MaximumConcurrency, new FhirDecimal(job.MaximumConcurrency));
             parametersResource.Add(JobRecordProperties.Resources, new FhirString(job.ResourceList));

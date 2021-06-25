@@ -115,22 +115,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public IReadOnlyCollection<string> TargetResourceTypes { get; private set; } = new List<string>();
 
         [JsonIgnore]
-        public decimal PercentComplete
-        {
-            get
-            {
-                if (Count > 0 && Progress > 0)
-                {
-                    return (decimal)Math.Round((double)Progress / Count * 100, 1);
-                }
-                else
-                {
-                    return 0;
-                }
-            }
-        }
-
-        [JsonIgnore]
         public string ResourceList
         {
             get { return string.Join(",", Resources); }
