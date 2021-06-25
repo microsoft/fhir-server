@@ -272,7 +272,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
-                var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Bit);
+                var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Int);
                 returnParameter.Direction = ParameterDirection.ReturnValue;
 
                 await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.DisableIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
-                var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Bit);
+                var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Int);
                 returnParameter.Direction = ParameterDirection.ReturnValue;
 
                 await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
