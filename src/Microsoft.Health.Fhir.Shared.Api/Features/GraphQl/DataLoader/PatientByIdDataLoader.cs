@@ -33,8 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader
             IReadOnlyList<string> keys,
             CancellationToken cancellationToken)
         {
-            List<Tuple<string, string>> queries = ConvertData(keys);
-            GraphQlResponse response = await _mediator.Send(new GraphQlRequest("Patient", queries), CancellationToken.None);
+            GraphQlResponse response = await _mediator.Send(new GraphQlRequest("Patient", ConvertData(keys)), CancellationToken.None);
 
             IEnumerable<ResourceElement> resourceElements = response.ResourceElements;
             Dictionary<string, Patient> dict = new Dictionary<string, Patient>();
@@ -51,17 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader
         private static List<Tuple<string, string>> ConvertData(IReadOnlyList<string> ids)
         {
             var queries = new List<Tuple<string, string>>();
-            var concatenatedIds = string.Empty;
-            int totalIds = ids.Count;
-
-            for (int i = 0; i < totalIds; i++)
-            {
-                concatenatedIds += ids[i];
-                if (i != totalIds - 1)
-                {
-                    concatenatedIds += ",";
-                }
-            }
+            var concatenatedIds = string.Join(",", ids);
 
             queries.Add(Tuple.Create("_id", concatenatedIds));
             return queries;
