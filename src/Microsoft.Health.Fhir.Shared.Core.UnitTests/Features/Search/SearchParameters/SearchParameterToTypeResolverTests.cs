@@ -90,7 +90,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-
         public void GivenAFhirPathExpressionWithOfType_WhenResolvingTypes_ThenTheyAreReturnedCorrectly()
         {
             var expression = _compiler.Parse("QuestionnaireResponse.item.where(extension('http://hl7.org/fhir/StructureDefinition/questionnaireresponse-isSubject').exists()).answer.value.ofType(Reference)");

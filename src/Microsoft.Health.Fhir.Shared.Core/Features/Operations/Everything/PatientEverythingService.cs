@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
-        private (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
+        private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
 
         public PatientEverythingService(
             Func<IScoped<ISearchService>> searchServiceFactory,
