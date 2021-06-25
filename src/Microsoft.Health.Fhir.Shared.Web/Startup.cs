@@ -12,9 +12,9 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Api.Features.QueryGraphQl;
+using Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader;
 using Microsoft.Health.Fhir.Azure;
-using Microsoft.Health.Fhir.Shared.Api.Features.QueryGraphQl;
+using Microsoft.Health.Fhir.Shared.Api.Features.GraphQl;
 
 namespace Microsoft.Health.Fhir.Web
 {

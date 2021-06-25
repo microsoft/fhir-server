@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,15 +49,17 @@ namespace Microsoft.Health.Fhir.Core.Features.GraphQl
             }
 
             SearchResult result = await _searchService.SearchAsync(request.ResourceType, request.Queries, cancellationToken);
-            var searchMatchOnly = result.Results.Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToList();
 
-            var match = searchMatchOnly[0];
-            var element = _resourceDeserializer.Deserialize(match.Resource);
+            var resultEntries = result.Results.ToList();
+            var patients = new List<ResourceElement>();
 
-            // ResourceElement bundle = _bundleFactory.SearchBundleWithOutFhirUri(result); // I have to change this function
+            foreach (var entry in resultEntries)
+            {
+                var element = _resourceDeserializer.Deserialize(entry.Resource);
+                patients.Add(element);
+            }
 
-            // ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
-            return new GraphQlResponse(element);
+            return new GraphQlResponse(patients);
         }
     }
 }

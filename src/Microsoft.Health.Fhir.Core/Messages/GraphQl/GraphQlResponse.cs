@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -10,13 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Messages.GraphQl
 {
     public class GraphQlResponse
     {
-        public GraphQlResponse(ResourceElement patient)
+        public GraphQlResponse(IEnumerable<ResourceElement> patients)
         {
-            EnsureArg.IsNotNull(patient, nameof(patient));
-
-            Patient = patient;
+            EnsureArg.IsNotNull(patients, nameof(patients));
+            Patients = patients;
         }
 
-        public ResourceElement Patient { get; }
+        public IEnumerable<ResourceElement> Patients { get; }
     }
 }
