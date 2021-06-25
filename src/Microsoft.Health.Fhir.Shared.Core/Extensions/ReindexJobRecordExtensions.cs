@@ -56,6 +56,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             parametersResource.Add(JobRecordProperties.Resources, new FhirString(job.ResourceList));
             parametersResource.Add(JobRecordProperties.SearchParams, new FhirString(job.SearchParamList));
             parametersResource.Add(JobRecordProperties.TargetResourceTypes, new FhirString(job.TargetResourceTypeList));
+            parametersResource.Add(JobRecordProperties.TargetDataStoreUsagePercentage, new FhirString(job.TargetDataStoreUsagePercentage.ToString()));
+            parametersResource.Add(JobRecordProperties.QueryDelayIntervalInMilliseconds, new FhirString(job.QueryDelayIntervalInMilliseconds.ToString()));
+            parametersResource.Add(JobRecordProperties.MaximumNumberOfResourcesPerQuery, new FhirString(job.MaximumNumberOfResourcesPerQuery.ToString()));
 
             return parametersResource.ToResourceElement();
         }
