@@ -153,7 +153,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task PreprocessAsync(CancellationToken cancellationToken)
         {
-            List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
             (string tableName, string indexName)[] indexes = UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             {
                 foreach (var index in indexes)

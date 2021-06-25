@@ -218,7 +218,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenUnclusteredIndex_WhenRebuildOrDisableIndex_ThenOnlyDisabledIndexShouldBeBuiltAndBuiltIndexShouldBeDisabeld()
+        public async Task GivenUnclusteredIndexes_WhenRebuildIndexes_ThenOnlyDisabledIndexShouldBeBuilt()
         {
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
@@ -226,31 +226,49 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
 
             (string tableName, string indexName)[] indexes = SqlServerFhirDataBulkImportOperation.UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
-            (string tableName, string indexName) index = indexes[new Random().Next(0, indexes.Length)];
+            foreach (var index in indexes)
+            {
+                await DisableIndex(index.tableName, index.indexName);
+                bool isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.True(isDisabled);
 
-            await DisableIndex(index.tableName, index.indexName);
-            bool isDisabled = await GetIndexDisableStatus(index.indexName);
-            Assert.True(isDisabled);
+                bool isExecuted = await RebuildIndex(index.tableName, index.indexName);
+                isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.False(isDisabled);
+                Assert.True(isExecuted);
 
-            bool isExecuted = await DisableIndex(index.tableName, index.indexName);
-            isDisabled = await GetIndexDisableStatus(index.indexName);
-            Assert.True(isDisabled);
-            Assert.False(isExecuted);
+                isExecuted = await RebuildIndex(index.tableName, index.indexName);
+                isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.False(isDisabled);
+                Assert.False(isExecuted);
+            }
+        }
 
-            isExecuted = await RebuildIndex(index.tableName, index.indexName);
-            isDisabled = await GetIndexDisableStatus(index.indexName);
-            Assert.False(isDisabled);
-            Assert.True(isExecuted);
+        [Fact]
+        public async Task GivenUnclusteredIndexes_WhenDisableIndexes_ThenOnlyBuiltIndexShouldBeDisabled()
+        {
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
 
-            isExecuted = await RebuildIndex(index.tableName, index.indexName);
-            isDisabled = await GetIndexDisableStatus(index.indexName);
-            Assert.False(isDisabled);
-            Assert.False(isExecuted);
+            SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
 
-            isExecuted = await DisableIndex(index.tableName, index.indexName);
-            isDisabled = await GetIndexDisableStatus(index.indexName);
-            Assert.True(isDisabled);
-            Assert.True(isExecuted);
+            (string tableName, string indexName)[] indexes = SqlServerFhirDataBulkImportOperation.UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            foreach (var index in indexes)
+            {
+                await RebuildIndex(index.tableName, index.indexName);
+                bool isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.False(isDisabled);
+
+                bool isExecuted = await DisableIndex(index.tableName, index.indexName);
+                isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.True(isDisabled);
+                Assert.True(isExecuted);
+
+                isExecuted = await DisableIndex(index.tableName, index.indexName);
+                isDisabled = await GetIndexDisableStatus(index.indexName);
+                Assert.True(isDisabled);
+                Assert.False(isExecuted);
+            }
         }
 
         private async Task<bool> GetIndexDisableStatus(string indexName)
