@@ -217,6 +217,88 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             await Assert.ThrowsAnyAsync<Exception>(async () => await sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None));
         }
 
+        [Fact]
+        public async Task GivenUnclusteredIndex_WhenRebuildOrDisableIndex_ThenOnlyDisabledIndexShouldBeBuiltAndBuiltIndexShouldBeDisabeld()
+        {
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
+            SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation = new SqlServerFhirDataBulkImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlServerFhirDataBulkImportOperation>.Instance);
+
+            (string tableName, string indexName)[] indexes = SqlServerFhirDataBulkImportOperation.UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName) index = indexes[new Random().Next(0, indexes.Length)];
+
+            await DisableIndex(index.tableName, index.indexName);
+            bool isDisabled = await GetIndexDisableStatus(index.indexName);
+            Assert.True(isDisabled);
+
+            bool isExecuted = await DisableIndex(index.tableName, index.indexName);
+            isDisabled = await GetIndexDisableStatus(index.indexName);
+            Assert.True(isDisabled);
+            Assert.False(isExecuted);
+
+            isExecuted = await RebuildIndex(index.tableName, index.indexName);
+            isDisabled = await GetIndexDisableStatus(index.indexName);
+            Assert.False(isDisabled);
+            Assert.True(isExecuted);
+
+            isExecuted = await RebuildIndex(index.tableName, index.indexName);
+            isDisabled = await GetIndexDisableStatus(index.indexName);
+            Assert.False(isDisabled);
+            Assert.False(isExecuted);
+
+            isExecuted = await DisableIndex(index.tableName, index.indexName);
+            isDisabled = await GetIndexDisableStatus(index.indexName);
+            Assert.True(isDisabled);
+            Assert.True(isExecuted);
+        }
+
+        private async Task<bool> GetIndexDisableStatus(string indexName)
+        {
+            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
+            using (SqlConnectionWrapper connection = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
+            using (SqlCommandWrapper command = connection.CreateSqlCommand())
+            {
+                command.CommandText = $"select is_disabled from sys.indexes where name = '{indexName}'";
+
+                return (bool)(await command.ExecuteScalarAsync(CancellationToken.None));
+            }
+        }
+
+        private async Task<bool> RebuildIndex(string tableName, string indexName)
+        {
+            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
+            using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
+                var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Bit);
+                returnParameter.Direction = ParameterDirection.ReturnValue;
+
+                await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
+                bool isExecuted = Convert.ToBoolean(returnParameter.Value);
+
+                return isExecuted;
+            }
+        }
+
+        private async Task<bool> DisableIndex(string tableName, string indexName)
+        {
+            SqlConnectionWrapperFactory factory = _fixture.SqlConnectionWrapperFactory;
+            using (SqlConnectionWrapper sqlConnectionWrapper = await factory.ObtainSqlConnectionWrapperAsync(CancellationToken.None))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.DisableIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
+                var returnParameter = sqlCommandWrapper.Parameters.Add("@ReturnVal", SqlDbType.Bit);
+                returnParameter.Direction = ParameterDirection.ReturnValue;
+
+                await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
+                bool isExecuted = Convert.ToBoolean(returnParameter.Value);
+
+                return isExecuted;
+            }
+        }
+
         private async Task VerifyDataForBulkImport(SqlServerFhirDataBulkImportOperation sqlServerFhirDataBulkOperation, long startSurrogateId, int count, short resourceTypeId, Func<int, long, short, string, DataTable> tableGenerator, string resourceId = null)
         {
             DataTable inputTable = tableGenerator(count, startSurrogateId, resourceTypeId, resourceId);

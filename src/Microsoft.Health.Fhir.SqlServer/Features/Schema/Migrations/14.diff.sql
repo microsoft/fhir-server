@@ -134,85 +134,109 @@ AS
 GO
 
 /*************************************************************
-    Stored procedures for disable indexes
+    Stored procedures for disable index
 **************************************************************/
 --
 -- STORED PROCEDURE
---     DisableIndexes
+--     DisableIndex
 --
 -- DESCRIPTION
---     Stored procedures for disable indexes
+--     Stored procedures for disable index
 --
 -- PARAMETERS
---     @indexes 
---         * indexes table
-CREATE OR ALTER PROCEDURE [dbo].[DisableIndexes]
-    @indexes dbo.IndexTableType_1 READONLY
+--     @tableName
+--         * index table name
+--     @indexName
+--         * index name
+CREATE OR ALTER PROCEDURE [dbo].[DisableIndex]
+    @tableName nvarchar(128),
+    @indexName nvarchar(128)
 AS
     SET NOCOUNT ON
     SET XACT_ABORT ON
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+    DECLARE @IsExecuted INT
+    SET @IsExecuted = 0 
+    
     BEGIN TRANSACTION
 
-    DECLARE commands CURSOR FAST_FORWARD
-    FOR SELECT N'ALTER INDEX ' + QUOTENAME(indexes.IndexName) + ' ON ' + OBJECT_NAME(OBJECT_ID(indexes.TableName)) + ' Disable;'
-    FROM @indexes as indexes
+    IF EXISTS
+    (
+        SELECT *
+        FROM [sys].[indexes]
+        WHERE name = @indexName
+        AND object_id = OBJECT_ID(@tableName)
+        AND is_disabled = 0
+    )
+    BEGIN
+	    DECLARE @Sql NVARCHAR(MAX);
 
-    declare @cmd varchar(max)
+		SET @Sql = N'ALTER INDEX ' +  QUOTENAME(@indexName)
+		+ N' on ' + @tableName + ' Disable'
 
-    open commands
-    fetch next from commands into @cmd
-    while @@FETCH_STATUS=0
-    begin
-      exec(@cmd)
-      fetch next from commands into @cmd
-    end
+		EXECUTE sp_executesql @Sql
 
-    select indexName, tableName from @indexes
+        SET @IsExecuted = 1
+    END
 
     COMMIT TRANSACTION
+
+    RETURN @IsExecuted
 GO
 
 /*************************************************************
-    Stored procedures for rebuild indexes
+    Stored procedures for rebuild index
 **************************************************************/
 --
 -- STORED PROCEDURE
---     RebuildIndexes
+--     RebuildIndex
 --
 -- DESCRIPTION
---     Stored procedures for rebuild indexes
+--     Stored procedures for rebuild index
 --
 -- PARAMETERS
---     @indexes 
---         * indexes table
-CREATE OR ALTER PROCEDURE [dbo].[RebuildIndexes]
-    @indexes dbo.IndexTableType_1 READONLY
+--     @tableName
+--         * index table name
+--     @indexName
+--         * index name
+CREATE OR ALTER PROCEDURE [dbo].[RebuildIndex]
+    @tableName nvarchar(128),
+    @indexName nvarchar(128)
 AS
     SET NOCOUNT ON
     SET XACT_ABORT ON
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+
+    DECLARE @IsExecuted INT
+    SET @IsExecuted = 0
+
     BEGIN TRANSACTION
 
-    DECLARE commands CURSOR FAST_FORWARD
-    FOR SELECT N'ALTER INDEX ' + QUOTENAME(indexes.IndexName) + ' ON ' + OBJECT_NAME(OBJECT_ID(indexes.TableName)) + ' Rebuild;'
-    FROM @indexes as indexes
+    IF EXISTS
+    (
+        SELECT *
+        FROM [sys].[indexes]
+        WHERE name = @indexName
+        AND object_id = OBJECT_ID(@tableName)
+        AND is_disabled = 1
+    )
+    BEGIN
+	    DECLARE @Sql NVARCHAR(MAX);
 
-    DECLARE @cmd varchar(max)
+		SET @Sql = N'ALTER INDEX ' +  QUOTENAME(@indexName)
+		+ N' on ' + @tableName + ' Rebuild'
 
-    open commands
-    fetch next from commands into @cmd
-    while @@FETCH_STATUS=0
-    begin
-      exec(@cmd)
-      fetch next from commands into @cmd
-    end
+		EXECUTE sp_executesql @Sql
 
-    select indexName, tableName from @indexes
+        SET @IsExecuted = 1
+    END
 
     COMMIT TRANSACTION
+
+    RETURN @IsExecuted
 GO
 
 
