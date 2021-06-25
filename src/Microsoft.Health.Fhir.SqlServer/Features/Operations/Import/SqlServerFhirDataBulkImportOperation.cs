@@ -153,49 +153,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task PreprocessAsync(CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            (string tableName, string indexName)[] indexes = UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             {
-                try
+                foreach (var index in indexes)
                 {
-                    IndexTableTypeV1Row[] indexes = UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+                    using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                    using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+                    {
+                        try
+                        {
+                            VLatest.DisableIndex.PopulateCommand(sqlCommandWrapper, index.tableName, index.indexName);
+                            await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                        }
+                        catch (SqlException sqlEx)
+                        {
+                            _logger.LogInformation(sqlEx, "Failed to disable indexes.");
 
-                    VLatest.DisableIndexes.PopulateCommand(sqlCommandWrapper, indexes);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (SqlException sqlEx)
-                {
-                    _logger.LogInformation(sqlEx, "Failed to disable indexes.");
-
-                    throw;
+                            throw;
+                        }
+                    }
                 }
             }
         }
 
         public async Task PostprocessAsync(CancellationToken cancellationToken)
         {
-            List<IndexTableTypeV1Row> indexes =
-                UnclusteredIndexes.Select(indexRecord => new IndexTableTypeV1Row(indexRecord.table.TableName, indexRecord.index.IndexName)).ToList();
-            List<Task<IndexTableTypeV1Row>> runningTasks = new List<Task<IndexTableTypeV1Row>>();
+            List<(string tableName, string indexName)> indexes =
+                UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToList();
+            List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
             HashSet<string> runningRebuildTables = new HashSet<string>();
 
             // rebuild index operation on same table would be blocked, try to parallel run rebuild operation on different table.
             while (indexes.Count > 0)
             {
                 // if all remine indexes' table has some running rebuild operation, need to wait until at least one operation completed.
-                while (indexes.All(ix => runningRebuildTables.Contains(ix.TableName)) || runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                while (indexes.All(ix => runningRebuildTables.Contains(ix.tableName)) || runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
                 {
-                    Task<IndexTableTypeV1Row> completedTask = await Task.WhenAny(runningTasks.ToArray());
-                    IndexTableTypeV1Row indexRebuilt = await completedTask;
+                    Task<(string tableName, string indexName)> completedTask = await Task.WhenAny(runningTasks.ToArray());
+                    (string tableName, string indexName) indexRebuilt = await completedTask;
 
-                    runningRebuildTables.Remove(indexRebuilt.TableName);
+                    runningRebuildTables.Remove(indexRebuilt.tableName);
                     runningTasks.Remove(completedTask);
                 }
 
-                IndexTableTypeV1Row nextIndex = indexes.Where(ix => !runningRebuildTables.Contains(ix.TableName)).First();
+                (string tableName, string indexName) nextIndex = indexes.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
                 indexes.Remove(nextIndex);
-                runningRebuildTables.Add(nextIndex.TableName);
-                runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex, cancellationToken));
+                runningRebuildTables.Add(nextIndex.tableName);
+                runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, cancellationToken));
             }
 
             await Task.WhenAll(runningTasks.ToArray());
@@ -236,7 +240,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private async Task<IndexTableTypeV1Row> ExecuteRebuildIndexTaskAsync(IndexTableTypeV1Row index, CancellationToken cancellationToken)
+        private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -245,10 +249,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
 
-                    VLatest.RebuildIndexes.PopulateCommand(sqlCommandWrapper, new IndexTableTypeV1Row[] { index });
+                    VLatest.RebuildIndex.PopulateCommand(sqlCommandWrapper, tableName, indexName);
                     await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
 
-                    return index;
+                    return (tableName, indexName);
                 }
                 catch (SqlException sqlEx)
                 {
