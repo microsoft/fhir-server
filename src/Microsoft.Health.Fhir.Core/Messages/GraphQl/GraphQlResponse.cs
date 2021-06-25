@@ -11,12 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Messages.GraphQl
 {
     public class GraphQlResponse
     {
-        public GraphQlResponse(IEnumerable<ResourceElement> patients)
+        public GraphQlResponse(IEnumerable<ResourceElement> resourceElements)
         {
-            EnsureArg.IsNotNull(patients, nameof(patients));
-            Patients = patients;
+            EnsureArg.IsNotNull(resourceElements, nameof(resourceElements));
+            ResourceElements = resourceElements;
         }
 
-        public IEnumerable<ResourceElement> Patients { get; }
+        public IEnumerable<ResourceElement> ResourceElements { get; }
     }
 }

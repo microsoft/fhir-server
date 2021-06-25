@@ -42,11 +42,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddGraphQLServer()
 
                 // Adding our scheme
-                .AddDocumentFromString(@"
-                        type Patient {
-                              id: String
-                              active: Boolean
-                         }")
+                .AddDocumentFromFile("./patient.graphql")
 
                 // Next we add the types to our schema
                 .AddQueryType(d => d.Name("Query"))

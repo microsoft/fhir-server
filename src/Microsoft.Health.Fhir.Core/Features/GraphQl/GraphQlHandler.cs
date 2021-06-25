@@ -51,15 +51,15 @@ namespace Microsoft.Health.Fhir.Core.Features.GraphQl
             SearchResult result = await _searchService.SearchAsync(request.ResourceType, request.Queries, cancellationToken);
 
             var resultEntries = result.Results.ToList();
-            var patients = new List<ResourceElement>();
+            var resourceElements = new List<ResourceElement>();
 
             foreach (var entry in resultEntries)
             {
                 var element = _resourceDeserializer.Deserialize(entry.Resource);
-                patients.Add(element);
+                resourceElements.Add(element);
             }
 
-            return new GraphQlResponse(patients);
+            return new GraphQlResponse(resourceElements);
         }
     }
 }

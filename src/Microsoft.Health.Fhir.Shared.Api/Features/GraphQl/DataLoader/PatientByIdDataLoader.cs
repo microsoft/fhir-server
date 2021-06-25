@@ -13,6 +13,7 @@ using HotChocolate.DataLoader;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.GraphQl;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader
 {
@@ -32,19 +33,16 @@ namespace Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader
             IReadOnlyList<string> keys,
             CancellationToken cancellationToken)
         {
-            var queries = ConvertData(keys);
+            List<Tuple<string, string>> queries = ConvertData(keys);
             GraphQlResponse response = await _mediator.Send(new GraphQlRequest("Patient", queries), CancellationToken.None);
 
-            var patients = response.Patients;
-
+            IEnumerable<ResourceElement> resourceElements = response.ResourceElements;
             Dictionary<string, Patient> dict = new Dictionary<string, Patient>();
 
-            var index = 0;
-            foreach (var patient in patients)
+            foreach (ResourceElement resourceElement in resourceElements)
             {
-                var patientElement = patient.ToPoco<Patient>();
-                dict.Add(patientElement.Id, patientElement);
-                index++;
+                Patient patient = resourceElement.ToPoco<Patient>();
+                dict.Add(patient.Id, patient);
             }
 
             return dict;

@@ -1,0 +1,7 @@
+﻿type HumanName {
+  text: String
+  family: String
+  given: String
+  prefix: String
+  suffix: String
+}
