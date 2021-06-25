@@ -339,7 +339,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static ModelInspector GetModelInspector()
         {
-            return ModelInspector.ForAssembly(typeof(ModelInfo).GetTypeInfo().Assembly);
+            // ModelInspector has lot of dictionaries, so it would be waste of memory to create new one here.
+            // So instead we use reflection to access internal property of ModelInfo.
+            string methodName = "ModelInspector";
+            var modelInspectorProperty = typeof(ModelInfo).GetProperty(methodName, BindingFlags.NonPublic | BindingFlags.Static);
+
+            if (modelInspectorProperty == null)
+            {
+                throw new MissingMethodException(nameof(ModelInfo), methodName);
+            }
+
+            return (ModelInspector)modelInspectorProperty.GetValue(null);
         }
 
         private class Context
