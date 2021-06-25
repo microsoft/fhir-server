@@ -160,9 +160,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(integrationDataStoreEx, "Failed to access input files.");
 
-                errorResult = new ImportTaskErrorResult();
-                errorResult.HttpStatusCode = integrationDataStoreEx.StatusCode;
-                errorResult.ErrorMessage = integrationDataStoreEx.Message;
+                errorResult = new ImportTaskErrorResult()
+                {
+                    HttpStatusCode = integrationDataStoreEx.StatusCode,
+                    ErrorMessage = integrationDataStoreEx.Message,
+                };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
             }
@@ -170,9 +172,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(eTagEx, "Import file etag not match.");
 
-                errorResult = new ImportTaskErrorResult();
-                errorResult.HttpStatusCode = HttpStatusCode.BadRequest;
-                errorResult.ErrorMessage = eTagEx.Message;
+                errorResult = new ImportTaskErrorResult()
+                {
+                    HttpStatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessage = eTagEx.Message,
+                };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
             }
@@ -180,9 +184,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(processingEx, "Failed to process input resources.");
 
-                errorResult = new ImportTaskErrorResult();
-                errorResult.HttpStatusCode = HttpStatusCode.BadRequest;
-                errorResult.ErrorMessage = processingEx.Message;
+                errorResult = new ImportTaskErrorResult()
+                {
+                    HttpStatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessage = processingEx.Message,
+                };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
             }
@@ -190,9 +196,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(ex, "Failed to import data.");
 
-                errorResult = new ImportTaskErrorResult();
-                errorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
-                errorResult.ErrorMessage = ex.Message;
+                errorResult = new ImportTaskErrorResult()
+                {
+                    HttpStatusCode = HttpStatusCode.InternalServerError,
+                    ErrorMessage = ex.Message,
+                };
 
                 throw new RetriableTaskException(JsonConvert.SerializeObject(errorResult));
             }
@@ -211,10 +219,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     _logger.LogInformation(ex, "Failed at postprocess step.");
 
-                    ImportTaskErrorResult postProcessEerrorResult = new ImportTaskErrorResult();
-                    postProcessEerrorResult.HttpStatusCode = HttpStatusCode.InternalServerError;
-                    postProcessEerrorResult.ErrorMessage = ex.Message;
-                    postProcessEerrorResult.InnerError = errorResult; // other error if any.
+                    ImportTaskErrorResult postProcessEerrorResult = new ImportTaskErrorResult()
+                    {
+                        HttpStatusCode = HttpStatusCode.InternalServerError,
+                        ErrorMessage = ex.Message,
+
+                        // other error if any.
+                        InnerError = errorResult,
+                    };
 
                     throw new RetriableTaskException(JsonConvert.SerializeObject(postProcessEerrorResult));
                 }
