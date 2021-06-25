@@ -56,14 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            using IScoped<ISearchService> search = _searchServiceFactory();
-
-            // Will enable this after more tests
-            if (string.Equals(search.Value.GetType().Name, "SqlServerSearchService", StringComparison.Ordinal))
-            {
-                throw new OperationNotImplementedException("$everything operation is not yet implemented in SQL Server.");
-            }
-
             EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
                 ? new EverythingOperationContinuationToken(0, null)
                 : EverythingOperationContinuationToken.FromString(DecodeContinuationTokenFromBase64String(continuationToken));
