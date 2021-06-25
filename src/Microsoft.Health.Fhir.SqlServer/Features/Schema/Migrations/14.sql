@@ -3318,36 +3318,27 @@ GO
 CREATE TABLE dbo.ResourceChangeData
 (
     Id bigint IDENTITY(1,1) NOT NULL,
-    Timestamp datetime2(7) NOT NULL,
+    Timestamp datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeData_Timestamp DEFAULT sysutcdatetime(),
     ResourceId varchar(64) NOT NULL,
     ResourceTypeId smallint NOT NULL,
     ResourceVersion int NOT NULL,
     ResourceChangeTypeId tinyint NOT NULL,
- CONSTRAINT PK_ResourceChangeData PRIMARY KEY CLUSTERED 
-(
-    [Id] ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
-GO
-
-ALTER TABLE dbo.ResourceChangeData ADD  CONSTRAINT DF_ResourceChangeData_Timestamp  DEFAULT (sysutcdatetime()) FOR Timestamp
+   CONSTRAINT PK_ResourceChangeData PRIMARY KEY CLUSTERED (Id)
+) 
+ON [PRIMARY]
 GO
 
 /*************************************************************
     Resource change type table
 **************************************************************/
-CREATE TABLE dbo.ResourceChangeType(
+CREATE TABLE dbo.ResourceChangeType
+(
     ResourceChangeTypeId tinyint NOT NULL,
     Name nvarchar(50) NOT NULL,
- CONSTRAINT PK_ResourceChangeType PRIMARY KEY CLUSTERED 
-(
-    ResourceChangeTypeId ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
- CONSTRAINT UQ_ResourceChangeType_Name UNIQUE NONCLUSTERED 
-(
-    Name ASC
-)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
-) ON [PRIMARY]
+    CONSTRAINT PK_ResourceChangeType PRIMARY KEY CLUSTERED (ResourceChangeTypeId),
+    CONSTRAINT UQ_ResourceChangeType_Name UNIQUE NONCLUSTERED (Name)
+) 
+ON [PRIMARY]
 GO
 
 INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (0, N'Creation')
@@ -3440,13 +3431,13 @@ BEGIN
     -- A write transaction (update/delete) on the rows that match 
     -- the search condition of the select statement will wait until the read transaction is completed. 
     -- But, other transactions can insert new rows.
-    SELECT TOP(@pageSize) c.Id
-      ,c.Timestamp
-      ,c.ResourceId
-      ,c.ResourceTypeId
-      ,t.Name AS ResourceTypeName
-      ,c.ResourceVersion
-      ,c.ResourceChangeTypeId
+    SELECT TOP(@pageSize) c.Id,
+      c.Timestamp,
+      c.ResourceId,
+      c.ResourceTypeId,
+      t.Name AS ResourceTypeName,
+      c.ResourceVersion,
+      c.ResourceChangeTypeId
       FROM dbo.ResourceChangeData c
       LEFT JOIN dbo.ResourceType t ON c.ResourceTypeId = t.ResourceTypeId
     WHERE c.Id >= @startId ORDER BY c.Id ASC
