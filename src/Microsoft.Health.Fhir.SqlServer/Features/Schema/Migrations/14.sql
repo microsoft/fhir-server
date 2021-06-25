@@ -3431,15 +3431,13 @@ BEGIN
     -- A write transaction (update/delete) on the rows that match 
     -- the search condition of the select statement will wait until the read transaction is completed. 
     -- But, other transactions can insert new rows.
-    SELECT TOP(@pageSize) c.Id,
-      c.Timestamp,
-      c.ResourceId,
-      c.ResourceTypeId,
-      t.Name AS ResourceTypeName,
-      c.ResourceVersion,
-      c.ResourceChangeTypeId
-      FROM dbo.ResourceChangeData c
-      LEFT JOIN dbo.ResourceType t ON c.ResourceTypeId = t.ResourceTypeId
-    WHERE c.Id >= @startId ORDER BY c.Id ASC
+    SELECT TOP(@pageSize) Id,
+      Timestamp,
+      ResourceId,
+      ResourceTypeId,
+      ResourceVersion,
+      ResourceChangeTypeId
+      FROM dbo.ResourceChangeData
+    WHERE Id >= @startId ORDER BY Id ASC
 END
 GO
