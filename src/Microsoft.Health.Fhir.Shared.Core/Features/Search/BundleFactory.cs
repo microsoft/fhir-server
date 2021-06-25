@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core;
@@ -63,8 +64,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     Method = hasVerb ? httpVerb : null,
                     Url = hasVerb ? $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}" : null,
                 };
+
+                string statusString;
+                switch (httpVerb)
+                {
+                    case Bundle.HTTPVerb.POST:
+                        statusString = ((int)HttpStatusCode.Created).ToString() + " " + HttpStatusCode.Created;
+                        break;
+                    case Bundle.HTTPVerb.PUT:
+                    case Bundle.HTTPVerb.GET:
+                        statusString = ((int)HttpStatusCode.OK).ToString() + " " + HttpStatusCode.OK;
+                        break;
+                    case Bundle.HTTPVerb.DELETE:
+                        statusString = ((int)HttpStatusCode.NoContent).ToString() + " " + HttpStatusCode.NoContent;
+                        break;
+                    default:
+                        throw new NotImplementedException();
+                }
+
                 resource.Response = new Bundle.ResponseComponent
                 {
+                    Status = statusString,
                     LastModified = r.Resource.LastModified,
                     Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
                 };
