@@ -3431,14 +3431,16 @@ AS
     DECLARE @Sql NVARCHAR(MAX);
     DECLARE @ParmDefinition NVARCHAR(512);
 
-    SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + OBJECT_NAME(OBJECT_ID(@tableName)) + N' WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
-    SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint'; 
+    IF OBJECT_ID(@tableName) IS NOT NULL BEGIN
+        SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName + N' WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
+        SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint'; 
 
-    EXECUTE sp_executesql @sql, @parmDefinition,
-                          @BatchSizeParam = @batchSize,
-                          @ResourceTypeIdParam = @resourceTypeId,
-                          @StartResourceSurrogateIdParam = @startResourceSurrogateId,
-                          @EndResourceSurrogateIdParam = @endResourceSurrogateId
+        EXECUTE sp_executesql @sql, @parmDefinition,
+                                @BatchSizeParam = @batchSize,
+                                @ResourceTypeIdParam = @resourceTypeId,
+                                @StartResourceSurrogateIdParam = @startResourceSurrogateId,
+                                @EndResourceSurrogateIdParam = @endResourceSurrogateId
+    END
 
     COMMIT TRANSACTION
 
@@ -3609,8 +3611,10 @@ AS
 
     DECLARE @Sql NVARCHAR(MAX);
 
-    SET @Sql = N'DELETE FROM ' + OBJECT_NAME(OBJECT_ID(@tableName))
-    + N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
+    IF OBJECT_ID(@tableName) IS NOT NULL BEGIN
+        SET @Sql = N'DELETE FROM ' + @tableName
+        + N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
+    END
 
     EXECUTE sp_executesql @Sql
 

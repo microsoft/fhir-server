@@ -12,6 +12,8 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Models;
@@ -42,6 +44,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             Resource resource = _parser.Parse<Resource>(rawContent);
             CheckConditionalReferenceInResource(resource);
+
+            if (resource.Meta == null)
+            {
+                resource.Meta = new Meta();
+            }
+
+            // store with millisecond precision
+            resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
 
             ITypedElement element = resource.ToTypedElement();
             ResourceElement resourceElement = new ResourceElement(element);
