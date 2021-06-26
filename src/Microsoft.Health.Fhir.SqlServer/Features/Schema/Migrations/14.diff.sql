@@ -1,14 +1,3 @@
-IF TYPE_ID(N'IndexTableType_1') IS NULL
-BEGIN
-CREATE TYPE dbo.IndexTableType_1 AS TABLE
-(
-    TableName nvarchar(128) COLLATE Latin1_General_CI_AI NOT NULL,
-    IndexName nvarchar(128) COLLATE Latin1_General_CI_AI NOT NULL
-)
-END
-
-GO
-
 /*************************************************************
     Stored procedures for batch delete resources
 **************************************************************/
