@@ -18,6 +18,11 @@ namespace Microsoft.Health.Fhir.Shared.Api.Features.GraphQl
 #pragma warning restore CA1041 // Provide ObsoleteAttribute message
     public class PatientQueries
     {
+        public Task<IEnumerable<Patient>> GetPatients(
+            PatientByIdDataLoader patientById,
+            CancellationToken cancellationToken) =>
+            patientById.GetAllPatients(cancellationToken);
+
         public Task<Patient> GetPatientByIdAsync(
             string id,
             PatientByIdDataLoader patientById,

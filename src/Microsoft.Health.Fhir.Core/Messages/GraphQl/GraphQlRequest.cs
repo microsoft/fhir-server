@@ -11,6 +11,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.GraphQl
 {
     public class GraphQlRequest : IRequest<GraphQlResponse>
     {
+        public GraphQlRequest(string resourceType)
+        {
+            ResourceType = resourceType;
+        }
+
         public GraphQlRequest(string resourceType, IReadOnlyList<Tuple<string, string>> queries)
         {
             ResourceType = resourceType;

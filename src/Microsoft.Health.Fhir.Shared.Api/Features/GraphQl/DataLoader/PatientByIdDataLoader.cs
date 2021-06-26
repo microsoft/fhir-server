@@ -29,6 +29,24 @@ namespace Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader
             _mediator = mediator;
         }
 
+        public async Task<IEnumerable<Patient>> GetAllPatients(
+            CancellationToken cancellationToken)
+        {
+            cancellationToken = CancellationToken.None;
+            GraphQlResponse response = await _mediator.Send(new GraphQlRequest("Patient"), cancellationToken);
+
+            List<Patient> patients = new List<Patient>();
+            IEnumerable<ResourceElement> resourceElements = response.ResourceElements;
+
+            foreach (ResourceElement resourceElement in resourceElements)
+            {
+                Patient patient = resourceElement.ToPoco<Patient>();
+                patients.Add(patient);
+            }
+
+            return patients;
+        }
+
         protected override async Task<IReadOnlyDictionary<string, Patient>> LoadBatchAsync(
             IReadOnlyList<string> keys,
             CancellationToken cancellationToken)
