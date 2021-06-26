@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (string.Equals(context.HttpContext.Request.Method, "POST", StringComparison.OrdinalIgnoreCase))
             {
                 if (!context.HttpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out var contentTypeHeaderValue) ||
-                    preferHeaderValue.Count != 1 ||
+                    contentTypeHeaderValue.Count != 1 ||
                     !contentTypeHeaderValue[0].Contains(ContentTypeHeaderExpectedValue, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
