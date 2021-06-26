@@ -43,11 +43,22 @@ namespace Microsoft.Health.Fhir.Web
 
                 // Adding our scheme
                 .AddDocumentFromFile("./patient.graphql")
+                .AddDocumentFromFile("./types.graphql")
 
                 // Next we add the types to our schema
                 .AddQueryType(d => d.Name("Query"))
                     .AddTypeExtension<PatientQueries>()
                 .BindComplexType<Patient>()
+                .BindComplexType<Address>()
+                .BindComplexType<Attachment>()
+                .BindComplexType<CodeableConcept>()
+                .BindComplexType<Coding>()
+                .BindComplexType<ContactPoint>()
+                .BindComplexType<Extension>()
+                .BindComplexType<HumanName>()
+                .BindComplexType<Identifier>()
+                .BindComplexType<Period>()
+                .BindComplexType<ResourceReference>()
 
                 // Adding DataLoader to our system
                 .AddDataLoader<PatientByIdDataLoader>();

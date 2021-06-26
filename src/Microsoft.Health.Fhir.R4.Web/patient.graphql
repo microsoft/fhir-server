@@ -1,4 +1,28 @@
 ﻿type Patient {
-    id: String
-    active: Boolean
+  id: ID
+  #meta: Meta
+  #implicitRules: uri  _implicitRules: ElementBase
+  #language: code  _language: ElementBase
+  #text: Narrative
+  #contained: [Resource]
+  extension: [Extension]
+  modifierExtension: [Extension]
+  identifier: [Identifier]
+  active: Boolean  #_active: ElementBase
+  name: [HumanName]
+  telecom: [ContactPoint]
+  #gender: code  _gender: ElementBase
+  #birthDate: date  _birthDate: ElementBase
+  #deceasedBoolean: Boolean  #_deceasedBoolean: ElementBase
+  #deceasedDateTime: dateTime  _deceasedDateTime: ElementBase
+  address: [Address]
+  maritalStatus: CodeableConcept
+  #multipleBirthBoolean: Boolean  _multipleBirthBoolean: ElementBase
+  #multipleBirthInteger: Int  _multipleBirthInteger: ElementBase
+  photo: [Attachment]
+  #contact: [PatientContact]
+  #communication: [PatientCommunication]
+  generalPractitioner: [ResourceReference]
+  managingOrganization: ResourceReference #Before: Reference
+  #link: [PatientLink]
 }

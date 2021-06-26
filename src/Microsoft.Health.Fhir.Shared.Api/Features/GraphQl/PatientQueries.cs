@@ -27,10 +27,5 @@ namespace Microsoft.Health.Fhir.Shared.Api.Features.GraphQl
             string id,
             PatientByIdDataLoader patientById,
             CancellationToken cancellationToken) => patientById.LoadAsync(id, cancellationToken);
-
-        public async Task<IEnumerable<Patient>> GetPatientsByIdAsync(
-            string[] ids,
-            PatientByIdDataLoader patientById,
-            CancellationToken cancellationToken) => await patientById.LoadAsync(ids, cancellationToken);
     }
 }

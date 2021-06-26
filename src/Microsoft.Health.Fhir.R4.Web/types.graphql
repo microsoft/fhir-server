@@ -1,7 +1,165 @@
-﻿type HumanName {
-  text: String
-  family: String
-  given: String
-  prefix: String
-  suffix: String
+﻿# FHIR Defined Primitive types
+scalar uri
+
+type Address {
+  #id: String
+  extension: [Extension]
+  #use: code  _use: ElementBase
+  #type: code  _type: ElementBase
+  text: String  #_text: ElementBase
+  line: String  #_line: [ElementBase]
+  city: String  #_city: ElementBase
+  district: String  #_district: ElementBase
+  state: String  #_state: ElementBase
+  postalCode: String  #_postalCode: ElementBase
+  country: String  #_country: ElementBase
+  period: Period
+}
+
+type Attachment {
+  #id: String
+  extension: [Extension]
+  #contentType: code  _contentType: ElementBase
+  #language: code  _language: ElementBase
+  #data: base64Binary  _data: ElementBase
+  #url: url  _url: ElementBase
+  #size: integer64  _size: ElementBase
+  #hash: base64Binary  _hash: ElementBase
+  title: String  #_title: ElementBase
+  #creation: dateTime  _creation: ElementBase
+  #height: positiveInt  _height: ElementBase
+  #width: positiveInt  _width: ElementBase
+  #frames: positiveInt  _frames: ElementBase
+  #duration: decimal  _duration: ElementBase
+  #pages: positiveInt  _pages: ElementBase
+}
+
+enum Code {
+    Usual,
+    Official,
+    Temp,
+    Secondary,        
+    Old
+}
+
+type CodeableConcept {
+  #id: String
+  extension: [Extension]
+  coding: [Coding]
+  text: String  #_text: ElementBase
+}
+
+type Coding {
+  #id: String
+  extension: [Extension]
+  #system: uri  _system: ElementBase
+  version: String  #_version: ElementBase
+  #code: code  _code: ElementBase
+  display: String  #_display: ElementBase
+  userSelected: Boolean  #_userSelected: ElementBase
+}
+
+type ContactPoint {
+  #id: String
+  extension: [Extension]
+  #system: code  _system: ElementBase
+  value: String  #_value: ElementBase
+  #use: code  _use: ElementBase
+  #rank: positiveInt  #_rank: ElementBase
+  period: Period
+}
+
+type Extension {
+  #id: String
+  extension: [Extension]
+  #url: uri  _url: ElementBase
+  #valueBase64Binary: base64Binary  _valueBase64Binary: ElementBase
+  #valueBoolean: Boolean  _valueBoolean: ElementBase
+  #valueCanonical: canonical  _valueCanonical: ElementBase
+  #valueCode: code  _valueCode: ElementBase
+  #valueDate: date  _valueDate: ElementBase
+  #valueDateTime: dateTime  _valueDateTime: ElementBase
+  #valueDecimal: decimal  _valueDecimal: ElementBase
+  #valueId: ID  _valueId: ElementBase
+  #valueInstant: instant  _valueInstant: ElementBase
+  #valueInteger: Int  _valueInteger: ElementBase
+  #valueInteger64: integer64  _valueInteger64: ElementBase
+  #valueMarkdown: markdown  _valueMarkdown: ElementBase
+  #valueOid: oid  _valueOid: ElementBase
+  #valuePositiveInt: positiveInt  _valuePositiveInt: ElementBase
+  #valueString: String  _valueString: ElementBase
+  #valueTime: time  _valueTime: ElementBase
+  #valueUnsignedInt: unsignedInt  _valueUnsignedInt: ElementBase
+  #valueUri: uri  _valueUri: ElementBase
+  #valueUrl: url  _valueUrl: ElementBase
+  #valueUuid: uuid  _valueUuid: ElementBase
+  #valueAddress: Address
+  #valueAge: Age
+  #valueAnnotation: Annotation
+  #valueAttachment: Attachment
+  #valueCodeableConcept: CodeableConcept
+  #valueCoding: Coding
+  #valueContactPoint: ContactPoint
+  #valueCount: Count
+  #valueDistance: Distance
+  #valueDuration: Duration
+  #valueHumanName: HumanName
+  #valueIdentifier: Identifier
+  #valueMoney: Money
+  #valuePeriod: Period
+  #valueQuantity: Quantity
+  #valueRange: Range
+  #valueRatio: Ratio
+  #valueSampledData: SampledData
+  #valueSignature: Signature
+  #valueTiming: Timing
+  #valueContactDetail: ContactDetail
+  #valueContributor: Contributor
+  #valueDataRequirement: DataRequirement
+  #valueExpression: Expression
+  #valueParameterDefinition: ParameterDefinition
+  #valueRelatedArtifact: RelatedArtifact
+  #valueTriggerDefinition: TriggerDefinition
+  #valueUsageContext: UsageContext
+  #valueDosage: Dosage
+  #valueMeta: Meta
+}
+
+type HumanName {
+  #id: String
+  extension: [Extension]
+  #use: code  _use: ElementBase
+  text: String  #_text: ElementBase
+  family: String  #_family: ElementBase
+  given: String  #_given: [ElementBase]
+  prefix: String  #_prefix: [ElementBase]
+  suffix: String  #_suffix: [ElementBase]
+  period: Period
+}
+
+type Identifier {
+  #id: String
+  extension: [Extension]
+  #use: code  _use: ElementBase
+  type: CodeableConcept
+  #system: uri  _system: ElementBase
+  value: String  #_value: Element
+  period: Period
+  assigner: ResourceReference #Before: Reference
+}
+
+type Period {
+  #id: String
+  extension: [Extension]
+  #start: dateTime  #_start: ElementBase
+  #end: dateTime  _end: ElementBase
+}
+
+type ResourceReference { #Before: Reference
+  #id: String
+  extension: [Extension]
+  reference: String  #_reference: ElementBase
+  #type: uri  _type: ElementBase
+  identifier: Identifier
+  display: String  #_display: ElementBase
 }
