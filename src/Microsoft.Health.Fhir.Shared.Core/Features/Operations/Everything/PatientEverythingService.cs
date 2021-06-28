@@ -182,7 +182,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            if (types.Any() && !types.Contains(_revinclude.resourceType))
+            // R5 include device into compartment so no sence to do search.
+            // But if we expand _revinclude to be a list this should be revisted!
+            if ((ModelInfoProvider.Version == FhirSpecification.R5) ||
+                (types.Any() && !types.Contains(_revinclude.resourceType)))
             {
                 return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
             }
