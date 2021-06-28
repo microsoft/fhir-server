@@ -1,28 +1,71 @@
 ﻿type Patient {
   id: ID
-  #meta: Meta
-  #implicitRules: uri  _implicitRules: ElementBase
-  #language: code  _language: ElementBase
-  #text: Narrative
+  meta: Meta
+  implicitRules: String  # Before Uri
+  language: String  #Original: code
+  text: Narrative
   #contained: [Resource]
   extension: [Extension]
   modifierExtension: [Extension]
   identifier: [Identifier]
-  active: Boolean  #_active: ElementBase
+  active: Boolean
   name: [HumanName]
   telecom: [ContactPoint]
-  #gender: code  _gender: ElementBase
-  #birthDate: date  _birthDate: ElementBase
-  #deceasedBoolean: Boolean  #_deceasedBoolean: ElementBase
+  gender: AdministrativeGender  # Before: code
+  birthDate: String  # Before: date
+  #deceasedBoolean: Boolean  _deceasedBoolean: ElementBase
   #deceasedDateTime: dateTime  _deceasedDateTime: ElementBase
   address: [Address]
   maritalStatus: CodeableConcept
   #multipleBirthBoolean: Boolean  _multipleBirthBoolean: ElementBase
   #multipleBirthInteger: Int  _multipleBirthInteger: ElementBase
   photo: [Attachment]
-  #contact: [PatientContact]
-  #communication: [PatientCommunication]
+  contact: [ContactComponent] # Before: PatientContact
+  communication: [CommunicationComponent] # Before: PatientCommunication
   generalPractitioner: [ResourceReference]
   managingOrganization: ResourceReference #Before: Reference
-  #link: [PatientLink]
+  link: [LinkComponent] # Before: PatientLink
+}
+
+type ContactComponent { # Before: PatientContact
+  elementId: ID
+  extension: [Extension]
+  modifierExtension: [Extension]
+  relationship: [CodeableConcept]
+  name: HumanName
+  telecom: [ContactPoint]
+  address: Address
+  gender: AdministrativeGender  # Before: code
+  organization: ResourceReference # Before: Reference
+  period: Period
+}
+
+type CommunicationComponent { # Before: PatientCommunication
+  elementId: ID
+  extension: [Extension]
+  modifierExtension: [Extension]
+  language: CodeableConcept!
+  preferred: Boolean
+}
+
+type LinkComponent {
+  elementId: ID
+  extension: [Extension]
+  modifierExtension: [Extension]
+  other: ResourceReference! # Before: Reference
+  type: LinkType  # Before: Link
+}
+
+enum AdministrativeGender {
+    MALE,
+    FEMALE,
+    OTHER,
+    UNKNOWN
+}
+
+enum LinkType {
+    REPLACEDBY,
+    REPLACES,
+    REFER,
+    SEEALSO
 }

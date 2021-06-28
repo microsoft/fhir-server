@@ -72,4 +72,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Features\GraphQl\CustomModules\" />
+  </ItemGroup>
 </Project>

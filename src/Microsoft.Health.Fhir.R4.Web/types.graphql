@@ -1,10 +1,14 @@
-﻿# FHIR Defined Primitive types
-scalar uri
+﻿# # FHIR GraphQL Schema. Version 4.6.0
+# FHIR Defined Primitive types
 
+type Element {
+    elementId: String # Before: id
+    extension: [Extension]
+}
 type Address {
-  #id: String
+  elementId: String
   extension: [Extension]
-  #use: code  _use: ElementBase
+  #use: code  #_use: ElementBase
   #type: code  _type: ElementBase
   text: String  #_text: ElementBase
   line: String  #_line: [ElementBase]
@@ -32,14 +36,6 @@ type Attachment {
   #frames: positiveInt  _frames: ElementBase
   #duration: decimal  _duration: ElementBase
   #pages: positiveInt  _pages: ElementBase
-}
-
-enum Code {
-    Usual,
-    Official,
-    Temp,
-    Secondary,        
-    Old
 }
 
 type CodeableConcept {
@@ -128,12 +124,12 @@ type Extension {
 type HumanName {
   #id: String
   extension: [Extension]
-  #use: code  _use: ElementBase
+  use: NameUse #useElement: Element
   text: String  #_text: ElementBase
   family: String  #_family: ElementBase
-  given: String  #_given: [ElementBase]
-  prefix: String  #_prefix: [ElementBase]
-  suffix: String  #_suffix: [ElementBase]
+  given: [String]  #_given: [ElementBase] Changed String to [String]
+  prefix: [String]  #_prefix: [ElementBase] Changed String to [String]
+  suffix: [String]  #_suffix: [ElementBase] Changed String to [String]
   period: Period
 }
 
@@ -148,6 +144,24 @@ type Identifier {
   assigner: ResourceReference #Before: Reference
 }
 
+type Meta {
+  elementId: String
+  extension: [Extension]
+  versionId: ID # _versionId: ElementBase
+  lastUpdated: DateTime  #_lastUpdated: ElementBase # original: Instant, changed to DateTime
+  source: String  #_source: ElementBase original: Uri, changed to String
+  profile: [String] #_profile: [ElementBase] original: canonical, changed to [String]
+  security: [Coding]
+  tag: [Coding]
+}
+
+type Narrative {
+  elementId: String
+  extension: [Extension]
+  status: NarrativeStatus  #_status: ElementBase Original: Code, Changed: NarrativeStatus
+  div: String  #_div: ElementBase Original: xhtml, Changed: String
+}
+
 type Period {
   #id: String
   extension: [Extension]
@@ -155,11 +169,28 @@ type Period {
   #end: dateTime  _end: ElementBase
 }
 
-type ResourceReference { #Before: Reference
+type ResourceReference { # Before: Reference
   #id: String
   extension: [Extension]
   reference: String  #_reference: ElementBase
-  #type: uri  _type: ElementBase
+  type: String  #_type: Element # Original: uri, Changed: String
   identifier: Identifier
   display: String  #_display: ElementBase
+}
+
+enum NameUse {
+    USUAL,
+    OFFICIAL,
+    TEMP,
+    NICKNAME,
+    ANONYMOUS,
+    OLD,
+    MAIDEN
+}
+
+enum NarrativeStatus {
+    GENERATED,
+    EXTENSIONS,
+    ADDITIONAL,
+    EMPTY
 }
