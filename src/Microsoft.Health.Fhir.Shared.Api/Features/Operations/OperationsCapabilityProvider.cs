@@ -59,7 +59,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
 
             builder.Apply(AddMemberMatchDetails);
             builder.Apply(AddPatientEverythingDetails);
-            builder.Apply(AddPurgeHistoryDetails);
         }
 
         public void AddAnonymizedExportDetails(ListedCapabilityStatement capabilityStatement)
@@ -76,11 +75,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddMemberMatchDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.MemberMatch);
-        }
-
-        public void AddPurgeHistoryDetails(ListedCapabilityStatement capabilityStatement)
-        {
-            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.PurgeHistory);
         }
     }
 }
