@@ -8,8 +8,8 @@ type Element {
 type Address {
   elementId: String
   extension: [Extension]
-  #use: code  #_use: ElementBase
-  #type: code  _type: ElementBase
+  use: AddressUse # Before code
+  type: AddressType # Before code
   text: String  #_text: ElementBase
   line: String  #_line: [ElementBase]
   city: String  #_city: ElementBase
@@ -178,6 +178,19 @@ type ResourceReference { # Before: Reference
   display: String  #_display: ElementBase
 }
 
+enum AddressUse {
+    HOME,
+    WORK,
+    TEMP,
+    OLD,
+    BILLING
+}
+
+enum AddressType {
+    POSTAL,
+    PHYSICAL,
+    BOTH
+}
 enum NameUse {
     USUAL,
     OFFICIAL,
