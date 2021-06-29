@@ -133,46 +133,59 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             if (expression.Focus != null)
             {
-                if (expression.FunctionName == "type")
+                switch (expression.FunctionName)
                 {
-                    // Ignore
-                    yield break;
-                }
+                    case "type":
+                        yield break;
 
-                if (expression.FunctionName == "exists" || expression.FunctionName == "is")
-                {
-                    yield return new SearchParameterTypeResult(GetMapping(typeof(FhirBoolean)), ctx.SearchParamType, null, ctx.Definition);
+                    case "exists":
+                    case "is":
+                        {
+                            yield return new SearchParameterTypeResult(GetMapping(typeof(FhirBoolean)), ctx.SearchParamType, null, ctx.Definition);
 
-                    yield break;
-                }
+                            yield break;
+                        }
 
-                if (expression.FunctionName == "as")
-                {
-                    // Matches Condition.abatement.as(Age)
-                    var constantExp = expression.Arguments.OfType<ConstantExpression>().Single().Value as string;
+                    case "as":
+                    case "ofType":
+                        {
+                            // Matches Condition.abatement.as(Age)
+                            var constantExp = expression.Arguments.OfType<ConstantExpression>().Single().Value as string;
 
-                    ClassMapping mapping = GetMapping(constantExp);
-                    ctx = ctx.WithAsTypeMapping(mapping);
+                            ClassMapping mapping = GetMapping(constantExp);
+                            ctx = ctx.WithAsTypeMapping(mapping);
 
-                    foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
-                    {
-                        yield return type;
-                    }
+                            foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
+                            {
+                                yield return type;
+                            }
 
-                    yield break;
-                }
+                            yield break;
+                        }
 
-                if (expression.FunctionName == "where" ||
-                    expression.FunctionName == "first" ||
-                    expression.FunctionName == "builtin.children" ||
-                    expression.FunctionName == "builtin.item")
-                {
-                    foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
-                    {
-                        yield return type;
-                    }
+                    case "extension":
+                        {
+                            ctx = ctx.WithPath("extension");
+                            foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
+                            {
+                                yield return type;
+                            }
 
-                    yield break;
+                            yield break;
+                        }
+
+                    case "where":
+                    case "first":
+                    case "builtin.children":
+                    case "builtin.item":
+                        {
+                            foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
+                            {
+                                yield return type;
+                            }
+
+                            yield break;
+                        }
                 }
             }
 
@@ -326,15 +339,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static ModelInspector GetModelInspector()
         {
-            string methodName = "GetStructureDefinitionSummaryProvider";
-            MethodInfo modelInspectorMethod = typeof(ModelInfo).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
+            // ModelInspector has lot of dictionaries, so it would be waste of memory to create new one here.
+            // So instead we use reflection to access internal property of ModelInfo.
+            string methodName = "ModelInspector";
+            var modelInspectorProperty = typeof(ModelInfo).GetProperty(methodName, BindingFlags.NonPublic | BindingFlags.Static);
 
-            if (modelInspectorMethod == null)
+            if (modelInspectorProperty == null)
             {
                 throw new MissingMethodException(nameof(ModelInfo), methodName);
             }
 
-            return (ModelInspector)modelInspectorMethod.Invoke(null, null);
+            return (ModelInspector)modelInspectorProperty.GetValue(null);
         }
 
         private class Context

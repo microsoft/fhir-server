@@ -28,7 +28,7 @@
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.7</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>3.0.0</HealthcareSharedPackageVersion>
-    <Hl7FhirVersion>3.2.0</Hl7FhirVersion>
+    <Hl7FhirVersion>3.3.0</Hl7FhirVersion>
   </PropertyGroup>
 
   <Choose>
