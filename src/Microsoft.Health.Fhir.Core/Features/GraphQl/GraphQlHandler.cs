@@ -22,19 +22,19 @@ namespace Microsoft.Health.Fhir.Core.Features.GraphQl
     public class GraphQlHandler : IRequestHandler<GraphQlRequest, GraphQlResponse>
     {
         private readonly ISearchService _searchService;
-        private readonly IBundleFactory _bundleFactory;
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly IResourceDeserializer _resourceDeserializer;
 
-        public GraphQlHandler(ISearchService searchService, IBundleFactory bundleFactory, IAuthorizationService<DataActions> authorizationService, IResourceDeserializer resourceDeserializer)
+        public GraphQlHandler(
+            ISearchService searchService,
+            IAuthorizationService<DataActions> authorizationService,
+            IResourceDeserializer resourceDeserializer)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
-            EnsureArg.IsNotNull(bundleFactory, nameof(bundleFactory));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _searchService = searchService;
-            _bundleFactory = bundleFactory;
             _authorizationService = authorizationService;
             _resourceDeserializer = resourceDeserializer;
         }

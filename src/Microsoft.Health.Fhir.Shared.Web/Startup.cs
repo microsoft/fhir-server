@@ -76,10 +76,6 @@ namespace Microsoft.Health.Fhir.Web
                 // Adding DataLoader to our system
                 .AddDataLoader<PatientByIdDataLoader>();
 
-            var birthtime = new Extension(
-                "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
-                new FhirDateTime(1983, 4, 23, 7, 44));
-
             services.AddMediatR(typeof(PatientByIdDataLoader));
             services.AddHttpContextAccessor();
 
