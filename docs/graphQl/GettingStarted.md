@@ -3,8 +3,8 @@
 > for [GraphQL with FHIR](https://build.fhir.org/graphql.html).
 
 ## What Can I do with GraphQL in FHIR-Server?
-* ✅ Get all Patients in your FHIR-Server.
-* ✅ Get Patient by ID.
+* ✅ Get all Patients in your FHIR-Server with specified properties based on [Patient Resource](https://www.hl7.org/fhir/patient.html).
+* ✅ Get Patient by ID with specified properties.
 
 ![Banana-Cake-Pop-Untitled-1-Work](https://user-images.githubusercontent.com/33185677/123879004-c64e0d80-d905-11eb-9ea9-dda28e145cc0.gif)
 
