@@ -1,0 +1,61 @@
+# .SUMMARY This test flow confirms that we handle graphql requests
+# getting all Patients
+# The assumption for the requests and resources below:
+# 1. The FHIR version is R4
+# 2. FHIR-Server is working in the branch: feature/graphql-prototype
+# 3. appsettings.json has Security.Enabled = false
+
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+
+### POST one Patient resources to test the scenarios below using REST API:
+POST https://{{hostname}}/Patient
+content-type: application/json
+
+< .\Data\PatientChildExample.json
+
+
+### GET Patients id in the server using GraphQl by GET REST
+# You should see at least one id.
+GET https://{{hostname}}/graphql?query={ patients { id } }
+Content-Type: application/json
+
+
+### GET Patients id in the server using GraphQl by POST REST
+# You should see at least one id.
+POST https://{{hostname}}/graphql
+Content-Type: application/json
+X-Request-Type: GraphQL
+
+query {
+  patients {
+    id
+  }
+}
+
+
+### GET Patients with different fields using GraphQl by POST REST.
+# You should see at least one patient.
+POST https://{{hostname}}/graphql
+Content-Type: application/json
+X-Request-Type: GraphQL
+
+query {
+  patients {
+    id
+    name {
+        use
+        text
+        family
+        given
+    }
+    address {
+        line
+        city
+        state
+    }
+  }
+}
