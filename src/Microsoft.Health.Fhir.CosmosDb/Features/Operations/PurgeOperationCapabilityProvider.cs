@@ -9,6 +9,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
 {
@@ -33,7 +34,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Operations
                 capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
                 {
                     Name = OperationsConstants.PurgeHistory,
-                    Definition = operationDefinitionUri.ToString(),
+                    Definition = new ReferenceComponent
+                    {
+                        Reference = operationDefinitionUri.ToString(),
+                    },
                 });
             });
         }

@@ -9,6 +9,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema;
 
@@ -37,10 +38,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations
                 builder.Apply(capabilityStatement =>
                 {
                     Uri operationDefinitionUri = _resolver.ResolveOperationDefinitionUrl(OperationsConstants.PurgeHistory);
-                    capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
+                    capabilityStatement.Rest.Server().Operation.Add(new OperationComponent
                     {
                         Name = OperationsConstants.PurgeHistory,
-                        Definition = operationDefinitionUri.ToString(),
+                        Definition = new ReferenceComponent
+                        {
+                            Reference = operationDefinitionUri.ToString(),
+                        },
                     });
                 });
             }
