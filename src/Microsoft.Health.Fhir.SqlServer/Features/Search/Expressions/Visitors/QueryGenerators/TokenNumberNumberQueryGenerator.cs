@@ -17,6 +17,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         {
         }
 
-        public override Table Table => VLatest.TokenStringCompositeSearchParam;
+        public override Table Table => VLatest.TokenNumberNumberCompositeSearchParam;
     }
 }
