@@ -109,6 +109,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)
         {
+            EnsureArg.IsNotNull(searchParameterUris);
+
+            if (searchParameterUris.Count == 0)
+            {
+                return;
+            }
+
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
             var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses())
@@ -116,6 +123,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (string uri in searchParameterUris)
             {
+                _logger.LogTrace("Setting the search parameter status of '{0}' to '{1}'", uri, status.ToString());
+
                 var searchParamUri = new Uri(uri);
 
                 SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
