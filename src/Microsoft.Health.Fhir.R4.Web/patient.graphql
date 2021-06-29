@@ -1,29 +1,33 @@
-﻿type Patient {
+﻿# FHIR GraphQL Schema. Version 4.6.0
+
+# import the types from 'types.graphql'
+
+type Patient {
   id: ID
   meta: Meta
-  implicitRules: String  # Before Uri
-  language: String  #Original: code
+  implicitRules: String  implicitRulesElement: Element #Before uri
+  language: String  languageElement: Element # Before code
   text: Narrative
   #contained: [Resource]
   extension: [Extension]
   modifierExtension: [Extension]
   identifier: [Identifier]
-  active: Boolean
+  active: Boolean  activeElement: Element
   name: [HumanName]
   telecom: [ContactPoint]
-  gender: AdministrativeGender  # Before: code
-  birthDate: String  # Before: date
-  #deceasedBoolean: Boolean  _deceasedBoolean: ElementBase
-  #deceasedDateTime: dateTime  _deceasedDateTime: ElementBase
+  gender: AdministrativeGender  genderElement: Element  # Before: code
+  birthDate: String  birthDateElement: Element # Before date
+  # deceasedBoolean: Boolean  _deceasedBoolean: ElementBase
+  # deceasedDateTime: dateTime  _deceasedDateTime: ElementBase
   address: [Address]
   maritalStatus: CodeableConcept
-  #multipleBirthBoolean: Boolean  _multipleBirthBoolean: ElementBase
-  #multipleBirthInteger: Int  _multipleBirthInteger: ElementBase
+  #multipleBirthBoolean: Boolean  #_multipleBirthBoolean: ElementBase
+  #multipleBirthInterger: Int  #_multipleBirthInteger: ElementBase
   photo: [Attachment]
   contact: [ContactComponent] # Before: PatientContact
   communication: [CommunicationComponent] # Before: PatientCommunication
   generalPractitioner: [ResourceReference]
-  managingOrganization: ResourceReference #Before: Reference
+  managingOrganization: ResourceReference # Before: Reference
   link: [LinkComponent] # Before: PatientLink
 }
 
@@ -35,7 +39,7 @@ type ContactComponent { # Before: PatientContact
   name: HumanName
   telecom: [ContactPoint]
   address: Address
-  gender: AdministrativeGender  # Before: code
+  gender: AdministrativeGender  genderElement: Element # Before: code
   organization: ResourceReference # Before: Reference
   period: Period
 }
@@ -45,15 +49,15 @@ type CommunicationComponent { # Before: PatientCommunication
   extension: [Extension]
   modifierExtension: [Extension]
   language: CodeableConcept!
-  preferred: Boolean
+  preferred: Boolean  preferredElement: Element
 }
 
-type LinkComponent {
+type LinkComponent { #Before PatientLink
   elementId: ID
   extension: [Extension]
   modifierExtension: [Extension]
   other: ResourceReference! # Before: Reference
-  type: LinkType  # Before: Link
+  type: LinkType  typeElement: Element # Before: code
 }
 
 enum AdministrativeGender {

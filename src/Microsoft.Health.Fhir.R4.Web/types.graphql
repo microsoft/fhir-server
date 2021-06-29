@@ -2,79 +2,80 @@
 # FHIR Defined Primitive types
 
 type Element {
-    elementId: String # Before: id
+    elementId: String
     extension: [Extension]
 }
+
 type Address {
   elementId: String
   extension: [Extension]
-  use: AddressUse # Before code
-  type: AddressType # Before code
-  text: String  #_text: ElementBase
-  line: String  #_line: [ElementBase]
-  city: String  #_city: ElementBase
-  district: String  #_district: ElementBase
-  state: String  #_state: ElementBase
-  postalCode: String  #_postalCode: ElementBase
-  country: String  #_country: ElementBase
+  use: AddressUse  useElement: Element # Before code
+  type: AddressType  typeElement: Element # Before code
+  text: String  textElement: Element
+  line: [String]  lineElement: [Element]
+  city: String  cityElement: Element
+  district: String  districtElement: Element
+  state: String  stateElement: Element
+  postalCode: String  postalCodeElement: Element
+  country: String  countryElement: Element
   period: Period
 }
 
 type Attachment {
-  #id: String
+  elementId: String
   extension: [Extension]
-  #contentType: code  _contentType: ElementBase
-  #language: code  _language: ElementBase
-  #data: base64Binary  _data: ElementBase
-  #url: url  _url: ElementBase
-  #size: integer64  _size: ElementBase
-  #hash: base64Binary  _hash: ElementBase
-  title: String  #_title: ElementBase
-  #creation: dateTime  _creation: ElementBase
-  #height: positiveInt  _height: ElementBase
-  #width: positiveInt  _width: ElementBase
-  #frames: positiveInt  _frames: ElementBase
+  contentType: String  contentTypeElement: Element
+  language: String  languageElement: Element
+  data: ByteArray  dataElement: Element
+  url: String  urlElement: Element
+  size: Int  sizeElement: Element
+  hash: ByteArray  hashElement: Element
+  title: String  titleElement: Element
+  creation: String  creationElement: Element
+  #height: Int  #_height: ElementBase
+  #width: Int  #_width: ElementBase
+  #frames: Int  #_frames: ElementBase
   #duration: decimal  _duration: ElementBase
   #pages: positiveInt  _pages: ElementBase
 }
 
 type CodeableConcept {
-  #id: String
+  elementId: String
   extension: [Extension]
   coding: [Coding]
-  text: String  #_text: ElementBase
+  text: String  textElement: Element
 }
 
 type Coding {
-  #id: String
+  elementId: String
   extension: [Extension]
-  #system: uri  _system: ElementBase
-  version: String  #_version: ElementBase
-  #code: code  _code: ElementBase
-  display: String  #_display: ElementBase
-  userSelected: Boolean  #_userSelected: ElementBase
+  system: String  systemElement: Element
+  version: String  versionElement: Element
+  code: String  codeElement: Element
+  display: String  display: Element
+  userSelected: Boolean  userSelectedElement: Element
 }
 
 type ContactPoint {
-  #id: String
+  elementId: String
   extension: [Extension]
-  #system: code  _system: ElementBase
-  value: String  #_value: ElementBase
-  #use: code  _use: ElementBase
-  #rank: positiveInt  #_rank: ElementBase
+  system: ContactPointSystem  systemElement: Element
+  value: String  valueElement: Element
+  use: ConctactPointUse  useElement: Element
+  rank: Int  rankElement: Element
   period: Period
 }
 
 type Extension {
-  #id: String
+  elementId: String
   extension: [Extension]
-  #url: uri  _url: ElementBase
+  url: String
   #valueBase64Binary: base64Binary  _valueBase64Binary: ElementBase
-  #valueBoolean: Boolean  _valueBoolean: ElementBase
+  #valueFhirBoolean: Boolean  #_valueBoolean: ElementBase
   #valueCanonical: canonical  _valueCanonical: ElementBase
   #valueCode: code  _valueCode: ElementBase
-  #valueDate: date  _valueDate: ElementBase
-  #valueDateTime: dateTime  _valueDateTime: ElementBase
+  #birthDate: Date  #_birthDate: Element
+  #valueDateTime: String  #_valueDateTime: Element
   #valueDecimal: decimal  _valueDecimal: ElementBase
   #valueId: ID  _valueId: ElementBase
   #valueInstant: instant  _valueInstant: ElementBase
@@ -122,35 +123,35 @@ type Extension {
 }
 
 type HumanName {
-  #id: String
+  elementId: String
   extension: [Extension]
-  use: NameUse #useElement: Element
-  text: String  #_text: ElementBase
-  family: String  #_family: ElementBase
-  given: [String]  #_given: [ElementBase] Changed String to [String]
-  prefix: [String]  #_prefix: [ElementBase] Changed String to [String]
-  suffix: [String]  #_suffix: [ElementBase] Changed String to [String]
+  use: NameUse  useElement: Element
+  text: String  textElement: Element
+  family: String  familyElement: Element
+  given: [String]  givenElement: [Element]
+  prefix: [String]  prefixElement: [Element]
+  suffix: [String]  suffixElement: [Element]
   period: Period
 }
 
 type Identifier {
-  #id: String
+  elementId: String
   extension: [Extension]
-  #use: code  _use: ElementBase
+  use: IdentifierUse  useElement: Element
   type: CodeableConcept
-  #system: uri  _system: ElementBase
-  value: String  #_value: Element
+  system: String  systemElement: Element
+  value: String  valueElement: Element
   period: Period
-  assigner: ResourceReference #Before: Reference
+  assigner: ResourceReference # Before: Reference
 }
 
 type Meta {
   elementId: String
   extension: [Extension]
-  versionId: ID # _versionId: ElementBase
-  lastUpdated: DateTime  #_lastUpdated: ElementBase # original: Instant, changed to DateTime
-  source: String  #_source: ElementBase original: Uri, changed to String
-  profile: [String] #_profile: [ElementBase] original: canonical, changed to [String]
+  versionId: ID  versionIdElement: Element
+  lastUpdated: DateTime  lastUpdatedElement: Element
+  source: String  sourceElement: Element
+  profile: [String]  profileElement: [Element]
   security: [Coding]
   tag: [Coding]
 }
@@ -158,24 +159,24 @@ type Meta {
 type Narrative {
   elementId: String
   extension: [Extension]
-  status: NarrativeStatus  #_status: ElementBase Original: Code, Changed: NarrativeStatus
-  div: String  #_div: ElementBase Original: xhtml, Changed: String
+  status: NarrativeStatus  statusElement: Element
+  div: String
 }
 
 type Period {
-  #id: String
+  elementId: String
   extension: [Extension]
-  #start: dateTime  #_start: ElementBase
-  #end: dateTime  _end: ElementBase
+  start: String  startElement: Element
+  end: String  endElement: Element
 }
 
 type ResourceReference { # Before: Reference
-  #id: String
+  elementId: String
   extension: [Extension]
-  reference: String  #_reference: ElementBase
-  type: String  #_type: Element # Original: uri, Changed: String
+  reference: String  referenceElement: Element
+  type: String  typeElement: Element
   identifier: Identifier
-  display: String  #_display: ElementBase
+  display: String  displayElement: Element
 }
 
 enum AddressUse {
@@ -191,6 +192,33 @@ enum AddressType {
     PHYSICAL,
     BOTH
 }
+
+enum ContactPointSystem {
+    PHONE,
+    FAX,
+    EMAIL,
+    PAGER,
+    URL,
+    SMS,
+    OTHER
+}
+
+enum ConctactPointUse {
+    HOME,
+    WORK,
+    TEMP,
+    OLD,
+    MOBILE
+}
+
+enum IdentifierUse {
+    USUAL,
+    OFFICIAL,
+    TEMP,
+    SECONDARY,
+    OLD
+}
+
 enum NameUse {
     USUAL,
     OFFICIAL,

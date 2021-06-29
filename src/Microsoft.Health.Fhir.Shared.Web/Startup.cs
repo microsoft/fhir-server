@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             services.AddDevelopmentIdentityProvider(Configuration);
 
-            services
+            _ = services
                 .AddRouting()
 
                 // Adding the GraphQL server core service
@@ -50,11 +50,16 @@ namespace Microsoft.Health.Fhir.Web
                     .AddTypeExtension<PatientQueries>()
                 .BindComplexType<Address>()
                 .BindComplexType<Attachment>()
+                .BindComplexType<Code>()
                 .BindComplexType<CodeableConcept>()
                 .BindComplexType<Coding>()
                 .BindComplexType<ContactPoint>()
+                .BindComplexType<DataType>()
+                .BindComplexType<DomainResource>()
                 .BindComplexType<Element>()
                 .BindComplexType<Extension>()
+                .BindComplexType<FhirBoolean>()
+                .BindComplexType<FhirDateTime>()
                 .BindComplexType<HumanName>()
                 .BindComplexType<Identifier>()
                 .BindComplexType<Meta>()
@@ -64,10 +69,16 @@ namespace Microsoft.Health.Fhir.Web
                 .BindComplexType<Patient.CommunicationComponent>()
                 .BindComplexType<Patient.ContactComponent>()
                 .BindComplexType<Period>()
+                .BindComplexType<PrimitiveType>()
+                .BindComplexType<Resource>()
                 .BindComplexType<ResourceReference>()
 
                 // Adding DataLoader to our system
                 .AddDataLoader<PatientByIdDataLoader>();
+
+            var birthtime = new Extension(
+                "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+                new FhirDateTime(1983, 4, 23, 7, 44));
 
             services.AddMediatR(typeof(PatientByIdDataLoader));
             services.AddHttpContextAccessor();
