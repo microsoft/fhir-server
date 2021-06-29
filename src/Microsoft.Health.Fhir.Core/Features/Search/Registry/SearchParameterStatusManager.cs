@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (string uri in searchParameterUris)
             {
-                _logger.LogTrace("Setting the search parameter status of '{0}' to '{1}'", uri, status.ToString());
+                _logger.LogTrace("Setting the search parameter status of '{uri}' to '{newStatus}'", uri, status.ToString());
 
                 var searchParamUri = new Uri(uri);
 
