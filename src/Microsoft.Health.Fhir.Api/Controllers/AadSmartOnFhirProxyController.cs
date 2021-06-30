@@ -303,8 +303,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var client = _httpClientFactory.CreateClient();
 #pragma warning restore CA2000
 
-            if (Request.Headers.TryGetValue("Authorization", out var authHeaderValues)
-                && string.IsNullOrEmpty(clientId))
+            if (Request != null &&
+                string.IsNullOrEmpty(clientId) &&
+                Request.Headers.TryGetValue("Authorization", out var authHeaderValues))
             {
                 var authHeader = authHeaderValues.ToString();
                 if (authHeader.Contains("Basic ", StringComparison.OrdinalIgnoreCase))
