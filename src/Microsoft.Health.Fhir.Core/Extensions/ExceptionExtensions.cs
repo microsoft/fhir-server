@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 
@@ -38,6 +39,20 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static bool IsRequestEntityTooLarge(this Exception e)
         {
             return e is RequestEntityTooLargeException || e?.InnerException is RequestEntityTooLargeException;
+        }
+
+        public static Exception GetInnerMostException(this Exception input)
+        {
+            EnsureArg.IsNotNull(input, nameof(input));
+
+            Exception current = input;
+
+            while (current.InnerException != null)
+            {
+                current = current.InnerException;
+            }
+
+            return current;
         }
     }
 }

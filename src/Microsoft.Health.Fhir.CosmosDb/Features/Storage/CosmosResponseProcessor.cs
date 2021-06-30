@@ -16,6 +16,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -47,26 +49,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// if the status code is 429.
         /// </summary>
         /// <param name="response">The response that has errored</param>
-        public Task ProcessErrorResponse(ResponseMessage response)
+        public async Task ProcessErrorResponse(ResponseMessage response)
         {
             if (!response.IsSuccessStatusCode)
             {
-                ProcessErrorResponse(response.StatusCode, response.Headers, response.ErrorMessage);
+                await ProcessErrorResponse(response.StatusCode, response.Headers, response.ErrorMessage);
             }
-
-            return Task.CompletedTask;
         }
 
-        public void ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage)
+        public async Task ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage)
         {
             if (statusCode == HttpStatusCode.TooManyRequests)
             {
                 string retryHeader = headers["x-ms-retry-after-ms"];
-                throw new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
+                var exception = new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
+                await EmitExceptionNotificationAsync(statusCode, exception);
+                throw exception;
             }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
-                throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
+                var exception = new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
+                await EmitExceptionNotificationAsync(statusCode, exception);
+                throw exception;
             }
             else if (statusCode == HttpStatusCode.RequestEntityTooLarge
                      || (statusCode == HttpStatusCode.BadRequest && errorMessage.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase)))
@@ -74,14 +78,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // There are multiple known failures relating to RequestEntityTooLarge.
                 // 1. When the document size is ~2mb (just under or at the limit) it can make it into the stored proc and fail on create
                 // 2. Larger documents are rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
-                throw new Core.Exceptions.RequestEntityTooLargeException();
+                var exception = new Core.Exceptions.RequestEntityTooLargeException();
+                await EmitExceptionNotificationAsync(statusCode, exception);
+                throw exception;
             }
             else if (statusCode == HttpStatusCode.Forbidden)
             {
                 int? subStatusValue = headers.GetSubStatusValue();
                 if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
                 {
-                    throw new Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
+                    var exception = new Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
+                    await EmitExceptionNotificationAsync(statusCode, exception);
+                    throw exception;
                 }
             }
         }
@@ -203,6 +211,39 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return errorMessage;
+        }
+
+        private async Task EmitExceptionNotificationAsync(HttpStatusCode statusCode, Exception exception)
+        {
+            var exceptionNotification = new ExceptionNotification();
+
+            try
+            {
+                IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
+                var innerMostException = exception.GetInnerMostException();
+
+                exceptionNotification.CorrelationId = fhirRequestContext?.CorrelationId;
+                exceptionNotification.FhirOperation = fhirRequestContext?.AuditEventType;
+                exceptionNotification.OuterExceptionType = exception.GetType().ToString();
+                exceptionNotification.ResourceType = fhirRequestContext?.ResourceType;
+                exceptionNotification.StatusCode = statusCode;
+                exceptionNotification.ExceptionMessage = exception.Message;
+                exceptionNotification.StackTrace = exception.StackTrace;
+                exceptionNotification.InnerMostExceptionType = innerMostException.GetType().ToString();
+                exceptionNotification.InnerMostExceptionMessage = innerMostException.Message;
+                exceptionNotification.HResult = exception.HResult;
+                exceptionNotification.Source = exception.Source;
+                exceptionNotification.OuterMethod = exception.TargetSite?.Name;
+                exceptionNotification.IsRequestEntityTooLarge = exception.IsRequestEntityTooLarge();
+                exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
+
+                await _mediator.Publish(exceptionNotification, CancellationToken.None);
+            }
+            catch (Exception e)
+            {
+                // Failures in publishing exception notifications should not cause the API to return an error.
+                _logger.LogWarning(e, "Failure while publishing Exception notification.");
+            }
         }
     }
 }

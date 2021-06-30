@@ -11,7 +11,6 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
