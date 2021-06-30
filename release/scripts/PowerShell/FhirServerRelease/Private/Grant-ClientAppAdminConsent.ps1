@@ -15,7 +15,11 @@ function Grant-ClientAppAdminConsent {
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
-        [pscredential]$TenantAdminCredential
+        [pscredential]$TenantAdminCredential,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
+        [pscredential]$AccessToken
     )
 
     Set-StrictMode -Version Latest
@@ -31,14 +35,14 @@ function Grant-ClientAppAdminConsent {
         grant_type = "password"
         username   = $TenantAdminCredential.GetNetworkCredential().UserName
         password   = $TenantAdminCredential.GetNetworkCredential().Password
-        resource   = "74658136-14ec-4630-ad9b-26e160ff0fc6" # This is the resource id of the main.iam endpoint. We need to get the resource id of the microsoft graph api
+        resource   = "74658136-14ec-4630-ad9b-26e160ff0fc6" # This is the resource id of the main.iam endpoint.
         client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
     }
     
     $tokenResponse = Invoke-RestMethod (Get-AzureADTokenEndpoint) -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
     
     $header = @{
-        'Authorization'          = 'Bearer ' + $tokenResponse.access_token
+        'Authorization'          = 'Bearer ' + $AccessToken
         'x-ms-client-request-id' = [guid]::NewGuid()
     }
 
@@ -46,7 +50,7 @@ function Grant-ClientAppAdminConsent {
     $url = "https://graph.microsoft.com/v1.0/servicePrincipals/$AppId/appRoleAssignments/"
     $bodyForAdminConsent = @{
         principalId = $AppId
-        resourceId  = $apiAppServicePrincipalObjectId
+        resourceId  = 
         appRoleId   = "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3" # AAD built-in Application Administrator role
     }
 
@@ -54,7 +58,7 @@ function Grant-ClientAppAdminConsent {
 
     while ($true) {
         try {
-            Invoke-RestMethod -Uri $url -Headers $header -Method POST | Out-Null
+            Invoke-RestMethod -Uri $url -Headers $header -Method POST -Body $bodyForAdminConsent | Out-Null
             return
         }
         catch {
