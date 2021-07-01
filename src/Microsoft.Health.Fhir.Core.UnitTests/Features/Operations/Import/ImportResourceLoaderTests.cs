@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     throw new InvalidOperationException(errorMessage);
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     ImportResource importResource = new ImportResource(null, null);
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     resetEvent1.Set();
@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             integrationDataStoreClient.TryAcquireLeaseAsync(Arg.Any<Uri>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).ReturnsForAnyArgs(string.Empty);
 
             IImportResourceParser importResourceParser = Substitute.For<IImportResourceParser>();
-            importResourceParser.Parse(Arg.Any<string>())
+            importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
                     string content = (string)callInfo[0];
