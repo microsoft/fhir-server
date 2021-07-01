@@ -12,8 +12,6 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Core;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Models;
@@ -27,37 +25,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private FhirJsonParser _parser;
         private IResourceWrapperFactory _resourceFactory;
+        private IResourceMetaPopulator _resourceMetaPopulator;
         private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory)
+        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, IResourceMetaPopulator resourceMetaPopulator)
         {
             EnsureArg.IsNotNull(parser, nameof(parser));
             EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
 
             _parser = parser;
             _resourceFactory = resourceFactory;
-
+            _resourceMetaPopulator = resourceMetaPopulator;
             _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public ImportResource Parse(string rawContent)
+        public ImportResource Parse(long id, long index, string rawContent)
         {
             Resource resource = _parser.Parse<Resource>(rawContent);
             CheckConditionalReferenceInResource(resource);
 
-            if (resource.Meta == null)
-            {
-                resource.Meta = new Meta();
-            }
-
-            // store with millisecond precision
-            resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
+            _resourceMetaPopulator.Populate(id, resource);
 
             ITypedElement element = resource.ToTypedElement();
             ResourceElement resourceElement = new ResourceElement(element);
             ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
-            return new ImportResource(resourceWapper, WriteCompressedRawResource(resourceWapper.RawResource.Data));
+            return new ImportResource(id, index, resourceWapper, WriteCompressedRawResource(resourceWapper.RawResource.Data));
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource)
