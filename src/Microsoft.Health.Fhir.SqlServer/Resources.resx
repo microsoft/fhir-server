@@ -145,4 +145,10 @@
   <data name="TypeAndLastUpdatedMustHaveSameSortDirection" xml:space="preserve">
     <value>Both _type and _lastUpdated must have the same sort direction (_sort=_type,_lastUpdated or _sort=-_type,-_lastUpdated)</value>
   </data>
+  <data name="ExceptionOccurredWhenFetchingResourceChanges" xml:space="preserve">
+    <value>An error occurred when fetching resource changes from SQL database.</value>
+  </data>
+  <data name="SqlExceptionOccurredWhenFetchingResourceChanges" xml:space="preserve">
+    <value>A SQL exception occurred when fetching resource changes from SQL database.</value>
+  </data>
 </root>

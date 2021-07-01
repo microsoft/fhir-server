@@ -70,6 +70,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to An error occurred when fetching resource changes from SQL database..
+        /// </summary>
+        internal static string ExceptionOccurredWhenFetchingResourceChanges {
+            get {
+                return ResourceManager.GetString("ExceptionOccurredWhenFetchingResourceChanges", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {
@@ -120,6 +129,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string SearchParameterTypeNotSupportedBySQLServer {
             get {
                 return ResourceManager.GetString("SearchParameterTypeNotSupportedBySQLServer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A SQL exception occurred when fetching resource changes from SQL database..
+        /// </summary>
+        internal static string SqlExceptionOccurredWhenFetchingResourceChanges {
+            get {
+                return ResourceManager.GetString("SqlExceptionOccurredWhenFetchingResourceChanges", resourceCulture);
             }
         }
         

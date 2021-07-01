@@ -17,11 +17,22 @@ using Microsoft.Health.SqlServer;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
 {
+    /// <summary>
+    /// Data store for resource changes.
+    /// </summary>
     public class SqlServerFhirResourceChangeDataStore : IChangeFeedSource<IResourceChangeData>
     {
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
 
+        // dbnetlib error value for timeout expired
+        public const short TIMEOUTEXPIRED = -2;
+
+        /// <summary>
+        /// Creates a new instance of the <see cref="SqlServerFhirResourceChangeDataStore"/> class.
+        /// </summary>
+        /// <param name="sqlConnectionFactory">The SQL Connection factory.</param>
+        /// <param name="logger">The logger.</param>
         public SqlServerFhirResourceChangeDataStore(ISqlConnectionFactory sqlConnectionFactory, ILogger<SqlServerFhirResourceChangeDataStore> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
@@ -31,6 +42,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             _logger = logger;
         }
 
+        /// <summary>
+        ///  Returns the number of resource change records from startId.
+        /// </summary>
+        /// <param name="startId">The start id of resource change records to fetch. The start id is inclusive.</param>
+        /// <param name="pageSize">The page size for fetching resource change records.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Resource change data rows.</returns>
+        /// <exception cref="System.ArgumentOutOfRangeException">Thrown if startId or pageSize is less than zero.</exception>
+        /// <exception cref="System.InvalidOperationException">Thrown when a method call is invalid for the object's current state.</exception>
+        /// <exception cref="Microsoft.Data.SqlClient.SqlException">Thrown when SQL Server returns a warning or error.</exception>
+        /// <exception cref="System.TimeoutException">Thrown when the time allotted for a process or operation has expired.</exception>
+        /// <exception cref="System.Exception">Thrown when errors occur during execution.</exception>
         public async Task<IReadOnlyCollection<IResourceChangeData>> GetRecordsAsync(long startId, int pageSize, CancellationToken cancellationToken)
         {
             EnsureArg.IsGte(startId, 0, nameof(startId));
@@ -47,7 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                         sqlCommand.CommandType = CommandType.StoredProcedure;
                         sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
                         sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.Int).Value = pageSize;
-
                         using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                         {
                             while (await sqlDataReader.ReadAsync(cancellationToken))
@@ -68,9 +90,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     }
                 }
             }
+            catch (SqlException ex)
+            {
+                switch (ex.Number)
+                {
+                    case TIMEOUTEXPIRED:
+                        throw new TimeoutException(ex.Message, ex);
+                    default:
+                        _logger.LogError(ex, Resources.SqlExceptionOccurredWhenFetchingResourceChanges);
+                        throw;
+                }
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error from SQL database on FetchResourceChangeData");
+                _logger.LogError(ex, Resources.ExceptionOccurredWhenFetchingResourceChanges);
                 throw;
             }
         }
