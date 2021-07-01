@@ -1,0 +1,12 @@
+14.0
+10
+1       SQLSMALLINT         0       2       ""   1     ResourceTypeId                               ""
+2       SQLCHAR             2       64      ""   2     ResourceId                                   Latin1_General_100_CS_AS
+3       SQLINT              0       4       ""   3     Version                                      ""
+4       SQLBIT              0       1       ""   4     IsHistory                                    ""
+5       SQLBIGINT           0       8       ""   5     ResourceSurrogateId                          ""
+6       SQLBIT              0       1       ""   6     IsDeleted                                    ""
+7       SQLCHAR             2       10      ""   7     RequestMethod                                SQL_Latin1_General_CP1_CI_AS
+8       SQLBINARY           8       0       ""   8     RawResource                                  ""
+9       SQLBIT              0       1       ""   9     IsRawResourceMetaSet                         ""
+10      SQLCHAR             2       64      ""   10    SearchParamHash                              SQL_Latin1_General_CP1_CI_AS
