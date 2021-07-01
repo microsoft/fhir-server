@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
-                    string content = (string)callInfo[0];
+                    string content = (string)callInfo[2];
                     return new ImportResource(0, 0, null, Encoding.UTF8.GetBytes(content));
                 });
 
