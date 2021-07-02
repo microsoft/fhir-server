@@ -53,9 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Features.GraphQl
             var resultEntries = result.Results.ToList();
             var resourceElements = new List<ResourceElement>();
 
-            foreach (var entry in resultEntries)
+            foreach (SearchResultEntry entry in resultEntries)
             {
-                var element = _resourceDeserializer.Deserialize(entry.Resource);
+                ResourceElement element = _resourceDeserializer.Deserialize(entry.Resource);
                 resourceElements.Add(element);
             }
 

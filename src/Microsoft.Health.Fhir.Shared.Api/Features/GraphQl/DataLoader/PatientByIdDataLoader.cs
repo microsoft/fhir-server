@@ -32,10 +32,9 @@ namespace Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader
         public async Task<IEnumerable<Patient>> GetAllPatients(
             CancellationToken cancellationToken)
         {
-            cancellationToken = CancellationToken.None;
             GraphQlResponse response = await _mediator.Send(new GraphQlRequest("Patient"), cancellationToken);
 
-            List<Patient> patients = new List<Patient>();
+            var patients = new List<Patient>();
             IEnumerable<ResourceElement> resourceElements = response.ResourceElements;
 
             foreach (ResourceElement resourceElement in resourceElements)
@@ -51,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader
             IReadOnlyList<string> keys,
             CancellationToken cancellationToken)
         {
-            GraphQlResponse response = await _mediator.Send(new GraphQlRequest("Patient", ConvertData(keys)), CancellationToken.None);
+            GraphQlResponse response = await _mediator.Send(new GraphQlRequest("Patient", ConvertDataForIdParameters(keys)), cancellationToken);
 
             IEnumerable<ResourceElement> resourceElements = response.ResourceElements;
             Dictionary<string, Patient> dict = new Dictionary<string, Patient>();
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader
             return dict;
         }
 
-        private static List<Tuple<string, string>> ConvertData(IReadOnlyList<string> ids)
+        private static List<Tuple<string, string>> ConvertDataForIdParameters(IReadOnlyList<string> ids)
         {
             var queries = new List<Tuple<string, string>>();
             var concatenatedIds = string.Join(",", ids);
