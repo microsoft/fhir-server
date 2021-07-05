@@ -44,8 +44,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         /// </summary>
         public long Index { get; set; }
 
-        public Stream CompressedRawDataStream { get; set; }
-
         /// <summary>
         /// Import resource for sql operation
         /// </summary>
