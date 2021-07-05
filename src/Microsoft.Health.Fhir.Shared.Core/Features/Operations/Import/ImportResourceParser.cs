@@ -57,7 +57,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             ResourceElement resourceElement = new ResourceElement(element);
             ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
-            return new ImportResource(resourceWapper, WriteCompressedRawResource(resourceWapper.RawResource.Data));
+            return new ImportResource(resourceWapper)
+            {
+                CompressedStream = GenerateCompressedRawResource(resourceWapper.RawResource.Data),
+            };
         }
 
         private static void CheckConditionalReferenceInResource(Resource resource)
@@ -77,17 +80,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
         }
 
-        private byte[] WriteCompressedRawResource(string rawResource)
+        private Stream GenerateCompressedRawResource(string rawResource)
         {
-            using var stream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
-
-            using var gzipStream = new GZipStream(stream, CompressionMode.Compress, leaveOpen: false);
+            var outputStream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
+            using var gzipStream = new GZipStream(outputStream, CompressionMode.Compress, leaveOpen: true);
             using var writer = new StreamWriter(gzipStream, ResourceEncoding);
             writer.Write(rawResource);
-            writer.Flush();
-            stream.Seek(0, 0);
 
-            return stream.ToArray();
+            return outputStream;
         }
     }
 }

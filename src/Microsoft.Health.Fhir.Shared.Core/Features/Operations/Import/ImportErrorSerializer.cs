@@ -26,11 +26,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import
         {
             EnsureArg.IsNotNull(ex, nameof(ex));
 
+            return Serialize(index, ex.Message);
+        }
+
+        public string Serialize(long index, string errorMessage)
+        {
+            EnsureArg.IsNotNullOrEmpty(errorMessage, nameof(errorMessage));
+
             var issue = new OperationOutcome.IssueComponent();
             issue.Severity = OperationOutcome.IssueSeverity.Error;
             issue.Diagnostics = string.Format("Failed to process resource at line: {0}", index);
             issue.Details = new CodeableConcept();
-            issue.Details.Text = ex.Message;
+            issue.Details.Text = errorMessage;
             OperationOutcome operationOutcome = new OperationOutcome();
             operationOutcome.Issue.Add(issue);
 

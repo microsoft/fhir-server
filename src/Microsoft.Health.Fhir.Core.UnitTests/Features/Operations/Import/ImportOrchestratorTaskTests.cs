@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorTaskAndWrongEtag_WhenOrchestratorTaskStart_ThenTaskShouldFailedWithDetails()
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorTask_WhenIntegrationExceptionThrow_ThenTaskShouldFailedWithDetails()
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorTask_WhenFailedAtPreprocessStep_ThenRetrableExceptionShouldBeThrowAndContextUpdated()
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorTask_WhenFailedAtGenerateSubTasksStep_ThenRetrableExceptionShouldBeThrowAndContextUpdated()
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorTask_WhenFailedAtMonitorSubTasksStep_ThenRetrableExceptionShouldBeThrowAndContextUpdated()
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -376,7 +376,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorTask_WhenSubTaskFailed_ThenImportProcessingExceptionShouldBeThrowAndContextUpdated()
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -456,7 +456,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorTask_WhenFailedAtPostProcessStep_ThenRetrableExceptionShouldBeThrowAndContextUpdated()
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -544,7 +544,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
         [Fact]
         public async Task GivenAnOrchestratorTask_WhenCancelBefore_ThenCanceledResultShouldBeReturn()
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
@@ -624,7 +624,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
         private static async Task VerifyCommonOrchestratorTaskAsync(int inputFileCount, int concurrentCount, int resumeFrom = -1)
         {
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation = Substitute.For<IFhirDataBulkImportOperation>();
+            IImportOrchestratorTaskDataStoreOperation fhirDataBulkImportOperation = Substitute.For<IImportOrchestratorTaskDataStoreOperation>();
             IContextUpdater contextUpdater = Substitute.For<IContextUpdater>();
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();

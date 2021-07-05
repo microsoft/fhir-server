@@ -33,13 +33,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                 resource.Resource.LastModifiedClaims);
             short resourceTypeId = _model.GetResourceTypeId(resource.Resource.ResourceTypeName);
 
+            resource.CompressedStream.Seek(0, 0);
+
             return new SqlBulkCopyDataWrapper()
             {
                 Metadata = resourceMetadata,
                 ResourceTypeId = resourceTypeId,
                 Resource = resource.Resource,
                 ResourceSurrogateId = resource.Id,
-                CompressedRawData = resource.CompressedRawData,
+                Index = resource.Index,
+                BulkImportResource = resource.ExtractBulkImportResourceTypeV1Row(resourceTypeId),
             };
         }
 

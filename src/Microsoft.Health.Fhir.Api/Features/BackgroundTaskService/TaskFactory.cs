@@ -19,10 +19,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
     /// </summary>
     public class TaskFactory : ITaskFactory
     {
-        private readonly IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
         private readonly IImportResourceLoader _importResourceLoader;
         private readonly IResourceBulkImporter _resourceBulkImporter;
         private readonly IImportErrorStoreFactory _importErrorStoreFactory;
+        private readonly IImportOrchestratorTaskDataStoreOperation _importOrchestratorTaskDataStoreOperation;
         private readonly ISequenceIdGenerator<long> _sequenceIdGenerator;
         private readonly IIntegrationDataStoreClient _integrationDataStoreClient;
         private readonly ITaskManager _taskmanager;
@@ -31,10 +31,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private readonly ILoggerFactory _loggerFactory;
 
         public TaskFactory(
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation,
             IImportResourceLoader importResourceLoader,
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
+            IImportOrchestratorTaskDataStoreOperation importOrchestratorTaskDataStoreOperation,
             IContextUpdaterFactory contextUpdaterFactory,
             ITaskManager taskmanager,
             ISequenceIdGenerator<long> sequenceIdGenerator,
@@ -42,10 +42,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ILoggerFactory loggerFactory)
         {
-            EnsureArg.IsNotNull(fhirDataBulkImportOperation, nameof(fhirDataBulkImportOperation));
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
             EnsureArg.IsNotNull(resourceBulkImporter, nameof(resourceBulkImporter));
             EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
+            EnsureArg.IsNotNull(importOrchestratorTaskDataStoreOperation, nameof(importOrchestratorTaskDataStoreOperation));
             EnsureArg.IsNotNull(contextUpdaterFactory, nameof(contextUpdaterFactory));
             EnsureArg.IsNotNull(taskmanager, nameof(taskmanager));
             EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
@@ -53,10 +53,10 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
-            _fhirDataBulkImportOperation = fhirDataBulkImportOperation;
             _importResourceLoader = importResourceLoader;
             _resourceBulkImporter = resourceBulkImporter;
             _importErrorStoreFactory = importErrorStoreFactory;
+            _importOrchestratorTaskDataStoreOperation = importOrchestratorTaskDataStoreOperation;
             _sequenceIdGenerator = sequenceIdGenerator;
             _integrationDataStoreClient = integrationDataStoreClient;
             _taskmanager = taskmanager;
@@ -77,7 +77,6 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                 return new ImportProcessingTask(
                     inputData,
                     importProgress,
-                    _fhirDataBulkImportOperation,
                     _importResourceLoader,
                     _resourceBulkImporter,
                     _importErrorStoreFactory,
@@ -99,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     _sequenceIdGenerator,
                     contextUpdater,
                     _contextAccessor,
-                    _fhirDataBulkImportOperation,
+                    _importOrchestratorTaskDataStoreOperation,
                     _integrationDataStoreClient,
                     _loggerFactory);
             }

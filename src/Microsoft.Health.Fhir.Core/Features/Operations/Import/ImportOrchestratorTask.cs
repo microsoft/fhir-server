@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private ImportOrchestratorTaskContext _orchestratorTaskContext;
         private ITaskManager _taskManager;
         private ISequenceIdGenerator<long> _sequenceIdGenerator;
-        private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
+        private IImportOrchestratorTaskDataStoreOperation _importOrchestratorTaskDataStoreOperation;
         private IContextUpdater _contextUpdater;
         private ILogger<ImportOrchestratorTask> _logger;
         private IIntegrationDataStoreClient _integrationDataStoreClient;
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IContextUpdater contextUpdater,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
-            IFhirDataBulkImportOperation fhirDataBulkImportOperation,
+            IImportOrchestratorTaskDataStoreOperation importOrchestratorTaskDataStoreOperation,
             IIntegrationDataStoreClient integrationDataStoreClient,
             ILoggerFactory loggerFactory)
         {
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(contextUpdater, nameof(contextUpdater));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            EnsureArg.IsNotNull(fhirDataBulkImportOperation, nameof(fhirDataBulkImportOperation));
+            EnsureArg.IsNotNull(importOrchestratorTaskDataStoreOperation, nameof(importOrchestratorTaskDataStoreOperation));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             _sequenceIdGenerator = sequenceIdGenerator;
             _contextUpdater = contextUpdater;
             _contextAccessor = contextAccessor;
-            _fhirDataBulkImportOperation = fhirDataBulkImportOperation;
+            _importOrchestratorTaskDataStoreOperation = importOrchestratorTaskDataStoreOperation;
             _integrationDataStoreClient = integrationDataStoreClient;
             _logger = loggerFactory.CreateLogger<ImportOrchestratorTask>();
         }
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (_orchestratorTaskContext.Progress == ImportOrchestratorTaskProgress.InputResourcesValidated)
                 {
-                    await _fhirDataBulkImportOperation.PreprocessAsync(cancellationToken);
+                    await _importOrchestratorTaskDataStoreOperation.PreprocessAsync(cancellationToken);
 
                     _orchestratorTaskContext.Progress = ImportOrchestratorTaskProgress.PreprocessCompleted;
                     await UpdateProgressAsync(_orchestratorTaskContext, cancellationToken);
@@ -210,8 +210,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 // Post-process operation cannot be cancelled.
                 try
                 {
-                    await _fhirDataBulkImportOperation.DeleteDuplicatedResourcesAsync(CancellationToken.None);
-                    await _fhirDataBulkImportOperation.PostprocessAsync(CancellationToken.None);
+                    await _importOrchestratorTaskDataStoreOperation.PostprocessAsync(CancellationToken.None);
 
                     _logger.LogInformation("Postprocess Completed");
                 }

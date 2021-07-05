@@ -14,28 +14,31 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.IO;
 using Index = Microsoft.Health.SqlServer.Features.Schema.Model.Index;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SqlServerFhirDataBulkImportOperation : IFhirDataBulkImportOperation
+    public class SqlImportOperation : ISqlImportOperation, IImportOrchestratorTaskDataStoreOperation
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
         private SqlServerFhirModel _model;
+        private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
-        private ILogger<SqlServerFhirDataBulkImportOperation> _logger;
+        private ILogger<SqlImportOperation> _logger;
 
-        public SqlServerFhirDataBulkImportOperation(
+        public SqlImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ISqlServerTransientFaultRetryPolicyFactory sqlServerTransientFaultRetryPolicyFactory,
             SqlServerFhirModel model,
             IOptions<OperationsConfiguration> operationsConfig,
-            ILogger<SqlServerFhirDataBulkImportOperation> logger)
+            ILogger<SqlImportOperation> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(sqlServerTransientFaultRetryPolicyFactory, nameof(sqlServerTransientFaultRetryPolicyFactory));
@@ -48,15 +51,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _model = model;
             _importTaskConfiguration = operationsConfig.Value.Import;
             _logger = logger;
+
+            _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public static IReadOnlyList<(Table table, Index index)> UnclusteredIndexes { get; } =
+        public static IReadOnlyList<(Table table, Index index)> OptionIndexesForImport { get; } =
             new List<(Table table, Index index)>()
             {
                 (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId),
-                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId),
-                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId_Version),
-                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId),
                 (VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId),
                 (VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime),
                 (VLatest.DateTimeSearchParam, VLatest.DateTimeSearchParam.IX_DateTimeSearchParam_SearchParamId_EndDateTime_StartDateTime_Long),
@@ -90,8 +92,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 // ResourceWriteClaim Table - No unclustered index
             };
-
-        public static string ResourceWriteClaimTableName { get; } = VLatest.ResourceWriteClaim.TableName;
 
         public static IReadOnlyList<string> SearchParameterTables { get; } =
             new List<string>()
@@ -138,6 +138,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public async Task<IEnumerable<SqlBulkCopyDataWrapper>> BulkMergeResourceAsync(IEnumerable<SqlBulkCopyDataWrapper> resources, CancellationToken cancellationToken)
+        {
+            List<long> importedSurrogatedId = new List<long>();
+
+            // Make sure there's no dup in this batch
+            resources = resources.GroupBy(r => r.Resource.ResourceId).Select(r => r.First());
+            IEnumerable<BulkImportResourceTypeV1Row> inputResources = resources.Select(r => r.BulkImportResource);
+
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                try
+                {
+                    VLatest.BulkMergeResource.PopulateCommand(sqlCommandWrapper, inputResources);
+                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlBulkOperationTimeoutInSec;
+
+                    var sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
+
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
+                    {
+                        long surrogatedId = sqlDataReader.GetInt64(0);
+                        importedSurrogatedId.Add(surrogatedId);
+                    }
+
+                    return resources.Where(r => importedSurrogatedId.Contains(r.ResourceSurrogateId));
+                }
+                catch (SqlException sqlEx)
+                {
+                    _logger.LogError(sqlEx, "Failed to disable indexes. " + sqlEx.Message);
+
+                    throw;
+                }
+            }
+        }
+
         public async Task CleanBatchResourceAsync(string resourceType, long beginSequenceId, long endSequenceId, CancellationToken cancellationToken)
         {
             short resourceTypeId = _model.GetResourceTypeId(resourceType);
@@ -153,7 +188,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task PreprocessAsync(CancellationToken cancellationToken)
         {
-            (string tableName, string indexName)[] indexes = UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName)[] indexes = OptionIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             {
                 foreach (var index in indexes)
                 {
@@ -179,7 +214,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task PostprocessAsync(CancellationToken cancellationToken)
         {
             List<(string tableName, string indexName)> indexes =
-                UnclusteredIndexes.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToList();
+                OptionIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToList();
             List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
             HashSet<string> runningRebuildTables = new HashSet<string>();
 
@@ -205,41 +240,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             await Task.WhenAll(runningTasks.ToArray());
         }
 
-        public async Task DeleteDuplicatedResourcesAsync(CancellationToken cancellationToken)
-        {
-            try
-            {
-                await ExecuteDeleteDuplicatedResourcesTaskAsync(cancellationToken);
-
-                List<Task> runningTasks = new List<Task>();
-
-                runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(ResourceWriteClaimTableName, cancellationToken));
-                foreach (var tableName in SearchParameterTables.ToArray())
-                {
-                    if (runningTasks.Count >= _importTaskConfiguration.SqlMaxDeleteDuplicateOperationConcurrentCount)
-                    {
-                        Task completedTask = await Task.WhenAny(runningTasks);
-                        runningTasks.Remove(completedTask);
-                        await completedTask;
-                    }
-
-                    runningTasks.Add(ExecuteDeleteDuplicatedSearchParamsTaskAsync(tableName, cancellationToken));
-                }
-
-                while (runningTasks.Count > 0)
-                {
-                    await runningTasks.First();
-                    runningTasks.RemoveAt(0);
-                }
-            }
-            catch (SqlException sqlEx)
-            {
-                _logger.LogInformation(sqlEx, "Failed to delete duplicate resources.");
-
-                throw;
-            }
-        }
-
         private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -257,48 +257,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 catch (SqlException sqlEx)
                 {
                     _logger.LogInformation(sqlEx, "Failed to rebuild indexes.");
-
-                    throw;
-                }
-            }
-        }
-
-        private async Task ExecuteDeleteDuplicatedResourcesTaskAsync(CancellationToken cancellationToken)
-        {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
-            {
-                try
-                {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
-
-                    VLatest.DeleteDuplicatedResources.PopulateCommand(sqlCommandWrapper);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (SqlException sqlEx)
-                {
-                    _logger.LogInformation(sqlEx, "Failed to delete resoueces duplicate search paramters.");
-
-                    throw;
-                }
-            }
-        }
-
-        private async Task ExecuteDeleteDuplicatedSearchParamsTaskAsync(string tableName, CancellationToken cancellationToken)
-        {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
-            {
-                try
-                {
-                    sqlCommandWrapper.CommandTimeout = _importTaskConfiguration.SqlLongRunningOperationTimeoutInSec;
-
-                    VLatest.DeleteDuplicatedSearchParams.PopulateCommand(sqlCommandWrapper, tableName);
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (SqlException sqlEx)
-                {
-                    _logger.LogInformation(sqlEx, "Failed to delete duplicate search paramters.");
 
                     throw;
                 }

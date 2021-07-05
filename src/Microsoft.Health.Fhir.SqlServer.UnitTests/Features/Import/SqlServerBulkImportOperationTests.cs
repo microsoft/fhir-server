@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 VLatest.UriSearchParam,
             };
 
-            string[] supportedIndexesNames = SqlServerFhirDataBulkImportOperation.UnclusteredIndexes.Select(i => i.index.IndexName).ToArray();
+            string[] supportedIndexesNames = SqlImportOperation.OptionIndexesForImport.Select(i => i.index.IndexName).ToArray();
             int expectedIndexesCount = 0;
             foreach (Table table in resourceRelatedTables)
             {

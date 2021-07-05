@@ -11,8 +11,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -49,7 +49,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
 
-            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -105,7 +104,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
-                                    bulkOperation,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
@@ -125,7 +123,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
 
-            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -159,7 +156,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
-                                    bulkOperation,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
@@ -176,7 +172,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
 
-            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -185,17 +180,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            bulkOperation.CleanBatchResourceAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            importer.CleanResourceAsync(Arg.Any<ImportProcessingTaskInputData>(), Arg.Any<ImportProcessingProgress>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     throw new InvalidOperationException();
                 });
 
-            progress.NeedCleanDataForRetry = true;
+            progress.NeedCleanData = true;
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
-                                    bulkOperation,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
@@ -212,7 +206,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportProcessingTaskInputData inputData = GetInputData();
             ImportProcessingProgress progress = new ImportProcessingProgress();
 
-            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -221,17 +214,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             RequestContextAccessor<IFhirRequestContext> contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             ILoggerFactory loggerFactory = new NullLoggerFactory();
 
-            bulkOperation.CleanBatchResourceAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            importer.Import(Arg.Any<Channel<ImportResource>>(), Arg.Any<IImportErrorStore>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
                     throw new OperationCanceledException();
                 });
 
-            progress.NeedCleanDataForRetry = true;
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
-                                    bulkOperation,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,
@@ -249,7 +240,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             long succeedCountFromProgress = progress.SucceedImportCount;
             long failedCountFromProgress = progress.FailedImportCount;
 
-            IFhirDataBulkImportOperation bulkOperation = Substitute.For<IFhirDataBulkImportOperation>();
             IImportResourceLoader loader = Substitute.For<IImportResourceLoader>();
             IResourceBulkImporter importer = Substitute.For<IResourceBulkImporter>();
             IImportErrorStore importErrorStore = Substitute.For<IImportErrorStore>();
@@ -260,11 +250,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             long cleanStart = -1;
             long cleanEnd = -1;
-            bulkOperation.CleanBatchResourceAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            importer.CleanResourceAsync(Arg.Any<ImportProcessingTaskInputData>(), Arg.Any<ImportProcessingProgress>(), Arg.Any<CancellationToken>())
                 .Returns(callInfo =>
                 {
-                    cleanStart = (long)callInfo[1];
-                    cleanEnd = (long)callInfo[2];
+                    var inputData = (ImportProcessingTaskInputData)callInfo[0];
+                    var progress = (ImportProcessingProgress)callInfo[1];
+                    long beginSequenceId = inputData.BeginSequenceId;
+                    long endSequenceId = inputData.EndSequenceId;
+                    long endIndex = progress.CurrentIndex;
+
+                    cleanStart = beginSequenceId + endIndex;
+                    cleanEnd = endSequenceId;
 
                     return Task.CompletedTask;
                 });
@@ -278,7 +274,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
                     Task loadTask = Task.Run(async () =>
                     {
-                        await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex), startIndex, null, null));
+                        ResourceWrapper resourceWrapper = new ResourceWrapper(
+                            Guid.NewGuid().ToString(),
+                            "0",
+                            "Dummy",
+                            new RawResource(Guid.NewGuid().ToString(), Fhir.Core.Models.FhirResourceFormat.Json, true),
+                            new ResourceRequest("POST"),
+                            DateTimeOffset.UtcNow,
+                            false,
+                            null,
+                            null,
+                            null,
+                            "SearchParam");
+
+                        await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex), startIndex, resourceWrapper));
                         await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex + 1), startIndex + 1, "Error"));
                         resourceChannel.Writer.Complete();
                     });
@@ -325,11 +334,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                     return Task.CompletedTask;
                 });
 
-            progress.NeedCleanDataForRetry = true;
+            progress.NeedCleanData = true;
             ImportProcessingTask task = new ImportProcessingTask(
                                     inputData,
                                     progress,
-                                    bulkOperation,
                                     loader,
                                     importer,
                                     importErrorStoreFactory,

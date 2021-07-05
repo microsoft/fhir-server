@@ -128,7 +128,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerFhirDataBulkImportOperation>()
+            services.Add<SqlImportOperation>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -196,10 +196,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<UriSearchParamsTableBulkCopyDataGenerator>()
-                .Transient()
-                .AsSelf();
-
-            services.Add<ResourceTableBulkCopyDataGenerator>()
                 .Transient()
                 .AsSelf();
 
