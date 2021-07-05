@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.IO;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
@@ -36,5 +38,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 #pragma warning disable CA1819
         public byte[] CompressedRawData { get; set; }
 #pragma warning restore CA1819
+
+        /// <summary>
+        /// Index for the resource in file
+        /// </summary>
+        public long Index { get; set; }
+
+        public Stream CompressedRawDataStream { get; set; }
+
+        /// <summary>
+        /// Import resource for sql operation
+        /// </summary>
+        internal BulkImportResourceTypeV1Row BulkImportResource { get; set; }
     }
 }

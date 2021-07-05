@@ -3,28 +3,23 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
-    public class ImportProcessingProgress
+    public interface IImportOrchestratorTaskDataStoreOperation
     {
         /// <summary>
-        /// Succeed import resource count
+        /// Pre-process before import operation.
         /// </summary>
-        public long SucceedImportCount { get; set; }
+        /// <param name="cancellationToken">Cancellation Token</param>
+        public Task PreprocessAsync(CancellationToken cancellationToken);
 
         /// <summary>
-        /// Failed processing resource count
+        /// Post-process after import operation.
         /// </summary>
-        public long FailedImportCount { get; set; }
-
-        /// <summary>
-        /// Current index for last checkpoint
-        /// </summary>
-        public long CurrentIndex { get; set; }
-
-        /// <summary>
-        /// Importer initialized status
-        /// </summary>
-        public bool NeedCleanData { get; set; }
+        /// <param name="cancellationToken">Cancellation Token</param>
+        public Task PostprocessAsync(CancellationToken cancellationToken);
     }
 }

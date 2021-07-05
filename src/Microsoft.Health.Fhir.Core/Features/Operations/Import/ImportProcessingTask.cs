@@ -24,7 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private ImportProcessingTaskInputData _inputData;
         private ImportProcessingProgress _importProgress;
-        private IFhirDataBulkImportOperation _fhirDataBulkImportOperation;
         private IImportResourceLoader _importResourceLoader;
         private IResourceBulkImporter _resourceBulkImporter;
         private IImportErrorStoreFactory _importErrorStoreFactory;
@@ -36,7 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportProcessingTask(
             ImportProcessingTaskInputData inputData,
             ImportProcessingProgress importProgress,
-            IFhirDataBulkImportOperation fhirDataBulkOperation,
             IImportResourceLoader importResourceLoader,
             IResourceBulkImporter resourceBulkImporter,
             IImportErrorStoreFactory importErrorStoreFactory,
@@ -46,7 +44,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         {
             EnsureArg.IsNotNull(inputData, nameof(inputData));
             EnsureArg.IsNotNull(importProgress, nameof(importProgress));
-            EnsureArg.IsNotNull(fhirDataBulkOperation, nameof(fhirDataBulkOperation));
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
             EnsureArg.IsNotNull(resourceBulkImporter, nameof(resourceBulkImporter));
             EnsureArg.IsNotNull(importErrorStoreFactory, nameof(importErrorStoreFactory));
@@ -56,7 +53,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _inputData = inputData;
             _importProgress = importProgress;
-            _fhirDataBulkImportOperation = fhirDataBulkOperation;
             _importResourceLoader = importResourceLoader;
             _resourceBulkImporter = resourceBulkImporter;
             _importErrorStoreFactory = importErrorStoreFactory;
@@ -100,16 +96,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 Func<long, long> sequenceIdGenerator = (index) => _inputData.BeginSequenceId + index;
 
-                // Clean imported resource after last checkpoint.
-                if (_importProgress.NeedCleanDataForRetry)
-                {
-                    await CleanDataAsync(cancellationToken);
-                }
-                else
-                {
-                    _importProgress.NeedCleanDataForRetry = true;
-                    await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_importProgress), cancellationToken);
-                }
+                // Clean resources before import start
+                await _resourceBulkImporter.CleanResourceAsync(_inputData, _importProgress, cancellationToken);
+                _importProgress.NeedCleanData = true;
+                await _contextUpdater.UpdateContextAsync(JsonConvert.SerializeObject(_importProgress), cancellationToken);
 
                 // Initialize error store
                 IImportErrorStore importErrorStore = await _importErrorStoreFactory.InitializeAsync(GetErrorFileName(), cancellationToken);
@@ -191,11 +181,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             catch (TaskCanceledException canceledEx)
             {
                 _logger.LogInformation(canceledEx, "Data processing task is canceled.");
+
+                try
+                {
+                    await _resourceBulkImporter.CleanResourceAsync(_inputData, _importProgress, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogInformation(ex, "Data processing task is canceled. Failed to clean resource.");
+                    throw new RetriableTaskException(ex.Message);
+                }
+
                 return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
             }
             catch (OperationCanceledException canceledEx)
             {
                 _logger.LogInformation(canceledEx, "Data processing task is canceled.");
+
+                try
+                {
+                    await _resourceBulkImporter.CleanResourceAsync(_inputData, _importProgress, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogInformation(ex, "Data processing task is canceled. Failed to clean resource.");
+                    throw new RetriableTaskException(ex.Message);
+                }
+
                 return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
             }
             catch (RetriableTaskException)
@@ -233,27 +245,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private string GetErrorFileName()
         {
             return $"{_inputData.ResourceType}{_inputData.TaskId}.ndjson";
-        }
-
-        private async Task CleanDataAsync(CancellationToken cancellationToken)
-        {
-            long beginSequenceId = _inputData.BeginSequenceId;
-            long endSequenceId = _inputData.EndSequenceId;
-            long endIndex = _importProgress.CurrentIndex;
-
-            try
-            {
-                await _fhirDataBulkImportOperation.CleanBatchResourceAsync(_inputData.ResourceType, beginSequenceId + endIndex, endSequenceId, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex, "Failed to clean batch resource.");
-                throw new RetriableTaskException("Failed to clean resource before import task start.", ex);
-            }
         }
 
         public void Dispose()

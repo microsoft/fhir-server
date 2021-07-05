@@ -6,13 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using NSubstitute;
 using Xunit;
 
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
-                    ImportResource importResource = new ImportResource(null, null);
+                    ImportResource importResource = new ImportResource(null);
                     return importResource;
                 });
 
@@ -232,8 +232,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
-                    string content = (string)callInfo[2];
-                    return new ImportResource(0, 0, null, Encoding.UTF8.GetBytes(content));
+                    string content = (string)callInfo[0];
+                    ResourceWrapper resourceWrapper = new ResourceWrapper(
+                            content,
+                            "0",
+                            "Dummy",
+                            new RawResource(content, Fhir.Core.Models.FhirResourceFormat.Json, true),
+                            new ResourceRequest("POST"),
+                            DateTimeOffset.UtcNow,
+                            false,
+                            null,
+                            null,
+                            null,
+                            "SearchParam");
+                    return new ImportResource(0, 0, resourceWrapper);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
@@ -248,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             await foreach (ImportResource resource in outputChannel.Reader.ReadAllAsync())
             {
                 string content = idGenerator(currentIndex++).ToString();
-                Assert.Equal(content, Encoding.UTF8.GetString(resource.CompressedRawData));
+                Assert.Equal(content, resource.Resource.ResourceId);
             }
 
             await importTask;
