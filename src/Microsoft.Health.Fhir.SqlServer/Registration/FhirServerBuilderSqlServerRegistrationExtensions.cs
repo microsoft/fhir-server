@@ -10,12 +10,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
-<<<<<<< HEAD
+using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
-=======
-using Microsoft.Health.Fhir.SqlServer.Features.Operations;
->>>>>>> latest0705
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -117,7 +114,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsImplementedInterfaces();
 
-<<<<<<< HEAD
             services.Add<SqlServerTaskManager>()
                 .Scoped()
                 .AsSelf()
@@ -224,10 +220,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SqlStoreSequenceIdGenerator>()
                 .Transient()
                 .AsSelf()
-=======
+                .AsImplementedInterfaces();
+
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
->>>>>>> latest0705
                 .AsImplementedInterfaces();
 
             return fhirServerBuilder;
