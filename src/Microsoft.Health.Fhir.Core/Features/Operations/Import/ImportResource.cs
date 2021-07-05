@@ -13,8 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ImportResource(long id, long index, ResourceWrapper resource)
         {
             Id = id;
-            Resource = resource;
             Index = index;
+            Resource = resource;
         }
 
         public ImportResource(ResourceWrapper resource)

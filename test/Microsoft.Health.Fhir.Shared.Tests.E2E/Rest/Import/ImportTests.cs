@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -45,6 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
@@ -98,6 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenImportOperationEnabled_WhenImportOperationTriggered_ThenDataShouldBeImported()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
@@ -253,6 +256,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public async Task GivenImportOperationEnabled_WhenImportInvalidResource_ThenErrorLogsShouldBeOutput()
         {
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
+            patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
 
             var request = new ImportRequest()
@@ -314,8 +318,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                 },
             };
 
-            await ImportCheckAsync(request);
-            await ImportCheckAsync(request);
+            await ImportCheckAsync(request, errorCount: 1);
+            await ImportCheckAsync(request, errorCount: 2);
 
             Patient patient = await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
             Assert.Equal(resourceId, patient.Id);
@@ -444,7 +448,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
 
-        private async Task<Uri> ImportCheckAsync(ImportRequest request, TestFhirClient client = null)
+        private async Task<Uri> ImportCheckAsync(ImportRequest request, TestFhirClient client = null, int? errorCount = null)
         {
             client = client ?? _client;
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(client, request);
@@ -458,7 +462,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
             ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(result.Output);
-            Assert.Empty(result.Error);
+            if (errorCount != null)
+            {
+                Assert.Equal(errorCount.Value, result.Error.First().Count);
+            }
+            else
+            {
+                Assert.Empty(result.Error);
+            }
+
             Assert.NotEmpty(result.Request);
 
             return checkLocation;

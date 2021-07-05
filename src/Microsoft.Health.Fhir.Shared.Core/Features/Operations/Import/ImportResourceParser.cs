@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             ResourceElement resourceElement = new ResourceElement(element);
             ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
-            return new ImportResource(resourceWapper)
+            return new ImportResource(id, index, resourceWapper)
             {
                 CompressedStream = GenerateCompressedRawResource(resourceWapper.RawResource.Data),
             };
