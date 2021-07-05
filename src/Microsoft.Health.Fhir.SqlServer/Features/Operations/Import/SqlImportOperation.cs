@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 catch (SqlException sqlEx)
                 {
-                    _logger.LogError(sqlEx, "Failed to disable indexes. " + sqlEx.Message);
+                    _logger.LogError(sqlEx, "Failed to merge resources. " + sqlEx.Message);
 
                     throw;
                 }
@@ -188,6 +188,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task PreprocessAsync(CancellationToken cancellationToken)
         {
+            // Not disable index by default
+            if (!_importTaskConfiguration.SqlDisableIndex)
+            {
+                return;
+            }
+
             (string tableName, string indexName)[] indexes = OptionIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             {
                 foreach (var index in indexes)
@@ -213,6 +219,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task PostprocessAsync(CancellationToken cancellationToken)
         {
+            // Not disable index by default
+            if (!_importTaskConfiguration.SqlDisableIndex)
+            {
+                return;
+            }
+
             List<(string tableName, string indexName)> indexes =
                 OptionIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToList();
             List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();

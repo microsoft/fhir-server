@@ -82,5 +82,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Concurrent count for delete duplicate resource operation.
         /// </summary>
         public int SqlMaxDeleteDuplicateOperationConcurrentCount { get; set; } = DefaultSqlMaxDeleteDuplicateOperationConcurrentCount;
+
+        /// <summary>
+        /// Disable index during import data.
+        /// </summary>
+        public bool SqlDisableIndex { get; set; }
     }
 }
