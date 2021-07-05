@@ -183,6 +183,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task GivenTooBigPostRequest_WhenSearching_ThenDontCrashServer()
+        {
+            var sb = new StringBuilder();
+
+            for (int i = 0; i < 100_000; i++)
+            {
+                sb.Append('a');
+            }
+
+            await Client.SearchPostAsync("Patient", default, ("name", sb.ToString()));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypes_ThenOnlyResourcesMatchingTypeParameterShouldBeReturned()
         {
             var tag = Guid.NewGuid().ToString();
@@ -906,6 +921,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchRequestWithValidParametersAndStrictHandling_WhenHandled_ReturnsSearchResults()
         {
             var response = await Client.SearchAsync("Patient?name=ronda", Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenACompositeTokenNumberNumberSearchParameter_WhenSearching_ReturnsSearchResults()
+        {
+            var sequenceType = ModelInfoProvider.Version == FhirSpecification.Stu3 ? "Sequence" : "MolecularSequence";
+            var response = await Client.SearchAsync($"{sequenceType}?referenceseqid-window-coordinate=NT_007592.15$18130918$18143955");
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 

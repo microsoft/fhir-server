@@ -115,15 +115,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The container registry &apos;{0}&apos; is not configured..
-        /// </summary>
-        public static string ContainerRegistryNotConfigured {
-            get {
-                return ResourceManager.GetString("ContainerRegistryNotConfigured", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header must be &apos;application/x-www-form-urlencoded&apos;..
         /// </summary>
         public static string ContentTypeFormUrlEncodedExpected {
@@ -165,6 +156,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ConvertDataParameterValueNotValid {
             get {
                 return ResourceManager.GetString("ConvertDataParameterValueNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The template collection reference &apos;{0}&apos; is not configured..
+        /// </summary>
+        public static string ConvertDataTemplateNotConfigured {
+            get {
+                return ResourceManager.GetString("ConvertDataTemplateNotConfigured", resourceCulture);
             }
         }
         

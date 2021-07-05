@@ -70,8 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task GivenCosmosDb_WhenGettingMetadata_TheServerShouldReturnPatientEverythingSupported()
+        public async Task GivenBothDataStores_WhenGettingMetadata_TheServerShouldReturnPatientEverythingSupported()
         {
             FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
 
@@ -80,20 +79,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition");
 
             Assert.Equal(OperationsConstants.PatientEverythingUri, operationDefinition.ToString());
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
-        public async Task GivenSqlServer_WhenGettingMetadata_TheServerShouldReturnPatientEverythingNotSupported()
-        {
-            FhirResponse<CapabilityStatement> capabilityStatement = await _client.ReadAsync<CapabilityStatement>("metadata");
-
-            object operationDefinition = ModelInfoProvider.Version == FhirSpecification.Stu3
-                ? capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition.reference")
-                : capabilityStatement.Resource.ToTypedElement().Scalar($"CapabilityStatement.rest.operation.where(name = '{OperationsConstants.PatientEverything}').definition");
-
-            Assert.Null(operationDefinition);
         }
     }
 }

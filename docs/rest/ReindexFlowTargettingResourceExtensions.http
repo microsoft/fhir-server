@@ -1,0 +1,323 @@
+# This test flow confirms that reindexing operations can handle search parameters
+# that target extensions in resources. It checks that we can support simply putting
+# ".extension" in the search parameter's FHIR path expression.
+#
+# This test assumes the following local environment setup:
+# 1. appsettings.json has Reindex.Enabled = true
+# 2. The version is R4 or R5
+
+@baseUrl = https://localhost:44348
+@contentType = application/json
+
+### Testing 1, 2, 3...
+{{baseUrl}}/metadata
+
+### Get the bearer token to authenticate.
+# @name bearer
+POST {{baseUrl}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+# Create a PractitionerRole resource that
+# 1) has a network extension
+# 2) has a second extension that contains an array of extensions.
+POST {{baseUrl}}/PractitionerRole HTTP/1.1
+content-type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType" : "PractitionerRole",
+  "id" : "HansSoloRole1",
+  "meta" : {
+    "lastUpdated" : "2020-07-07T13:26:22.0314215+00:00",
+    "profile" : [
+      "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/plannet-PractitionerRole"
+    ]
+  },
+  "language" : "en-US",
+  "text" : {
+    "status" : "extensions",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en-US\" lang=\"en-US\"><p><b>Generated Narrative</b></p><p><b>Network Reference</b>: <a href=\"Organization-AcmeofCTStdNet.html\">Generated Summary: language: en-US; active; <span title=\"Codes: {http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/OrgTypeCS ntwk}\">Network</span>; name: ACME CT Preferred Provider Network</a></p><blockquote><p><b>Qualification</b></p><h3>Urls</h3><table class=\"grid\"><tr><td>-</td></tr><tr><td>*</td></tr></table><p><b>value</b>: <span title=\"Codes: {http://nucc.org/provider-taxonomy 207R00000X}\">Internal Medicine Physician</span></p><h3>Urls</h3><table class=\"grid\"><tr><td>-</td></tr><tr><td>*</td></tr></table><p><b>value</b>: active</p><h3>Urls</h3><table class=\"grid\"><tr><td>-</td></tr><tr><td>*</td></tr></table><p><b>value</b>: <span>American Board of Internal Medicine</span></p></blockquote><p><b>active</b>: true</p><p><b>practitioner</b>: <a href=\"Practitioner-HansSolo.html\">Generated Summary: language: en-US; id: NPI3233; active; Hans Solo, MD; <span title=\"Codes: {urn:ietf:bcp:47 ja}\">Japanese</span></a></p><p><b>code</b>: <span title=\"Codes: {http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/ProviderRoleCS ph}\">Physician</span></p><p><b>specialty</b>: <span title=\"Codes: {http://nucc.org/provider-taxonomy 207R00000X}\">Internal Medicine</span></p><p><b>location</b>: <a href=\"Location-HansSoloClinic.html\">Generated Summary: language: en-US; status: active; name: OrgA CT Location 1; <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-RoleCode OUTPHARM}\">outpatient pharmacy</span>; Phone: (111)-222-3333, https://www.hanssolo.com</a></p><p><b>healthcareService</b>: <a href=\"HealthcareService-HansSoloService.html\">Generated Summary: language: en-US; active; <span title=\"Codes: {http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/HealthcareServiceCategoryCS outpat}\">Clinic or Outpatient Facility</span>; <span title=\"Codes: {http://nucc.org/provider-taxonomy 207Q00000X}\">Family Medicine</span></a></p></div>"
+  },
+  "extension" : [
+    {
+      "url" : "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference",
+      "valueReference" : {
+        "reference" : "Organization/AcmeofCTStdNet"
+      }
+    },
+    {
+      "extension" : [
+        {
+          "url" : "code",
+          "valueCodeableConcept" : {
+            "coding" : [
+              {
+                "system" : "http://nucc.org/provider-taxonomy",
+                "code" : "207R00000X"
+              }
+            ]
+          }
+        },
+        {
+          "url" : "status",
+          "valueCode" : "active"
+        },
+        {
+          "url" : "issuer",
+          "valueReference" : {
+            "reference" : "Organization/3250",
+            "display" : "American Board of Internal Medicine"
+          }
+        }
+      ],
+      "url" : "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/qualification"
+    }
+  ],
+  "active" : true,
+  "practitioner" : {
+    "reference" : "Practitioner/HansSolo"
+  },
+  "code" : [
+    {
+      "coding" : [
+        {
+          "system" : "http://hl7.org/fhir/us/davinci-pdex-plan-net/CodeSystem/ProviderRoleCS",
+          "code" : "ph"
+        }
+      ]
+    }
+  ],
+  "specialty" : [
+    {
+      "coding" : [
+        {
+          "system" : "http://nucc.org/provider-taxonomy",
+          "code" : "207R00000X",
+          "display" : "Internal Medicine"
+        }
+      ]
+    }
+  ],
+  "location" : [
+    {
+      "reference" : "Location/HansSoloClinic"
+    }
+  ],
+  "healthcareService" : [
+    {
+      "reference" : "HealthcareService/HansSoloService"
+    }
+  ]
+}
+
+###
+# Create a search parameter resource that targets the PractitionerRole network extension.
+POST {{baseUrl}}/SearchParameter HTTP/1.1
+content-type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "SearchParameter",
+  "id": "practitionerrole-network",
+  "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-network",
+  "version": "1.0.0",
+  "name": "Plannet_sp_practitionerrole_network",
+  "status": "active",
+  "date": "2018-05-23T00:00:00+00:00",
+  "publisher": "HL7 Financial Management Working Group",
+  "contact": [
+    {
+      "name": "HL7 Financial Management Working Group",
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/fm/index.cfm"
+        },
+        {
+          "system": "email",
+          "value": "fm@lists.HL7.org"
+        }
+      ]
+    }
+  ],
+  "description": "Select roles where the practitioner is a member of the specified health insurance provider network",
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "code": "network",
+  "base": [
+    "PractitionerRole"
+  ],
+  "type": "reference",
+  "expression": "PractitionerRole.extension.where(url='http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/network-reference')",
+  "target": [
+    "Organization"
+  ],
+  "multipleOr": true,
+  "multipleAnd": true,
+  "chain": [
+    "name",
+    "address",
+    "partof",
+    "type"
+  ]
+}
+
+###
+# Create a search parameter resource that targets a token extension in the array of
+# extensions in the PractitionerRole resource.
+POST {{baseUrl}}/SearchParameter HTTP/1.1
+content-type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType" : "SearchParameter",
+  "id" : "practitionerrole-qualification-code",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: practitionerrole-qualification-code</p><p><b>url</b>: <a href=\"http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-qualification-code\">http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-qualification-code</a></p><p><b>version</b>: 0.2.0</p><p><b>name</b>: Plannet_sp_practitionerrole_qualification_code</p><p><b>status</b>: active</p><p><b>date</b>: May 22, 2018 8:00:00 PM</p><p><b>publisher</b>: HL7 Patient Administration Committee</p><p><b>contact</b>: </p><p><b>description</b>: Select PractitionerRoles with a type of qualification matching the specified code</p><p><b>code</b>: qualification-code</p><p><b>base</b>: PractitionerRole</p><p><b>type</b>: token</p><p><b>expression</b>: PractitionerRole.extension.where(url='http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/qualification').extension.where(url='code')</p><p><b>multipleOr</b>: true</p><p><b>multipleAnd</b>: true</p><p><b>modifier</b>: text</p></div>"
+  },
+  "url" : "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-qualification-code",
+  "version" : "0.2.0",
+  "name" : "Plannet_sp_practitionerrole_qualification_code",
+  "status" : "active",
+  "date" : "2018-05-23T00:00:00+00:00",
+  "publisher" : "HL7 Patient Administration Committee",
+  "contact" : [
+    {
+      "telecom" : [
+        {
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/pafm/index.cfm"
+        }
+      ]
+    }
+  ],
+  "description" : "Select PractitionerRoles with a type of qualification matching the specified code",
+  "code" : "qualification-code",
+  "base" : [
+    "PractitionerRole"
+  ],
+  "type" : "token",
+  "expression" : "PractitionerRole.extension.where(url='http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/qualification').extension.where(url='code')",
+  "multipleOr" : true,
+  "multipleAnd" : true,
+  "modifier" : [
+    "text"
+  ]
+}
+
+###
+# Create a search parameter resource that targets a reference extension in the array
+# of extensions in the PractitionerRole resource.
+POST {{baseUrl}}/SearchParameter HTTP/1.1
+content-type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType" : "SearchParameter",
+  "id" : "practitionerrole-qualification-issuer",
+  "text" : {
+    "status" : "generated",
+    "div" : "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: practitionerrole-qualification-issuer</p><p><b>url</b>: <a href=\"http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-qualification-issuer\">http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-qualification-issuer</a></p><p><b>version</b>: 0.2.0</p><p><b>name</b>: Plannet_sp_practitionerrole_qualification_issuer</p><p><b>status</b>: active</p><p><b>date</b>: May 22, 2018 8:00:00 PM</p><p><b>publisher</b>: HL7 Patient Administration Committee</p><p><b>contact</b>: </p><p><b>description</b>: Select PractitionerRoles with a qualification issued by the specified organization</p><p><b>code</b>: qualification-issuer</p><p><b>base</b>: PractitionerRole</p><p><b>type</b>: reference</p><p><b>expression</b>: PractitionerRole.extension.where(url='http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/qualification').extension.where(url='issuer')</p><p><b>target</b>: Organization</p><p><b>multipleOr</b>: true</p><p><b>multipleAnd</b>: true</p><p><b>modifier</b>: below</p><p><b>chain</b>: identifier, name</p></div>"
+  },
+  "url" : "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/practitionerrole-qualification-issuer",
+  "version" : "0.2.0",
+  "name" : "Plannet_sp_practitionerrole_qualification_issuer",
+  "status" : "active",
+  "date" : "2018-05-23T00:00:00+00:00",
+  "publisher" : "HL7 Patient Administration Committee",
+  "contact" : [
+    {
+      "telecom" : [
+        {
+          "system" : "url",
+          "value" : "http://www.hl7.org/Special/committees/pafm/index.cfm"
+        }
+      ]
+    }
+  ],
+  "description" : "Select PractitionerRoles with a qualification issued by the specified organization",
+  "code" : "qualification-issuer",
+  "base" : [
+    "PractitionerRole"
+  ],
+  "type" : "reference",
+  "expression" : "PractitionerRole.extension.where(url='http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/qualification').extension.where(url='issuer')",
+  "target" : [
+    "Organization"
+  ],
+  "multipleOr" : true,
+  "multipleAnd" : true,
+  "modifier" : [
+    "below"
+  ],
+  "chain" : [
+    "identifier",
+    "name"
+  ]
+}
+
+###
+# Initiate a reindexing operation.
+# @name reindex
+POST {{baseUrl}}/$reindex HTTP/1.1
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{  "resourceType": "Parameters", "parameter": [] }
+
+###
+# Get the status of the reindex job.
+# This should complete quickly because we are only reindexing one resource.
+GET {{reindex.response.headers.Content-Location}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Get the practitioner role with matching network reference info.
+# This should return one value.
+GET {{baseUrl}}/PractitionerRole?network=Organization/AcmeofCTStdNet&_total=accurate HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Attempt to get a practitioner role with non-matching network reference info.
+# This shouldn't return any values.
+GET {{baseUrl}}/PractitionerRole?network=Organization/AcmeofDoesNotExist&_total=accurate HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Get the practitioner role with matching qualification code info.
+# This should return one value.
+GET {{baseUrl}}/PractitionerRole?qualification-code=http://nucc.org/provider-taxonomy|207R00000X&_total=accurate HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Attempt to get a practitioner role with non-matching qualification code info.
+# This shouldn't return any values.
+GET {{baseUrl}}/PractitionerRole?qualification-code=DoesNotExist&_total=accurate HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Get the practitioner role with matching qualification issuer info.
+# This should return one value.
+GET {{baseUrl}}/PractitionerRole?qualification-issuer=Organization/3250&_total=accurate HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Attempt to get a practitioner role with non-matching qualification issuer info.
+# This shouldn't return any values.
+GET {{baseUrl}}/PractitionerRole?qualification-issuer=DoesNotExist&_total=accurate HTTP/1.1
+Authorization: Bearer {{bearer.response.body.access_token}}
