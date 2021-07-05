@@ -3,20 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Hl7.Fhir.Model;
+
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     /// <summary>
-    /// Parser for raw data into ImportResource.
+    /// Populate resource with meta content.
     /// </summary>
-    public interface IImportResourceParser
+    public interface IResourceMetaPopulator
     {
         /// <summary>
-        /// Parse raw resource data.
+        /// Populate meta content.
         /// </summary>
         /// <param name="id">sequence id of the resource.</param>
-        /// <param name="index">index of the resource.</param>
-        /// <param name="rawContent">raw content in string format.</param>
-        /// <returns>ImportResource</returns>
-        public ImportResource Parse(long id, long index, string rawContent);
+        /// <param name="resource">resource.</param>
+        public void Populate(long id, Resource resource);
     }
 }

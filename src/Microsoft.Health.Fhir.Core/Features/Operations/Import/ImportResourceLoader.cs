@@ -157,9 +157,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                     try
                     {
-                        ImportResource importResource = _importResourceParser.Parse(content);
-                        importResource.Index = index;
-                        importResource.Id = id;
+                        ImportResource importResource = _importResourceParser.Parse(id, index, content);
 
                         if (!string.IsNullOrEmpty(resourceType) && !resourceType.Equals(importResource.Resource?.ResourceTypeName, StringComparison.Ordinal))
                         {
