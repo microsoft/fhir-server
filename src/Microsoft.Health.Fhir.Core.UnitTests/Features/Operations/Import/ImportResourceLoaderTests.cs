@@ -232,7 +232,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             importResourceParser.Parse(Arg.Any<long>(), Arg.Any<long>(), Arg.Any<string>())
                 .Returns(callInfo =>
                 {
-                    string content = (string)callInfo[0];
+                    long surrogatedId = (long)callInfo[0];
+                    long index = (long)callInfo[1];
+                    string content = (string)callInfo[2];
                     ResourceWrapper resourceWrapper = new ResourceWrapper(
                             content,
                             "0",
@@ -245,7 +247,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             null,
                             null,
                             "SearchParam");
-                    return new ImportResource(0, 0, resourceWrapper);
+                    return new ImportResource(surrogatedId, index, resourceWrapper);
                 });
 
             IImportErrorSerializer serializer = Substitute.For<IImportErrorSerializer>();
