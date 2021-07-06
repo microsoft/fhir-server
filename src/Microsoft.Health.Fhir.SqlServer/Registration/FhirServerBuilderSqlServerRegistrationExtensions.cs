@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -109,6 +110,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<ReindexJobSqlThrottlingController>()
                 .Singleton()
+                .AsImplementedInterfaces();
+
+            services.Add<PurgeOperationCapabilityProvider>()
+                .Transient()
                 .AsImplementedInterfaces();
 
             return fhirServerBuilder;

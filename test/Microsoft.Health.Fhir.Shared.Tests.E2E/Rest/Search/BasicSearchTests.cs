@@ -925,6 +925,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenACompositeTokenNumberNumberSearchParameter_WhenSearching_ReturnsSearchResults()
+        {
+            var sequenceType = ModelInfoProvider.Version == FhirSpecification.Stu3 ? "Sequence" : "MolecularSequence";
+            var response = await Client.SearchAsync($"{sequenceType}?referenceseqid-window-coordinate=NT_007592.15$18130918$18143955");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenASearchRequestWithInvalidHandling_WhenHandled_ReturnsBadRequest()
         {
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() =>
