@@ -1,7 +1,7 @@
 # GraphQl endpoint for FHIR-Server
 > A GraphQL prototype for the [HL7 FHIR specification](https://www.hl7.org/fhir/) based on the current implementation guide 
 > for [GraphQL with FHIR](https://build.fhir.org/graphql.html).
-
+ 
 ## What Can I do with GraphQL in FHIR-Server?
 * ✅ Get all Patients in your FHIR-Server with specified properties based on [Patient Resource](https://www.hl7.org/fhir/patient.html).
 * ✅ Get Patient by ID with specified properties.
@@ -11,7 +11,7 @@
 ## Building locally
 
 ### Getting started
-* Clone FHIR-Server:`git clone https://github.com/Microsoft/fhir-server`
+* Follow one-time steps in [Build and debug locally](https://github.com/microsoft/fhir-server/wiki/Build-and-debug-locally).
 * Change branch to feature/graphql-prototype: `git checkout feature/graphql-prototype`
 * Install .Net core SDK version as listed in the global.json file (fhir-server/global.json)
 https://dotnet.microsoft.com/download/dotnet-core/
@@ -26,11 +26,11 @@ https://dotnet.microsoft.com/download/dotnet-core/
   see the [Banana Cake Pop UI](https://chillicream.com/docs/bananacakepop).
 
 ## Manual Testing
+* [Running manual test scenarios with Banana Cake Pop UI](https://github.com/microsoft/fhir-server/blob/feature/graphql-prototype/docs/graphQl/TestingWithBananaCakePop.md).
 * Using Visual Studio Code's REST Client to run manual test scenarios.
     * Navigate to the `docs\graphQl` folder, open the `.http` test file you would like to use in Visual Studio Code
     * Click "Send Request" above each HTTP request in the file.
     * To learn about VS Code extension see [How to use Visual Studio Code's REST Client](https://github.com/microsoft/fhir-server/blob/main/docs/rest/HowToUseVSCodeRestClient.md).
-* [Running manual test scenarios with Banana Cake Pop UI].
 
 ## Samples
 ## Next Steps
