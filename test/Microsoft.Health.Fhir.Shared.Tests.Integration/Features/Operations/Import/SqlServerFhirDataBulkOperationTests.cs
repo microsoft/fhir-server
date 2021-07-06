@@ -6,7 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -279,6 +281,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     "SearchParam");
             resource.ResourceSurrogateId = surrogateId;
             resource.ResourceTypeId = 0;
+            resource.BulkImportResource = new BulkImportResourceTypeV1Row(0, resourceId, 0, false, surrogateId, false, "POST", new MemoryStream(Encoding.UTF8.GetBytes("Test")), true, "Test");
             return resource;
         }
 

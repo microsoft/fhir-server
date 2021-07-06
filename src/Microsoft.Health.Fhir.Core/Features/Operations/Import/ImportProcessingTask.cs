@@ -182,15 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(canceledEx, "Data processing task is canceled.");
 
-                try
-                {
-                    await _resourceBulkImporter.CleanResourceAsync(_inputData, _importProgress, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogInformation(ex, "Data processing task is canceled. Failed to clean resource.");
-                    throw new RetriableTaskException(ex.Message);
-                }
+                await CleanResourceForFailureAsync(canceledEx);
 
                 return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
             }
@@ -198,25 +190,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             {
                 _logger.LogInformation(canceledEx, "Data processing task is canceled.");
 
-                try
-                {
-                    await _resourceBulkImporter.CleanResourceAsync(_inputData, _importProgress, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogInformation(ex, "Data processing task is canceled. Failed to clean resource.");
-                    throw new RetriableTaskException(ex.Message);
-                }
+                await CleanResourceForFailureAsync(canceledEx);
 
                 return new TaskResultData(TaskResult.Canceled, JsonConvert.SerializeObject(result));
             }
-            catch (RetriableTaskException)
+            catch (RetriableTaskException retriableEx)
             {
+                _logger.LogInformation(retriableEx, "Error in data processing task.");
+
+                await CleanResourceForFailureAsync(retriableEx);
+
                 throw;
             }
             catch (Exception ex)
             {
                 _logger.LogInformation(ex, "Critical error in data processing task.");
+
+                await CleanResourceForFailureAsync(ex);
 
                 throw new RetriableTaskException(ex.Message);
             }
@@ -226,6 +216,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 {
                     _cancellationTokenSource.Cancel();
                 }
+            }
+        }
+
+        private async Task CleanResourceForFailureAsync(Exception failureException)
+        {
+            try
+            {
+                await _resourceBulkImporter.CleanResourceAsync(_inputData, _importProgress, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex, "Data processing task is canceled. Failed to clean resource.");
+                throw new RetriableTaskException(ex.Message, failureException);
             }
         }
 

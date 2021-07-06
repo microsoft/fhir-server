@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             List<long> importedSurrogatedId = new List<long>();
 
             // Make sure there's no dup in this batch
-            resources = resources.GroupBy(r => r.Resource.ResourceId).Select(r => r.First());
+            resources = resources.GroupBy(r => (r.ResourceTypeId, r.Resource.ResourceId)).Select(r => r.First());
             IEnumerable<BulkImportResourceTypeV1Row> inputResources = resources.Select(r => r.BulkImportResource);
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
