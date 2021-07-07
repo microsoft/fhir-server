@@ -55,7 +55,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public static IReadOnlyList<(Table table, Index index)> OptionIndexesForImport { get; } =
+        public static IReadOnlyList<(Table table, Index index)> OptionalUniqueIndexesForImport { get; } =
+            new List<(Table table, Index index)>()
+            {
+                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId),
+                (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId),
+            };
+
+        public static IReadOnlyList<(Table table, Index index)> OptionalIndexesForImport { get; } =
             new List<(Table table, Index index)>()
             {
                 (VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId),
@@ -189,14 +196,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task PreprocessAsync(CancellationToken cancellationToken)
         {
             // Not disable index by default
-            if (!_importTaskConfiguration.SqlDisableIndex)
+            if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
             {
-                return;
-            }
+                List<(string tableName, string indexName)> indexesNeedDisable = new List<(string tableName, string indexName)>();
 
-            (string tableName, string indexName)[] indexes = OptionIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
-            {
-                foreach (var index in indexes)
+                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
+                {
+                    indexesNeedDisable.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                }
+
+                if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                {
+                    indexesNeedDisable.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                }
+
+                foreach (var index in indexesNeedDisable)
                 {
                     using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
                     using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -219,37 +233,45 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task PostprocessAsync(CancellationToken cancellationToken)
         {
-            // Not disable index by default
-            if (!_importTaskConfiguration.SqlDisableIndex)
+            // Not rerebuild index by default
+            if (_importTaskConfiguration.DisableOptionalIndexesForImport || _importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
             {
-                return;
-            }
+                List<(string tableName, string indexName)> indexesNeedRebuild = new List<(string tableName, string indexName)>();
 
-            List<(string tableName, string indexName)> indexes =
-                OptionIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToList();
-            List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
-            HashSet<string> runningRebuildTables = new HashSet<string>();
-
-            // rebuild index operation on same table would be blocked, try to parallel run rebuild operation on different table.
-            while (indexes.Count > 0)
-            {
-                // if all remine indexes' table has some running rebuild operation, need to wait until at least one operation completed.
-                while (indexes.All(ix => runningRebuildTables.Contains(ix.tableName)) || runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                if (_importTaskConfiguration.DisableOptionalIndexesForImport)
                 {
-                    Task<(string tableName, string indexName)> completedTask = await Task.WhenAny(runningTasks.ToArray());
-                    (string tableName, string indexName) indexRebuilt = await completedTask;
-
-                    runningRebuildTables.Remove(indexRebuilt.tableName);
-                    runningTasks.Remove(completedTask);
+                    indexesNeedRebuild.AddRange(OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
                 }
 
-                (string tableName, string indexName) nextIndex = indexes.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
-                indexes.Remove(nextIndex);
-                runningRebuildTables.Add(nextIndex.tableName);
-                runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, cancellationToken));
-            }
+                if (_importTaskConfiguration.DisableUniqueOptionalIndexesForImport)
+                {
+                    indexesNeedRebuild.AddRange(OptionalUniqueIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)));
+                }
 
-            await Task.WhenAll(runningTasks.ToArray());
+                List<Task<(string tableName, string indexName)>> runningTasks = new List<Task<(string tableName, string indexName)>>();
+                HashSet<string> runningRebuildTables = new HashSet<string>();
+
+                // rebuild index operation on same table would be blocked, try to parallel run rebuild operation on different table.
+                while (indexesNeedRebuild.Count > 0)
+                {
+                    // if all remine indexes' table has some running rebuild operation, need to wait until at least one operation completed.
+                    while (indexesNeedRebuild.All(ix => runningRebuildTables.Contains(ix.tableName)) || runningTasks.Count >= _importTaskConfiguration.SqlMaxRebuildIndexOperationConcurrentCount)
+                    {
+                        Task<(string tableName, string indexName)> completedTask = await Task.WhenAny(runningTasks.ToArray());
+                        (string tableName, string indexName) indexRebuilt = await completedTask;
+
+                        runningRebuildTables.Remove(indexRebuilt.tableName);
+                        runningTasks.Remove(completedTask);
+                    }
+
+                    (string tableName, string indexName) nextIndex = indexesNeedRebuild.Where(ix => !runningRebuildTables.Contains(ix.tableName)).First();
+                    indexesNeedRebuild.Remove(nextIndex);
+                    runningRebuildTables.Add(nextIndex.tableName);
+                    runningTasks.Add(ExecuteRebuildIndexTaskAsync(nextIndex.tableName, nextIndex.indexName, cancellationToken));
+                }
+
+                await Task.WhenAll(runningTasks.ToArray());
+            }
         }
 
         private async Task<(string tableName, string indexName)> ExecuteRebuildIndexTaskAsync(string tableName, string indexName, CancellationToken cancellationToken)

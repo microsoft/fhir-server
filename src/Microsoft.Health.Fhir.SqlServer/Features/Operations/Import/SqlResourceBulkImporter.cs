@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             if (!progress.NeedCleanData)
             {
-                // If the import not initialized, then skip clean data step.
+                // Skip clean data step for first run.
                 return;
             }
 

@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 "IX_Resource_ResourceTypeId_ResourceSurrgateId",
             };
 
-            string[] supportedIndexesNames = SqlImportOperation.OptionIndexesForImport.Select(i => i.index.IndexName).ToArray();
+            string[] supportedIndexesNames = SqlImportOperation.OptionalIndexesForImport.Select(i => i.index.IndexName).ToArray();
             int expectedIndexesCount = 0;
             foreach (Table table in resourceRelatedTables)
             {

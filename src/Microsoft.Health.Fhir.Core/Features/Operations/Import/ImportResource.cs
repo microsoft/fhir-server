@@ -49,6 +49,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// </summary>
         public string ImportError { get; set; }
 
+        /// <summary>
+        /// Compressed raw resource stream
+        /// </summary>
         public Stream CompressedStream { get; set; }
     }
 }

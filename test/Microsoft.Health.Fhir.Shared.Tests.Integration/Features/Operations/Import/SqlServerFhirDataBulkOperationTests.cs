@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
-        public async Task GivenListOfResource_WhenBulkMergeToStore_ThenAllResourcesShouldBeImported()
+        public async Task GivenListOfResources_WhenBulkMergeToStore_ThenAllResourcesShouldBeImported()
         {
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             operationsConfiguration.Value.Returns(new OperationsConfiguration());
@@ -210,6 +210,58 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
+        public async Task GivenListOfResourcesWithDupResourceId_WhenBulkMergeToStore_ThenDistinctResourceShouldBeImported()
+        {
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
+            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
+            List<SqlBulkCopyDataWrapper> resources = new List<SqlBulkCopyDataWrapper>();
+            long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
+
+            SqlBulkCopyDataWrapper resource1 = CreateTestResource(Guid.NewGuid().ToString(), startSurrogateId);
+            SqlBulkCopyDataWrapper resource2 = CreateTestResource(Guid.NewGuid().ToString(), startSurrogateId + 1);
+
+            resources.Add(resource1);
+            resources.Add(resource2);
+
+            SqlBulkCopyDataWrapper[] result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
+            int rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + 2);
+            Assert.Equal(2, result.Count());
+            Assert.Equal(2, rCount);
+
+            resource1.ResourceSurrogateId = startSurrogateId + 2;
+            resource1.ResourceSurrogateId = startSurrogateId + 3;
+            result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
+            rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + 4);
+            Assert.Empty(result);
+            Assert.Equal(0, rCount);
+        }
+
+        [Fact]
+        public async Task GivenListOfResources_WhenBulkMergeToStoreTwice_ThenSecondMergeShouldFail()
+        {
+            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
+            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
+            List<SqlBulkCopyDataWrapper> resources = new List<SqlBulkCopyDataWrapper>();
+            long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
+
+            string resourceId = Guid.NewGuid().ToString();
+            SqlBulkCopyDataWrapper resource1 = CreateTestResource(resourceId, startSurrogateId);
+            SqlBulkCopyDataWrapper resource2 = CreateTestResource(resourceId, startSurrogateId + 1);
+
+            resources.Add(resource1);
+            resources.Add(resource2);
+
+            SqlBulkCopyDataWrapper[] result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
+            int rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + 2);
+            Assert.Single(result);
+            Assert.Equal(1, rCount);
+        }
+
+        [Fact]
         public async Task GivenUnclusteredIndexes_WhenRebuildIndexes_ThenOnlyDisabledIndexShouldBeBuilt()
         {
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
@@ -217,7 +269,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
 
-            (string tableName, string indexName)[] indexes = SqlImportOperation.OptionIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName)[] indexes = SqlImportOperation.OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             foreach (var index in indexes)
             {
                 await DisableIndex(index.tableName, index.indexName);
@@ -244,7 +296,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
 
-            (string tableName, string indexName)[] indexes = SqlImportOperation.OptionIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName)[] indexes = SqlImportOperation.OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             foreach (var index in indexes)
             {
                 await RebuildIndex(index.tableName, index.indexName);
