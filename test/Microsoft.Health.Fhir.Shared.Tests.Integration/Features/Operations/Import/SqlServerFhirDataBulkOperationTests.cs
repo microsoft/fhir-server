@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
             rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + 4);
             Assert.Empty(result);
-            Assert.Equal(0, rCount);
+            Assert.Equal(2, rCount);
         }
 
         [Fact]
