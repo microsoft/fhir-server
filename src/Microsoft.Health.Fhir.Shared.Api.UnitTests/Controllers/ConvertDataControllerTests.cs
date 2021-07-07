@@ -13,7 +13,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -27,6 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private ConvertDataController _convertDataEnabledController;
         private IMediator _mediator = Substitute.For<IMediator>();
         private static ConvertDataConfiguration _convertDataJobConfig = new ConvertDataConfiguration() { Enabled = true };
+        private static ArtifactStoreConfiguration _artifactStoreConfig = new ArtifactStoreConfiguration();
 
         private const string _testImageReference = "test.azurecr.io/testimage:latest";
         private const string _testHl7v2RootTemplate = "ADT_A01";
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public ConvertDataControllerTests()
         {
             _convertDataJobConfig.ContainerRegistryServers.Add("test.azurecr.io");
-            _convertDataEnabledController = GetController(_convertDataJobConfig);
+            _convertDataEnabledController = GetController(_convertDataJobConfig, _artifactStoreConfig);
         }
 
         public static TheoryData<Parameters> InvalidBody =>
@@ -99,6 +102,63 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
+        [InlineData(null, null, null, "abc.azurecr.io/template:123")]
+        [InlineData("abc.azurecr.io", null, null, "dummy.azurecr.io/template:123")]
+        [InlineData("abc.azurecr.io", "template", null, "abc.azurecr.io/convertertemplate:123")]
+        [InlineData("abc.azurecr.io", "template", "sha256:123abc", "abc.azurecr.io/template:123")]
+        [InlineData("abc.azurecr.io", "template", "sha256:123abc", "abc.azurecr.io/template1@sha256:123")]
+        [InlineData("abc.azurecr.io", "template", "sha256:123abc", "abc.azurecr.io/template@sha256:123abd")]
+        public async Task GivenAConvertDataRequest_WithNotConfiguredTemplate_WhenValidBodySent_ThenTemplateNotConfiguredThrown(string loginServer, string imageName, string digest, string templateCollectionReference)
+        {
+            var ociArtifactInfo = new OciArtifactInfo
+            {
+                LoginServer = loginServer,
+                ImageName = imageName,
+                Digest = digest,
+            };
+            var artifactConfig = new ArtifactStoreConfiguration();
+            artifactConfig.OciArtifacts.Add(ociArtifactInfo);
+
+            var localController = GetController(_convertDataJobConfig, artifactConfig);
+            var body = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", templateCollectionReference, _testHl7v2RootTemplate);
+
+            await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => localController.ConvertData(body));
+        }
+
+        [Theory]
+        [InlineData(null, null, null, "test.azurecr.io/template:123")] // configured in ConvertData config
+        [InlineData("abc.azurecr.io", null, null, "abc.azurecr.io/template:123")]
+        [InlineData("abc.azurecr.io", "template", null, "abc.azurecr.io/template:123")]
+        [InlineData("abc.azurecr.io", "template", null, "ABC.azurecr.io/template:123")]
+        [InlineData("abc.azurecr.io", "template", "sha256:123abc", "abc.azurecr.io/template@sha256:123abc")]
+        public async Task GivenAConvertDataRequest_WithConfiguredTemplate_WhenValidBodySent_ThenConvertDataCalledWithCorrectParams(string loginServer, string imageName, string digest, string templateCollectionReference)
+        {
+            _mediator.Send(Arg.Any<ConvertDataRequest>()).Returns(Task.FromResult(GetConvertDataResponse()));
+
+            var ociArtifactInfo = new OciArtifactInfo
+            {
+                LoginServer = loginServer,
+                ImageName = imageName,
+                Digest = digest,
+            };
+            var artifactConfig = new ArtifactStoreConfiguration();
+            artifactConfig.OciArtifacts.Add(ociArtifactInfo);
+
+            var localController = GetController(_convertDataJobConfig, artifactConfig);
+            var body = GetConvertDataParams(Samples.SampleHl7v2Message, "Hl7v2", templateCollectionReference, _testHl7v2RootTemplate);
+
+            await localController.ConvertData(body);
+            await _mediator.Received().Send(
+                Arg.Is<ConvertDataRequest>(
+                     r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputData)).Value.ToString())
+                && string.Equals(r.InputDataType.ToString(), body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.InputDataType)).Value.ToString(), StringComparison.OrdinalIgnoreCase)
+                && r.TemplateCollectionReference == body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.TemplateCollectionReference)).Value.ToString()
+                && r.RootTemplate == body.Parameter.Find(p => p.Name.Equals(ConvertDataProperties.RootTemplate)).Value.ToString()),
+                Arg.Any<CancellationToken>());
+            _mediator.ClearReceivedCalls();
+        }
+
+        [Theory]
         [MemberData(nameof(Hl7v2ValidBody), MemberType = typeof(ConvertDataControllerTests))]
         public async Task GivenAHl7v2ConvertDataRequest_WithValidBody_ThenConvertDataCalledWithCorrectParams(Parameters body)
         {
@@ -132,7 +192,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static ConvertDataResponse GetConvertDataResponse() => new ConvertDataResponse(Samples.SampleConvertDataResponse);
 
-        private ConvertDataController GetController(ConvertDataConfiguration convertDataConfiguration)
+        private ConvertDataController GetController(
+            ConvertDataConfiguration convertDataConfiguration,
+            ArtifactStoreConfiguration artifactStoreConfiguration)
         {
             var operationConfig = new OperationsConfiguration()
             {
@@ -142,9 +204,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             optionsOperationConfiguration.Value.Returns(operationConfig);
 
+            IOptions<ArtifactStoreConfiguration> optionsArtifactStoreConfiguration = Substitute.For<IOptions<ArtifactStoreConfiguration>>();
+            optionsArtifactStoreConfiguration.Value.Returns(artifactStoreConfiguration);
+
             return new ConvertDataController(
                 _mediator,
                 optionsOperationConfiguration,
+                optionsArtifactStoreConfiguration,
                 NullLogger<ConvertDataController>.Instance);
         }
 

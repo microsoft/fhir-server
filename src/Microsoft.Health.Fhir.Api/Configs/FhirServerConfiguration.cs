@@ -29,5 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public BundleConfiguration Bundle { get; } = new BundleConfiguration();
 
         public ThrottlingConfiguration Throttling { get; } = new ThrottlingConfiguration();
+
+        public ArtifactStoreConfiguration ArtifactStore { get; } = new ArtifactStoreConfiguration();
     }
 }

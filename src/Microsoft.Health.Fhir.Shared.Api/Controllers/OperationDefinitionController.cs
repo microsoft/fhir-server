@@ -112,6 +112,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.MemberMatch);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.PurgeHistoryOperationDefinition, Name = RouteNames.PurgeHistoryDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> PurgeHistoryOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.PurgeHistory);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -142,6 +150,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     operationEnabled = _operationConfiguration.ConvertData.Enabled;
                     break;
                 case OperationsConstants.MemberMatch:
+                case OperationsConstants.PurgeHistory:
                     operationEnabled = true;
                     break;
                 default:
@@ -152,8 +161,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, operationName));
             }
-
-            return;
         }
     }
 }

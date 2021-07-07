@@ -27,9 +27,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             Tag = Guid.NewGuid().ToString();
 
-            // Prepare the resources used for number search tests.
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
-
             await TestFhirClient.CreateResourcesAsync<Patient>(p =>
             {
                 p.Meta = new Meta

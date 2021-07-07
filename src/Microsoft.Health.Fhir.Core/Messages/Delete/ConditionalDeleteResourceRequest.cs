@@ -13,14 +13,14 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
     public class ConditionalDeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability
     {
-        public ConditionalDeleteResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, bool hardDelete, int maxDeleteCount)
+        public ConditionalDeleteResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, DeleteOperation deleteOperation, int maxDeleteCount)
         {
             EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 
             ResourceType = resourceType;
             ConditionalParameters = conditionalParameters;
-            HardDelete = hardDelete;
+            DeleteOperation = deleteOperation;
             MaxDeleteCount = maxDeleteCount;
         }
 
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 
         public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; }
 
-        public bool HardDelete { get; }
+        public DeleteOperation DeleteOperation { get; }
 
         public int MaxDeleteCount { get; }
 

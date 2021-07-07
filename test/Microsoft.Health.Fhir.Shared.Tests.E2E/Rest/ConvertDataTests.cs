@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("test.azurecr.com/template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8696")]
         [InlineData("*****####.com/template:default")]
         [InlineData("¶Š™œãý£¾.com/template:default")]
-        public async Task GivenAValidRequest_ButTemplateRegistryIsNotConfigured_WhenConvertData_ShouldReturnBadRequest(string templateReference)
+        public async Task GivenAValidRequest_ButTemplateReferenceIsNotConfigured_WhenConvertData_ShouldReturnBadRequest(string templateReference)
         {
             Skip.IfNot(_convertDataEnabled);
 
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
             var registryName = templateReference.Split('/')[0];
-            Assert.Contains($"The container registry '{registryName}' is not configured.", responseContent);
+            Assert.Contains($"The template collection reference '{templateReference}' is not configured.", responseContent);
         }
 
         [SkippableTheory]

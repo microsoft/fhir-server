@@ -84,6 +84,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenAType_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfullyWithResponseStatus()
+        {
+            Observation newCreatedResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            await _client.UpdateAsync(newCreatedResource, int.Parse(newCreatedResource.Meta.VersionId).ToString());
+            await _client.DeleteAsync(newCreatedResource);
+            await _client.DeleteAsync(newCreatedResource);
+
+            using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"Observation/{newCreatedResource.Id}/_history");
+
+            AssertCount(3, readResponse.Resource.Entry);
+            foreach (var ent in readResponse.Resource.Entry)
+            {
+                if (ent.Request.Method == Bundle.HTTPVerb.POST)
+                {
+                    Assert.True(ent.Response.Status == "201 Created");
+                }
+                else if (ent.Request.Method == Bundle.HTTPVerb.DELETE)
+                {
+                    Assert.True(ent.Response.Status == "204 NoContent");
+                }
+                else
+                {
+                    Assert.True(ent.Response.Status == "200 OK");
+                }
+            }
+        }
+
+        [Fact]
         public async Task GivenAValueForSince_WhenGettingSystemHistory_TheServerShouldReturnOnlyRecordsModifiedAfterSinceValue()
         {
             var tag = Guid.NewGuid().ToString();

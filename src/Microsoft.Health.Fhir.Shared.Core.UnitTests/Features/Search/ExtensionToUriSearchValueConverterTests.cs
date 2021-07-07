@@ -1,0 +1,50 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters;
+using Xunit;
+using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+
+using Task = System.Threading.Tasks.Task;
+
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
+{
+    public sealed class ExtensionToUriSearchValueConverterTests : FhirInstanceToSearchValueConverterTests<Extension>
+    {
+        protected override async Task<ITypedElementToSearchValueConverter> GetTypeConverterAsync()
+        {
+            FhirTypedElementToSearchValueConverterManager fhirTypedElementToSearchValueConverterManager = await SearchParameterFixtureData.GetFhirTypedElementToSearchValueConverterManagerAsync();
+            fhirTypedElementToSearchValueConverterManager.TryGetConverter("Extension", typeof(UriSearchValue), out ITypedElementToSearchValueConverter extensionConverter);
+
+            return extensionConverter;
+        }
+
+        public static IEnumerable<object[]> GetUriExtensionDataSource()
+        {
+            yield return new object[] { new Extension("test", new FhirUri { Value = "http://uri" }), "http://uri" };
+            yield return new object[] { new Extension("test", new Oid { Value = "1.3.6.1.4.1.343" }), "1.3.6.1.4.1.343" };
+            yield return new object[] { new Extension("test", new Canonical { Value = "http://uri" }), "http://uri" };
+        }
+
+        [Theory]
+        [MemberData(nameof(GetUriExtensionDataSource))]
+        public async Task GivenAUriExtension_WhenConverted_ThenAUriSearchValueShouldBeCreated(Extension extension, string expected)
+        {
+            await TestExtensionAsync(
+                ext =>
+                {
+                    ext.Url = extension.Url;
+                    ext.Value = extension.Value;
+                },
+                ValidateUri,
+                expected);
+        }
+    }
+}

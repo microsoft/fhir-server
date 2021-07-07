@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
@@ -112,6 +113,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
             Assert.Equal("Queued", parametersResource.Parameter[5].Value.ToString());
+            Assert.Empty(parametersResource.Parameter.Where(x => x.TypeName == "Resources"));
+            Assert.Empty(parametersResource.Parameter.Where(x => x.TypeName == "SearchParams"));
+            Assert.Empty(parametersResource.Parameter.Where(x => x.TypeName == "TargetResourceTypes"));
+            Assert.Empty(parametersResource.Parameter.Where(x => x.TypeName == "TargetDataStoreUsagePercentage"));
+            Assert.Equal("500", parametersResource.Parameter[7].Value.ToString());
+            Assert.Equal("100", parametersResource.Parameter[8].Value.ToString());
         }
 
         private ReindexController GetController(ReindexJobConfiguration reindexConfig)
@@ -133,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static CreateReindexResponse GetCreateReindexResponse()
         {
-            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, 5);
+            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -142,7 +149,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static GetReindexResponse GetReindexJobResponse()
         {
-            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, 5);
+            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, new List<string>(), 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));

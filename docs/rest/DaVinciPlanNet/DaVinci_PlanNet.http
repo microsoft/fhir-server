@@ -71,7 +71,6 @@ content-type: {{contentType}}
 
 < ./SearchParameters/OrganizationAffiliationNetwork.json
 
-
 ### Trigger reindex
 # You need to trigger a reindex to get the search parameters to be fully supported in your database
 # Copy the ID from the response's Content-Location header and paste it in the reindexJobId variable at the top of the file
@@ -177,94 +176,7 @@ content-type: {{contentType}}
 
 < ./Profiles/Network.json
 
-### Load Extensions
-# There are 12 extensions to load for this IG
-
-### Post Accessibility Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/Accessibility.json
-
-### Post Communication Proficiency Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/CommunicationProficiency.json
-
-### Post Contactpoint Availabletime Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/ContactPointAvailableTime.json
-
-### Post Delivery Method Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/DeliveryMethod.json
-
-### Post Endpoint Usecase Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/EndpointUsecase.json
-
-### Post Location Reference Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/LocationReference.json
-
-### Post Network Reference Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/NetworkReference.json
-
-### Post New Patients Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/NewPatients.json
-
-### Post Org Description Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/OrgDescription.json
-
-### Post Practitioner Qualification Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/PractitionerQualification.json
-
-### Post Qualification Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/Qualification.json
-
-### Post Via Intermediary Extension Definition 
-POST {{fhirurl}}/StructureDefinition
-Authorization: Bearer {{token}}
-content-type: {{contentType}}
-
-< ./Extensions/ViaIntermediary.json
-
-### Check Profiles & Extensions Were Added
+### Check Profiles Were Added
 Get {{fhirurl}}/StructureDefinition
 Authorization: Bearer {{token}}
 content-type: {{contentType}}
