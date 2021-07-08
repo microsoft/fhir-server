@@ -4,15 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Net.Http;
-using System.Text;
-using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Search;
-using Microsoft.Health.Test.Utilities;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
@@ -26,59 +21,27 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
         }
 
         [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async void GivenQueryPatients_ThenAllPatientsShouldBeReturned()
+        public async void GivenQueryByGet_AskingForPatientSchema_ThenPatientSchemaShouldBeReturned()
         {
-            var tag = Guid.NewGuid().ToString();
+            var baseUrl = "graphql/graphql?sdl";
+            using var message = new HttpRequestMessage(HttpMethod.Get, baseUrl);
+            message.Headers.Host = "patient.graphql";
 
-            // Create various patients.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "Seattle", "Robinson", tag),
-                p => SetPatientInfo(p, "Portland", "Williamas", tag),
-                p => SetPatientInfo(p, "Seattle", "Jones", tag));
+            using HttpResponseMessage response = await Client.HttpClient.SendAsync(message);
 
-            // Define your baseUrl
-            string baseUrl = "graphql";
-            var json = @"{""query"":""{ patients { id } }"",""variables"":{}}";
-            StringContent httpContent = new StringContent(json, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await Client.HttpClient.PostAsync(baseUrl, httpContent);
-            HttpContent content = response.Content;
-            var data = await content.ReadAsStringAsync();
-
-            // var resValues = JsonConvert.DeserializeObject<Dictionary<string, string>>(response);
-
-            // Assert.Equal("name", b["data"]["b"]);
+            response.EnsureSuccessStatusCode();
         }
 
         [Fact]
-        public async void Testing_GivenQuerySdl()
+        public async void GivenQueryByGet_AskingForTypesSchema_ThenTypesSchemaShouldBeReturned()
         {
-            var tag = Guid.NewGuid().ToString();
+            var baseUrl = "graphql/graphql?sdl";
+            using var message = new HttpRequestMessage(HttpMethod.Get, baseUrl);
+            message.Headers.Host = "types.graphql";
 
-            // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3, tag);
-            var data = await Client.SearchAsync("graphql/graphql?sdl");
-            var content = data.Content;
-        }
+            using HttpResponseMessage response = await Client.HttpClient.SendAsync(message);
 
-        private void SetPatientInfo(Patient patient, string city, string family, string tag)
-        {
-            if (tag != null)
-            {
-                patient.Meta = new Meta();
-                patient.Meta.Tag.Add(new Coding(null, tag));
-            }
-
-            patient.Address = new List<Address>()
-                {
-                    new Address() { City = city },
-                };
-
-            patient.Name = new List<HumanName>()
-                {
-                    new HumanName() { Family = family },
-                };
+            response.EnsureSuccessStatusCode();
         }
     }
 }

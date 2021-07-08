@@ -5,6 +5,7 @@
 
 using System;
 using Hl7.Fhir.Model;
+using HotChocolate.AspNetCore;
 using MediatR;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Builder;
@@ -35,7 +36,13 @@ namespace Microsoft.Health.Fhir.Web
         {
             services.AddDevelopmentIdentityProvider(Configuration);
 
-            _ = services
+            services
+                .AddCors(o =>
+                    o.AddDefaultPolicy(b =>
+                        b.AllowAnyHeader()
+                            .AllowAnyMethod()
+                            .AllowAnyOrigin()))
+
                 .AddRouting()
 
                 // Adding the GraphQL server core service
@@ -136,11 +143,21 @@ namespace Microsoft.Health.Fhir.Web
             app.UsePrometheusHttpMetrics();
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
+            app.UseCors();
 
+            app.UseWebSockets();
             app.UseRouting();
+
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapGraphQL("/graphql"); // By default it is /graphql, but I can change it to /$graphql
+                endpoints.MapGraphQL() // By default it is /graphql, but I can change it to /$graphql
+                .WithOptions(new GraphQLServerOptions
+                {
+                    AllowedGetOperations = AllowedGetOperations.QueryAndMutation,
+                    EnableSchemaRequests = true,
+                    EnableMultipartRequests = true,
+                    Tool = { Enable = true },
+                });
             });
         }
 

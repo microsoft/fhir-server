@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric
         {
         }
 
+        [System.Obsolete]
         public override void ConfigureServices(IServiceCollection services)
         {
             base.ConfigureServices(services);

@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         {
         }
 
+        [System.Obsolete]
         public override void ConfigureServices(IServiceCollection services)
         {
             base.ConfigureServices(services);
