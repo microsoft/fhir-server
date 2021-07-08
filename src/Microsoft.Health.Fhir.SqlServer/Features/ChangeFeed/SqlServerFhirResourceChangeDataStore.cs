@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         /// <exception cref="Microsoft.Data.SqlClient.SqlException">Thrown when SQL Server returns a warning or error.</exception>
         /// <exception cref="System.TimeoutException">Thrown when the time allotted for a process or operation has expired.</exception>
         /// <exception cref="System.Exception">Thrown when errors occur during execution.</exception>
-        public async Task<IReadOnlyCollection<IResourceChangeData>> GetRecordsAsync(long startId, int pageSize, CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<IResourceChangeData>> GetRecordsAsync(long startId, short pageSize, CancellationToken cancellationToken)
         {
             EnsureArg.IsGte(startId, 0, nameof(startId));
             EnsureArg.IsGte(pageSize, 1, nameof(pageSize));
