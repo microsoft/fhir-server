@@ -205,10 +205,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                         IEnumerable<ImportResource> resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
                         IEnumerable<SqlBulkCopyDataWrapper> inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r));
                         IEnumerable<SqlBulkCopyDataWrapper> mergedResources = await _sqlImportOperation.BulkMergeResourceAsync(inputResources, cancellationToken);
-                        IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Where(r => !mergedResources.Select(mr => mr.ResourceSurrogateId).Contains(r.ResourceSurrogateId));
+                        IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
 
                         importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
-
                         FillResourceParamsBuffer(mergedResources, resourceParamsBuffer);
                         AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
 
@@ -268,13 +267,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     IEnumerable<ImportResource> resourcesWithError = resourceBuffer.Where(r => r.ContainsError());
                     IEnumerable<SqlBulkCopyDataWrapper> inputResources = resourceBuffer.Where(r => !r.ContainsError()).Select(r => _sqlBulkCopyDataWrapperFactory.CreateSqlBulkCopyDataWrapper(r));
                     IEnumerable<SqlBulkCopyDataWrapper> mergedResources = await _sqlImportOperation.BulkMergeResourceAsync(inputResources, cancellationToken);
-                    IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Where(r => !mergedResources.Select(mr => mr.ResourceSurrogateId).Contains(r.ResourceSurrogateId));
-
+                    IEnumerable<SqlBulkCopyDataWrapper> duplicateResourcesNotMerged = inputResources.Except(mergedResources);
                     importErrorBuffer.AddRange(resourcesWithError.Select(r => r.ImportError));
 
                     FillResourceParamsBuffer(mergedResources, resourceParamsBuffer);
-                    AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
 
+                    AppendDuplicatedResouceErrorToBuffer(duplicateResourcesNotMerged, importErrorBuffer);
                     succeedCount += mergedResources.Count();
                     failedCount += resourcesWithError.Count() + duplicateResourcesNotMerged.Count();
                 }
