@@ -119,6 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var upsertResourceTvpGeneratorV6 = serviceProvider.GetRequiredService<V6.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertResourceTvpGeneratorV7 = serviceProvider.GetRequiredService<V7.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var upsertResourceTvpGeneratorV13 = serviceProvider.GetRequiredService<V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
             var reindexResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
@@ -144,6 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParameterToSearchValueTypeMap,
                 upsertResourceTvpGeneratorV6,
                 upsertResourceTvpGeneratorV7,
+                upsertResourceTvpGeneratorV13,
                 upsertResourceTvpGeneratorVLatest,
                 reindexResourceTvpGenerator,
                 bulkReindexResourceTvpGenerator,
