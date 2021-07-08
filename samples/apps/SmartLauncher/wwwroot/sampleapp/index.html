@@ -5,7 +5,7 @@
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/fhir-js-client@1.0.0/dist/fhir-client.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
     </head>
     <body>
     
@@ -29,10 +29,10 @@
         }
 
         FHIR.oauth2.ready(function(client) {
-            $.when(client.patient.read()).then(
+            client.patient.read().then(
                 function(patient){
                     $('#patientfield').val(JSON.stringify(patient, null, 4));
-                    $('#tokenresponsefield').val(JSON.stringify(client.tokenResponse, null, 4));
+                    $('#tokenresponsefield').val(JSON.stringify(client.state.tokenResponse, null, 4));
                 },
                 function(error){
                     console.log("Error:\n" + error);
