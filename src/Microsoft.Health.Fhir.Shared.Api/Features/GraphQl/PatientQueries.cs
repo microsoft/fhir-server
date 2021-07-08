@@ -12,12 +12,12 @@ using Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader;
 
 namespace Microsoft.Health.Fhir.Shared.Api.Features.GraphQl
 {
-    [ExtendObjectType(Name = "Query")]
-#pragma warning disable CA1041 // Provide ObsoleteAttribute message
-    [System.Obsolete]
-#pragma warning restore CA1041 // Provide ObsoleteAttribute message
+    [ExtendObjectType("Query")]
+#pragma warning disable CA1052 // Static holder types should be Static or NotInheritable
     public class PatientQueries
+#pragma warning restore CA1052 // Static holder types should be Static or NotInheritable
     {
+#pragma warning disable CA1822 // Mark members as static
         public Task<IEnumerable<Patient>> GetPatients(
             PatientByIdDataLoader patientById,
             CancellationToken cancellationToken) =>
@@ -27,5 +27,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.Features.GraphQl
             string id,
             PatientByIdDataLoader patientById,
             CancellationToken cancellationToken) => patientById.LoadAsync(id, cancellationToken);
+#pragma warning restore CA1822 // Mark members as static
     }
 }
