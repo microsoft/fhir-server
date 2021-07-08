@@ -149,6 +149,12 @@
     <value>An error occurred when fetching resource changes from SQL database.</value>
   </data>
   <data name="SqlExceptionOccurredWhenFetchingResourceChanges" xml:space="preserve">
-    <value>A SQL exception occurred when fetching resource changes from SQL database.</value>
+    <value>A SQL exception occurred when fetching resource changes from SQL database. Error number is {0}.</value>
+  </data>
+  <data name="ExceptionOccurredWhenGettingResourceTypes" xml:space="preserve">
+    <value>An error occurred when getting resource types from SQL database.</value>
+  </data>
+  <data name="SqlExceptionOccurredWhenGettingResourceTypes" xml:space="preserve">
+    <value>A SQL exception occurred when getting resource types from SQL database. Error number is {0}.</value>
   </data>
 </root>

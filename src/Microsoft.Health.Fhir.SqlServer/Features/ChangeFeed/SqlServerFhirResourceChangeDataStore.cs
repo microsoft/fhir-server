@@ -18,7 +18,7 @@ using Microsoft.Health.SqlServer;
 namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
 {
     /// <summary>
-    /// Data store for resource changes.
+    /// A data store that provides functionalities to get resource changes and resource types for change feed sources.
     /// </summary>
     public class SqlServerFhirResourceChangeDataStore : IChangeFeedSource<IResourceChangeData>
     {
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
 
         // dbnetlib error value for timeout expired
-        public const short TIMEOUTEXPIRED = -2;
+        private const short TIMEOUTEXPIRED = -2;
 
         /// <summary>
         /// Creates a new instance of the <see cref="SqlServerFhirResourceChangeDataStore"/> class.
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         public async Task<IReadOnlyCollection<IResourceChangeData>> GetRecordsAsync(long startId, int pageSize, CancellationToken cancellationToken)
         {
             EnsureArg.IsGte(startId, 0, nameof(startId));
-            EnsureArg.IsGte(pageSize, 0, nameof(pageSize));
+            EnsureArg.IsGte(pageSize, 1, nameof(pageSize));
 
             var listResourceChangeData = new List<ResourceChangeData>();
             try
@@ -69,20 +69,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     {
                         sqlCommand.CommandType = CommandType.StoredProcedure;
                         sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
-                        sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.Int).Value = pageSize;
+                        sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.SmallInt).Value = pageSize;
                         using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                         {
                             while (await sqlDataReader.ReadAsync(cancellationToken))
                             {
-                                listResourceChangeData.Add(new ResourceChangeData
-                                {
-                                    Id = (long)sqlDataReader["Id"],
-                                    Timestamp = DateTime.SpecifyKind((DateTime)sqlDataReader["Timestamp"], DateTimeKind.Utc),
-                                    ResourceId = (string)sqlDataReader["ResourceId"],
-                                    ResourceTypeId = (short)sqlDataReader["ResourceTypeId"],
-                                    ResourceVersion = (int)sqlDataReader["ResourceVersion"],
-                                    ResourceChangeTypeId = (byte)sqlDataReader["ResourceChangeTypeId"],
-                                });
+                                listResourceChangeData.Add(new ResourceChangeData(
+                                    id: (long)sqlDataReader["Id"],
+                                    timestamp: DateTime.SpecifyKind((DateTime)sqlDataReader["Timestamp"], DateTimeKind.Utc),
+                                    resourceId: (string)sqlDataReader["ResourceId"],
+                                    resourceTypeId: (short)sqlDataReader["ResourceTypeId"],
+                                    resourceVersion: (int)sqlDataReader["ResourceVersion"],
+                                    resourceChangeTypeId: (byte)sqlDataReader["ResourceChangeTypeId"]));
                             }
                         }
 
@@ -97,13 +95,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     case TIMEOUTEXPIRED:
                         throw new TimeoutException(ex.Message, ex);
                     default:
-                        _logger.LogError(ex, Resources.SqlExceptionOccurredWhenFetchingResourceChanges);
+                        _logger.LogError(ex, string.Format(Resources.SqlExceptionOccurredWhenFetchingResourceChanges, ex.Number));
                         throw;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, Resources.ExceptionOccurredWhenFetchingResourceChanges);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get resource types as a dictionary.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation Token.</param>
+        /// <returns>Returns a resource type map.</returns>
+        /// <exception cref="System.InvalidOperationException">Thrown when a method call is invalid for the object's current state.</exception>
+        /// <exception cref="Microsoft.Data.SqlClient.SqlException">Thrown when SQL Server returns a warning or error.</exception>
+        /// <exception cref="System.TimeoutException">Thrown when the time allotted for a process or operation has expired.</exception>
+        /// <exception cref="System.Exception">Thrown when errors occur during execution.</exception>
+        public async Task<IDictionary<short, string>> GetResourceTypeMapAsync(CancellationToken cancellationToken)
+        {
+            var resourceTypeIdToNameMapping = new Dictionary<short, string>();
+            try
+            {
+                using (SqlConnection sqlConnection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
+                {
+                    await sqlConnection.OpenAsync(cancellationToken);
+                    using (SqlCommand sqlCommand = new SqlCommand("SELECT ResourceTypeId, Name FROM dbo.ResourceType", sqlConnection))
+                    {
+                        sqlCommand.CommandType = CommandType.Text;
+                        using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                        {
+                            while (await sqlDataReader.ReadAsync(cancellationToken))
+                            {
+                                resourceTypeIdToNameMapping.Add((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
+                            }
+                        }
+
+                        return resourceTypeIdToNameMapping;
+                    }
+                }
+            }
+            catch (SqlException ex)
+            {
+                switch (ex.Number)
+                {
+                    case TIMEOUTEXPIRED:
+                        throw new TimeoutException(ex.Message, ex);
+                    default:
+                        _logger.LogError(ex, string.Format(Resources.SqlExceptionOccurredWhenGettingResourceTypes, ex.Number));
+                        throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, Resources.ExceptionOccurredWhenGettingResourceTypes);
                 throw;
             }
         }

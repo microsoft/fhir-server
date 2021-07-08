@@ -14,6 +14,9 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
 {
+    /// <summary>
+    /// Unit tests to validates input parameters of a GetRecordsAsync function.
+    /// </summary>
     public class SqlServerFhirResourceChangeDataStoreTests
     {
         private SqlServerFhirResourceChangeDataStore resourceChangeDataStore;
@@ -37,9 +40,35 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         [Fact]
         public async Task GivenThePageSizeLessThanZero_ExceptionShouldBeThrown()
         {
-            var expectedStartString = "Value '-1' is not greater than or equal to limit '0'. (Parameter 'pageSize')";
+            var expectedStartString = "Value '-1' is not greater than or equal to limit '1'. (Parameter 'pageSize')";
             var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await resourceChangeDataStore.GetRecordsAsync(0, -1, CancellationToken.None));
             Assert.StartsWith(expectedStartString, exception.Message);
+        }
+
+        [Fact]
+        public async Task GivenThePageSizeLessThanZero_ArgumentOutOfRangeExceptionShouldBeThrown()
+        {
+            try
+            {
+                await resourceChangeDataStore.GetRecordsAsync(0, -1, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                Assert.Equal(nameof(ArgumentOutOfRangeException), ex.GetType().Name);
+            }
+        }
+
+        [Fact]
+        public async Task GivenEmptyConnectionString_InvalidOperationExceptionShouldBeThrown()
+        {
+            try
+            {
+                await resourceChangeDataStore.GetRecordsAsync(0, 200, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                Assert.Equal(nameof(InvalidOperationException), ex.GetType().Name);
+            }
         }
     }
 }
