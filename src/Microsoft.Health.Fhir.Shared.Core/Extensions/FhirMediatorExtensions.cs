@@ -53,12 +53,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Resource;
         }
 
-        public static async Task<DeleteResourceResponse> DeleteResourceAsync(this IMediator mediator, ResourceKey key, bool hardDelete, CancellationToken cancellationToken = default)
+        public static async Task<DeleteResourceResponse> DeleteResourceAsync(this IMediator mediator, ResourceKey key, DeleteOperation deleteOperation, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(key, nameof(key));
 
-            var result = await mediator.Send(new DeleteResourceRequest(key, hardDelete), cancellationToken);
+            var result = await mediator.Send(new DeleteResourceRequest(key, deleteOperation), cancellationToken);
 
             return result;
         }

@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             if (templateProvider == null)
             {
                 // This case should never happen.
-                _logger.LogError("Invalid input data type for conversion.");
+                _logger.LogInformation("Invalid input data type for conversion.");
                 throw new RequestNotValidException("Invalid input data type for conversion.");
             }
 
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             if (converter == null)
             {
                 // This case should never happen.
-                _logger.LogError("Invalid input data type for conversion.");
+                _logger.LogInformation("Invalid input data type for conversion.");
                 throw new RequestNotValidException("Invalid input data type for conversion.");
             }
 
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                     throw new ConvertDataTimeoutException(Resources.ConvertDataOperationTimeout, convertException.InnerException);
                 }
 
-                _logger.LogError(convertException, "Convert data failed.");
+                _logger.LogInformation(convertException, "Convert data failed.");
                 throw new ConvertDataFailedException(string.Format(Resources.ConvertDataFailed, convertException.Message), convertException);
             }
             catch (Exception ex)

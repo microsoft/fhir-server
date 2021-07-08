@@ -12,12 +12,12 @@ using Newtonsoft.Json.Serialization;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 {
-    internal class ProfileReferenceConverter : JsonConverter
+    internal class ReferenceComponentConverter : JsonConverter
     {
         private IModelInfoProvider _modelInfoProvider;
         private JsonSerializer _camelCaseSerializer;
 
-        public ProfileReferenceConverter(IModelInfoProvider modelInfoProvider)
+        public ReferenceComponentConverter(IModelInfoProvider modelInfoProvider)
         {
             _modelInfoProvider = modelInfoProvider;
             _camelCaseSerializer = new JsonSerializer()

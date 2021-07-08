@@ -279,8 +279,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, CancellationToken.None);
             }
         }
 
@@ -360,10 +360,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample3.Wrapper.ToResourceKey(), CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample4.Wrapper.ToResourceKey(), CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample3.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample4.Wrapper.ToResourceKey(), false, CancellationToken.None);
             }
         }
 
@@ -428,8 +428,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample1.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sample2.Wrapper.ToResourceKey(), false, CancellationToken.None);
             }
         }
 
@@ -503,8 +503,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam.ToTypedElement());
                 await _testHelper.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
 
-                await _fixture.DataStore.HardDeleteAsync(samplePatient.Wrapper.ToResourceKey(), CancellationToken.None);
-                await _fixture.DataStore.HardDeleteAsync(sampleObservation.Wrapper.ToResourceKey(), CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(samplePatient.Wrapper.ToResourceKey(), false, CancellationToken.None);
+                await _fixture.DataStore.HardDeleteAsync(sampleObservation.Wrapper.ToResourceKey(), false, CancellationToken.None);
             }
         }
 

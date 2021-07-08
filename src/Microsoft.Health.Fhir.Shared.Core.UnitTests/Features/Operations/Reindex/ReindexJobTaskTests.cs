@@ -7,12 +7,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -45,8 +47,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly IReindexJobThrottleController _throttleController = Substitute.For<IReindexJobThrottleController>();
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
         private Func<IReindexJobTask> _reindexJobTaskFactory;
 
+        private SearchParameterDefinitionManager _searchDefinitionManager;
         private CancellationToken _cancellationToken;
 
         public ReindexJobTaskTests(SearchParameterFixtureData fixture) => _fixture = fixture;
@@ -55,6 +59,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             _cancellationToken = _cancellationTokenSource.Token;
 
+            _searchDefinitionManager = await SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
+            var supportedSearchDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchDefinitionManager);
             var job = CreateReindexJobRecord();
 
             _fhirOperationDataStore.UpdateReindexJobAsync(job, _weakETag, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
@@ -67,14 +73,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Returns(new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()));
 
             _throttleController.GetThrottleBasedDelay().Returns(0);
-            var supportedSearchParameterDefinitionManager = await _fixture.GetSupportedSearchDefinitionManagerAsync();
             _reindexJobTaskFactory = () =>
                  new ReindexJobTask(
                      () => _fhirOperationDataStore.CreateMockScope(),
                      () => _fhirDataStore.CreateMockScope(),
                      Options.Create(_reindexJobConfiguration),
                      () => _searchService.CreateMockScope(),
-                     supportedSearchParameterDefinitionManager,
+                     supportedSearchDefinitionManager,
                      _reindexUtilities,
                      _contextAccessor,
                      _throttleController,
@@ -90,8 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             // Get one search parameter and configure it such that it needs to be reindexed
-            var param = (await _fixture.GetSearchDefinitionManagerAsync()).
-                AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
+            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
             param.IsSearchable = false;
             var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
@@ -133,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenContinuationToken_WhenExecuted_ThenAdditionalQueryAdded()
         {
             // Get one search parameter and configure it such that it needs to be reindexed
-            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Code == "identifier");
+            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "identifier");
             param.IsSearchable = false;
             var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
@@ -178,8 +182,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenRunningJob_WhenExecuted_ThenQueuedQueryCompleted()
         {
             // Get two search parameters with different base resource types and configure them such that they need to be reindexed
-            var paramWithAppointmentResponseBaseType = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment"));
-            var paramWithAppointmentBaseType = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Appointment-date"));
+            var paramWithAppointmentResponseBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment"));
+            var paramWithAppointmentBaseType = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Appointment-date"));
 
             Assert.NotNull(paramWithAppointmentResponseBaseType);
             Assert.NotNull(paramWithAppointmentBaseType);
@@ -281,7 +285,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenQueryInRunningState_WhenExecuted_ThenQueryResetToQueuedOnceStale()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
+            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
             param.IsSearchable = false;
 
             _reindexJobConfiguration.JobHeartbeatTimeoutThreshold = new TimeSpan(0, 0, 0, 1, 0);
@@ -316,7 +320,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenQueryWhichContinuallyFails_WhenExecuted_ThenJobWillBeMarkedFailed()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
+            var param = _searchDefinitionManager.AllSearchParameters.FirstOrDefault(p => p.Code == "appointment");
             param.IsSearchable = false;
 
             var job = CreateReindexJobRecord(maxResourcePerQuery: 3);

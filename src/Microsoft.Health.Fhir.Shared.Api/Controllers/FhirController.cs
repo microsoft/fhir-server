@@ -364,7 +364,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Delete)]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
         {
-            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete, HttpContext.RequestAborted);
+            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, HttpContext.RequestAborted);
+
+            return FhirResult.NoContent().SetETagHeader(response.WeakETag);
+        }
+
+        /// <summary>
+        /// Deletes the specified resource's history, keeping the current version
+        /// </summary>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        [HttpDelete]
+        [Route(KnownRoutes.PurgeHistoryResourceTypeById)]
+        [AuditEventType(AuditEventSubType.Delete)]
+        public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter)
+        {
+            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), DeleteOperation.PurgeHistory, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
         }
@@ -382,7 +397,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
-            DeleteResourceResponse response = await _mediator.Send(new ConditionalDeleteResourceRequest(typeParameter, conditionalParameters, hardDelete, maxDeleteCount.GetValueOrDefault(1)), HttpContext.RequestAborted);
+            DeleteResourceResponse response = await _mediator.Send(new ConditionalDeleteResourceRequest(typeParameter, conditionalParameters, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, maxDeleteCount.GetValueOrDefault(1)), HttpContext.RequestAborted);
 
             if (maxDeleteCount.HasValue)
             {

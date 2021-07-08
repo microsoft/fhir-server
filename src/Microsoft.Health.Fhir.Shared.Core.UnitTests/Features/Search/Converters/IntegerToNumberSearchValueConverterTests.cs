@@ -11,7 +11,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
-    public class IntegerToIntegerSearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<IntegerToNumberSearchValueConverter, Integer>
+    public class IntegerToNumberSearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<IntegerToNumberSearchValueConverter, Integer>
     {
         [Fact]
         public async Task GivenAIntegerWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()

@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenR5Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
-            await TestCapabilityStatementFhirVersion("4.5.0");
+            await TestCapabilityStatementFhirVersion("4.6.0");
         }
 
         [Fact]

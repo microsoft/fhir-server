@@ -3,12 +3,22 @@
     "id": "example",
     "text": {
         "status": "generated",
-        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: example</p><p><b>identifier</b>: {mpid}</p><p><b>classification</b>: WHOAnatomicalTherapeuticChemicalATCClassificationSystem|B01AF02 <span>(Details : {http://ema.europa.eu/example/WHOAnatomicalTherapeuticChemicalATCClassificationSystem code 'WHOAnatomicalTherapeuticChemicalATCClassificationSystem|B01AF02' = 'WHOAnatomicalTherapeuticChemicalATCClassificationSystem|B01AF02)</span></p><p><b>attachedDocument</b>: <a>DocumentReference/example</a></p><p><b>masterFile</b>: <a>DocumentReference/example</a></p><blockquote><p><b>name</b></p><p><b>productName</b>: Equilidem 2.5 mg film-coated tablets</p><blockquote><p><b>namePart</b></p><p><b>part</b>: Equilidem</p><p><b>type</b>: INV <span>(Details : {[not stated] code 'INV' = 'INV)</span></p></blockquote><blockquote><p><b>namePart</b></p><p><b>part</b>: 2.5 mg</p><p><b>type</b>: STR <span>(Details : {[not stated] code 'STR' = 'STR)</span></p></blockquote><blockquote><p><b>namePart</b></p><p><b>part</b>: film-coated tablets</p><p><b>type</b>: FRM <span>(Details : {[not stated] code 'FRM' = 'FRM)</span></p></blockquote><h3>CountryLanguages</h3><table><tr><td>-</td><td><b>Country</b></td><td><b>Jurisdiction</b></td><td><b>Language</b></td></tr><tr><td>*</td><td>EU <span>(Details : {http://ema.europa.eu/example/countryCode code 'EU' = 'EU)</span></td><td>EU <span>(Details : {http://ema.europa.eu/example/jurisdictionCode code 'EU' = 'EU)</span></td><td>EN <span>(Details : {http://ema.europa.eu/example/languageCode code 'EN' = 'EN)</span></td></tr></table></blockquote><h3>ManufacturingBusinessOperations</h3><table><tr><td>-</td><td><b>Type</b></td><td><b>EffectiveDate</b></td><td><b>Authorization</b></td></tr><tr><td>*</td><td/><td>2013-03-15 --&gt; (ongoing)</td><td/></tr></table></div>"
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t<p><b>Generated Narrative</b></p>\n\t\t\t<p><b>Id</b>: example</p>\n\t\t\t<p><b>Identifier</b>: {mpid}</p>\n\t\t\t<p><b>Classification</b>: <span title=\"Codes: {http://ema.europa.eu/example/WHOAnatomicalTherapeuticChemicalATCClassificationSystem B01AF02}\">ATC: B01AF02</span></p>\n\t\t\t<p><b>Attached Document</b>: (SmPC)</p>\n\t\t\t<p><b>Master File</b>: (Pharmacovigilence Master File)</p>\n\t\t\t<p><b>Product Name</b>: Equilidem 2.5 mg film-coated tablets</p>\n\t\t\t<blockquote>\n\t\t\t\t<p><b>Name Part</b></p><p><b>part</b>:Equilidem</p>\n\t\t\t\t<p><b>type</b>: <span title=\"Codes: \">Invented</span></p>\n\t\t\t</blockquote>\n\t\t\t<blockquote>\n\t\t\t\t<p><b>Name Part</b></p><p><b>part</b>:2.5 mg</p>\n\t\t\t\t<p><b>type</b>: <span title=\"Codes: \">Strength</span></p>\n\t\t\t</blockquote>\n\t\t\t<blockquote>\n\t\t\t\t<p><b>Name Part</b></p>\n\t\t\t\t<p><b>part</b>:film-coated tablets</p>\n\t\t\t\t<p><b>type</b>: <span title=\"Codes: \">Form</span></p>\n\t\t\t\t<p><b>Country &amp; Languages</b></p>\n\t\t\t\t<table class=\"grid\">\n\t\t\t\t\t<tr>\n\t\t\t\t\t\t<td>-</td>\n\t\t\t\t\t\t<td><b>Country</b></td>\n\t\t\t\t\t\t<td><b>Jurisdiction</b></td>\n\t\t\t\t\t\t<td><b>Language</b></td>\n\t\t\t\t\t</tr>\n\t\t\t\t\t<tr>\n\t\t\t\t\t\t<td>*</td>\n\t\t\t\t\t\t<td><span title=\"Codes: {http://ema.europa.eu/example/countryCode EU}\">EU</span></td>\n\t\t\t\t\t\t<td><span title=\"Codes: {http://ema.europa.eu/example/jurisdictionCode EU}\">EU</span></td>\n\t\t\t\t\t\t<td><span title=\"Codes: {http://ema.europa.eu/example/languageCode EN}\">EN</span></td>\n\t\t\t\t\t</tr>\n\t\t\t\t</table>\n\t\t\t</blockquote>\n\t\t\t<p><b>Manufacturing &amp; Business Operations</b></p>\n\t\t\t<table class=\"grid\">\n\t\t\t\t<tr>\n\t\t\t\t\t<td>-</td>\n\t\t\t\t\t<td><b>Type</b></td>\n\t\t\t\t\t<td><b>EffectiveDate</b></td>\n\t\t\t\t\t<td><b>Authorization</b></td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>*</td>\n\t\t\t\t\t<td>Batch Release</td>\n\t\t\t\t\t<td>2013-03-15 --&gt; (ongoing)</td>\n\t\t\t\t\t<td><span>1324TZ</span></td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</div>"
     },
     "identifier": [
         {
             "system": "http://ema.europa.eu/example/MPID",
             "value": "{mpid}"
+        }
+    ],
+    "classification": [
+        {
+            "coding": [
+                {
+                    "system": "http://ema.europa.eu/example/WHOAnatomicalTherapeuticChemicalATCClassificationSystem",
+                    "code": "B01AF02"
+                }
+            ]
         }
     ],
     "attachedDocument": [
@@ -86,7 +96,7 @@
             ]
         }
     ],
-    "manufacturingBusinessOperation": [
+    "operation": [
         {
             "type": {
                 "concept": {
