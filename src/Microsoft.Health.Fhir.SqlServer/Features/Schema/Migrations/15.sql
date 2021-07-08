@@ -3330,7 +3330,7 @@ CREATE TABLE dbo.ResourceChangeData
     ResourceVersion int NOT NULL,
     ResourceChangeTypeId tinyint NOT NULL,
    CONSTRAINT PK_ResourceChangeData PRIMARY KEY CLUSTERED (Id)
-) 
+)
 ON [PRIMARY]
 GO
 
@@ -3343,7 +3343,7 @@ CREATE TABLE dbo.ResourceChangeType
     Name nvarchar(50) NOT NULL,
     CONSTRAINT PK_ResourceChangeType PRIMARY KEY CLUSTERED (ResourceChangeTypeId),
     CONSTRAINT UQ_ResourceChangeType_Name UNIQUE NONCLUSTERED (Name)
-) 
+)
 ON [PRIMARY]
 GO
 
@@ -3377,8 +3377,8 @@ GO
 --     It does not return a value.
 --
 CREATE PROCEDURE dbo.CaptureResourceChanges
-    @isDeleted bit, 
-    @version int, 
+    @isDeleted bit,
+    @version int,
     @resourceId varchar(64),
     @resourceTypeId smallint
 AS
@@ -3420,22 +3420,22 @@ GO
 --     Resource change data rows.
 --
 CREATE PROCEDURE dbo.FetchResourceChanges
-    @startId bigint, 
+    @startId bigint,
     @pageSize int
 AS
 BEGIN
 
     SET NOCOUNT ON;
 
-    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
-    -- using the Repeatable Read isolation level to avoid skipping resource changes 
+    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database,
+    -- using the Repeatable Read isolation level to avoid skipping resource changes
     -- due to interleaved transactions on the resource change data table.
     SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-    
+
     -- In Repeatable Read, the select query execution will be blocked until other open transactions are completed
-    -- for rows that match the search condition of the select statement. 
-    -- A write transaction (update/delete) on the rows that match 
-    -- the search condition of the select statement will wait until the read transaction is completed. 
+    -- for rows that match the search condition of the select statement.
+    -- A write transaction (update/delete) on the rows that match
+    -- the search condition of the select statement will wait until the read transaction is completed.
     -- But, other transactions can insert new rows.
     SELECT TOP(@pageSize) Id,
       Timestamp,
