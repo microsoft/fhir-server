@@ -1,22 +1,21 @@
 ﻿/*************************************************************
-    Background job checkpoint feature
+    Event Agent checkpoint feature
 **************************************************************/
 
 /*************************************************************
-    Background job checkpoint table
+    Event Agent checkpoint table
 **************************************************************/
 
-IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'BackgroundJobCheckpoint')
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EventAgentCheckpoint')
 BEGIN
-     CREATE TABLE dbo.BackgroundJobCheckpoint
+     CREATE TABLE dbo.EventAgentCheckpoint
      (
-         Id bigint IDENTITY(1,1) NOT NULL,
-         UpdatedOn datetime2(7) NOT NULL DEFAULT sysutcdatetime(),
          CheckpointId varchar(64) NOT NULL,
          Partition varchar(64) NOT NULL,
          LastProcessedDateTime datetimeoffset(7),
          LastProcessedIdentifier varchar(64),
-        CONSTRAINT PK_BackgroundJobCheckpoint PRIMARY KEY CLUSTERED (CheckpointId, Partition)
+         UpdatedOn datetime2(7) NOT NULL DEFAULT sysutcdatetime(),
+        CONSTRAINT PK_EventAgentCheckpoint PRIMARY KEY CLUSTERED (CheckpointId, Partition)
      )
      ON [PRIMARY]
 END
@@ -27,16 +26,16 @@ GO
 **************************************************************/
 --
 -- STORED PROCEDURE
---     UpdateBackgroundJobCheckpoint
+--     UpdateEventAgentCheckpoint
 --
 -- DESCRIPTION
---     Sets a checkpoint for a background job
+--     Sets a checkpoint for an Event Agent
 --
 -- PARAMETERS
 --     @CheckpointId
 --         * The identifier of the checkpoint.
 --     @Partition
---         * The partition that the background service is reading from.
+--         * The partition that the Event Agent is reading from.
 --     @LastProcessedDateTime
 --         * The datetime of last item that was processed.
 --     @LastProcessedIdentifier
@@ -45,7 +44,7 @@ GO
 -- RETURN VALUE
 --     It does not return a value.
 --
-CREATE OR ALTER PROCEDURE dbo.UpdateBackgroundJobCheckpoint
+CREATE OR ALTER PROCEDURE dbo.UpdateEventAgentCheckpoint
     @CheckpointId varchar(64),
     @Partition varchar(64),
     @LastProcessedDateTime datetimeoffset(7) = NULL,
@@ -53,34 +52,34 @@ CREATE OR ALTER PROCEDURE dbo.UpdateBackgroundJobCheckpoint
 AS
 
 BEGIN
-    IF EXISTS (SELECT * FROM dbo.BackgroundJobCheckpoint WHERE CheckpointId = @CheckpointId AND Partition = @Partition)
-    UPDATE dbo.BackgroundJobCheckpoint SET UpdatedOn = sysutcdatetime(), CheckpointId = @CheckpointId, "Partition" = @Partition, LastProcessedDateTime = @LastProcessedDateTime, LastProcessedIdentifier = @LastProcessedIdentifier
+    IF EXISTS (SELECT * FROM dbo.EventAgentCheckpoint WHERE CheckpointId = @CheckpointId AND Partition = @Partition)
+    UPDATE dbo.EventAgentCheckpoint SET CheckpointId = @CheckpointId, "Partition" = @Partition, LastProcessedDateTime = @LastProcessedDateTime, LastProcessedIdentifier = @LastProcessedIdentifier, UpdatedOn = sysutcdatetime()
     WHERE CheckpointId = @CheckpointId AND Partition = @Partition
     ELSE
-    INSERT INTO dbo.BackgroundJobCheckpoint
-        (UpdatedOn, CheckpointId, "Partition", LastProcessedDateTime, LastProcessedIdentifier)
+    INSERT INTO dbo.EventAgentCheckpoint
+        (CheckpointId, "Partition", LastProcessedDateTime, LastProcessedIdentifier, UpdatedOn)
     VALUES
-        (sysutcdatetime(), @CheckpointId, @Partition, @LastProcessedDateTime, @LastProcessedIdentifier)
+        (@CheckpointId, @Partition, @LastProcessedDateTime, @LastProcessedIdentifier, sysutcdatetime())
 END
 GO
 
 --
 -- STORED PROCEDURE
---     GetBackgroundJobCheckpoint
+--     GetEventAgentCheckpoint
 --
 -- DESCRIPTION
---     Gets a checkpoint for a background job
+--     Gets a checkpoint for an Event Agent
 --
 -- PARAMETERS
 --     @Id
 --         * The identifier of the checkpoint.
 --     @Partition
---         * The partition that the background service is reading from.
+--         * The partition that the Event Agent is reading from.
 --
 -- RETURN VALUE
 --     A checkpoint for the given checkpoint id and partition, if one exists.
 --
-CREATE OR ALTER PROCEDURE dbo.FetchBackgroundJobCheckpoint
+CREATE OR ALTER PROCEDURE dbo.FetchEventAgentCheckpoint
     @CheckpointId varchar(64),
     @Partition varchar(64)
 AS
@@ -90,7 +89,7 @@ BEGIN
       Partition,
       LastProcessedDateTime,
       LastProcessedIdentifier
-      FROM dbo.BackgroundJobCheckpoint
+      FROM dbo.EventAgentCheckpoint
     WHERE CheckpointId = @CheckpointId AND Partition = @Partition
 END
 GO
