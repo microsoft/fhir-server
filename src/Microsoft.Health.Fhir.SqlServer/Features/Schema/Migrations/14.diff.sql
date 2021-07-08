@@ -90,6 +90,8 @@ CREATE OR ALTER PROCEDURE dbo.CaptureResourceChanges
     @resourceTypeId smallint
 AS
 BEGIN
+    -- The CaptureResourceChanges procedure is intended to be called from 
+    -- the UpsertResource_4 procedure, so it does not begin a new transaction here.
     DECLARE @changeType SMALLINT
     IF (@isDeleted = 1) BEGIN
         SET @changeType = 2    /* DELETION */
@@ -128,17 +130,15 @@ GO
 --
 CREATE OR ALTER PROCEDURE dbo.FetchResourceChanges
     @startId bigint, 
-    @pageSize int
+    @pageSize smallint
 AS
 BEGIN
 
     SET NOCOUNT ON;
 
     -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
-    -- using the Repeatable Read isolation level to avoid skipping resource changes 
-    -- due to interleaved transactions on the resource change data table.
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-    
+    -- using the Repeatable Read isolation level table hint to avoid skipping resource changes 
+    -- due to interleaved transactions on the resource change data table.    
     -- In Repeatable Read, the select query execution will be blocked until other open transactions are completed
     -- for rows that match the search condition of the select statement. 
     -- A write transaction (update/delete) on the rows that match 
@@ -150,7 +150,7 @@ BEGIN
       ResourceTypeId,
       ResourceVersion,
       ResourceChangeTypeId
-      FROM dbo.ResourceChangeData
+      FROM dbo.ResourceChangeData WITH (REPEATABLEREAD)
     WHERE Id >= @startId ORDER BY Id ASC
 END
 GO

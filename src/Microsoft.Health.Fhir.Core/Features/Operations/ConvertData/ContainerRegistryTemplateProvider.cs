@@ -91,17 +91,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 // Remove token from cache when authentication failed.
                 _cache.Remove(GetCacheKey(request.RegistryServer));
 
-                _logger.LogError(authEx, "Failed to access container registry.");
+                _logger.LogWarning(authEx, "Failed to access container registry.");
                 throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, request.RegistryServer), authEx);
             }
             catch (ImageFetchException fetchEx)
             {
-                _logger.LogError(fetchEx, "Failed to fetch template image.");
+                _logger.LogWarning(fetchEx, "Failed to fetch template image.");
                 throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, fetchEx.Message), fetchEx);
             }
             catch (TemplateManagementException templateEx)
             {
-                _logger.LogError(templateEx, "Template collection is invalid.");
+                _logger.LogWarning(templateEx, "Template collection is invalid.");
                 throw new TemplateCollectionErrorException(string.Format(Resources.FetchTemplateCollectionFailed, templateEx.Message), templateEx);
             }
             catch (Exception unhandledEx)

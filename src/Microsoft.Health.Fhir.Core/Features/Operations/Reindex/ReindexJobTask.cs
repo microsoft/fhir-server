@@ -641,18 +641,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // here we check if all the resource types which are base types of the search parameter
             // were reindexed by this job.  If so, then we should mark the search parameters
             // as fully reindexed
-            var fullyIndexexParams = new List<string>();
+            var fullyIndexedParamUris = new List<string>();
             var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.Resources);
             foreach (var searchParam in _reindexJobRecord.SearchParams)
             {
                 var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(new Uri(searchParam));
                 if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes))
                 {
-                    fullyIndexexParams.Add(searchParam);
+                    fullyIndexedParamUris.Add(searchParam);
                 }
             }
 
-            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(fullyIndexexParams, _cancellationToken);
+            _logger.LogTrace("Completing reindex job. Updating the status of the fully indexed search parameters: '{paramUris}'", string.Join("', '", fullyIndexedParamUris));
+            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(fullyIndexedParamUris, _cancellationToken);
 
             if (success)
             {

@@ -23,10 +23,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class DeleteTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly HttpIntegrationTestFixture _fixture;
         private readonly TestFhirClient _client;
 
         public DeleteTests(HttpIntegrationTestFixture fixture)
         {
+            _fixture = fixture;
             _client = fixture.TestFhirClient;
         }
 
@@ -121,10 +123,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPurging_ThenServerShouldDeleteHistoryAndKeepCurrentVersion()
         {
+            Skip.IfNot(_fixture.TestFhirServer.Metadata.Predicate("CapabilityStatement.rest.operation.where(name='purge-history').exists()"), "$purge-history not enabled on this server");
+
             using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             string resourceId = response.Resource.Id;
