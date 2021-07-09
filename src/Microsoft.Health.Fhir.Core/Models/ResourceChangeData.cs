@@ -19,16 +19,16 @@ namespace Microsoft.Health.Fhir.Core.Models
             ResourceChangeTypeId = resourceChangeTypeId;
         }
 
-        public long Id { get; init; }
+        public long Id { get; }
 
-        public string ResourceId { get; init; }
+        public string ResourceId { get; }
 
-        public short ResourceTypeId { get; init; }
+        public short ResourceTypeId { get; }
 
-        public int ResourceVersion { get; init; }
+        public int ResourceVersion { get; }
 
-        public byte ResourceChangeTypeId { get; init; }
+        public byte ResourceChangeTypeId { get; }
 
-        public DateTime Timestamp { get; init; }
+        public DateTime Timestamp { get; }
     }
 }
