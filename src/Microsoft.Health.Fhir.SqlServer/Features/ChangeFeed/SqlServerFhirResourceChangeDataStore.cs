@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         /// <exception cref="System.Exception">Thrown when errors occur during execution.</exception>
         public async Task<IReadOnlyCollection<IResourceChangeData>> GetRecordsAsync(long startId, short pageSize, CancellationToken cancellationToken)
         {
-            EnsureArg.IsGte(startId, 0, nameof(startId));
+            EnsureArg.IsGte(startId, 1, nameof(startId));
             EnsureArg.IsGte(pageSize, 1, nameof(pageSize));
 
             var listResourceChangeData = new List<ResourceChangeData>();

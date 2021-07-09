@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         [Fact]
         public async Task GivenTheStartIdLessThanZero_ExceptionShouldBeThrown()
         {
-            var expectedStartString = "Value '-1' is not greater than or equal to limit '0'. (Parameter 'startId')";
+            var expectedStartString = "Value '-1' is not greater than or equal to limit '1'. (Parameter 'startId')";
             var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await resourceChangeDataStore.GetRecordsAsync(-1, 200, CancellationToken.None));
             Assert.StartsWith(expectedStartString, exception.Message);
         }
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         public async Task GivenThePageSizeLessThanZero_ExceptionShouldBeThrown()
         {
             var expectedStartString = "Value '-1' is not greater than or equal to limit '1'. (Parameter 'pageSize')";
-            var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await resourceChangeDataStore.GetRecordsAsync(0, -1, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await resourceChangeDataStore.GetRecordsAsync(1, -1, CancellationToken.None));
             Assert.StartsWith(expectedStartString, exception.Message);
         }
 
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         {
             try
             {
-                await resourceChangeDataStore.GetRecordsAsync(0, -1, CancellationToken.None);
+                await resourceChangeDataStore.GetRecordsAsync(1, -1, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         {
             try
             {
-                await resourceChangeDataStore.GetRecordsAsync(0, 200, CancellationToken.None);
+                await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
             }
             catch (Exception ex)
             {

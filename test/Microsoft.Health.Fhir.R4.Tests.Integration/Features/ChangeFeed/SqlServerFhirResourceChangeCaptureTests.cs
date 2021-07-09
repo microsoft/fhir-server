@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
                         // get resource changes
                         var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(databaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                        var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(0, 200, CancellationToken.None);
+                        var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                         Assert.NotNull(resourceChanges);
                         Assert.Equal(1, resourceChanges.Count);
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
                         // get resource changes
                         var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(databaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                        var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(0, 200, CancellationToken.None);
+                        var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                         Assert.NotNull(resourceChanges);
                         Assert.Equal(2, resourceChanges.Count);
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
                         // get resource changes
                         var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(databaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                        IReadOnlyCollection<IResourceChangeData> resourceChanges = await resourceChangeDataStore.GetRecordsAsync(0, 200, CancellationToken.None);
+                        IReadOnlyCollection<IResourceChangeData> resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                         Assert.NotNull(resourceChanges);
                         Assert.Equal(2, resourceChanges.Count);
@@ -246,7 +246,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
                         // get resource changes
                         var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(databaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                        var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(0, 200, CancellationToken.None);
+                        var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                         Assert.NotNull(resourceChanges);
                         Assert.Equal(0, resourceChanges.Count);
