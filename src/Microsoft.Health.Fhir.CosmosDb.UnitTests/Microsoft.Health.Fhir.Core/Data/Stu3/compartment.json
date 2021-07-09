@@ -1,0 +1,2022 @@
+{
+    "resourceType": "Bundle",
+    "id": "compartments",
+    "meta": {
+        "lastUpdated": "2017-04-19T07:44:43.294+10:00"
+    },
+    "type": "collection",
+    "entry": [{
+        "fullUrl": "http://hl7.org/fhir/CompartmentDefinition/patient",
+        "resource": {
+            "resourceType": "CompartmentDefinition",
+            "id": "patient",
+            "text": {
+                "status": "generated",
+                "div": "<div>!-- Snipped for Brevity --></div>"
+            },
+            "url": "http://hl7.org/fhir/CompartmentDefinition/patient",
+            "name": "Base FHIR compartment definition for Patient",
+            "status": "draft",
+            "experimental": true,
+            "date": "2017-04-19T07:44:43+10:00",
+            "publisher": "FHIR Project Team",
+            "contact": [{
+                "telecom": [{
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }]
+            }],
+            "description": "There is an instance of the patient compartment for each patient resource, and the identity of the compartment is the same as the patient. When a patient is linked to another patient, all the records associated with the linked patient are in the compartment associated with the target of the link.. The set of resources associated with a particular patient",
+            "code": "Patient",
+            "search": true,
+            "resource": [{
+                "code": "Account",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "ActivityDefinition"
+            }, {
+                "code": "AdverseEvent",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "AllergyIntolerance",
+                "param": [
+                    "patient",
+                    "recorder",
+                    "asserter"
+                ]
+            }, {
+                "code": "Appointment",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "AppointmentResponse",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "AuditEvent",
+                "param": [
+                    "patient",
+                    "agent.patient",
+                    "entity.patient"
+                ]
+            }, {
+                "code": "Basic",
+                "param": [
+                    "patient",
+                    "author"
+                ]
+            }, {
+                "code": "Binary"
+            }, {
+                "code": "BodySite",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Bundle"
+            }, {
+                "code": "CapabilityStatement"
+            }, {
+                "code": "CarePlan",
+                "param": [
+                    "patient",
+                    "performer"
+                ]
+            }, {
+                "code": "CareTeam",
+                "param": [
+                    "patient",
+                    "participant"
+                ]
+            }, {
+                "code": "ChargeItem",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "Claim",
+                "param": [
+                    "patient",
+                    "payee"
+                ]
+            }, {
+                "code": "ClaimResponse",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "ClinicalImpression",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "CodeSystem"
+            }, {
+                "code": "Communication",
+                "param": [
+                    "subject",
+                    "sender",
+                    "recipient"
+                ]
+            }, {
+                "code": "CommunicationRequest",
+                "param": [
+                    "subject",
+                    "sender",
+                    "recipient",
+                    "requester"
+                ]
+            }, {
+                "code": "CompartmentDefinition"
+            }, {
+                "code": "Composition",
+                "param": [
+                    "subject",
+                    "author",
+                    "attester"
+                ]
+            }, {
+                "code": "ConceptMap"
+            }, {
+                "code": "Condition",
+                "param": [
+                    "patient",
+                    "asserter"
+                ]
+            }, {
+                "code": "Consent",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Contract"
+            }, {
+                "code": "Coverage",
+                "param": [
+                    "policy-holder",
+                    "subscriber",
+                    "beneficiary",
+                    "payor"
+                ]
+            }, {
+                "code": "DataElement"
+            }, {
+                "code": "DetectedIssue",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Device"
+            }, {
+                "code": "DeviceComponent"
+            }, {
+                "code": "DeviceMetric"
+            }, {
+                "code": "DeviceRequest",
+                "param": [
+                    "subject",
+                    "requester",
+                    "performer"
+                ]
+            }, {
+                "code": "DeviceUseStatement",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "DiagnosticReport",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "DocumentManifest",
+                "param": [
+                    "subject",
+                    "author",
+                    "recipient"
+                ]
+            }, {
+                "code": "DocumentReference",
+                "param": [
+                    "subject",
+                    "author"
+                ]
+            }, {
+                "code": "EligibilityRequest",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "EligibilityResponse"
+            }, {
+                "code": "Encounter",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Endpoint"
+            }, {
+                "code": "EnrollmentRequest",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "EnrollmentResponse"
+            }, {
+                "code": "EpisodeOfCare",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "ExpansionProfile"
+            }, {
+                "code": "ExplanationOfBenefit",
+                "param": [
+                    "patient",
+                    "payee"
+                ]
+            }, {
+                "code": "FamilyMemberHistory",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Flag",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Goal",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "GraphDefinition"
+            }, {
+                "code": "Group",
+                "param": [
+                    "member"
+                ]
+            }, {
+                "code": "GuidanceResponse"
+            }, {
+                "code": "HealthcareService"
+            }, {
+                "code": "ImagingManifest",
+                "param": [
+                    "patient",
+                    "author"
+                ]
+            }, {
+                "code": "ImagingStudy",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Immunization",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "ImmunizationRecommendation",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "ImplementationGuide"
+            }, {
+                "code": "Library"
+            }, {
+                "code": "Linkage"
+            }, {
+                "code": "List",
+                "param": [
+                    "subject",
+                    "source"
+                ]
+            }, {
+                "code": "Location"
+            }, {
+                "code": "Measure"
+            }, {
+                "code": "MeasureReport",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Media",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "Medication"
+            }, {
+                "code": "MedicationAdministration",
+                "param": [
+                    "patient",
+                    "performer",
+                    "subject"
+                ]
+            }, {
+                "code": "MedicationDispense",
+                "param": [
+                    "subject",
+                    "patient",
+                    "receiver"
+                ]
+            }, {
+                "code": "MedicationRequest",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "MedicationStatement",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "MessageDefinition"
+            }, {
+                "code": "MessageHeader"
+            }, {
+                "code": "NamingSystem"
+            }, {
+                "code": "NutritionOrder",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "Observation",
+                "param": [
+                    "subject",
+                    "performer"
+                ]
+            }, {
+                "code": "OperationDefinition"
+            }, {
+                "code": "OperationOutcome"
+            }, {
+                "code": "Organization"
+            }, {
+                "code": "Patient",
+                "param": [
+                    "link"
+                ]
+            }, {
+                "code": "PaymentNotice"
+            }, {
+                "code": "PaymentReconciliation"
+            }, {
+                "code": "Person",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "PlanDefinition"
+            }, {
+                "code": "Practitioner"
+            }, {
+                "code": "PractitionerRole"
+            }, {
+                "code": "Procedure",
+                "param": [
+                    "patient",
+                    "performer"
+                ]
+            }, {
+                "code": "ProcedureRequest",
+                "param": [
+                    "subject",
+                    "performer"
+                ]
+            }, {
+                "code": "ProcessRequest"
+            }, {
+                "code": "ProcessResponse"
+            }, {
+                "code": "Provenance",
+                "param": [
+                    "target.subject",
+                    "target.patient",
+                    "patient"
+                ]
+            }, {
+                "code": "Questionnaire"
+            }, {
+                "code": "QuestionnaireResponse",
+                "param": [
+                    "subject",
+                    "author"
+                ]
+            }, {
+                "code": "ReferralRequest",
+                "param": [
+                    "patient",
+                    "requester"
+                ]
+            }, {
+                "code": "RelatedPerson",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "RequestGroup",
+                "param": [
+                    "subject",
+                    "participant"
+                ]
+            }, {
+                "code": "ResearchStudy"
+            }, {
+                "code": "ResearchSubject",
+                "param": [
+                    "individual"
+                ]
+            }, {
+                "code": "RiskAssessment",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "Schedule",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "SearchParameter"
+            }, {
+                "code": "Sequence"
+            }, {
+                "code": "ServiceDefinition"
+            }, {
+                "code": "Slot"
+            }, {
+                "code": "Specimen",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "StructureDefinition"
+            }, {
+                "code": "StructureMap"
+            }, {
+                "code": "Subscription"
+            }, {
+                "code": "Substance"
+            }, {
+                "code": "SupplyDelivery",
+                "param": [
+                    "patient"
+                ]
+            }, {
+                "code": "SupplyRequest",
+                "param": [
+                    "requester"
+                ]
+            }, {
+                "code": "Task"
+            }, {
+                "code": "TestReport"
+            }, {
+                "code": "TestScript"
+            }, {
+                "code": "ValueSet"
+            }, {
+                "code": "VisionPrescription",
+                "param": [
+                    "patient"
+                ]
+            }]
+        }
+    }, {
+        "fullUrl": "http://hl7.org/fhir/CompartmentDefinition/encounter",
+        "resource": {
+            "resourceType": "CompartmentDefinition",
+            "id": "encounter",
+            "text": {
+                "status": "generated",
+                "div": "<div>!-- Snipped for Brevity --></div>"
+            },
+            "url": "http://hl7.org/fhir/CompartmentDefinition/encounter",
+            "name": "Base FHIR compartment definition for Encounter",
+            "status": "draft",
+            "experimental": true,
+            "date": "2017-04-19T07:44:43+10:00",
+            "publisher": "FHIR Project Team",
+            "contact": [{
+                "telecom": [{
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }]
+            }],
+            "description": "There is an instance of the encounter compartment for each encounter resource, and the identity of the compartment is the same as the encounter. The set of resources associated with a particular encounter",
+            "code": "Encounter",
+            "search": true,
+            "resource": [{
+                "code": "Account"
+            }, {
+                "code": "ActivityDefinition"
+            }, {
+                "code": "AdverseEvent"
+            }, {
+                "code": "AllergyIntolerance"
+            }, {
+                "code": "Appointment"
+            }, {
+                "code": "AppointmentResponse"
+            }, {
+                "code": "AuditEvent"
+            }, {
+                "code": "Basic"
+            }, {
+                "code": "Binary"
+            }, {
+                "code": "BodySite"
+            }, {
+                "code": "Bundle"
+            }, {
+                "code": "CapabilityStatement"
+            }, {
+                "code": "CarePlan"
+            }, {
+                "code": "CareTeam"
+            }, {
+                "code": "ChargeItem",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "Claim",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "ClaimResponse"
+            }, {
+                "code": "ClinicalImpression",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "CodeSystem"
+            }, {
+                "code": "Communication",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "CommunicationRequest",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "CompartmentDefinition"
+            }, {
+                "code": "Composition",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "ConceptMap"
+            }, {
+                "code": "Condition",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "Consent"
+            }, {
+                "code": "Contract"
+            }, {
+                "code": "Coverage"
+            }, {
+                "code": "DataElement"
+            }, {
+                "code": "DetectedIssue"
+            }, {
+                "code": "Device"
+            }, {
+                "code": "DeviceComponent"
+            }, {
+                "code": "DeviceMetric"
+            }, {
+                "code": "DeviceRequest",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "DeviceUseStatement"
+            }, {
+                "code": "DiagnosticReport",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "DocumentManifest"
+            }, {
+                "code": "DocumentReference",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "EligibilityRequest"
+            }, {
+                "code": "EligibilityResponse"
+            }, {
+                "code": "Encounter",
+                "param": [
+                    "{def}"
+                ]
+            }, {
+                "code": "Endpoint"
+            }, {
+                "code": "EnrollmentRequest"
+            }, {
+                "code": "EnrollmentResponse"
+            }, {
+                "code": "EpisodeOfCare"
+            }, {
+                "code": "ExpansionProfile"
+            }, {
+                "code": "ExplanationOfBenefit",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "FamilyMemberHistory"
+            }, {
+                "code": "Flag"
+            }, {
+                "code": "Goal"
+            }, {
+                "code": "GraphDefinition"
+            }, {
+                "code": "Group"
+            }, {
+                "code": "GuidanceResponse"
+            }, {
+                "code": "HealthcareService"
+            }, {
+                "code": "ImagingManifest"
+            }, {
+                "code": "ImagingStudy"
+            }, {
+                "code": "Immunization"
+            }, {
+                "code": "ImmunizationRecommendation"
+            }, {
+                "code": "ImplementationGuide"
+            }, {
+                "code": "Library"
+            }, {
+                "code": "Linkage"
+            }, {
+                "code": "List"
+            }, {
+                "code": "Location"
+            }, {
+                "code": "Measure"
+            }, {
+                "code": "MeasureReport"
+            }, {
+                "code": "Media"
+            }, {
+                "code": "Medication"
+            }, {
+                "code": "MedicationAdministration",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "MedicationDispense"
+            }, {
+                "code": "MedicationRequest",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "MedicationStatement"
+            }, {
+                "code": "MessageDefinition"
+            }, {
+                "code": "MessageHeader"
+            }, {
+                "code": "NamingSystem"
+            }, {
+                "code": "NutritionOrder",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "Observation",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "OperationDefinition"
+            }, {
+                "code": "OperationOutcome"
+            }, {
+                "code": "Organization"
+            }, {
+                "code": "Patient"
+            }, {
+                "code": "PaymentNotice"
+            }, {
+                "code": "PaymentReconciliation"
+            }, {
+                "code": "Person"
+            }, {
+                "code": "PlanDefinition"
+            }, {
+                "code": "Practitioner"
+            }, {
+                "code": "PractitionerRole"
+            }, {
+                "code": "Procedure",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "ProcedureRequest",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "ProcessRequest"
+            }, {
+                "code": "ProcessResponse"
+            }, {
+                "code": "Provenance"
+            }, {
+                "code": "Questionnaire"
+            }, {
+                "code": "QuestionnaireResponse",
+                "param": [
+                    "context"
+                ]
+            }, {
+                "code": "ReferralRequest"
+            }, {
+                "code": "RelatedPerson"
+            }, {
+                "code": "RequestGroup",
+                "param": [
+                    "encounter"
+                ]
+            }, {
+                "code": "ResearchStudy"
+            }, {
+                "code": "ResearchSubject"
+            }, {
+                "code": "RiskAssessment"
+            }, {
+                "code": "Schedule"
+            }, {
+                "code": "SearchParameter"
+            }, {
+                "code": "Sequence"
+            }, {
+                "code": "ServiceDefinition"
+            }, {
+                "code": "Slot"
+            }, {
+                "code": "Specimen"
+            }, {
+                "code": "StructureDefinition"
+            }, {
+                "code": "StructureMap"
+            }, {
+                "code": "Subscription"
+            }, {
+                "code": "Substance"
+            }, {
+                "code": "SupplyDelivery"
+            }, {
+                "code": "SupplyRequest"
+            }, {
+                "code": "Task"
+            }, {
+                "code": "TestReport"
+            }, {
+                "code": "TestScript"
+            }, {
+                "code": "ValueSet"
+            }, {
+                "code": "VisionPrescription",
+                "param": [
+                    "encounter"
+                ]
+            }]
+        }
+    }, {
+        "fullUrl": "http://hl7.org/fhir/CompartmentDefinition/relatedPerson",
+        "resource": {
+            "resourceType": "CompartmentDefinition",
+            "id": "relatedPerson",
+            "text": {
+                "status": "generated",
+                "div": "<div>!-- Snipped for Brevity --></div>"
+            },
+            "url": "http://hl7.org/fhir/CompartmentDefinition/relatedPerson",
+            "name": "Base FHIR compartment definition for RelatedPerson",
+            "status": "draft",
+            "experimental": true,
+            "date": "2017-04-19T07:44:43+10:00",
+            "publisher": "FHIR Project Team",
+            "contact": [{
+                "telecom": [{
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }]
+            }],
+            "description": "There is an instance of the relatedPerson compartment for each relatedPerson resource, and the identity of the compartment is the same as the relatedPerson. The set of resources associated with a particular 'related person'",
+            "code": "RelatedPerson",
+            "search": true,
+            "resource": [{
+                "code": "Account"
+            }, {
+                "code": "ActivityDefinition"
+            }, {
+                "code": "AdverseEvent",
+                "param": [
+                    "recorder"
+                ]
+            }, {
+                "code": "AllergyIntolerance",
+                "param": [
+                    "asserter"
+                ]
+            }, {
+                "code": "Appointment",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "AppointmentResponse",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "AuditEvent"
+            }, {
+                "code": "Basic",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "Binary"
+            }, {
+                "code": "BodySite"
+            }, {
+                "code": "Bundle"
+            }, {
+                "code": "CapabilityStatement"
+            }, {
+                "code": "CarePlan",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "CareTeam",
+                "param": [
+                    "participant"
+                ]
+            }, {
+                "code": "ChargeItem",
+                "param": [
+                    "enterer",
+                    "participant-actor"
+                ]
+            }, {
+                "code": "Claim",
+                "param": [
+                    "payee"
+                ]
+            }, {
+                "code": "ClaimResponse"
+            }, {
+                "code": "ClinicalImpression"
+            }, {
+                "code": "CodeSystem"
+            }, {
+                "code": "Communication",
+                "param": [
+                    "sender",
+                    "recipient"
+                ]
+            }, {
+                "code": "CommunicationRequest",
+                "param": [
+                    "sender",
+                    "recipient",
+                    "requester"
+                ]
+            }, {
+                "code": "CompartmentDefinition"
+            }, {
+                "code": "Composition",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "ConceptMap"
+            }, {
+                "code": "Condition",
+                "param": [
+                    "asserter"
+                ]
+            }, {
+                "code": "Consent"
+            }, {
+                "code": "Contract"
+            }, {
+                "code": "Coverage",
+                "param": [
+                    "policy-holder",
+                    "subscriber",
+                    "payor"
+                ]
+            }, {
+                "code": "DataElement"
+            }, {
+                "code": "DetectedIssue"
+            }, {
+                "code": "Device"
+            }, {
+                "code": "DeviceComponent"
+            }, {
+                "code": "DeviceMetric"
+            }, {
+                "code": "DeviceRequest"
+            }, {
+                "code": "DeviceUseStatement"
+            }, {
+                "code": "DiagnosticReport"
+            }, {
+                "code": "DocumentManifest",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "DocumentReference",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "EligibilityRequest"
+            }, {
+                "code": "EligibilityResponse"
+            }, {
+                "code": "Encounter",
+                "param": [
+                    "participant"
+                ]
+            }, {
+                "code": "Endpoint"
+            }, {
+                "code": "EnrollmentRequest"
+            }, {
+                "code": "EnrollmentResponse"
+            }, {
+                "code": "EpisodeOfCare"
+            }, {
+                "code": "ExpansionProfile"
+            }, {
+                "code": "ExplanationOfBenefit",
+                "param": [
+                    "payee"
+                ]
+            }, {
+                "code": "FamilyMemberHistory"
+            }, {
+                "code": "Flag"
+            }, {
+                "code": "Goal"
+            }, {
+                "code": "GraphDefinition"
+            }, {
+                "code": "Group"
+            }, {
+                "code": "GuidanceResponse"
+            }, {
+                "code": "HealthcareService"
+            }, {
+                "code": "ImagingManifest",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "ImagingStudy"
+            }, {
+                "code": "Immunization"
+            }, {
+                "code": "ImmunizationRecommendation"
+            }, {
+                "code": "ImplementationGuide"
+            }, {
+                "code": "Library"
+            }, {
+                "code": "Linkage"
+            }, {
+                "code": "List"
+            }, {
+                "code": "Location"
+            }, {
+                "code": "Measure"
+            }, {
+                "code": "MeasureReport"
+            }, {
+                "code": "Media"
+            }, {
+                "code": "Medication"
+            }, {
+                "code": "MedicationAdministration",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "MedicationDispense"
+            }, {
+                "code": "MedicationRequest"
+            }, {
+                "code": "MedicationStatement",
+                "param": [
+                    "source"
+                ]
+            }, {
+                "code": "MessageDefinition"
+            }, {
+                "code": "MessageHeader"
+            }, {
+                "code": "NamingSystem"
+            }, {
+                "code": "NutritionOrder"
+            }, {
+                "code": "Observation",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "OperationDefinition"
+            }, {
+                "code": "OperationOutcome"
+            }, {
+                "code": "Organization"
+            }, {
+                "code": "Patient",
+                "param": [
+                    "link"
+                ]
+            }, {
+                "code": "PaymentNotice"
+            }, {
+                "code": "PaymentReconciliation"
+            }, {
+                "code": "Person",
+                "param": [
+                    "link"
+                ]
+            }, {
+                "code": "PlanDefinition"
+            }, {
+                "code": "Practitioner"
+            }, {
+                "code": "PractitionerRole"
+            }, {
+                "code": "Procedure",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "ProcedureRequest",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "ProcessRequest"
+            }, {
+                "code": "ProcessResponse"
+            }, {
+                "code": "Provenance",
+                "param": [
+                    "agent"
+                ]
+            }, {
+                "code": "Questionnaire"
+            }, {
+                "code": "QuestionnaireResponse",
+                "param": [
+                    "author",
+                    "source"
+                ]
+            }, {
+                "code": "ReferralRequest"
+            }, {
+                "code": "RelatedPerson",
+                "param": [
+                    "{def}"
+                ]
+            }, {
+                "code": "RequestGroup",
+                "param": [
+                    "participant"
+                ]
+            }, {
+                "code": "ResearchStudy"
+            }, {
+                "code": "ResearchSubject"
+            }, {
+                "code": "RiskAssessment"
+            }, {
+                "code": "Schedule",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "SearchParameter"
+            }, {
+                "code": "Sequence"
+            }, {
+                "code": "ServiceDefinition"
+            }, {
+                "code": "Slot"
+            }, {
+                "code": "Specimen"
+            }, {
+                "code": "StructureDefinition"
+            }, {
+                "code": "StructureMap"
+            }, {
+                "code": "Subscription"
+            }, {
+                "code": "Substance"
+            }, {
+                "code": "SupplyDelivery"
+            }, {
+                "code": "SupplyRequest",
+                "param": [
+                    "requester"
+                ]
+            }, {
+                "code": "Task"
+            }, {
+                "code": "TestReport"
+            }, {
+                "code": "TestScript"
+            }, {
+                "code": "ValueSet"
+            }, {
+                "code": "VisionPrescription"
+            }]
+        }
+    }, {
+        "fullUrl": "http://hl7.org/fhir/CompartmentDefinition/practitioner",
+        "resource": {
+            "resourceType": "CompartmentDefinition",
+            "id": "practitioner",
+            "text": {
+                "status": "generated",
+                "div": "<div>!-- Snipped for Brevity --></div>"
+            },
+            "url": "http://hl7.org/fhir/CompartmentDefinition/practitioner",
+            "name": "Base FHIR compartment definition for Practitioner",
+            "status": "draft",
+            "experimental": true,
+            "date": "2017-04-19T07:44:43+10:00",
+            "publisher": "FHIR Project Team",
+            "contact": [{
+                "telecom": [{
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }]
+            }],
+            "description": "There is an instance of the practitioner compartment for each Practitioner resource, and the identity of the compartment is the same as the Practitioner. The set of resources associated with a particular practitioner",
+            "code": "Practitioner",
+            "search": true,
+            "resource": [{
+                "code": "Account",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "ActivityDefinition"
+            }, {
+                "code": "AdverseEvent",
+                "param": [
+                    "recorder"
+                ]
+            }, {
+                "code": "AllergyIntolerance",
+                "param": [
+                    "recorder",
+                    "asserter"
+                ]
+            }, {
+                "code": "Appointment",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "AppointmentResponse",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "AuditEvent",
+                "param": [
+                    "agent"
+                ]
+            }, {
+                "code": "Basic",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "Binary"
+            }, {
+                "code": "BodySite"
+            }, {
+                "code": "Bundle"
+            }, {
+                "code": "CapabilityStatement"
+            }, {
+                "code": "CarePlan",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "CareTeam",
+                "param": [
+                    "participant"
+                ]
+            }, {
+                "code": "ChargeItem",
+                "param": [
+                    "enterer",
+                    "participant-actor"
+                ]
+            }, {
+                "code": "Claim",
+                "param": [
+                    "enterer",
+                    "provider",
+                    "payee",
+                    "care-team"
+                ]
+            }, {
+                "code": "ClaimResponse",
+                "param": [
+                    "request-provider"
+                ]
+            }, {
+                "code": "ClinicalImpression",
+                "param": [
+                    "assessor"
+                ]
+            }, {
+                "code": "CodeSystem"
+            }, {
+                "code": "Communication",
+                "param": [
+                    "sender",
+                    "recipient"
+                ]
+            }, {
+                "code": "CommunicationRequest",
+                "param": [
+                    "sender",
+                    "recipient",
+                    "requester"
+                ]
+            }, {
+                "code": "CompartmentDefinition"
+            }, {
+                "code": "Composition",
+                "param": [
+                    "subject",
+                    "author",
+                    "attester"
+                ]
+            }, {
+                "code": "ConceptMap"
+            }, {
+                "code": "Condition",
+                "param": [
+                    "asserter"
+                ]
+            }, {
+                "code": "Consent"
+            }, {
+                "code": "Contract"
+            }, {
+                "code": "Coverage"
+            }, {
+                "code": "DataElement"
+            }, {
+                "code": "DetectedIssue",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "Device"
+            }, {
+                "code": "DeviceComponent"
+            }, {
+                "code": "DeviceMetric"
+            }, {
+                "code": "DeviceRequest",
+                "param": [
+                    "requester",
+                    "performer"
+                ]
+            }, {
+                "code": "DeviceUseStatement"
+            }, {
+                "code": "DiagnosticReport",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "DocumentManifest",
+                "param": [
+                    "subject",
+                    "author",
+                    "recipient"
+                ]
+            }, {
+                "code": "DocumentReference",
+                "param": [
+                    "subject",
+                    "author",
+                    "authenticator"
+                ]
+            }, {
+                "code": "EligibilityRequest",
+                "param": [
+                    "enterer",
+                    "provider"
+                ]
+            }, {
+                "code": "EligibilityResponse",
+                "param": [
+                    "request-provider"
+                ]
+            }, {
+                "code": "Encounter",
+                "param": [
+                    "practitioner",
+                    "participant"
+                ]
+            }, {
+                "code": "Endpoint"
+            }, {
+                "code": "EnrollmentRequest"
+            }, {
+                "code": "EnrollmentResponse"
+            }, {
+                "code": "EpisodeOfCare",
+                "param": [
+                    "care-manager"
+                ]
+            }, {
+                "code": "ExpansionProfile"
+            }, {
+                "code": "ExplanationOfBenefit",
+                "param": [
+                    "enterer",
+                    "provider",
+                    "payee",
+                    "care-team"
+                ]
+            }, {
+                "code": "FamilyMemberHistory"
+            }, {
+                "code": "Flag",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "Goal"
+            }, {
+                "code": "GraphDefinition"
+            }, {
+                "code": "Group",
+                "param": [
+                    "member"
+                ]
+            }, {
+                "code": "GuidanceResponse"
+            }, {
+                "code": "HealthcareService"
+            }, {
+                "code": "ImagingManifest",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "ImagingStudy"
+            }, {
+                "code": "Immunization",
+                "param": [
+                    "practitioner"
+                ]
+            }, {
+                "code": "ImmunizationRecommendation"
+            }, {
+                "code": "ImplementationGuide"
+            }, {
+                "code": "Library"
+            }, {
+                "code": "Linkage",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "List",
+                "param": [
+                    "source"
+                ]
+            }, {
+                "code": "Location"
+            }, {
+                "code": "Measure"
+            }, {
+                "code": "MeasureReport"
+            }, {
+                "code": "Media",
+                "param": [
+                    "subject",
+                    "operator"
+                ]
+            }, {
+                "code": "Medication"
+            }, {
+                "code": "MedicationAdministration",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "MedicationDispense",
+                "param": [
+                    "performer",
+                    "receiver"
+                ]
+            }, {
+                "code": "MedicationRequest",
+                "param": [
+                    "requester"
+                ]
+            }, {
+                "code": "MedicationStatement",
+                "param": [
+                    "source"
+                ]
+            }, {
+                "code": "MessageDefinition"
+            }, {
+                "code": "MessageHeader",
+                "param": [
+                    "receiver",
+                    "author",
+                    "responsible",
+                    "enterer"
+                ]
+            }, {
+                "code": "NamingSystem"
+            }, {
+                "code": "NutritionOrder",
+                "param": [
+                    "provider"
+                ]
+            }, {
+                "code": "Observation",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "OperationDefinition"
+            }, {
+                "code": "OperationOutcome"
+            }, {
+                "code": "Organization"
+            }, {
+                "code": "Patient",
+                "param": [
+                    "general-practitioner"
+                ]
+            }, {
+                "code": "PaymentNotice",
+                "param": [
+                    "provider"
+                ]
+            }, {
+                "code": "PaymentReconciliation",
+                "param": [
+                    "request-provider"
+                ]
+            }, {
+                "code": "Person",
+                "param": [
+                    "practitioner"
+                ]
+            }, {
+                "code": "PlanDefinition"
+            }, {
+                "code": "Practitioner",
+                "param": [
+                    "{def}"
+                ]
+            }, {
+                "code": "PractitionerRole",
+                "param": [
+                    "practitioner"
+                ]
+            }, {
+                "code": "Procedure",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "ProcedureRequest",
+                "param": [
+                    "performer",
+                    "requester"
+                ]
+            }, {
+                "code": "ProcessRequest",
+                "param": [
+                    "provider"
+                ]
+            }, {
+                "code": "ProcessResponse",
+                "param": [
+                    "request-provider"
+                ]
+            }, {
+                "code": "Provenance",
+                "param": [
+                    "agent"
+                ]
+            }, {
+                "code": "Questionnaire"
+            }, {
+                "code": "QuestionnaireResponse",
+                "param": [
+                    "author",
+                    "source"
+                ]
+            }, {
+                "code": "ReferralRequest",
+                "param": [
+                    "requester",
+                    "recipient"
+                ]
+            }, {
+                "code": "RelatedPerson"
+            }, {
+                "code": "RequestGroup",
+                "param": [
+                    "participant",
+                    "author"
+                ]
+            }, {
+                "code": "ResearchStudy",
+                "param": [
+                    "principalinvestigator"
+                ]
+            }, {
+                "code": "ResearchSubject"
+            }, {
+                "code": "RiskAssessment",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "Schedule",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "SearchParameter"
+            }, {
+                "code": "Sequence"
+            }, {
+                "code": "ServiceDefinition"
+            }, {
+                "code": "Slot"
+            }, {
+                "code": "Specimen",
+                "param": [
+                    "collector"
+                ]
+            }, {
+                "code": "StructureDefinition"
+            }, {
+                "code": "StructureMap"
+            }, {
+                "code": "Subscription"
+            }, {
+                "code": "Substance"
+            }, {
+                "code": "SupplyDelivery",
+                "param": [
+                    "supplier",
+                    "receiver"
+                ]
+            }, {
+                "code": "SupplyRequest",
+                "param": [
+                    "requester"
+                ]
+            }, {
+                "code": "Task"
+            }, {
+                "code": "TestReport"
+            }, {
+                "code": "TestScript"
+            }, {
+                "code": "ValueSet"
+            }, {
+                "code": "VisionPrescription",
+                "param": [
+                    "prescriber"
+                ]
+            }]
+        }
+    }, {
+        "fullUrl": "http://hl7.org/fhir/CompartmentDefinition/device",
+        "resource": {
+            "resourceType": "CompartmentDefinition",
+            "id": "device",
+            "text": {
+                "status": "generated",
+                "div": "<div>!-- Snipped for Brevity --></div>"
+            },
+            "url": "http://hl7.org/fhir/CompartmentDefinition/device",
+            "name": "Base FHIR compartment definition for Device",
+            "status": "draft",
+            "experimental": true,
+            "date": "2017-04-19T07:44:43+10:00",
+            "publisher": "FHIR Project Team",
+            "contact": [{
+                "telecom": [{
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }]
+            }],
+            "description": "There is an instance of the practitioner compartment for each Device resource, and the identity of the compartment is the same as the Device. The set of resources associated with a particular device",
+            "code": "Device",
+            "search": true,
+            "resource": [{
+                "code": "Account",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "ActivityDefinition"
+            }, {
+                "code": "AdverseEvent"
+            }, {
+                "code": "AllergyIntolerance"
+            }, {
+                "code": "Appointment",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "AppointmentResponse",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "AuditEvent",
+                "param": [
+                    "agent"
+                ]
+            }, {
+                "code": "Basic"
+            }, {
+                "code": "Binary"
+            }, {
+                "code": "BodySite"
+            }, {
+                "code": "Bundle"
+            }, {
+                "code": "CapabilityStatement"
+            }, {
+                "code": "CarePlan"
+            }, {
+                "code": "CareTeam"
+            }, {
+                "code": "ChargeItem",
+                "param": [
+                    "enterer",
+                    "participant-actor"
+                ]
+            }, {
+                "code": "Claim"
+            }, {
+                "code": "ClaimResponse"
+            }, {
+                "code": "ClinicalImpression"
+            }, {
+                "code": "CodeSystem"
+            }, {
+                "code": "Communication",
+                "param": [
+                    "sender",
+                    "recipient"
+                ]
+            }, {
+                "code": "CommunicationRequest",
+                "param": [
+                    "sender",
+                    "recipient"
+                ]
+            }, {
+                "code": "CompartmentDefinition"
+            }, {
+                "code": "Composition",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "ConceptMap"
+            }, {
+                "code": "Condition"
+            }, {
+                "code": "Consent"
+            }, {
+                "code": "Contract"
+            }, {
+                "code": "Coverage"
+            }, {
+                "code": "DataElement"
+            }, {
+                "code": "DetectedIssue",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "Device",
+                "param": [
+                    "{def}"
+                ]
+            }, {
+                "code": "DeviceComponent",
+                "param": [
+                    "source"
+                ]
+            }, {
+                "code": "DeviceMetric",
+                "param": [
+                    "source"
+                ]
+            }, {
+                "code": "DeviceRequest",
+                "param": [
+                    "device",
+                    "subject",
+                    "requester",
+                    "performer"
+                ]
+            }, {
+                "code": "DeviceUseStatement",
+                "param": [
+                    "device"
+                ]
+            }, {
+                "code": "DiagnosticReport",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "DocumentManifest",
+                "param": [
+                    "subject",
+                    "author"
+                ]
+            }, {
+                "code": "DocumentReference",
+                "param": [
+                    "subject",
+                    "author"
+                ]
+            }, {
+                "code": "EligibilityRequest"
+            }, {
+                "code": "EligibilityResponse"
+            }, {
+                "code": "Encounter"
+            }, {
+                "code": "Endpoint"
+            }, {
+                "code": "EnrollmentRequest"
+            }, {
+                "code": "EnrollmentResponse"
+            }, {
+                "code": "EpisodeOfCare"
+            }, {
+                "code": "ExpansionProfile"
+            }, {
+                "code": "ExplanationOfBenefit"
+            }, {
+                "code": "FamilyMemberHistory"
+            }, {
+                "code": "Flag",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "Goal"
+            }, {
+                "code": "GraphDefinition"
+            }, {
+                "code": "Group",
+                "param": [
+                    "member"
+                ]
+            }, {
+                "code": "GuidanceResponse"
+            }, {
+                "code": "HealthcareService"
+            }, {
+                "code": "ImagingManifest",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "ImagingStudy"
+            }, {
+                "code": "Immunization"
+            }, {
+                "code": "ImmunizationRecommendation"
+            }, {
+                "code": "ImplementationGuide"
+            }, {
+                "code": "Library"
+            }, {
+                "code": "Linkage"
+            }, {
+                "code": "List",
+                "param": [
+                    "subject",
+                    "source"
+                ]
+            }, {
+                "code": "Location"
+            }, {
+                "code": "Measure"
+            }, {
+                "code": "MeasureReport"
+            }, {
+                "code": "Media",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "Medication"
+            }, {
+                "code": "MedicationAdministration",
+                "param": [
+                    "device"
+                ]
+            }, {
+                "code": "MedicationDispense"
+            }, {
+                "code": "MedicationRequest"
+            }, {
+                "code": "MedicationStatement"
+            }, {
+                "code": "MessageDefinition"
+            }, {
+                "code": "MessageHeader",
+                "param": [
+                    "target"
+                ]
+            }, {
+                "code": "NamingSystem"
+            }, {
+                "code": "NutritionOrder"
+            }, {
+                "code": "Observation",
+                "param": [
+                    "subject",
+                    "device"
+                ]
+            }, {
+                "code": "OperationDefinition"
+            }, {
+                "code": "OperationOutcome"
+            }, {
+                "code": "Organization"
+            }, {
+                "code": "Patient"
+            }, {
+                "code": "PaymentNotice"
+            }, {
+                "code": "PaymentReconciliation"
+            }, {
+                "code": "Person"
+            }, {
+                "code": "PlanDefinition"
+            }, {
+                "code": "Practitioner"
+            }, {
+                "code": "PractitionerRole"
+            }, {
+                "code": "Procedure"
+            }, {
+                "code": "ProcedureRequest",
+                "param": [
+                    "performer",
+                    "requester"
+                ]
+            }, {
+                "code": "ProcessRequest"
+            }, {
+                "code": "ProcessResponse"
+            }, {
+                "code": "Provenance",
+                "param": [
+                    "agent"
+                ]
+            }, {
+                "code": "Questionnaire"
+            }, {
+                "code": "QuestionnaireResponse",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "ReferralRequest"
+            }, {
+                "code": "RelatedPerson"
+            }, {
+                "code": "RequestGroup",
+                "param": [
+                    "author"
+                ]
+            }, {
+                "code": "ResearchStudy"
+            }, {
+                "code": "ResearchSubject"
+            }, {
+                "code": "RiskAssessment",
+                "param": [
+                    "performer"
+                ]
+            }, {
+                "code": "Schedule",
+                "param": [
+                    "actor"
+                ]
+            }, {
+                "code": "SearchParameter"
+            }, {
+                "code": "Sequence"
+            }, {
+                "code": "ServiceDefinition"
+            }, {
+                "code": "Slot"
+            }, {
+                "code": "Specimen",
+                "param": [
+                    "subject"
+                ]
+            }, {
+                "code": "StructureDefinition"
+            }, {
+                "code": "StructureMap"
+            }, {
+                "code": "Subscription"
+            }, {
+                "code": "Substance"
+            }, {
+                "code": "SupplyDelivery"
+            }, {
+                "code": "SupplyRequest",
+                "param": [
+                    "requester"
+                ]
+            }, {
+                "code": "Task"
+            }, {
+                "code": "TestReport"
+            }, {
+                "code": "TestScript"
+            }, {
+                "code": "ValueSet"
+            }, {
+                "code": "VisionPrescription"
+            }]
+        }
+    }]
+}

@@ -1,0 +1,20 @@
+{
+    "Unsupported": [
+        "http://hl7.org/fhir/SearchParameter/Bundle-composition",
+        "http://hl7.org/fhir/SearchParameter/Bundle-message",
+        "http://hl7.org/fhir/SearchParameter/Encounter-length",
+        "http://hl7.org/fhir/SearchParameter/Location-near",
+        "http://hl7.org/fhir/SearchParameter/Location-near-distance"
+    ],
+    "PartialSupport": [
+        "http://hl7.org/fhir/SearchParameter/CarePlan-activity-date",
+        "http://hl7.org/fhir/SearchParameter/ChargeItem-occurrence",
+        "http://hl7.org/fhir/SearchParameter/Condition-abatement-age",
+        "http://hl7.org/fhir/SearchParameter/Condition-onset-age",
+        "http://hl7.org/fhir/SearchParameter/Consent-source",
+        "http://hl7.org/fhir/SearchParameter/Device-udi-carrier",
+        "http://hl7.org/fhir/SearchParameter/Group-characteristic-value",
+        "http://hl7.org/fhir/SearchParameter/Group-value",
+        "http://hl7.org/fhir/SearchParameter/ProcedureRequest-occurrence"
+    ]
+}

@@ -66,7 +66,11 @@ namespace Microsoft.Health.Fhir.Client
         /// This is sometimes desirable over calling <see cref="FhirClient.CreateAsync{T}(T,string,System.Threading.CancellationToken)"/> when you want to be sure that at most
         /// one resource is created, even if the call has to be issued multiple times.
         /// </summary>
+#pragma warning disable SA1618 // Generic type parameters should be documented
+#pragma warning disable SA1611 // Element parameters should be documented
         public static Task<FhirResponse<T>> CreateByUpdateAsync<T>(this FhirClient client, T resource, CancellationToken cancellationToken = default)
+#pragma warning restore SA1611 // Element parameters should be documented
+#pragma warning restore SA1618 // Generic type parameters should be documented
             where T : Resource
         {
             resource.Id = Guid.NewGuid().ToString();

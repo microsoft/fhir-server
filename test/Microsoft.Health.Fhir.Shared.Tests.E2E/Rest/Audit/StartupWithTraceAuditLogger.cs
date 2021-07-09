@@ -19,7 +19,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         }
 
         [System.Obsolete]
+#pragma warning disable CS0809 // Obsolete member overrides non-obsolete member
         public override void ConfigureServices(IServiceCollection services)
+#pragma warning restore CS0809 // Obsolete member overrides non-obsolete member
         {
             base.ConfigureServices(services);
 
