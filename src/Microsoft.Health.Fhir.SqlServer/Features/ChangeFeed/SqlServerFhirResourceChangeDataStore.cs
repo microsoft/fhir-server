@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
     {
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
-        private ConcurrentDictionary<short, string> _resourceTypeIdToTypeName;
+        private static ConcurrentDictionary<short, string> resourceTypeIdToTypeNameMap = new ConcurrentDictionary<short, string>();
 
         // dbnetlib error value for timeout expired
         private const short TIMEOUTEXPIRED = -2;
@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
 
             _sqlConnectionFactory = sqlConnectionFactory;
             _logger = logger;
-            _resourceTypeIdToTypeName = new ConcurrentDictionary<short, string>();
         }
 
         /// <summary>
@@ -69,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 {
                     await sqlConnection.OpenAsync(cancellationToken);
 
-                    if (_resourceTypeIdToTypeName.IsEmpty)
+                    if (resourceTypeIdToTypeNameMap.IsEmpty)
                     {
                         await UpdateResourceTypeMapAsync(sqlConnection, cancellationToken);
                     }
@@ -90,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                                     resourceTypeId: (short)sqlDataReader["ResourceTypeId"],
                                     resourceVersion: (int)sqlDataReader["ResourceVersion"],
                                     resourceChangeTypeId: (byte)sqlDataReader["ResourceChangeTypeId"],
-                                    resourceTypeName: _resourceTypeIdToTypeName[(short)sqlDataReader["ResourceTypeId"]]));
+                                    resourceTypeName: resourceTypeIdToTypeNameMap[(short)sqlDataReader["ResourceTypeId"]]));
                             }
                         }
 
@@ -116,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
         }
 
-        private async Task UpdateResourceTypeMapAsync(SqlConnection sqlConnection, CancellationToken cancellationToken)
+        private static async Task UpdateResourceTypeMapAsync(SqlConnection sqlConnection, CancellationToken cancellationToken)
         {
             using (SqlCommand sqlCommand = new SqlCommand("SELECT ResourceTypeId, Name FROM dbo.ResourceType", sqlConnection))
             {
@@ -125,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
-                        _resourceTypeIdToTypeName.TryAdd((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
+                        resourceTypeIdToTypeNameMap.TryAdd((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
                     }
                 }
             }
