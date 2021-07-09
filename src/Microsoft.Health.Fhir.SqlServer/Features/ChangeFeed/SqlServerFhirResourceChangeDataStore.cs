@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
     {
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
-        private Dictionary<short, string> _resourceTypeIdToTypeName;
+        private ConcurrentDictionary<short, string> _resourceTypeIdToTypeName;
 
         // dbnetlib error value for timeout expired
         private const short TIMEOUTEXPIRED = -2;
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
 
             _sqlConnectionFactory = sqlConnectionFactory;
             _logger = logger;
+            _resourceTypeIdToTypeName = new ConcurrentDictionary<short, string>();
         }
 
         /// <summary>
@@ -67,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 {
                     await sqlConnection.OpenAsync(cancellationToken);
 
-                    if (_resourceTypeIdToTypeName == null)
+                    if (_resourceTypeIdToTypeName.IsEmpty)
                     {
                         await UpdateResourceTypeMapAsync(sqlConnection, cancellationToken);
                     }
@@ -116,7 +118,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
 
         private async Task UpdateResourceTypeMapAsync(SqlConnection sqlConnection, CancellationToken cancellationToken)
         {
-            _resourceTypeIdToTypeName = new Dictionary<short, string>();
             using (SqlCommand sqlCommand = new SqlCommand("SELECT ResourceTypeId, Name FROM dbo.ResourceType", sqlConnection))
             {
                 sqlCommand.CommandType = CommandType.Text;
@@ -124,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
-                        _resourceTypeIdToTypeName.Add((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
+                        _resourceTypeIdToTypeName.TryAdd((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
                     }
                 }
             }
