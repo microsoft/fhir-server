@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             OperationsConfiguration operationsConfig = new OperationsConfiguration();
-            operationsConfig.Import.SqlBatchSizeForImportOperation = maxResourceCountInBatch;
+            operationsConfig.Import.SqlBatchSizeForImportResourceOperation = maxResourceCountInBatch;
             operationsConfig.Import.SqlMaxImportOperationConcurrentCount = maxConcurrentCount;
             operationsConfig.Import.SqlImportBatchSizeForCheckpoint = checkpointBatchCount;
             operationsConfiguration.Value.Returns(operationsConfig);

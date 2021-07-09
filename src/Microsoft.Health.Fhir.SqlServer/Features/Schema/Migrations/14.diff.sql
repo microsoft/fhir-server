@@ -28,7 +28,7 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DELETE Top(@batchSize) FROM dbo.Resource
+    DELETE Top(@batchSize) FROM dbo.Resource WITH (TABLOCK)
     WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
 
     COMMIT TRANSACTION
@@ -63,7 +63,7 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DELETE Top(@batchSize) FROM dbo.ResourceWriteClaim
+    DELETE Top(@batchSize) FROM dbo.ResourceWriteClaim WITH (TABLOCK)
     WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
 
     COMMIT TRANSACTION
@@ -109,7 +109,7 @@ AS
     DECLARE @ParmDefinition NVARCHAR(512);
 
     IF OBJECT_ID(@tableName) IS NOT NULL BEGIN
-        SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName + N' WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
+        SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName + N' WITH (TABLOCK) WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
         SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint'; 
 
         EXECUTE sp_executesql @sql, @parmDefinition,

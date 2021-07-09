@@ -9,8 +9,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         private const int DefaultMaxRunningProcessingTaskCount = 5;
         private const int DefaultMaxRetryCount = 5;
-        private const int DefaultSqlImportBatchSizeForCheckpoint = 40000;
-        private const int DefaultSqlBatchSizeForImportOperation = 2000;
+        private const int DefaultSqlImportBatchSizeForCheckpoint = 80000;
+        private const int DefaultSqlBatchSizeForImportResourceOperation = 2000;
+        private const int DefaultSqlBatchSizeForImportParamsOperation = 10000;
         private const int DefaultSqlMaxImportOperationConcurrentCount = 5;
         private const int DefaultSqlCleanResourceBatchSize = 1000;
         private const int DefaultSqlMaxRebuildIndexOperationConcurrentCount = 3;
@@ -54,9 +55,14 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int SqlBulkOperationTimeoutInSec { get; set; } = DefaultSqlBulkOperationTimeoutInSec;
 
         /// <summary>
-        /// Max batch size for import operation
+        /// Max batch size for import resource operation
         /// </summary>
-        public int SqlBatchSizeForImportOperation { get; set; } = DefaultSqlBatchSizeForImportOperation;
+        public int SqlBatchSizeForImportResourceOperation { get; set; } = DefaultSqlBatchSizeForImportResourceOperation;
+
+        /// <summary>
+        /// Max batch size for import resoruce search params operation
+        /// </summary>
+        public int SqlBatchSizeForImportParamsOperation { get; set; } = DefaultSqlBatchSizeForImportParamsOperation;
 
         /// <summary>
         /// Max concurrent count for import operation

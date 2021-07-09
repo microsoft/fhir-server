@@ -126,6 +126,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlBulkCopy bulkCopy = new SqlBulkCopy(sqlConnectionWrapper.SqlConnection, SqlBulkCopyOptions.CheckConstraints | SqlBulkCopyOptions.UseInternalTransaction | SqlBulkCopyOptions.KeepNulls, null))
             {
                 bulkCopy.DestinationTableName = dataTable.TableName;
+                bulkCopy.BatchSize = dataTable.Rows.Count;
 
                 try
                 {

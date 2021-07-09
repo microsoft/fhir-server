@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     currentIndex = resource.Index;
 
                     resourceBuffer.Add(resource);
-                    if (resourceBuffer.Count < _importTaskConfiguration.SqlBatchSizeForImportOperation)
+                    if (resourceBuffer.Count < _importTaskConfiguration.SqlBatchSizeForImportResourceOperation)
                     {
                         continue;
                     }
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
                     {
                         // import table >= MaxResourceCountInBatch
                         string[] tableNameNeedImport =
-                                    resourceParamsBuffer.Where(r => r.Value.Rows.Count >= _importTaskConfiguration.SqlBatchSizeForImportOperation).Select(r => r.Key).ToArray();
+                                    resourceParamsBuffer.Where(r => r.Value.Rows.Count >= _importTaskConfiguration.SqlBatchSizeForImportParamsOperation).Select(r => r.Key).ToArray();
 
                         foreach (string tableName in tableNameNeedImport)
                         {
