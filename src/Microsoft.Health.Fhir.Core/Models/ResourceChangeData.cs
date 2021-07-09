@@ -7,7 +7,7 @@ using System;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
-    public class ResourceChangeData : IResourceChangeData
+    public class ResourceChangeData
     {
         public ResourceChangeData(long id, DateTime timestamp, string resourceId, short resourceTypeId, int resourceVersion, byte resourceChangeTypeId)
         {
