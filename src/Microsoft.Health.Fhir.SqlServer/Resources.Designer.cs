@@ -79,15 +79,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to An error occurred when getting resource types from SQL database..
-        /// </summary>
-        internal static string ExceptionOccurredWhenGettingResourceTypes {
-            get {
-                return ResourceManager.GetString("ExceptionOccurredWhenGettingResourceTypes", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {
@@ -147,15 +138,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string SqlExceptionOccurredWhenFetchingResourceChanges {
             get {
                 return ResourceManager.GetString("SqlExceptionOccurredWhenFetchingResourceChanges", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to A SQL exception occurred when getting resource types from SQL database. Error number is {0}..
-        /// </summary>
-        internal static string SqlExceptionOccurredWhenGettingResourceTypes {
-            get {
-                return ResourceManager.GetString("SqlExceptionOccurredWhenGettingResourceTypes", resourceCulture);
             }
         }
         

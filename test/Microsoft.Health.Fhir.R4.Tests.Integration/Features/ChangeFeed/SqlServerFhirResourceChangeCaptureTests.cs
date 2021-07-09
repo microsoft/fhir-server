@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -271,7 +270,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         ///  when the resource change capture config is disabled.
         /// </summary>
         [Fact]
-        public async Task GivenADatabase_WhenGettingResourceTypes_ThenCountShouldBeEqualToNumberOfResourceTypeNames()
+        public async Task GivenADatabase_WhenGettingResourceTypes_WhenInsertingAResource_ThenResourceTypeNameShouldBeEqual()
         {
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
 
@@ -279,17 +278,20 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             {
                 string databaseName = $"FHIRRESOURCETYPESTEST_V{SchemaVersionConstants.Max}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
 
-                // this will either create the database or upgrade the schema.
-                _coreFeatureConfigOptions.Value.SupportsResourceChangeCapture = false;
                 fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, databaseName, _coreFeatureConfigOptions));
                 await fhirStorageTestsFixture.InitializeAsync();
 
+                Mediator mediator = fhirStorageTestsFixture.Mediator;
+
+                // add a new resource
+                var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
                 // get resource types
                 var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(databaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                var resourceChanges = await resourceChangeDataStore.GetResourceTypeMapAsync(CancellationToken.None);
+                var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                 Assert.NotNull(resourceChanges);
-                Assert.Equal(ModelInfoProvider.GetResourceTypeNames().Count, resourceChanges.Count);
+                Assert.Equal(saveResult.RawResourceElement.InstanceType, resourceChanges.First().ResourceTypeName);
             }
             catch (Exception e)
             {

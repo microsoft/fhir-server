@@ -9,7 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 {
     public class ResourceChangeData
     {
-        public ResourceChangeData(long id, DateTime timestamp, string resourceId, short resourceTypeId, int resourceVersion, byte resourceChangeTypeId)
+        public ResourceChangeData(long id, DateTime timestamp, string resourceId, short resourceTypeId, int resourceVersion, byte resourceChangeTypeId, string resourceTypeName)
         {
             Id = id;
             Timestamp = timestamp;
@@ -17,6 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             ResourceTypeId = resourceTypeId;
             ResourceVersion = resourceVersion;
             ResourceChangeTypeId = resourceChangeTypeId;
+            ResourceTypeName = resourceTypeName;
         }
 
         public long Id { get; }
@@ -30,5 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         public byte ResourceChangeTypeId { get; }
 
         public DateTime Timestamp { get; }
+
+        public string ResourceTypeName { get; }
     }
 }
