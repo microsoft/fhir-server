@@ -8,7 +8,6 @@ using System.Linq;
 using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
-using FluentValidation.Validators;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
@@ -16,7 +15,7 @@ using static Microsoft.Health.Fhir.Core.Models.OperationOutcomeConstants;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public sealed class ResourceProfileValidator : ResourceContentValidator
+    public sealed class ResourceProfileValidator<T, TProperty> : ResourceContentValidator<T, TProperty>
     {
         private readonly IProfileValidator _profileValidator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -38,11 +37,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _runProfileValidation = runProfileValidation;
         }
 
-        public override IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
+        public override bool IsValid(ValidationContext<T> context, TProperty value)
+        {
+            var result = Validate(context);
+            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
+            foreach (var validationFailure in validationFailures)
+            {
+                context.AddFailure(validationFailure);
+            }
+
+            return validationFailures.Count == 0;
+        }
+
+        public override IEnumerable<ValidationFailure> Validate(ValidationContext<T> context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.PropertyValue is ResourceElement resourceElement)
+            if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 var fhirContext = _contextAccessor.RequestContext;
                 var profileValidation = _runProfileValidation;

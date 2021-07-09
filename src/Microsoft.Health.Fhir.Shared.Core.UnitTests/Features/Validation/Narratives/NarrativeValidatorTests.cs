@@ -6,9 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using FluentValidation;
-using FluentValidation.Internal;
 using FluentValidation.Results;
-using FluentValidation.Validators;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,11 +20,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 {
     public class NarrativeValidatorTests : NarrativeDataTestBase
     {
-        private readonly NarrativeValidator _validator;
+        private readonly NarrativeValidator<ResourceElement, ResourceElement> _validator;
 
         public NarrativeValidatorTests()
         {
-            _validator = new NarrativeValidator(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
+            _validator = new NarrativeValidator<ResourceElement, ResourceElement>(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
         }
 
         [Theory]
@@ -37,13 +35,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             defaultObservation.Text.Div = maliciousNarrative;
 
             var instanceToValidate = defaultObservation.ToResourceElement();
-
             IEnumerable<ValidationFailure> result = _validator.Validate(
-                new PropertyValidatorContext(
-                    new ValidationContext<ResourceElement>(instanceToValidate),
-                    PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
-                    "Resource",
-                    instanceToValidate));
+                    new ValidationContext<ResourceElement>(instanceToValidate));
 
             List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
             Assert.NotEmpty(validationFailures);
@@ -70,11 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 
             var instanceToValidate = bundle.ToResourceElement();
             var result = _validator.Validate(
-                new PropertyValidatorContext(
-                    new ValidationContext<ResourceElement>(instanceToValidate),
-                    PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
-                    "Resource",
-                    instanceToValidate));
+                    new ValidationContext<ResourceElement>(instanceToValidate));
 
             List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
             Assert.NotEmpty(validationFailures);

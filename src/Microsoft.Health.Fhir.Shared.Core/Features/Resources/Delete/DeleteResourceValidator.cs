@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
         public DeleteResourceValidator()
         {
             RuleFor(x => x.ResourceKey.Id)
-                .SetValidator(new IdValidator());
+                .SetValidator(new IdValidator<DeleteResourceRequest>()).WithMessage(Core.Resources.IdRequirements);
         }
     }
 }

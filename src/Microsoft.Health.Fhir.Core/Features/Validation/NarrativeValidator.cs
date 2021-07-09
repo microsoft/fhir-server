@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
 using Hl7.Fhir.ElementModel;
@@ -14,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
-    public class NarrativeValidator : NoopPropertyValidator
+    public class NarrativeValidator<T, TProperty> : NoopPropertyValidator<T, TProperty>
     {
         private readonly INarrativeHtmlSanitizer _narrativeHtmlSanitizer;
 
@@ -25,11 +26,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             _narrativeHtmlSanitizer = narrativeHtmlSanitizer;
         }
 
-        public override IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
+        public override string Name => "NarrativeValidator";
+
+        public override bool IsValid(ValidationContext<T> context, TProperty value)
+        {
+            var result = Validate(context);
+            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
+            foreach (var validationFailure in validationFailures)
+            {
+                context.AddFailure(validationFailure);
+            }
+
+            return validationFailures.Count == 0;
+        }
+
+        public IEnumerable<ValidationFailure> Validate(ValidationContext<T> context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.PropertyValue is ResourceElement resourceElement)
+            if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 if (resourceElement.IsDomainResource)
                 {

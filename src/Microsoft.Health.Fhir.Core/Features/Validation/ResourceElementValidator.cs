@@ -10,16 +10,16 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
-    public class ResourceElementValidator : AbstractValidator<ResourceElement>
+    public class ResourceElementValidator<T, TProperty> : AbstractValidator<ResourceElement>
     {
-        public ResourceElementValidator(ResourceContentValidator contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
+        public ResourceElementValidator(ResourceContentValidator<T, TProperty> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
             RuleFor(x => x.Id)
-              .SetValidator(new IdValidator());
+              .SetValidator(new IdValidator<ResourceElement>()).WithMessage(Core.Resources.IdRequirements);
             RuleFor(x => x)
-                  .SetValidator(contentValidator);
+                  .SetValidator((FluentValidation.Validators.IPropertyValidator<ResourceElement, ResourceElement>)contentValidator);
             RuleFor(x => x)
-                .SetValidator(new NarrativeValidator(narrativeHtmlSanitizer));
+                .SetValidator(new NarrativeValidator<ResourceElement, ResourceElement>(narrativeHtmlSanitizer));
         }
     }
 }

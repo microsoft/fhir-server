@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
 using Microsoft.Health.Fhir.Core.Models;
@@ -15,11 +16,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// <summary>
     /// Validates content of resource.
     /// </summary>
+    /// <typeparam name="T">The type of the element.</typeparam>
+    /// <typeparam name="TProperty">The element.</typeparam>
     /// <remarks>
     /// Even if we correctly parsed resource into object it doesn't mean resource is valid.
     /// We need to check that properties have right cardinality, correct types, proper format, etc.
     /// </remarks>
-    public class ResourceContentValidator : NoopPropertyValidator
+    public class ResourceContentValidator<T, TProperty> : NoopPropertyValidator<T, TProperty>
     {
         private readonly IModelAttributeValidator _modelAttributeValidator;
 
@@ -30,11 +33,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _modelAttributeValidator = modelAttributeValidator;
         }
 
-        public override IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
+        public override string Name => "ResourceContentValidator";
+
+        public override bool IsValid(ValidationContext<T> context, TProperty value)
+        {
+            var result = Validate(context);
+            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
+            foreach (var validationFailure in validationFailures)
+            {
+                context.AddFailure(validationFailure);
+            }
+
+            return validationFailures.Count == 0;
+        }
+
+        public virtual IEnumerable<ValidationFailure> Validate(ValidationContext<T> context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.PropertyValue is ResourceElement resourceElement)
+            if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 var results = new List<ValidationResult>();
                 if (!_modelAttributeValidator.TryValidate(resourceElement, results, false))
