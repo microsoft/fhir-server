@@ -9,9 +9,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         private const int DefaultMaxRunningProcessingTaskCount = 5;
         private const int DefaultMaxRetryCount = 5;
-        private const int DefaultSqlImportBatchSizeForCheckpoint = 5000;
-        private const int DefaultSqlBatchSizeForImportOperation = 1000;
-        private const int DefaultSqlMaxImportOperationConcurrentCount = 3;
+        private const int DefaultSqlImportBatchSizeForCheckpoint = 40000;
+        private const int DefaultSqlBatchSizeForImportOperation = 2000;
+        private const int DefaultSqlMaxImportOperationConcurrentCount = 5;
         private const int DefaultSqlCleanResourceBatchSize = 1000;
         private const int DefaultSqlMaxRebuildIndexOperationConcurrentCount = 3;
         private const int DefaultSqlMaxDeleteDuplicateOperationConcurrentCount = 3;
