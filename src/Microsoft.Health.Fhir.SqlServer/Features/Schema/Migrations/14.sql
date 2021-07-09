@@ -3588,7 +3588,7 @@ AS
 
 	BEGIN TRANSACTION
 
-	MERGE INTO [dbo].[Resource] WITH (TABLOCK, INDEX(IX_Resource_ResourceTypeId_ResourceId_Version)) AS target
+	MERGE INTO [dbo].[Resource] WITH (ROWLOCK, INDEX(IX_Resource_ResourceTypeId_ResourceId_Version)) AS target
 	USING @resources AS source
 	ON source.[ResourceTypeId] = target.[ResourceTypeId]
 		AND source.[ResourceId] = target.[ResourceId]
