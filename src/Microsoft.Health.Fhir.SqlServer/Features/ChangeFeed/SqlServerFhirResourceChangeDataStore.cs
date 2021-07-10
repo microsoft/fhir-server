@@ -64,6 +64,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             var listResourceChangeData = new List<ResourceChangeData>();
             try
             {
+                // The GetRecordsAsync function would be called every second by one agent.
+                // So, it would be a good option that opens and closes a connection for each call,
+                // and there is no database connection pooling in the Application at this time.
                 using (SqlConnection sqlConnection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
                 {
                     await sqlConnection.OpenAsync(cancellationToken);

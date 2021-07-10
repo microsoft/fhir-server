@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
     /// </summary>
     public class SqlServerFhirResourceChangeDataStoreTests
     {
-        private SqlServerFhirResourceChangeDataStore resourceChangeDataStore;
+        private readonly SqlServerFhirResourceChangeDataStore resourceChangeDataStore;
 
         public SqlServerFhirResourceChangeDataStoreTests()
         {
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         }
 
         [Fact]
-        public async Task GivenTheStartIdLessThanZero_ExceptionShouldBeThrown()
+        public async Task GivenTheStartIdLessThanOne_ExceptionShouldBeThrown()
         {
             var expectedStartString = "Value '-1' is not greater than or equal to limit '1'. (Parameter 'startId')";
             var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await resourceChangeDataStore.GetRecordsAsync(-1, 200, CancellationToken.None));
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         }
 
         [Fact]
-        public async Task GivenThePageSizeLessThanZero_ExceptionShouldBeThrown()
+        public async Task GivenThePageSizeLessThanOne_ExceptionShouldBeThrown()
         {
             var expectedStartString = "Value '-1' is not greater than or equal to limit '1'. (Parameter 'pageSize')";
             var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await resourceChangeDataStore.GetRecordsAsync(1, -1, CancellationToken.None));
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         }
 
         [Fact]
-        public async Task GivenThePageSizeLessThanZero_ArgumentOutOfRangeExceptionShouldBeThrown()
+        public async Task GivenThePageSizeLessThanOne_ArgumentOutOfRangeExceptionShouldBeThrown()
         {
             try
             {
