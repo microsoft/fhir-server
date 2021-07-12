@@ -3464,11 +3464,10 @@ BEGIN
      CREATE TABLE dbo.EventAgentCheckpoint
      (
          CheckpointId varchar(64) NOT NULL,
-         Partition varchar(64) NOT NULL,
          LastProcessedDateTime datetimeoffset(7),
          LastProcessedIdentifier varchar(64),
          UpdatedOn datetime2(7) NOT NULL DEFAULT sysutcdatetime(),
-        CONSTRAINT PK_EventAgentCheckpoint PRIMARY KEY CLUSTERED (CheckpointId, Partition)
+        CONSTRAINT PK_EventAgentCheckpoint PRIMARY KEY CLUSTERED (CheckpointId)
      )
      ON [PRIMARY]
 END
@@ -3487,8 +3486,6 @@ GO
 -- PARAMETERS
 --     @CheckpointId
 --         * The identifier of the checkpoint.
---     @Partition
---         * The partition that the Event Agent is reading from.
 --     @LastProcessedDateTime
 --         * The datetime of last item that was processed.
 --     @LastProcessedIdentifier
@@ -3499,20 +3496,19 @@ GO
 --
 CREATE OR ALTER PROCEDURE dbo.UpdateEventAgentCheckpoint
     @CheckpointId varchar(64),
-    @Partition varchar(64),
     @LastProcessedDateTime datetimeoffset(7) = NULL,
     @LastProcessedIdentifier varchar(64) = NULL
 AS
 
 BEGIN
-    IF EXISTS (SELECT * FROM dbo.EventAgentCheckpoint WHERE CheckpointId = @CheckpointId AND Partition = @Partition)
-    UPDATE dbo.EventAgentCheckpoint SET CheckpointId = @CheckpointId, "Partition" = @Partition, LastProcessedDateTime = @LastProcessedDateTime, LastProcessedIdentifier = @LastProcessedIdentifier, UpdatedOn = sysutcdatetime()
-    WHERE CheckpointId = @CheckpointId AND Partition = @Partition
+    IF EXISTS (SELECT * FROM dbo.EventAgentCheckpoint WHERE CheckpointId = @CheckpointId)
+    UPDATE dbo.EventAgentCheckpoint SET CheckpointId = @CheckpointId, LastProcessedDateTime = @LastProcessedDateTime, LastProcessedIdentifier = @LastProcessedIdentifier, UpdatedOn = sysutcdatetime()
+    WHERE CheckpointId = @CheckpointId
     ELSE
     INSERT INTO dbo.EventAgentCheckpoint
-        (CheckpointId, "Partition", LastProcessedDateTime, LastProcessedIdentifier, UpdatedOn)
+        (CheckpointId, LastProcessedDateTime, LastProcessedIdentifier, UpdatedOn)
     VALUES
-        (@CheckpointId, @Partition, @LastProcessedDateTime, @LastProcessedIdentifier, sysutcdatetime())
+        (@CheckpointId, @LastProcessedDateTime, @LastProcessedIdentifier, sysutcdatetime())
 END
 GO
 
@@ -3526,25 +3522,19 @@ GO
 -- PARAMETERS
 --     @Id
 --         * The identifier of the checkpoint.
---     @Partition
---         * The partition that the Event Agent is reading from.
 --
 -- RETURN VALUE
---     A checkpoint for the given checkpoint id and partition, if one exists.
+--     A checkpoint for the given checkpoint id, if one exists.
 --
 CREATE OR ALTER PROCEDURE dbo.FetchEventAgentCheckpoint
-    @CheckpointId varchar(64),
-    @Partition varchar(64)
+    @CheckpointId varchar(64)
 AS
 BEGIN
     SELECT TOP(1)
       CheckpointId,
-      Partition,
       LastProcessedDateTime,
       LastProcessedIdentifier
       FROM dbo.EventAgentCheckpoint
-    WHERE CheckpointId = @CheckpointId AND Partition = @Partition
+    WHERE CheckpointId = @CheckpointId
 END
-GO
-    COMMIT TRANSACTION
 GO
