@@ -17,13 +17,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     public class DataGeneratorsTests
     {
         [Fact]
-        public void GivenResourceRecord_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
-        {
-            DataTable table = TestBulkDataProvider.GenerateResourceTable(1, 1000, 103);
-            ValidataDataTable(VLatest.Resource, table);
-        }
-
-        [Fact]
         public void GivenDateTimeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateDateTimeSearchParamsTable(1, 1000, 103);

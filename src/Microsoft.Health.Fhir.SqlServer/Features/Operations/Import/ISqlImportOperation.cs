@@ -3,16 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {
-    /// <summary>
-    /// Bulk import related store operations
-    /// </summary>
-    public interface IFhirDataBulkImportOperation
+    public interface ISqlImportOperation
     {
         /// <summary>
         /// Clean resources and params by resource type and sequence id range.
@@ -31,21 +29,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public Task BulkCopyDataAsync(DataTable dataTable, CancellationToken cancellationToken);
 
         /// <summary>
-        /// Pre-process before import operation.
+        /// Merge resources to resource table.
         /// </summary>
+        /// <param name="resources">Input resources content.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
-        public Task PreprocessAsync(CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Post-process after import operation.
-        /// </summary>
-        /// <param name="cancellationToken">Cancellation Token</param>
-        public Task PostprocessAsync(CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Remove duplicated resoruces in data store.
-        /// </summary>
-        /// /// <param name="cancellationToken">Cancellation Token</param>
-        public Task DeleteDuplicatedResourcesAsync(CancellationToken cancellationToken);
+        public Task<IEnumerable<SqlBulkCopyDataWrapper>> BulkMergeResourceAsync(IEnumerable<SqlBulkCopyDataWrapper> resources, CancellationToken cancellationToken);
     }
 }

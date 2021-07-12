@@ -38,13 +38,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 VLatest.UriSearchParam,
             };
 
-            string[] supportedIndexesNames = SqlServerFhirDataBulkImportOperation.UnclusteredIndexes.Select(i => i.index.IndexName).ToArray();
+            string[] excludeIndexNames = new string[]
+            {
+                "IX_Resource_ResourceTypeId_ResourceId_Version",
+                "IX_Resource_ResourceTypeId_ResourceId",
+                "IX_Resource_ResourceTypeId_ResourceSurrgateId",
+            };
+
+            string[] supportedIndexesNames = SqlImportOperation.OptionalIndexesForImport.Select(i => i.index.IndexName).ToArray();
             int expectedIndexesCount = 0;
             foreach (Table table in resourceRelatedTables)
             {
                 string[] indexNames = table.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic).Where(f => f.Name.StartsWith("IX_")).Select(f => f.Name).ToArray();
                 foreach (string indexName in indexNames)
                 {
+                    if (excludeIndexNames.Contains(indexName))
+                    {
+                        continue;
+                    }
+
                     Assert.Contains(indexName, supportedIndexesNames);
                     expectedIndexesCount++;
                 }

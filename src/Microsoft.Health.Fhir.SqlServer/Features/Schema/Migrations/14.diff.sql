@@ -28,7 +28,7 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DELETE Top(@batchSize) FROM dbo.Resource
+    DELETE Top(@batchSize) FROM dbo.Resource WITH (TABLOCK)
     WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
 
     COMMIT TRANSACTION
@@ -63,7 +63,7 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DELETE Top(@batchSize) FROM dbo.ResourceWriteClaim
+    DELETE Top(@batchSize) FROM dbo.ResourceWriteClaim WITH (TABLOCK)
     WHERE ResourceSurrogateId >= @startResourceSurrogateId AND ResourceSurrogateId < @endResourceSurrogateId
 
     COMMIT TRANSACTION
@@ -109,7 +109,7 @@ AS
     DECLARE @ParmDefinition NVARCHAR(512);
 
     IF OBJECT_ID(@tableName) IS NOT NULL BEGIN
-        SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName + N' WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
+        SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName + N' WITH (TABLOCK) WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
         SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint'; 
 
         EXECUTE sp_executesql @sql, @parmDefinition,
@@ -228,74 +228,6 @@ AS
     COMMIT TRANSACTION
 
     RETURN @IsExecuted
-GO
-
-
-/*************************************************************
-    Stored procedures for remove duplicate resources
-**************************************************************/
---
--- STORED PROCEDURE
---     DeleteDuplicatedResources
---
--- DESCRIPTION
---     Delete duplicated resources
---
--- PARAMETERS
---
-CREATE OR ALTER PROCEDURE dbo.DeleteDuplicatedResources
-AS
-    SET NOCOUNT ON
-    SET XACT_ABORT ON
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-    BEGIN TRANSACTION
-
-    DELETE rank FROM
-        (
-            SELECT *
-            , DupRank = ROW_NUMBER() OVER (
-                          PARTITION BY ResourceId
-                          ORDER BY ResourceSurrogateId desc)
-            From dbo.Resource
-        ) as rank
-    where rank.DupRank > 1
-
-    COMMIT TRANSACTION
-GO
-
-/*************************************************************
-    Stored procedures for remove duplicate search parameters
-**************************************************************/
---
--- STORED PROCEDURE
---     DeleteDuplicatedSearchParams
---
--- DESCRIPTION
---     Delete duplicated search parameters
---
--- PARAMETERS
---     @tableName
---         * search params table name
-CREATE OR ALTER PROCEDURE dbo.DeleteDuplicatedSearchParams
-    @tableName nvarchar(128)
-AS
-    SET NOCOUNT ON
-    SET XACT_ABORT ON
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-    BEGIN TRANSACTION
-
-    DECLARE @Sql NVARCHAR(MAX);
-
-    IF OBJECT_ID(@tableName) IS NOT NULL BEGIN
-        SET @Sql = N'DELETE FROM ' + @tableName
-        + N' WHERE ResourceSurrogateId not IN (SELECT ResourceSurrogateId FROM dbo.Resource)'
-    END
-
-    EXECUTE sp_executesql @Sql
-
-    COMMIT TRANSACTION
 GO
 
 /*************************************************************
@@ -438,4 +370,74 @@ AS
     from dbo.TaskInfo task INNER JOIN @availableJobs availableJob ON task.TaskId = availableJob.TaskId
 
     COMMIT TRANSACTION
+GO
+
+IF TYPE_ID(N'BulkImportResourceType_1') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkImportResourceType_1 AS TABLE
+    (
+        ResourceTypeId smallint NOT NULL,
+        ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        Version int NOT NULL,
+        IsHistory bit NOT NULL,
+        ResourceSurrogateId bigint NOT NULL,
+        IsDeleted bit NOT NULL,
+        RequestMethod varchar(10) NULL,
+        RawResource varbinary(max) NOT NULL,
+        IsRawResourceMetaSet bit NOT NULL DEFAULT 0,
+        SearchParamHash varchar(64) NULL
+    )
+END
+GO 
+
+/*************************************************************
+    Stored procedures for bulk merge resources
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     BulkMergeResource
+--
+-- DESCRIPTION
+--     Stored procedures for bulk merge resource
+--
+-- PARAMETERS
+--     @resources
+--         * input resources
+CREATE OR ALTER PROCEDURE dbo.BulkMergeResource
+    @resources dbo.BulkImportResourceType_1 READONLY
+AS
+	SET NOCOUNT ON
+	SET XACT_ABORT ON
+
+	BEGIN TRANSACTION
+
+	MERGE INTO [dbo].[Resource] WITH (ROWLOCK, INDEX(IX_Resource_ResourceTypeId_ResourceId_Version)) AS target
+	USING @resources AS source
+	ON source.[ResourceTypeId] = target.[ResourceTypeId]
+		AND source.[ResourceId] = target.[ResourceId]
+        AND source.[Version] = target.[Version]
+	WHEN NOT MATCHED BY target THEN
+	INSERT ([ResourceTypeId]
+			, [ResourceId]
+			, [Version]
+			, [IsHistory]
+			, [ResourceSurrogateId]
+			, [IsDeleted]
+			, [RequestMethod]
+			, [RawResource]
+			, [IsRawResourceMetaSet]
+			, [SearchParamHash])
+	VALUES ([ResourceTypeId]
+			, [ResourceId]
+			, [Version]
+			, [IsHistory]
+			, [ResourceSurrogateId]
+			, [IsDeleted]
+			, [RequestMethod]
+			, [RawResource]
+			, [IsRawResourceMetaSet]
+			, [SearchParamHash])
+	OUTPUT Inserted.[ResourceSurrogateId];
+
+	COMMIT TRANSACTION
 GO

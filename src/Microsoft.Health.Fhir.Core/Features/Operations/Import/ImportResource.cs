@@ -3,22 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.IO;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportResource
     {
-        public ImportResource(long id, long index, ResourceWrapper resource, byte[] compressedRawData)
+        public ImportResource(long id, long index, ResourceWrapper resource)
         {
             Id = id;
-            Resource = resource;
-            CompressedRawData = compressedRawData;
             Index = index;
+            Resource = resource;
         }
 
-        public ImportResource(ResourceWrapper resource, byte[] compressedRawData)
-            : this(0, 0, resource, compressedRawData)
+        public ImportResource(ResourceWrapper resource)
+            : this(0, 0, resource)
         {
         }
 
@@ -45,15 +45,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         public ResourceWrapper Resource { get; set; }
 
         /// <summary>
-        /// Compressed fhir data
-        /// </summary>
-#pragma warning disable CA1819
-        public byte[] CompressedRawData { get; set; }
-#pragma warning restore CA1819
-
-        /// <summary>
         /// Processing error
         /// </summary>
         public string ImportError { get; set; }
+
+        /// <summary>
+        /// Compressed raw resource stream
+        /// </summary>
+        public Stream CompressedStream { get; set; }
     }
 }
