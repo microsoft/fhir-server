@@ -181,7 +181,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
+                ("Procedure", "[dbo].[UpsertResource_3]"),
                 ("Procedure", "[dbo].[CreateTask]"),
+                ("Procedure", "[dbo].[GetNextTask]"),
                 ("Procedure", "[dbo].[HardDeleteResource]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
