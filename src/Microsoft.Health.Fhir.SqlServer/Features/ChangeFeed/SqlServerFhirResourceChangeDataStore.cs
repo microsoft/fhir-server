@@ -70,10 +70,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 using (SqlConnection sqlConnection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
                 {
                     await sqlConnection.OpenAsync(cancellationToken);
-
-                    if (resourceTypeIdToTypeNameMap.IsEmpty)
+                    lock (resourceTypeIdToTypeNameMap)
                     {
-                        await UpdateResourceTypeMapAsync(sqlConnection, cancellationToken);
+                        if (resourceTypeIdToTypeNameMap.IsEmpty)
+                        {
+                            UpdateResourceTypeMapAsync(sqlConnection);
+                        }
                     }
 
                     using (SqlCommand sqlCommand = new SqlCommand("dbo.FetchResourceChanges", sqlConnection))
@@ -118,14 +120,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
         }
 
-        private static async Task UpdateResourceTypeMapAsync(SqlConnection sqlConnection, CancellationToken cancellationToken)
+        private static void UpdateResourceTypeMapAsync(SqlConnection sqlConnection)
         {
             using (SqlCommand sqlCommand = new SqlCommand("SELECT ResourceTypeId, Name FROM dbo.ResourceType", sqlConnection))
             {
                 sqlCommand.CommandType = CommandType.Text;
-                using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                using (SqlDataReader sqlDataReader = sqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
                 {
-                    while (await sqlDataReader.ReadAsync(cancellationToken))
+                    while (sqlDataReader.Read())
                     {
                         resourceTypeIdToTypeNameMap.TryAdd((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
                     }
