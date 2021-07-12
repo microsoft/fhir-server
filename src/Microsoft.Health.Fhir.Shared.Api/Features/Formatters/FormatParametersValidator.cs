@@ -75,7 +75,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                     foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
                     {
-                        isAcceptHeaderValid = await IsFormatSupportedAsync(acceptHeader.MediaType.ToString());
+                        var headerValue = acceptHeader.MediaType.ToString();
+                        isAcceptHeaderValid = await IsFormatSupportedAsync(headerValue);
 
                         if (isAcceptHeaderValid)
                         {
@@ -160,7 +161,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             return _supportedPatchFormats.GetOrAdd(format, format =>
             {
-                return formats.Any(f => f.Contains(format, StringComparison.Ordinal));
+                return formats.Any(f => format.Contains(f, StringComparison.Ordinal));
             });
         }
 

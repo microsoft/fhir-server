@@ -218,12 +218,13 @@ namespace Microsoft.Health.Fhir.Client
         }
 
         public async Task<FhirResponse<T>> PatchAsync<T>(T resource, string body, string ifMatchVersion = null, CancellationToken cancellationToken = default)
-        where T : Resource
+            where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Patch, $"{resource.TypeName}/{resource.Id}")
             {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                Content = new StringContent(body, Encoding.UTF8, "application/json-patch+json"),
             };
+
             message.Headers.Accept.Add(_mediaType);
 
             if (ifMatchVersion != null)
