@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
-                fhirServerBuilder.AddSqlServer(Configuration);
+                fhirServerBuilder.AddSqlServer();
             }
 
             /*
