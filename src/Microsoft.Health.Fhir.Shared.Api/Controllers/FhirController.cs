@@ -55,8 +55,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<FhirController> _logger;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
-        private readonly IAuthorizationService _authorizationService;
-        private readonly FeatureConfiguration _featureConfiguration;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -87,8 +85,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
-            _authorizationService = authorizationService;
-            _featureConfiguration = uiConfiguration.Value;
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -416,7 +412,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPatch]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Controller methods won't be called if static.")]
         public async Task<IActionResult> Patch(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument)
         {
             UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), patchDocument, HttpContext.RequestAborted);
