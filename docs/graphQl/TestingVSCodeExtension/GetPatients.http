@@ -12,10 +12,11 @@ https://{{hostname}}/metadata
 
 
 ### POST one Patient resources to test the scenarios below using REST API:
-POST https://{{hostname}}/Patient
+POST https://{{hostname}}
 content-type: application/json
 
-< .\Data\PatientChildExample.json
+< .\Data\MockInformation.json
+
 
 
 ### GET Patients id in the server using GraphQl by GET REST
