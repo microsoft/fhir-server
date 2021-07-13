@@ -1,0 +1,132 @@
+name: Inferno Test
+
+trigger:
+  batch: true
+  branches:
+    include:
+    - '*'
+  paths:
+    exclude:
+    - README.md
+pr:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+
+- script: git clone https://github.com/onc-healthit/inferno-program.git
+  displayName: 'Clone inferno-program git repository'
+
+- script: |
+    docker-compose up -d
+    sleep 30
+  displayName: 'Bring FHIR up'
+  env:
+    SAPASSWORD: $(openssl rand -base64 12)
+
+- task: Bash@3
+  inputs:
+    filePath: 'data-prep/import.sh'
+  displayName: 'Import data'
+  env:
+    AAD_CLIENT_SECRET: $(AAD_CLIENT_SECRET)
+
+- task: Bash@3
+  inputs:
+    filePath: 'data-prep/inject_values.sh'
+  displayName: 'Inject args'
+  env:
+    CLIENT_SECRET: $(CLIENT_SECRET)
+    REFRESH_TOKEN: $(REFRESH_TOKEN)
+    ID_TOKEN: $(ID_TOKEN)
+    OAUTH_REGISTER_ENDPOINT: $(OAUTH_REGISTER_ENDPOINT)
+    OAUTH_AUTHORIZE_ENDPOINT: $(OAUTH_AUTHORIZE_ENDPOINT)
+    BULK_CLIENT_ID: $(BULK_CLIENT_ID)
+    BULK_TOKEN_ENDPOINT: $(BULK_TOKEN_ENDPOINT)
+    BULK_URL: $(BULK_URL)
+    OAUTH_TOKEN_ENDPOINT: $(OAUTH_TOKEN_ENDPOINT)
+    CLIENT_ID: $(CLIENT_ID)
+    URL: $(URL)
+    SERVER: $(SERVER)
+
+
+- script: docker-compose up --build --detach
+  displayName: 'Build and run inferno server in detach mode'
+  workingDirectory: ./inferno-program
+
+- script: mkdir test-results
+  displayName: 'Create a folder to hold inferno test results'
+
+- script: docker-compose run inferno bundle exec rake db:create db:migrate inferno:execute_batch[./batch/inferno.onc-program-full-pat-access.json] 2>&1 | tee ../test-results/inferno.onc-program-full-pat-access-results.txt
+  displayName: 'Run Test: Standalone Patient App - Full Patient Access'
+  workingDirectory: ./inferno-program
+  failOnStderr: false
+
+- script: docker-compose run inferno bundle exec rake db:create db:migrate inferno:execute_batch[./batch/inferno.onc-program-standalone-pat-app-lim-access.json] 2>&1 | tee ../test-results/inferno.onc-program-standalone-pat-app-lim-access-results.txt
+  displayName: 'Run Test: Standalone Patient App - Limited Access'
+  workingDirectory: ./inferno-program
+  failOnStderr: false
+
+- script: docker-compose run inferno bundle exec rake db:create db:migrate inferno:execute_batch[./batch/inferno.onc-program-standalone-ehr-prac-app.json] 2>&1 | tee ../test-results/inferno.onc-program-standalone-ehr-prac-app-results.txt
+  displayName: 'Run Test: EHR Practitioner App '
+  workingDirectory: ./inferno-program
+  failOnStderr: false
+
+- script: docker-compose run inferno bundle exec rake db:create db:migrate inferno:execute_batch[./batch/inferno.onc-program-us-core.json] 2>&1 | tee ../test-results/inferno-test-us-core-results.txt
+  displayName: 'Run Test: Single Patient API (us-core)'
+  workingDirectory: ./inferno-program
+  failOnStderr: true
+
+- script: docker-compose run inferno bundle exec rake db:create db:migrate inferno:execute_batch[./batch/inferno.onc-program-multi-pat-auth-api.json] 2>&1 | tee ../test-results/inferno.onc-program-multi-pat-auth-api-results.txt
+  displayName: 'Run Test: Multi-Patient Authorization and API'
+  workingDirectory: ./inferno-program
+  failOnStderr: false
+
+- script: docker-compose run inferno bundle exec rake db:create db:migrate inferno:execute_batch[./batch/inferno.onc-program-other.json] 2>&1 | tee ../test-results/inferno.onc-program-other-results.txt
+  displayName: 'Run Test: Additional Tests'
+  workingDirectory: ./inferno-program
+  failOnStderr: false
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.SourcesDirectory)/test-results/inferno.onc-program-full-pat-access-results.txt'
+    ArtifactName: 'test-results'
+    publishLocation: 'Container'
+  condition: always()
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.SourcesDirectory)/test-results/inferno.onc-program-standalone-pat-app-lim-access-results.txt'
+    ArtifactName: 'test-results'
+    publishLocation: 'Container'
+  condition: always()
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.SourcesDirectory)/test-results/inferno.onc-program-standalone-ehr-prac-app-results.txt'
+    ArtifactName: 'test-results'
+    publishLocation: 'Container'
+  condition: always()
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.SourcesDirectory)/test-results/inferno-test-us-core-results.txt'
+    ArtifactName: 'test-results'
+    publishLocation: 'Container'
+  condition: always()
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.SourcesDirectory)/test-results/inferno.onc-program-multi-pat-auth-api-results.txt'
+    ArtifactName: 'test-results'
+    publishLocation: 'Container'
+  condition: always()
+  
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.SourcesDirectory)/test-results/inferno.onc-program-other-results.txt'
+    ArtifactName: 'test-results'
+    publishLocation: 'Container'
+  condition: always()

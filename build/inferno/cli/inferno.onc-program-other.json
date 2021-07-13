@@ -1,0 +1,16 @@
+{
+  "server": "##TBD##",
+  "module": "onc_program",
+  "arguments": {
+    "oauth_authorize_endpoint": "##TBD##",
+    "oauth_token_endpoint": "##TBD##",
+    "oauth_register_endpoint": "##TBD##"
+  },
+  "sequences": [
+    "OncStandalonePublicLaunchSequence",
+    "TokenRevocationSequence",
+    "SMARTInvalidAudSequence",
+    "SMARTInvalidLaunchSequence",
+    "ONCVisualInspectionSequence"
+  ]
+}

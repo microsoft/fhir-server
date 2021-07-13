@@ -1,0 +1,18 @@
+{
+  "server": "##TBD##",
+  "module": "onc_program",
+  "arguments": {
+    "bulk_url": "##TBD##",
+    "bulk_token_endpoint": "##TBD##",
+    "bulk_client_id": "##TBD##",
+    "bulk_scope": "system/*.read",
+    "group_id": "1",
+    "bulk_patient_ids_in_group": "",
+    "bulk_lines_to_validate": ""
+  },
+  "sequences": [
+    "BulkDataAuthorizationSequence",
+    "BulkDataGroupExportSequence",
+    "BulkDataGroupExportValidationSequence"
+  ]
+}

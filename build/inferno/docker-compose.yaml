@@ -1,0 +1,42 @@
+version: "3"
+services:
+  fhir-api:
+    # build: 
+    #   context: ./../../
+    #   dockerfile: ./build/docker/Dockerfile
+    #   args:
+    #     FHIR_VERSION: R4
+    image: "mcr.microsoft.com/healthcareapis/r4-fhir-server"
+    restart: on-failure
+    environment:
+      FHIRServer__Security__Enabled: "false"
+      SqlServer__ConnectionString: "Server=tcp:sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=${SAPASSWORD};MultipleActiveResultSets=False;Connection Timeout=30;"
+      SqlServer__AllowDatabaseCreation: "true"
+      SqlServer__Initialize: "true"
+      SqlServer__SchemaOptions__AutomaticUpdatesEnabled: "true"
+      CosmosDb__Host: "https://cosmos:8081/"
+      CosmosDb__Key: "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+      #DataStore: "SqlServer"
+      DataStore: "CosmosDb"
+    ports:     
+      - "8080:8080"
+
+  sql:
+    image: "mcr.microsoft.com/mssql/server"
+    environment:
+      SA_PASSWORD: ${SAPASSWORD}
+      ACCEPT_EULA: "Y"
+    healthcheck:
+        test: ["CMD", "/opt/mssql-tools/bin/sqlcmd","-U sa -P ${SAPASSWORD} -Q 'SELECT * FROM INFORMATION_SCHEMA.TABLES'"]
+        interval: 10s
+        timeout: 10s
+        retries: 6
+  cosmos:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    mem_limit: 2g
+    cpu_count: 2
+    environment:
+        AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 1
+        # AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "true"
+    ports:     
+    - "8081:8081"
