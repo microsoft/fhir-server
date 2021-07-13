@@ -122,8 +122,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         }
 
         /// <summary>
-        /// A basic smoke test verifying that resource changes should not be created
-        ///  when the resource change capture config is disabled.
+        /// A basic smoke test verifying that the resource type name
+        /// should be equal to a resource type.
         /// </summary>
         [Fact]
         public async Task GivenADatabase_WhenGettingResourceTypes_WhenInsertingAResource_ThenResourceTypeNameShouldBeEqual()
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                 Assert.NotNull(resourceChanges);
-                Assert.Equal(0, resourceChanges.Count);
+                Assert.Empty(resourceChanges);
             }
             finally
             {

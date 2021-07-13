@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
     {
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
-        private static ConcurrentDictionary<short, string> resourceTypeIdToTypeNameMap = new ConcurrentDictionary<short, string>();
+        private static readonly ConcurrentDictionary<short, string> ResourceTypeIdToTypeNameMap = new ConcurrentDictionary<short, string>();
 
         // dbnetlib error value for timeout expired
         private const short TIMEOUTEXPIRED = -2;
@@ -70,11 +70,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 using (SqlConnection sqlConnection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
                 {
                     await sqlConnection.OpenAsync(cancellationToken);
-                    lock (resourceTypeIdToTypeNameMap)
+                    if (ResourceTypeIdToTypeNameMap.IsEmpty)
                     {
-                        if (resourceTypeIdToTypeNameMap.IsEmpty)
+                        lock (ResourceTypeIdToTypeNameMap)
                         {
-                            UpdateResourceTypeMapAsync(sqlConnection);
+                            if (ResourceTypeIdToTypeNameMap.IsEmpty)
+                            {
+                                UpdateResourceTypeMapAsync(sqlConnection);
+                            }
                         }
                     }
 
@@ -94,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                                     resourceTypeId: (short)sqlDataReader["ResourceTypeId"],
                                     resourceVersion: (int)sqlDataReader["ResourceVersion"],
                                     resourceChangeTypeId: (byte)sqlDataReader["ResourceChangeTypeId"],
-                                    resourceTypeName: resourceTypeIdToTypeNameMap[(short)sqlDataReader["ResourceTypeId"]]));
+                                    resourceTypeName: ResourceTypeIdToTypeNameMap[(short)sqlDataReader["ResourceTypeId"]]));
                             }
                         }
 
@@ -129,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                 {
                     while (sqlDataReader.Read())
                     {
-                        resourceTypeIdToTypeNameMap.TryAdd((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
+                        ResourceTypeIdToTypeNameMap.TryAdd((short)sqlDataReader["ResourceTypeId"], (string)sqlDataReader["Name"]);
                     }
                 }
             }
