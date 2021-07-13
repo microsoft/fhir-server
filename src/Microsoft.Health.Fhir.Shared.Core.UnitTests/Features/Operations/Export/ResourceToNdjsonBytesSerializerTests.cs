@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly ResourceDeserializer _resourceDeserializaer;
         private readonly FhirJsonParser _jsonParser = new FhirJsonParser();
         private readonly FhirXmlParser _xmlParser = new FhirXmlParser();
-        private readonly FhirJsonSerializer _jsonSerializer = new FhirJsonSerializer();
+        private readonly FhirJsonSerializer _jsonSerializerSettings = new FhirJsonSerializer();
 
         private readonly ResourceToNdjsonBytesSerializer _serializer;
 
@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _jsonParser.Parse<Resource>(str).ToResourceElement())),
                 (FhirResourceFormat.Xml, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _xmlParser.Parse<Resource>(str).ToResourceElement())));
 
-            _serializer = new ResourceToNdjsonBytesSerializer(_jsonSerializer);
+            _serializer = new ResourceToNdjsonBytesSerializer();
 
             _resource = Samples.GetDefaultObservation().ToPoco<Observation>();
             _resource.Id = "test";
