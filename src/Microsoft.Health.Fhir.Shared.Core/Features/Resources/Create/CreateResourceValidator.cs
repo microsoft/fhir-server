@@ -11,7 +11,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Messages.Create;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
@@ -25,14 +24,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IOptions<CoreFeatureConfiguration> config)
         {
-            var contentValidator = new ResourceProfileValidator<ResourceElement>(
+            var contentValidator = new ResourceProfileValidator(
                 modelAttributeValidator,
                 profileValidator,
                 fhirRequestContextAccessor,
                 config.Value.ProfileValidationOnCreate);
 
             RuleFor(x => x.Resource)
-                  .SetValidator(new ResourceElementValidator<ResourceElement>(contentValidator, narrativeHtmlSanitizer));
+                  .SetValidator(new ResourceElementValidator(contentValidator, narrativeHtmlSanitizer));
         }
     }
 }

@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public class ResourceElementValidator<T> : AbstractValidator<ResourceElement>
+    public class ResourceElementValidator : AbstractValidator<ResourceElement>
     {
         public ResourceElementValidator(IPropertyValidator<ResourceElement, ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             RuleFor(x => x)
                   .SetValidator(contentValidator);
             RuleFor(x => x)
-                .SetValidator(new NarrativeValidator<ResourceElement>(narrativeHtmlSanitizer));
+                .SetValidator(new NarrativeValidator(narrativeHtmlSanitizer));
         }
     }
 }

@@ -4,19 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
-using FluentValidation.Validators;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
-    public class ValidateResourceOperationValidator<T> : AbstractValidator<ValidateOperationRequest>
+    public class ValidateResourceOperationValidator : AbstractValidator<ValidateOperationRequest>
     {
         public ValidateResourceOperationValidator(IModelAttributeValidator modelAttributeValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
-            var attributeValidator = new ResourceContentValidator<T>(modelAttributeValidator);
+            var attributeValidator = new ResourceContentValidator(modelAttributeValidator);
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceElementValidator<T>((IPropertyValidator<Models.ResourceElement, Models.ResourceElement>)attributeValidator, narrativeHtmlSanitizer));
+                .SetValidator(new ResourceElementValidator(attributeValidator, narrativeHtmlSanitizer));
         }
     }
 }

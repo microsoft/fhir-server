@@ -3,10 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Linq;
 using FluentValidation;
-using FluentValidation.Results;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -20,11 +17,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 {
     public class NarrativeValidatorTests : NarrativeDataTestBase
     {
-        private readonly NarrativeValidator<ResourceElement> _validator;
+        private readonly NarrativeValidator _validator;
 
         public NarrativeValidatorTests()
         {
-            _validator = new NarrativeValidator<ResourceElement>(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
+            _validator = new NarrativeValidator(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
         }
 
         [Theory]
@@ -35,16 +32,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             defaultObservation.Text.Div = maliciousNarrative;
 
             var instanceToValidate = defaultObservation.ToResourceElement();
-            IEnumerable<ValidationFailure> result = _validator.Validate(
-                    new ValidationContext<ResourceElement>(instanceToValidate));
+            var result = _validator.IsValid(
+                    new ValidationContext<ResourceElement>(instanceToValidate), instanceToValidate);
 
-            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
-            Assert.NotEmpty(validationFailures);
-
-            var actualFhirPath = validationFailures.FirstOrDefault()?.PropertyName;
-            var expectedFhirPath = defaultObservation.TypeName + "." + KnownFhirPaths.ResourceNarrative;
-
-            Assert.Equal(expectedFhirPath, actualFhirPath);
+            Assert.False(result);
         }
 
         [Theory]
@@ -62,17 +53,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultPatient });
 
             var instanceToValidate = bundle.ToResourceElement();
-            var result = _validator.Validate(
-                    new ValidationContext<ResourceElement>(instanceToValidate));
+            var result = _validator.IsValid(
+                    new ValidationContext<ResourceElement>(instanceToValidate), instanceToValidate);
 
-            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
-            Assert.NotEmpty(validationFailures);
-
-            var expectedObservationFhirPath = defaultObservation.TypeName + "." + KnownFhirPaths.ResourceNarrative;
-            var expectedPatientFhirPath = defaultPatient.TypeName + "." + KnownFhirPaths.ResourceNarrative;
-
-            Assert.Equal(expectedObservationFhirPath, validationFailures[0].PropertyName);
-            Assert.Equal(expectedPatientFhirPath, validationFailures[1].PropertyName);
+            Assert.False(result);
         }
     }
 }

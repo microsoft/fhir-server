@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// Even if we correctly parsed resource into object it doesn't mean resource is valid.
     /// We need to check that properties have right cardinality, correct types, proper format, etc.
     /// </remarks>
-    public class ResourceContentValidator<T> : NoopPropertyValidator<T, T>
+    public class ResourceContentValidator : NoopPropertyValidator<ResourceElement, ResourceElement>
     {
         private readonly IModelAttributeValidator _modelAttributeValidator;
 
@@ -32,24 +32,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _modelAttributeValidator = modelAttributeValidator;
         }
 
-        public override string Name => nameof(ResourceContentValidator<T>);
+        public override string Name => nameof(ResourceContentValidator);
 
-        public override bool IsValid(ValidationContext<T> context, T value)
-        {
-            var result = Validate(context);
-            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
-            foreach (var validationFailure in validationFailures)
-            {
-                context.AddFailure(validationFailure);
-            }
-
-            return validationFailures.Count == 0;
-        }
-
-        public virtual IEnumerable<ValidationFailure> Validate(ValidationContext<T> context)
+        public override bool IsValid(ValidationContext<ResourceElement> context, ResourceElement value)
         {
             EnsureArg.IsNotNull(context, nameof(context));
-
+            bool isValid = true;
             if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 var results = new List<ValidationResult>();
@@ -60,10 +48,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                         var fullFhirPath = resourceElement.InstanceType;
                         fullFhirPath += string.IsNullOrEmpty(error.MemberNames?.FirstOrDefault()) ? string.Empty : "." + error.MemberNames?.FirstOrDefault();
 
-                        yield return new ValidationFailure(fullFhirPath, error.ErrorMessage);
+                        context.AddFailure(new ValidationFailure(fullFhirPath, error.ErrorMessage));
+                        isValid = false;
                     }
                 }
             }
+
+            return isValid;
         }
     }
 }
