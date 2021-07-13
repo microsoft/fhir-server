@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly ResourceDeserializer _resourceDeserializaer;
         private readonly FhirJsonParser _jsonParser = new FhirJsonParser();
         private readonly FhirXmlParser _xmlParser = new FhirXmlParser();
-        private readonly FhirJsonSerializer _jsonSerializerSettings = new FhirJsonSerializer();
 
         private readonly ResourceToNdjsonBytesSerializer _serializer;
 
