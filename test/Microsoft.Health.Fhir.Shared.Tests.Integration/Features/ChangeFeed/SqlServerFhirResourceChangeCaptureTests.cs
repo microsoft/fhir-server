@@ -34,6 +34,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
     {
         private const string LocalConnectionString = "server=(local);Integrated Security=true";
         private readonly SqlServerFhirResourceChangeCaptureFixture _fixture;
+        private const byte ResourceChangeTypeCreated = 0; // 0 is for the resource creating.
+        private const byte ResourceChangeTypeUpdated = 1; // 1 is for resource update.
+        private const byte ResourceChangeTypeDeleted = 2; // 2 is for resource deletion.
 
         public SqlServerFhirResourceChangeCaptureTests(SqlServerFhirResourceChangeCaptureFixture fixture)
         {
@@ -47,24 +50,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         [Fact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenInsertingAResource_ThenResourceChangesShouldBeReturned()
         {
-            try
-            {
-                // add a new resource
-                var saveResult = await _fixture.Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+            // add a new resource
+            var saveResult = await _fixture.Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
-                // get resource changes
-                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(_fixture.DatabaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
+            // get resource changes
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(_fixture.DatabaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
+            var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
-                Assert.NotNull(resourceChanges);
-                Assert.Single(resourceChanges.Where(x => x.ResourceId == deserialized.Id));
-                Assert.Equal(0, resourceChanges.First().ResourceChangeTypeId); // 0 is for resource creating.
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"An error occurred on a resource change capture integration test. Failure using schema version {SchemaVersionConstants.Max}.", e);
-            }
+            Assert.NotNull(resourceChanges);
+            Assert.Single(resourceChanges.Where(x => x.ResourceId == deserialized.Id));
+            Assert.Equal(ResourceChangeTypeCreated, resourceChanges.First().ResourceChangeTypeId);
         }
 
         /// <summary>
@@ -74,35 +70,28 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         [Fact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenUpdatingAResource_ThenResourceChangesShouldBeReturned()
         {
-            try
-            {
-                // add a new resource
-                var saveResult = await _fixture.Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            // add a new resource
+            var saveResult = await _fixture.Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-                // update the resource
-                var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-                newResourceValues.Id = saveResult.RawResourceElement.Id;
+            // update the resource
+            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
+            newResourceValues.Id = saveResult.RawResourceElement.Id;
 
-                // save updated resource
-                var updateResult = await _fixture.Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
-                var deserialized = updateResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+            // save updated resource
+            var updateResult = await _fixture.Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
+            var deserialized = updateResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
-                // get resource changes
-                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(_fixture.DatabaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
+            // get resource changes
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(_fixture.DatabaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
+            var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
-                Assert.NotNull(resourceChanges);
-                Assert.Single(resourceChanges.Where(x => x.ResourceVersion == 2 && x.ResourceId == deserialized.Id));
+            Assert.NotNull(resourceChanges);
+            Assert.Single(resourceChanges.Where(x => x.ResourceVersion.ToString() == deserialized.VersionId && x.ResourceId == deserialized.Id));
 
-                var resourceChangeData = resourceChanges.Where(x => x.ResourceVersion == 2 && x.ResourceId == deserialized.Id).FirstOrDefault();
+            var resourceChangeData = resourceChanges.Where(x => x.ResourceVersion.ToString() == deserialized.VersionId && x.ResourceId == deserialized.Id).FirstOrDefault();
 
-                Assert.NotNull(resourceChangeData);
-                Assert.Equal(1, resourceChangeData.ResourceChangeTypeId); // 1 is for resource udpate.
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"An error occurred on a resource change capture integration test. Failure using schema version {SchemaVersionConstants.Max}.", e);
-            }
+            Assert.NotNull(resourceChangeData);
+            Assert.Equal(ResourceChangeTypeUpdated, resourceChangeData.ResourceChangeTypeId);
         }
 
         /// <summary>
@@ -112,31 +101,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         [Fact]
         public async Task GivenADatabaseSupportsResourceChangeCapture_WhenDeletingAResource_ThenResourceChangesShouldBeReturned()
         {
-            try
-            {
-                // add a new resource
-                var saveResult = await _fixture.Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+            // add a new resource
+            var saveResult = await _fixture.Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
-                // delete the resource
-                var deletedResourceKey = await _fixture.Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
+            // delete the resource
+            var deletedResourceKey = await _fixture.Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
-                // get resource changes
-                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(_fixture.DatabaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
+            // get resource changes
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(_fixture.DatabaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
+            var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
-                Assert.NotNull(resourceChanges);
-                Assert.Single(resourceChanges.Where(x => x.ResourceVersion == 2 && x.ResourceId == deserialized.Id));
+            Assert.NotNull(resourceChanges);
+            Assert.Single(resourceChanges.Where(x => x.ResourceVersion.ToString() == deletedResourceKey.ResourceKey.VersionId && x.ResourceId == deletedResourceKey.ResourceKey.Id));
 
-                var resourceChangeData = resourceChanges.Where(x => x.ResourceVersion == 2 && x.ResourceId == deserialized.Id).FirstOrDefault();
+            var resourceChangeData = resourceChanges.Where(x => x.ResourceVersion.ToString() == deletedResourceKey.ResourceKey.VersionId && x.ResourceId == deletedResourceKey.ResourceKey.Id).FirstOrDefault();
 
-                Assert.NotNull(resourceChangeData);
-                Assert.Equal(2, resourceChangeData.ResourceChangeTypeId); // 2 is for resource deletion.
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"An error occurred on a resource change capture integration test. Failure using schema version {SchemaVersionConstants.Max}.", e);
-            }
+            Assert.NotNull(resourceChangeData);
+            Assert.Equal(ResourceChangeTypeDeleted, resourceChangeData.ResourceChangeTypeId);
         }
 
         /// <summary>
@@ -146,28 +128,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         [Fact]
         public async Task GivenADatabase_WhenGettingResourceTypes_WhenInsertingAResource_ThenResourceTypeNameShouldBeEqual()
         {
-            try
-            {
-                // add a new resource
-                var saveResult = await _fixture.Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+            // add a new resource
+            var saveResult = await _fixture.Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
-                // get resource types
-                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(_fixture.DatabaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
-                var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
+            // get resource types
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(GetSqlConnectionFactory(_fixture.DatabaseName), NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
+            var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
-                Assert.NotNull(resourceChanges);
-                Assert.Single(resourceChanges.Where(x => x.ResourceId == deserialized.Id));
+            Assert.NotNull(resourceChanges);
+            Assert.Single(resourceChanges.Where(x => x.ResourceId == deserialized.Id));
 
-                var resourceChangeData = resourceChanges.Where(x => x.ResourceId == deserialized.Id).FirstOrDefault();
+            var resourceChangeData = resourceChanges.Where(x => x.ResourceId == deserialized.Id).FirstOrDefault();
 
-                Assert.NotNull(resourceChangeData);
-                Assert.Equal(saveResult.RawResourceElement.InstanceType, resourceChangeData.ResourceTypeName);
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"An error occurred on a resource change capture integration test. Failure using schema version {SchemaVersionConstants.Max}.", e);
-            }
+            Assert.NotNull(resourceChangeData);
+            Assert.Equal(saveResult.RawResourceElement.InstanceType, resourceChangeData.ResourceTypeName);
         }
 
         /// <summary>
@@ -208,10 +183,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
                 Assert.NotNull(resourceChanges);
                 Assert.Equal(0, resourceChanges.Count);
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"An error occurred on a resource change capture integration test. Failure using schema version {SchemaVersionConstants.Max}.", e);
             }
             finally
             {
