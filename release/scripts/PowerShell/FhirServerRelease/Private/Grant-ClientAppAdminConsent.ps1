@@ -19,7 +19,11 @@ function Grant-ClientAppAdminConsent {
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
-        [pscredential]$AccessToken
+        [string]$AccessToken,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
+        [string]$ResourceApplicationId
     )
 
     Set-StrictMode -Version Latest
@@ -39,7 +43,7 @@ function Grant-ClientAppAdminConsent {
         client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
     }
     
-    $tokenResponse = Invoke-RestMethod (Get-AzureADTokenEndpoint) -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
+    # $tokenResponse = Invoke-RestMethod (Get-AzureADTokenEndpoint) -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
     
     $header = @{
         'Authorization'          = 'Bearer ' + $AccessToken
@@ -50,7 +54,7 @@ function Grant-ClientAppAdminConsent {
     $url = "https://graph.microsoft.com/v1.0/servicePrincipals/$AppId/appRoleAssignments/"
     $bodyForAdminConsent = @{
         principalId = $AppId
-        resourceId  = 
+        resourceId  = $ResourceApplicationId
         appRoleId   = "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3" # AAD built-in Application Administrator role
     }
 
@@ -58,13 +62,14 @@ function Grant-ClientAppAdminConsent {
 
     while ($true) {
         try {
-            Invoke-RestMethod -Uri $url -Headers $header -Method POST -Body $bodyForAdminConsent | Out-Null
+            Invoke-RestMethod -Uri $url -Headers $header -Method POST -Body $bodyForAdminConsent -ErrorVariable error | Out-Null
             return
         }
         catch {
             if ($retryCount -lt 6) {
                 $retryCount++
                 Write-Warning "Received failure when posting to $url. Will retry in 10 seconds."
+                Write-Warning "Error message: $error"
                 Start-Sleep -Seconds 10
             }
             else {

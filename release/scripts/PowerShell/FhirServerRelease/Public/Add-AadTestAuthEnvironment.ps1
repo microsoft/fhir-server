@@ -37,7 +37,7 @@ function Add-AadTestAuthEnvironment {
         [string]$KeyVaultName = "$EnvironmentName-ts",
 
         [parameter(Mandatory = $true)]
-        [string]$AccessToken,
+        [string]$AccessToken
     )
 
     Set-StrictMode -Version Latest
@@ -143,7 +143,7 @@ function Add-AadTestAuthEnvironment {
         }
 
         if ($publicClient) {
-            Grant-ClientAppAdminConsent -AppId $aadClientApplication.AppId -TenantAdminCredential $TenantAdminCredential -AccessToken $AccessToken
+            Grant-ClientAppAdminConsent -AppId $aadClientApplication.AppId -TenantAdminCredential $TenantAdminCredential -AccessToken $AccessToken -ResourceApplicationId $application.AppId
 
             # The public client (native app) is being used as SMART on FHIR client app in testing.
             New-FhirServerSmartClientReplyUrl -AppId $aadClientApplication.AppId -FhirServerUrl $fhirServiceAudience -ReplyUrl "https://localhost:6001/sampleapp/index.html"
