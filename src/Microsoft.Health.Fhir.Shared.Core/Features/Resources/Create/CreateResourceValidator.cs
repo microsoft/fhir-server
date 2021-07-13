@@ -25,14 +25,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IOptions<CoreFeatureConfiguration> config)
         {
-            var contentValidator = new ResourceProfileValidator<ResourceElement, ResourceElement>(
+            var contentValidator = new ResourceProfileValidator<ResourceElement>(
                 modelAttributeValidator,
                 profileValidator,
                 fhirRequestContextAccessor,
                 config.Value.ProfileValidationOnCreate);
 
             RuleFor(x => x.Resource)
-                  .SetValidator(new ResourceElementValidator<ResourceElement, ResourceElement>(contentValidator, narrativeHtmlSanitizer));
+                  .SetValidator(new ResourceElementValidator<ResourceElement>(contentValidator, narrativeHtmlSanitizer));
         }
     }
 }

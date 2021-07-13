@@ -46,12 +46,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 profileValidator,
                 contextAccessor,
                 config);
-            var resource = Samples.GetDefaultObservation()
-                .UpdateId(id);
+
+            var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            defaultObservation.Text.Div = MaliciousNarrative().ToString();
+
+            var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            defaultPatient.Text.Div = MaliciousNarrative().ToString();
+
+            var bundle = new Bundle();
+            bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultObservation });
+            bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultPatient });
+
+            var resource = bundle.ToResourceElement()
+                            .UpdateId(id);
 
             var createResourceRequest = new CreateResourceRequest(resource);
             var result = validator.Validate(createResourceRequest);
             Assert.False(result.IsValid);
+            Assert.True(result.Errors.Count >= 3);
+            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("min. cardinality 1 cannot be null")));
+            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element")));
+            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters")));
         }
 
         [InlineData(true, null, true)]
@@ -93,45 +108,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             {
                 profileValidator.DidNotReceive().TryValidate(Arg.Any<ITypedElement>(), Arg.Any<string>());
             }
-        }
-
-        [Theory]
-        [InlineData("")]
-        [InlineData("1+1")]
-        [InlineData("11|")]
-        [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
-        public void GivenAResourceWithInvalidId_WhenValidatingUpsert_ThenInvalidShouldBeReturnedWithErrors(string id)
-        {
-            var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            var profileValidator = Substitute.For<IProfileValidator>();
-            var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-            config.Value.Returns(new CoreFeatureConfiguration());
-            contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
-            var validator = new CreateResourceValidator(
-                new ModelAttributeValidator(),
-                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
-                profileValidator,
-                contextAccessor,
-                config);
-            var resource = Samples.GetDefaultObservation()
-                .UpdateId(id);
-
-            var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
-            defaultObservation.Text.Div = MaliciousNarrative().ToString();
-
-            var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
-            defaultPatient.Text.Div = MaliciousNarrative().ToString();
-
-            var bundle = new Bundle();
-            bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultObservation });
-            bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultPatient });
-
-            var instanceToValidate = bundle.ToResourceElement();
-
-            var createResourceRequest = new CreateResourceRequest(instanceToValidate);
-            var result = validator.Validate(createResourceRequest);
-            Assert.False(result.IsValid);
-            Assert.True(result.Errors.Count > 2);
         }
 
         public static IEnumerable<object[]> MaliciousNarrative()

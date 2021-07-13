@@ -28,14 +28,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             RuleFor(x => x.Resource.Id)
                 .NotEmpty().WithMessage(Core.Resources.UpdateRequestsRequireId);
 
-            var contentValidator = new ResourceProfileValidator<ResourceElement, ResourceElement>(
+            var contentValidator = new ResourceProfileValidator<ResourceElement>(
               modelAttributeValidator,
               profileValidator,
               fhirRequestContextAccessor,
               config.Value.ProfileValidationOnUpdate);
 
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceElementValidator<ResourceElement, ResourceElement>(contentValidator, narrativeHtmlSanitizer));
+                .SetValidator(new ResourceElementValidator<ResourceElement>(contentValidator, narrativeHtmlSanitizer));
         }
     }
 }

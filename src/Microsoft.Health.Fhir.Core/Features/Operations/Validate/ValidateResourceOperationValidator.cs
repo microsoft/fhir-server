@@ -4,19 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using FluentValidation;
+using FluentValidation.Validators;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
-    public class ValidateResourceOperationValidator<T, TProperty> : AbstractValidator<ValidateOperationRequest>
+    public class ValidateResourceOperationValidator<T> : AbstractValidator<ValidateOperationRequest>
     {
         public ValidateResourceOperationValidator(IModelAttributeValidator modelAttributeValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
-            var attributeValidator = new ResourceContentValidator<T, TProperty>(modelAttributeValidator);
+            var attributeValidator = new ResourceContentValidator<T>(modelAttributeValidator);
             RuleFor(x => x.Resource)
-                .SetValidator(new ResourceElementValidator<T, TProperty>(attributeValidator, narrativeHtmlSanitizer));
+                .SetValidator(new ResourceElementValidator<T>((IPropertyValidator<Models.ResourceElement, Models.ResourceElement>)attributeValidator, narrativeHtmlSanitizer));
         }
     }
 }

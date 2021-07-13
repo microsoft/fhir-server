@@ -15,7 +15,7 @@ using static Microsoft.Health.Fhir.Core.Models.OperationOutcomeConstants;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    public sealed class ResourceProfileValidator<T, TProperty> : ResourceContentValidator<T, TProperty>
+    public sealed class ResourceProfileValidator<T> : ResourceContentValidator<T>
     {
         private readonly IProfileValidator _profileValidator;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _runProfileValidation = runProfileValidation;
         }
 
-        public override bool IsValid(ValidationContext<T> context, TProperty value)
+        public override bool IsValid(ValidationContext<T> context, T value)
         {
             var result = Validate(context);
             List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();

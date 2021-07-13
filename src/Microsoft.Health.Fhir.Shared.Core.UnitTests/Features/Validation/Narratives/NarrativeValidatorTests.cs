@@ -20,11 +20,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
 {
     public class NarrativeValidatorTests : NarrativeDataTestBase
     {
-        private readonly NarrativeValidator<ResourceElement, ResourceElement> _validator;
+        private readonly NarrativeValidator<ResourceElement> _validator;
 
         public NarrativeValidatorTests()
         {
-            _validator = new NarrativeValidator<ResourceElement, ResourceElement>(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
+            _validator = new NarrativeValidator<ResourceElement>(new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance));
         }
 
         [Theory]

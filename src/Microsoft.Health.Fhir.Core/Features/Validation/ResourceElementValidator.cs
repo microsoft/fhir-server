@@ -3,23 +3,23 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using FluentValidation;
+using FluentValidation.Validators;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
-    public class ResourceElementValidator<T, TProperty> : AbstractValidator<ResourceElement>
+    public class ResourceElementValidator<T> : AbstractValidator<ResourceElement>
     {
-        public ResourceElementValidator(ResourceContentValidator<T, TProperty> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
+        public ResourceElementValidator(IPropertyValidator<ResourceElement, ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
             RuleFor(x => x.Id)
               .SetValidator(new IdValidator<ResourceElement>()).WithMessage(Core.Resources.IdRequirements);
             RuleFor(x => x)
-                  .SetValidator((FluentValidation.Validators.IPropertyValidator<ResourceElement, ResourceElement>)contentValidator);
+                  .SetValidator(contentValidator);
             RuleFor(x => x)
-                .SetValidator(new NarrativeValidator<ResourceElement, ResourceElement>(narrativeHtmlSanitizer));
+                .SetValidator(new NarrativeValidator<ResourceElement>(narrativeHtmlSanitizer));
         }
     }
 }

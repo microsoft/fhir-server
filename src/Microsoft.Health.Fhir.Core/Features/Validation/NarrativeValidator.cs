@@ -15,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
-    public class NarrativeValidator<T, TProperty> : NoopPropertyValidator<T, TProperty>
+    public class NarrativeValidator<T> : NoopPropertyValidator<T, T>
     {
         private readonly INarrativeHtmlSanitizer _narrativeHtmlSanitizer;
 
@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             _narrativeHtmlSanitizer = narrativeHtmlSanitizer;
         }
 
-        public override string Name => "NarrativeValidator";
+        public override string Name => nameof(NarrativeValidator<T>);
 
-        public override bool IsValid(ValidationContext<T> context, TProperty value)
+        public override bool IsValid(ValidationContext<T> context, T value)
         {
             var result = Validate(context);
             List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();

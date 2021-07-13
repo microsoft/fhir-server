@@ -17,12 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     /// Validates content of resource.
     /// </summary>
     /// <typeparam name="T">The type of the element.</typeparam>
-    /// <typeparam name="TProperty">The element.</typeparam>
     /// <remarks>
     /// Even if we correctly parsed resource into object it doesn't mean resource is valid.
     /// We need to check that properties have right cardinality, correct types, proper format, etc.
     /// </remarks>
-    public class ResourceContentValidator<T, TProperty> : NoopPropertyValidator<T, TProperty>
+    public class ResourceContentValidator<T> : NoopPropertyValidator<T, T>
     {
         private readonly IModelAttributeValidator _modelAttributeValidator;
 
@@ -33,9 +32,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _modelAttributeValidator = modelAttributeValidator;
         }
 
-        public override string Name => "ResourceContentValidator";
+        public override string Name => nameof(ResourceContentValidator<T>);
 
-        public override bool IsValid(ValidationContext<T> context, TProperty value)
+        public override bool IsValid(ValidationContext<T> context, T value)
         {
             var result = Validate(context);
             List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
