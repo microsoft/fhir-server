@@ -1,14 +1,14 @@
 {
-  "server": "##TBD##",
+  "server": "##REPLACE##",
   "module": "onc_program",
   "arguments": {
-    "url": "##TBD##",
-    "client_id": "##TBD##",
-    "client_secret": "##TBD##",
+    "url": "##REPLACE##",
+    "client_id": "##REPLACE##",
+    "client_secret": "##REPLACE##",
     "scopes": "launch openid fhirUser offline_access user/Medication.read user/AllergyIntolerance.read user/CarePlan.read user/CareTeam.read user/Condition.read user/Device.read user/DiagnosticReport.read user/DocumentReference.read user/Encounter.read user/Goal.read user/Immunization.read user/Location.read user/MedicationRequest.read user/Observation.read user/Organization.read user/Patient.read user/Practitioner.read user/Procedure.read user/Provenance.read",
 
-    "id_token": "##TBD##",
-    "refresh_token": "##refresh_TBDtoken##"
+    "id_token": "##REPLACE##",
+    "refresh_token": "##REPLACE##"
   },
   "sequences": [
     "OncSMARTDiscoverySequence",

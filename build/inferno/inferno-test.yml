@@ -38,6 +38,7 @@ steps:
     filePath: 'data-prep/inject_values.sh'
   displayName: 'Inject args'
   env:
+    PATIENT_IDS: $(PATIENT_IDS)
     CLIENT_SECRET: $(CLIENT_SECRET)
     REFRESH_TOKEN: $(REFRESH_TOKEN)
     ID_TOKEN: $(ID_TOKEN)

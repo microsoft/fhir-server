@@ -1,9 +1,9 @@
 {
-  "server": "$(server)",
+  "server": "##REPLACE##",
   "module": "onc_program",
   "arguments": {
     "token": "",
-    "patient_ids": "b28177a8-7033-41da-ae89-3c3f1e13055a",
+    "patient_ids": "REPLACE",
     "device_codes": ""
   },
   "sequences": [

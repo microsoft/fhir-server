@@ -2,6 +2,7 @@
 
 echo "Injecting values to the different tests configurations"
 
+echo "the patients are $PATIENT_IDS"
 jq '. |= (.server = "'$FHIR_ENDPOINT_INSIDE_DOCKER'" | .arguments.patient_ids = "'$PATIENT_IDS'")' cli/inferno.onc-program-us-core.json > inferno-program/batch/inferno.onc-program-us-core.json
 jq '. |= (.server = "'$SERVER'" | .arguments.onc_sl_url ="'$URL'" | .arguments.onc_sl_client_id ="'$CLIENT_ID'" | .arguments.onc_sl_client_secret ="'$CLIENT_SECRET'" | .arguments.onc_sl_oauth_token_endpoint ="'$OAUTH_TOKEN_ENDPOINT'" | .arguments.id_token ="'$ID_TOKEN'" | .arguments.refresh_token ="'$REFRESH_TOKEN'" )' cli/inferno.onc-program-full-pat-access.json > inferno-program/batch/inferno.onc-program-full-pat-access.json
 jq '. |= (.server = "'$SERVER'" | .arguments.bulk_url ="'$BULK_URL'" | .arguments.bulk_token_endpoint ="'$BULK_TOKEN_ENDPOINT'" | .arguments.bulk_client_id ="'$BULK_CLIENT_ID'" )' cli/inferno.onc-program-multi-pat-auth-api.json > inferno-program/batch/inferno.onc-program-multi-pat-auth-api.json

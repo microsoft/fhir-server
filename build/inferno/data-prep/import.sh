@@ -55,9 +55,7 @@ for filename in output/data/*.json; do
     fi
 done
 
-# prepare inferno test config file which located in inferno-program repo which cloned by CI agent
-echo "Configure infero test"
-echo "##vso[task.setvariable variable=PATIENT_IDS;isOutput=true]$PATIENT_IDS"
-# jq '. |= (.server = "'$FHIR_ENDPOINT_INSIDE_DOCKER'" | .arguments.patient_ids = "'$PATIENT_IDS'")' cli/inferno.onc-program-us-core.json > inferno-program/batch/inferno.onc-program-us-core.json
-
+# The following statement exports the patient ids so it will be available for the next step
+echo "##vso[task.setvariable variable=PATIENT_IDS]$PATIENT_IDS"
+echo "Imported patient IDs are: $PATIENT_IDS"
 echo "Import is done."

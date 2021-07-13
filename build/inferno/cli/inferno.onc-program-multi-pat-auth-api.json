@@ -1,10 +1,10 @@
 {
-  "server": "##TBD##",
+  "server": "##REPLACE##",
   "module": "onc_program",
   "arguments": {
-    "bulk_url": "##TBD##",
-    "bulk_token_endpoint": "##TBD##",
-    "bulk_client_id": "##TBD##",
+    "bulk_url": "##REPLACE##",
+    "bulk_token_endpoint": "##REPLACE##",
+    "bulk_client_id": "##REPLACE##",
     "bulk_scope": "system/*.read",
     "group_id": "1",
     "bulk_patient_ids_in_group": "",
