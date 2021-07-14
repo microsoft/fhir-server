@@ -2886,17 +2886,17 @@ GO
     Task Table
 **************************************************************/
 CREATE TABLE [dbo].[TaskInfo](
-	[TaskId] [varchar](64) NOT NULL,
-	[QueueId] [varchar](64) NOT NULL,
-	[Status] [smallint] NOT NULL,
+    [TaskId] [varchar](64) NOT NULL,
+    [QueueId] [varchar](64) NOT NULL,
+    [Status] [smallint] NOT NULL,
     [TaskTypeId] [smallint] NOT NULL,
     [RunId] [varchar](50) null,
-	[IsCanceled] [bit] NOT NULL,
+    [IsCanceled] [bit] NOT NULL,
     [RetryCount] [smallint] NOT NULL,
     [MaxRetryCount] [smallint] NOT NULL,
-	[HeartbeatDateTime] [datetime2](7) NULL,
-	[InputData] [varchar](max) NOT NULL,
-	[TaskContext] [varchar](max) NULL,
+    [HeartbeatDateTime] [datetime2](7) NULL,
+    [InputData] [varchar](max) NOT NULL,
+    [TaskContext] [varchar](max) NULL,
     [Result] [varchar](max) NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 
@@ -3006,8 +3006,8 @@ AS
     SET NOCOUNT ON
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 GO
 
 
@@ -3052,13 +3052,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET HeartbeatDateTime = @heartbeatDateTime, TaskContext = @taskContext
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET HeartbeatDateTime = @heartbeatDateTime, TaskContext = @taskContext
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3102,13 +3102,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET HeartbeatDateTime = @heartbeatDateTime
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET HeartbeatDateTime = @heartbeatDateTime
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3154,13 +3154,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @taskResult
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @taskResult
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3200,13 +3200,13 @@ AS
         THROW 50404, 'Task not exist', 1;
     END
 
-	UPDATE dbo.TaskInfo
-	SET IsCanceled = 1, HeartbeatDateTime = @heartbeatDateTime
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET IsCanceled = 1, HeartbeatDateTime = @heartbeatDateTime
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3247,7 +3247,7 @@ AS
     FROM [dbo].[TaskInfo]
     WHERE TaskId = @taskId and RunId = @runId
 
-	-- We will timestamp the jobs when we update them to track stale jobs.
+    -- We will timestamp the jobs when we update them to track stale jobs.
     IF (@retryCount IS NULL) BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
@@ -3255,19 +3255,19 @@ AS
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
     IF (@retryCount >= @maxRetryCount) BEGIN
-		UPDATE dbo.TaskInfo
-		SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @result
-		WHERE TaskId = @taskId
-	END
+        UPDATE dbo.TaskInfo
+        SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @result
+        WHERE TaskId = @taskId
+    END
     Else IF (@status <> 3) BEGIN
         UPDATE dbo.TaskInfo
-		SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
-		WHERE TaskId = @taskId
-	END
+        SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
+        WHERE TaskId = @taskId
+    END
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3655,12 +3655,12 @@ AS
         AND is_disabled = 0
     )
     BEGIN
-	    DECLARE @Sql NVARCHAR(MAX);
+        DECLARE @Sql NVARCHAR(MAX);
 
-		SET @Sql = N'ALTER INDEX ' +  QUOTENAME(@indexName)
-		+ N' on ' + @tableName + ' Disable'
+        SET @Sql = N'ALTER INDEX ' +  QUOTENAME(@indexName)
+        + N' on ' + @tableName + ' Disable'
 
-		EXECUTE sp_executesql @Sql
+        EXECUTE sp_executesql @Sql
 
         SET @IsExecuted = 1
     END
@@ -3708,12 +3708,12 @@ AS
         AND is_disabled = 1
     )
     BEGIN
-	    DECLARE @Sql NVARCHAR(MAX);
+        DECLARE @Sql NVARCHAR(MAX);
 
-		SET @Sql = N'ALTER INDEX ' +  QUOTENAME(@indexName)
-		+ N' on ' + @tableName + ' Rebuild'
+        SET @Sql = N'ALTER INDEX ' +  QUOTENAME(@indexName)
+        + N' on ' + @tableName + ' Rebuild'
 
-		EXECUTE sp_executesql @Sql
+        EXECUTE sp_executesql @Sql
 
         SET @IsExecuted = 1
     END
@@ -3739,38 +3739,38 @@ GO
 CREATE PROCEDURE dbo.BulkMergeResource
     @resources dbo.BulkImportResourceType_1 READONLY
 AS
-	SET NOCOUNT ON
-	SET XACT_ABORT ON
+    SET NOCOUNT ON
+    SET XACT_ABORT ON
 
-	BEGIN TRANSACTION
+    BEGIN TRANSACTION
 
-	MERGE INTO [dbo].[Resource] WITH (ROWLOCK, INDEX(IX_Resource_ResourceTypeId_ResourceId_Version)) AS target
-	USING @resources AS source
-	ON source.[ResourceTypeId] = target.[ResourceTypeId]
-		AND source.[ResourceId] = target.[ResourceId]
+    MERGE INTO [dbo].[Resource] WITH (ROWLOCK, INDEX(IX_Resource_ResourceTypeId_ResourceId_Version)) AS target
+    USING @resources AS source
+    ON source.[ResourceTypeId] = target.[ResourceTypeId]
+        AND source.[ResourceId] = target.[ResourceId]
         AND source.[Version] = target.[Version]
-	WHEN NOT MATCHED BY target THEN
-	INSERT ([ResourceTypeId]
-			, [ResourceId]
-			, [Version]
-			, [IsHistory]
-			, [ResourceSurrogateId]
-			, [IsDeleted]
-			, [RequestMethod]
-			, [RawResource]
-			, [IsRawResourceMetaSet]
-			, [SearchParamHash])
-	VALUES ([ResourceTypeId]
-			, [ResourceId]
-			, [Version]
-			, [IsHistory]
-			, [ResourceSurrogateId]
-			, [IsDeleted]
-			, [RequestMethod]
-			, [RawResource]
-			, [IsRawResourceMetaSet]
-			, [SearchParamHash])
-	OUTPUT Inserted.[ResourceSurrogateId];
+    WHEN NOT MATCHED BY target THEN
+    INSERT ([ResourceTypeId]
+            , [ResourceId]
+            , [Version]
+            , [IsHistory]
+            , [ResourceSurrogateId]
+            , [IsDeleted]
+            , [RequestMethod]
+            , [RawResource]
+            , [IsRawResourceMetaSet]
+            , [SearchParamHash])
+    VALUES ([ResourceTypeId]
+            , [ResourceId]
+            , [Version]
+            , [IsHistory]
+            , [ResourceSurrogateId]
+            , [IsDeleted]
+            , [RequestMethod]
+            , [RawResource]
+            , [IsRawResourceMetaSet]
+            , [SearchParamHash])
+    OUTPUT Inserted.[ResourceSurrogateId];
 
-	COMMIT TRANSACTION
+    COMMIT TRANSACTION
 GO
