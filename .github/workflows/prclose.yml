@@ -1,0 +1,12 @@
+name: Close Pull Request
+
+# only trigger on pull request closed events
+on:
+  pull_request:
+    types: [ closed ]
+
+variables:
+- template: pr-variables.yml
+- template: build-variables.yml
+jobs:
+  - template: ./jobs/cleanup.yml
