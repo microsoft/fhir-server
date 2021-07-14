@@ -96,42 +96,42 @@ steps:
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(Build.SourcesDirectory)/inferno/test-results/inferno.onc-program-full-pat-access-results.txt'
+    PathtoPublish: '$(Build.SourcesDirectory)/build/inferno/test-results/inferno.onc-program-full-pat-access-results.txt'
     ArtifactName: 'test-results'
     publishLocation: 'Container'
   condition: always()
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(Build.SourcesDirectory)/inferno/test-results/inferno.onc-program-standalone-pat-app-lim-access-results.txt'
+    PathtoPublish: '$(Build.SourcesDirectory)/build/inferno/test-results/inferno.onc-program-standalone-pat-app-lim-access-results.txt'
     ArtifactName: 'test-results'
     publishLocation: 'Container'
   condition: always()
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(Build.SourcesDirectory)/inferno/test-results/inferno.onc-program-standalone-ehr-prac-app-results.txt'
+    PathtoPublish: '$(Build.SourcesDirectory)/build/inferno/test-results/inferno.onc-program-standalone-ehr-prac-app-results.txt'
     ArtifactName: 'test-results'
     publishLocation: 'Container'
   condition: always()
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(Build.SourcesDirectory)/inferno/test-results/inferno-test-us-core-results.txt'
+    PathtoPublish: '$(Build.SourcesDirectory)/build/inferno/test-results/inferno-test-us-core-results.txt'
     ArtifactName: 'test-results'
     publishLocation: 'Container'
   condition: always()
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(Build.SourcesDirectory)/inferno/test-results/inferno.onc-program-multi-pat-auth-api-results.txt'
+    PathtoPublish: '$(Build.SourcesDirectory)/build/inferno/test-results/inferno.onc-program-multi-pat-auth-api-results.txt'
     ArtifactName: 'test-results'
     publishLocation: 'Container'
   condition: always()
   
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(Build.SourcesDirectory)/inferno/test-results/inferno.onc-program-other-results.txt'
+    PathtoPublish: '$(Build.SourcesDirectory)/build/inferno/test-results/inferno.onc-program-other-results.txt'
     ArtifactName: 'test-results'
     publishLocation: 'Container'
   condition: always()
