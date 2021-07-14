@@ -344,7 +344,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     new DefaultOptionHashSetJsonConverter(),
                     new EnumLiteralJsonConverter(),
-                    new ProfileReferenceConverter(_modelInfoProvider),
+                    new ReferenceComponentConverter(_modelInfoProvider),
                     new CodingJsonConverter(),
                 },
                 NullValueHandling = NullValueHandling.Ignore,
