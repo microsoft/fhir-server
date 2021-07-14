@@ -1,0 +1,42 @@
+{
+  "server": "##REPLACE##",
+  "module": "onc_program",
+  "arguments": {
+    "token": "",
+    "patient_ids": "##REPLACE##",
+    "device_codes": ""
+  },
+  "sequences": [
+    "USCore311PatientSequence",
+    "USCore311AllergyintoleranceSequence",
+    "USCore311CareplanSequence",
+    "USCore311CareteamSequence",
+    "USCore311ConditionSequence",
+    "USCore311ImplantableDeviceSequence",
+    "USCore311DiagnosticreportNoteSequence",
+    "USCore311DiagnosticreportLabSequence",
+    "USCore311DocumentreferenceSequence",
+    "USCore311GoalSequence",
+    "USCore311ImmunizationSequence",
+    "USCore311MedicationrequestSequence",
+    "USCore311SmokingstatusSequence",
+    "USCore311PediatricWeightForHeightSequence",
+    "USCore311ObservationLabSequence",
+    "USCore311PediatricBmiForAgeSequence",
+    "USCore311PulseOximetrySequence",
+    "USCore311BodyheightSequence",
+    "USCore311BodytempSequence",
+    "USCore311BpSequence",
+    "USCore311BodyweightSequence",
+    "USCore311HeadOccipitalFrontalCircumferencePercentileSequence",
+    "USCore311HeartrateSequence",
+    "USCore311ResprateSequence",
+    "USCore311ProcedureSequence",
+    "USCoreR4ClinicalNotesSequence",
+    "USCore311EncounterSequence",
+    "USCore311OrganizationSequence",
+    "USCore311PractitionerSequence",
+    "USCore311ProvenanceSequence",
+    "USCoreR4DataAbsentReasonSequence"
+  ]
+}

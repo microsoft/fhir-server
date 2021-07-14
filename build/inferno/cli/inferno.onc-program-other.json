@@ -1,0 +1,16 @@
+{
+  "server": "##REPLACE##",
+  "module": "onc_program",
+  "arguments": {
+    "oauth_authorize_endpoint": "##REPLACE##",
+    "oauth_token_endpoint": "##REPLACE##",
+    "oauth_register_endpoint": "##REPLACE##"
+  },
+  "sequences": [
+    "OncStandalonePublicLaunchSequence",
+    "TokenRevocationSequence",
+    "SMARTInvalidAudSequence",
+    "SMARTInvalidLaunchSequence",
+    "ONCVisualInspectionSequence"
+  ]
+}

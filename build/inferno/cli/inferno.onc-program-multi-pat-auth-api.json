@@ -1,0 +1,18 @@
+{
+  "server": "##REPLACE##",
+  "module": "onc_program",
+  "arguments": {
+    "bulk_url": "##REPLACE##",
+    "bulk_token_endpoint": "##REPLACE##",
+    "bulk_client_id": "##REPLACE##",
+    "bulk_scope": "system/*.read",
+    "group_id": "1",
+    "bulk_patient_ids_in_group": "",
+    "bulk_lines_to_validate": ""
+  },
+  "sequences": [
+    "BulkDataAuthorizationSequence",
+    "BulkDataGroupExportSequence",
+    "BulkDataGroupExportValidationSequence"
+  ]
+}
