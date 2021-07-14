@@ -1,9 +1,16 @@
 name: Inferno Test
 
+pr:
+  branches:
+    include:
+    - feature/inferno
+  paths:
+    include:
+    - build/inferno
 trigger:
   branches:
     include:
-    - main
+    - feature/inferno
   paths:
     include:
     - build/inferno
