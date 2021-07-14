@@ -3447,10 +3447,6 @@ BEGIN
 END
 GO
 
-COMMIT TRANSACTION
-
-GO
-
 /*************************************************************
     Event Agent checkpoint feature
 **************************************************************/
@@ -3533,4 +3529,8 @@ BEGIN
     FROM dbo.EventAgentCheckpoint
     WHERE CheckpointId = @CheckpointId
 END
+GO
+
+COMMIT TRANSACTION
+
 GO
