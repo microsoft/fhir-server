@@ -5,7 +5,7 @@
 * Be sure that you have followed the [Getting Started Steps](https://github.com/microsoft/fhir-server/blob/feature/graphql-prototype/docs/graphQl/GettingStarted.md).
 * Your FHIR-Server is running locally.
 * Hit (https://localhost:44348/graphql) with your browser.
-* Refresh the scheme with the corresponding button.
+* Refresh the scheme with the "Refresh schema" button.
 
 ![Overview Banana Cake Pop](https://user-images.githubusercontent.com/33185677/125547200-042388a0-3e6a-49b9-980c-3bbab29874df.jpg)
 
@@ -15,7 +15,7 @@
 
 ![Exploring-Schema](https://user-images.githubusercontent.com/33185677/125548754-1cbb6521-f232-4b07-af3b-c78725b6cf3b.gif)
 
-✅ See historial of your queries.
+✅ See history of your queries.
 
 ![Exploring-HISTORY](https://user-images.githubusercontent.com/33185677/125548685-b9b70533-43fa-408b-8cc1-76af6d809a0d.gif)
 
