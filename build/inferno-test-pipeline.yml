@@ -1,0 +1,14 @@
+name: Inferno Test
+
+trigger:
+  paths:
+    include:
+    - build/inferno
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+
+- script: echo "Place pipeline here"
+  displayName: 'Stub'
