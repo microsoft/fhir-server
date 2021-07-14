@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -11,6 +12,9 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         public ResourceChangeData(long id, DateTime timestamp, string resourceId, short resourceTypeId, int resourceVersion, byte resourceChangeTypeId, string resourceTypeName)
         {
+            EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
+            EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
+
             Id = id;
             Timestamp = timestamp;
             ResourceId = resourceId;
