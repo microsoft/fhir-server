@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
+        [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         }
 
         [Fact]
+        [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithoutImportPermissions_WhenImportData_ThenServerShouldReturnForbidden()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
