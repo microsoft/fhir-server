@@ -9,7 +9,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
@@ -30,37 +29,19 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
         }
 
         [Fact]
-        public async void GivenQueryByGet_AskingForPatientSchema_ThenPatientSchemaShouldBeReturned()
+        public async void GivenQueryByGet_AskingForGraphQlSchema_ThenGraphQlSchemaShouldBeReturned()
         {
-            var baseUrl = "graphql/graphql?sdl";
-            using var message = new HttpRequestMessage(HttpMethod.Get, baseUrl);
-            message.Headers.Host = "patient.graphql";
-
-            using HttpResponseMessage response = await Client.HttpClient.SendAsync(message);
-
+            using HttpResponseMessage response = await Client.HttpClient.GetAsync("graphql/graphql?sdl");
             response.EnsureSuccessStatusCode();
 
-            string result = response.Content.ReadAsStringAsync().Result;
-            var aux = JsonConvert.DeserializeObject(result);
-            Console.WriteLine("Result: " + result);
-        }
-
-        [Fact]
-        public async void GivenQueryByGet_AskingForTypesSchema_ThenTypesSchemaShouldBeReturned()
-        {
-            var baseUrl = "graphql/graphql?sdl";
-            using var message = new HttpRequestMessage(HttpMethod.Get, baseUrl);
-            message.Headers.Host = "types.graphql";
-
-            using HttpResponseMessage response = await Client.HttpClient.SendAsync(message);
-
-            response.EnsureSuccessStatusCode();
+            string schema = response.Content.ReadAsStringAsync().Result;
+            Assert.Contains("Patient", schema);
         }
 
         // Check test with team to verify correct way to do it.
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async void GivenQueryGetAllIdOfPatients_ThenAllIdInTheServerShouldBeReturned()
+        public async void GivenPatients_WhenFetchingByGraphQl_ThenAllPatientsInTheServerShouldBeReturned()
         {
             // Create various resources.
             var tag = Guid.NewGuid().ToString();
@@ -83,7 +64,7 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
                 variables = new { },
             };
             string jsonString = JsonConvert.SerializeObject(queryObject);
-            StringContent httpContent = new StringContent(jsonString, Encoding.UTF8, "application/json");
+            var httpContent = new StringContent(jsonString, Encoding.UTF8, "application/json");
 
             HttpResponseMessage response = await Client.HttpClient.PostAsync("graphql", httpContent);
             response.EnsureSuccessStatusCode();
@@ -92,7 +73,7 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
             var responseString = await response.Content.ReadAsStringAsync();
             dynamic responseObj = JsonConvert.DeserializeObject<dynamic>(responseString);
 
-            List<Patient> patientsResponse = ((JArray)responseObj.data.patients).Select(x => new Patient
+            var patientsResponse = ((JArray)responseObj.data.patients).Select(x => new Patient
             {
                 Id = (string)x["id"],
                 Name = x["name"].ToObject<List<HumanName>>(),
@@ -113,8 +94,7 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
         }
 
         [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async void GivenQueryGetPatientById_ThenPatientWithIdShouldBeReturned()
+        public async void GivenAPatient_WhenFetchingById_ThenPatientWithIdShouldBeReturned()
         {
             // Create one Patient resource.
             var tag = Guid.NewGuid().ToString();
@@ -123,7 +103,7 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
             SetPatientInfo(resource, "Seattle", "Robinson", tag);
             Patient patient = await Client.CreateAsync(resource);
 
-            // Define query.
+            // Define query
             var queryObject = new
             {
                 query = @"query($id: String) { 
@@ -137,21 +117,60 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
                 },
             };
             string jsonString = JsonConvert.SerializeObject(queryObject);
-            StringContent httpContent = new StringContent(jsonString, Encoding.UTF8, "application/json");
+            var httpContent = new StringContent(jsonString, Encoding.UTF8, "application/json");
 
             HttpResponseMessage response = await Client.HttpClient.PostAsync("graphql", httpContent);
             response.EnsureSuccessStatusCode();
 
-            // Ensure Patient in response is the original.
             var responseString = await response.Content.ReadAsStringAsync();
             dynamic responseObj = JsonConvert.DeserializeObject<dynamic>(responseString).data.patientById;
 
-            var patientResponse = new Patient
-            {
-                Id = responseObj.id,
-            };
+            // Ensure Patient in response has same id than original
+            Assert.Equal(patient.Id, (string)responseObj.Id);
+        }
 
-            Assert.Equal(patient.Id, patientResponse.Id);
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async void GivenTwoPatients_WhenFetchingByIdAtSameTime_ThenPatientsWithSpecifiedIdShouldBeReturned()
+        {
+            // Create one Patient resource
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "Seattle", "Robinson", tag),
+                p => SetPatientInfo(p, "Portland", "Williamas", tag));
+
+            // Define query
+            var queryObject = new
+            {
+                query = @"query($idA: String, $idB: String) { 
+                            a: patientById(id: $idA) { 
+                                id
+                            }
+                            b: patientById(id: $idB) {
+                                id
+                                name {
+                                    family
+                                }
+                            }
+                        }",
+                variables = new
+                {
+                    idA = patients[0].Id,
+                    idB = patients[1].Id,
+                },
+            };
+            string jsonString = JsonConvert.SerializeObject(queryObject);
+            var httpContent = new StringContent(jsonString, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await Client.HttpClient.PostAsync("graphql", httpContent);
+            response.EnsureSuccessStatusCode();
+
+            var responseString = await response.Content.ReadAsStringAsync();
+            dynamic responseObj = JsonConvert.DeserializeObject<dynamic>(responseString).data;
+
+            // Ensure Patient in response has same id than original
+            Assert.Equal(patients[0].Id, (string)responseObj.a.id);
+            Assert.Equal(patients[1].Id, (string)responseObj.b.id);
         }
 
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
