@@ -6,7 +6,7 @@ on:
     types: [ closed ]
 
 variables:
-- template: pr-variables.yml
-- template: build-variables.yml
+- template: ../build/pr-variables.yml
+- template: ../build/build-variables.yml
 jobs:
-  - template: ./jobs/cleanup.yml
+  - template: ../build/jobs/cleanup.yml
