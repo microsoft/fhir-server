@@ -1,0 +1,24 @@
+name: Inferno Test
+
+pr:
+  branches:
+    include:
+    - feature/inferno
+  paths:
+    include:
+    - build/inferno
+trigger:
+  branches:
+    include:
+    - feature/inferno
+  paths:
+    include:
+    - build/inferno
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+
+- script: echo "Place pipeline here"
+  displayName: 'Stub'
