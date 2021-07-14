@@ -39,8 +39,7 @@ steps:
 
 - task: Bash@3
   inputs:
-    workingDirectory: ./build/inferno
-    filePath: 'data-prep/inject_values.sh'
+    filePath: './build/inferno/data-prep/inject_values.sh'
   displayName: 'Inject args'
   env:
     PATIENT_IDS: $(PATIENT_IDS)
