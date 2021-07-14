@@ -1,4 +1,4 @@
-﻿-- Style guide: please see: https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Convention%20and%20T-SQL%20Programming%20Style.md
+-- Style guide: please see: https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Convention%20and%20T-SQL%20Programming%20Style.md
 
 -- The wrapping up of the initialization script under a transaction is removed from the schema-manager tool, so adding transaction in the script itself.
 
@@ -3330,7 +3330,7 @@ CREATE TABLE dbo.ResourceChangeData
     ResourceVersion int NOT NULL,
     ResourceChangeTypeId tinyint NOT NULL,
    CONSTRAINT PK_ResourceChangeData PRIMARY KEY CLUSTERED (Id)
-)
+) 
 ON [PRIMARY]
 GO
 
@@ -3343,7 +3343,7 @@ CREATE TABLE dbo.ResourceChangeType
     Name nvarchar(50) NOT NULL,
     CONSTRAINT PK_ResourceChangeType PRIMARY KEY CLUSTERED (ResourceChangeTypeId),
     CONSTRAINT UQ_ResourceChangeType_Name UNIQUE NONCLUSTERED (Name)
-)
+) 
 ON [PRIMARY]
 GO
 
@@ -3351,6 +3351,7 @@ INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (0, N'Creation
 INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (1, N'Update')
 INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (2, N'Deletion')
 GO
+
 
 /*************************************************************
     Stored procedures for capturing and fetching resource changes
@@ -3376,12 +3377,14 @@ GO
 --     It does not return a value.
 --
 CREATE PROCEDURE dbo.CaptureResourceChanges
-    @isDeleted bit,
-    @version int,
+    @isDeleted bit, 
+    @version int, 
     @resourceId varchar(64),
     @resourceTypeId smallint
 AS
 BEGIN
+    -- The CaptureResourceChanges procedure is intended to be called from 
+    -- the UpsertResource_4 procedure, so it does not begin a new transaction here.
     DECLARE @changeType SMALLINT
     IF (@isDeleted = 1) BEGIN
         SET @changeType = 2    /* DELETION */
@@ -3419,22 +3422,20 @@ GO
 --     Resource change data rows.
 --
 CREATE PROCEDURE dbo.FetchResourceChanges
-    @startId bigint,
-    @pageSize int
+    @startId bigint, 
+    @pageSize smallint
 AS
 BEGIN
 
     SET NOCOUNT ON;
 
-    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database,
-    -- using the Repeatable Read isolation level to avoid skipping resource changes
-    -- due to interleaved transactions on the resource change data table.
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-
+    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
+    -- using the Repeatable Read isolation level table hint to avoid skipping resource changes 
+    -- due to interleaved transactions on the resource change data table.    
     -- In Repeatable Read, the select query execution will be blocked until other open transactions are completed
-    -- for rows that match the search condition of the select statement.
-    -- A write transaction (update/delete) on the rows that match
-    -- the search condition of the select statement will wait until the read transaction is completed.
+    -- for rows that match the search condition of the select statement. 
+    -- A write transaction (update/delete) on the rows that match 
+    -- the search condition of the select statement will wait until the read transaction is completed. 
     -- But, other transactions can insert new rows.
     SELECT TOP(@pageSize) Id,
       Timestamp,
@@ -3442,7 +3443,7 @@ BEGIN
       ResourceTypeId,
       ResourceVersion,
       ResourceChangeTypeId
-      FROM dbo.ResourceChangeData
+      FROM dbo.ResourceChangeData WITH (REPEATABLEREAD)
     WHERE Id >= @startId ORDER BY Id ASC
 END
 GO
