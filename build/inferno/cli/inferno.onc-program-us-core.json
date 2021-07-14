@@ -3,7 +3,7 @@
   "module": "onc_program",
   "arguments": {
     "token": "",
-    "patient_ids": "REPLACE",
+    "patient_ids": "##REPLACE##",
     "device_codes": ""
   },
   "sequences": [
