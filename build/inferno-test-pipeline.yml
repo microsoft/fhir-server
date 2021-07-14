@@ -1,6 +1,9 @@
 name: Inferno Test
 
 trigger:
+  branches:
+    include:
+    - main
   paths:
     include:
     - build/inferno
