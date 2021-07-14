@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("Patient/")]
         public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValidConfigurationWithETag_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             var patientToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             patientToCreate.Id = Guid.NewGuid().ToString();
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenAValidConfigurationWithETagNoQuotes_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenAValidConfigurationWithoutETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenInvalidConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
 
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenAGroupIdNotExisted_WhenExportingGroupAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -255,7 +255,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenInvalidEtagProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenEtagInWrongFormatProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -299,7 +299,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenAContainerNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", containerName);
@@ -319,7 +319,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenALargeConfigurationProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
