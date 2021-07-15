@@ -3,19 +3,19 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using FluentValidation;
+using FluentValidation.Validators;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Follows validator naming convention.")]
     public class ResourceElementValidator : AbstractValidator<ResourceElement>
     {
-        public ResourceElementValidator(ResourceContentValidator contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
+        public ResourceElementValidator(IPropertyValidator<ResourceElement, ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
             RuleFor(x => x.Id)
-              .SetValidator(new IdValidator());
+              .SetValidator(new IdValidator<ResourceElement>()).WithMessage(Core.Resources.IdRequirements);
             RuleFor(x => x)
                   .SetValidator(contentValidator);
             RuleFor(x => x)
