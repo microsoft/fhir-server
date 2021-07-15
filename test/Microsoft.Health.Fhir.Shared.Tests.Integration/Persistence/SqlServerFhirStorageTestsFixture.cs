@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
         }
 
-        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName)
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName, IOptions<CoreFeatureConfiguration> coreFeatures = null)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new SqlServerSortingValidator(schemaInformation),
                 sqlServerFhirModel);
 
-            IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
+            IOptions<CoreFeatureConfiguration> options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
 
             _fhirDataStore = new SqlServerFhirDataStore(
                 sqlServerFhirModel,
