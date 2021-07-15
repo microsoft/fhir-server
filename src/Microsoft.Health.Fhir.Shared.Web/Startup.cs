@@ -14,6 +14,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Web
@@ -47,7 +48,10 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
-                fhirServerBuilder.AddSqlServer(Configuration);
+                fhirServerBuilder.AddSqlServer(config =>
+                {
+                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                });
             }
 
             // Set task hosting and related background service

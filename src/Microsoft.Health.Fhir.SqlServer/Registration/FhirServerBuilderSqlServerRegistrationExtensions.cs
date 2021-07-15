@@ -30,12 +30,13 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.AddSqlServerBase<SchemaVersion>(configuration, configureAction);
+            services.AddSqlServerConnection(configureAction);
+            services.AddSqlServerManagement<SchemaVersion>();
             services.AddSqlServerApi();
 
             services.Add(provider => new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max))
