@@ -301,6 +301,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             _metricHandler?.ResetCount();
 
+            await InitializeAnonymizationContainer();
+
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
@@ -351,10 +353,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         private async Task<(string name, string eTag)> UploadConfigurationAsync(string configurationContent, string blobName = null)
         {
             blobName = blobName ?? $"{Guid.NewGuid()}.json";
-            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference("anonymization");
-            await container.CreateIfNotExistsAsync();
+            CloudBlobContainer container = await InitializeAnonymizationContainer();
 
             CloudBlockBlob blob = container.GetBlockBlobReference(blobName);
             await blob.DeleteIfExistsAsync();
@@ -362,6 +361,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await blob.UploadTextAsync(configurationContent);
 
             return (blobName, blob.Properties.ETag);
+        }
+
+        private async Task<CloudBlobContainer> InitializeAnonymizationContainer()
+        {
+            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
+            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference("anonymization");
+            await container.CreateIfNotExistsAsync();
+            return container;
         }
 
         private async Task<HttpResponseMessage> WaitForCompleteAsync(Uri contentLocation)
