@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
         public GetResourceValidator()
         {
             RuleFor(x => x.ResourceKey.Id)
-                .SetValidator(new IdValidator());
+                .SetValidator(new IdValidator<GetResourceRequest>()).WithMessage(Core.Resources.IdRequirements);
         }
     }
 }
