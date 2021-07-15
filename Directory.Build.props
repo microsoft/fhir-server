@@ -27,7 +27,7 @@
     <IdentityModelVersion>6.11.1</IdentityModelVersion>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.8</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>3.0.5</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>3.0.16</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>3.4.0</Hl7FhirVersion>
   </PropertyGroup>
 

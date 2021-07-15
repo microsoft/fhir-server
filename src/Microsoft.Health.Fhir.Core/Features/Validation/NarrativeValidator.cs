@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
 using Hl7.Fhir.ElementModel;
@@ -14,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
-    public class NarrativeValidator : NoopPropertyValidator
+    public class NarrativeValidator : NoopPropertyValidator<ResourceElement, ResourceElement>
     {
         private readonly INarrativeHtmlSanitizer _narrativeHtmlSanitizer;
 
@@ -25,17 +26,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             _narrativeHtmlSanitizer = narrativeHtmlSanitizer;
         }
 
-        public override IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
+        public override string Name => nameof(NarrativeValidator);
+
+        public override bool IsValid(ValidationContext<ResourceElement> context, ResourceElement value)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.PropertyValue is ResourceElement resourceElement)
+            bool isValid = true;
+
+            if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 if (resourceElement.IsDomainResource)
                 {
                     foreach (ValidationFailure validationFailure in ValidateResource(resourceElement.Instance))
                     {
-                        yield return validationFailure;
+                        validationFailure.ErrorCode = "Custom";
+                        context.AddFailure(validationFailure);
+                        isValid = false;
                     }
                 }
                 else if (resourceElement.InstanceType.Equals(KnownResourceTypes.Bundle, System.StringComparison.OrdinalIgnoreCase))
@@ -45,11 +52,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     {
                         foreach (ValidationFailure validationFailure in bundleEntries.SelectMany(ValidateResource))
                         {
-                            yield return validationFailure;
+                            validationFailure.ErrorCode = "Custom";
+                            context.AddFailure(validationFailure);
+                            isValid = false;
                         }
                     }
                 }
             }
+
+            return isValid;
         }
 
         private IEnumerable<ValidationFailure> ValidateResource(ITypedElement typedElement)
