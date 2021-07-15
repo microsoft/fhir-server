@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
             var testConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName }.ToString();
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = false };
-            var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = false, SchemaOptions = schemaOptions };
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = false, SchemaOptions = schemaOptions });
             var connectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var connectionFactory = new DefaultSqlConnectionFactory(connectionStringProvider);
             return connectionFactory;

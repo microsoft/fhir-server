@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
@@ -23,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
 
         public SqlServerFhirResourceChangeDataStoreTests()
         {
-            var config = new SqlServerDataStoreConfiguration { ConnectionString = string.Empty };
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = string.Empty });
             var connectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var connectionFactory = new DefaultSqlConnectionFactory(connectionStringProvider);
             resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(connectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
