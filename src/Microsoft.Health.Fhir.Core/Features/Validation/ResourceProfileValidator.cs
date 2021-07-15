@@ -58,10 +58,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     var errors = _profileValidator.TryValidate(resourceElement.Instance);
                     foreach (var error in errors.Where(x => x.Severity == IssueSeverity.Error || x.Severity == IssueSeverity.Fatal))
                     {
-                        context.AddFailure(new FhirValidationFailure(
+                        var validationFailure = new FhirValidationFailure(
                             resourceElement.InstanceType,
                             error.DetailsText,
-                            error));
+                            error);
+                        validationFailure.ErrorCode = "Custom";
+                        context.AddFailure(validationFailure);
                         isValid = false;
                     }
                 }

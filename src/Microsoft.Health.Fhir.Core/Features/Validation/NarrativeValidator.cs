@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                 {
                     foreach (ValidationFailure validationFailure in ValidateResource(resourceElement.Instance))
                     {
+                        validationFailure.ErrorCode = "Custom";
                         context.AddFailure(validationFailure);
                         isValid = false;
                     }
@@ -51,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     {
                         foreach (ValidationFailure validationFailure in bundleEntries.SelectMany(ValidateResource))
                         {
+                            validationFailure.ErrorCode = "Custom";
                             context.AddFailure(validationFailure);
                             isValid = false;
                         }

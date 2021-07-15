@@ -47,8 +47,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     {
                         var fullFhirPath = resourceElement.InstanceType;
                         fullFhirPath += string.IsNullOrEmpty(error.MemberNames?.FirstOrDefault()) ? string.Empty : "." + error.MemberNames?.FirstOrDefault();
-
-                        context.AddFailure(new ValidationFailure(fullFhirPath, error.ErrorMessage));
+                        var validationFailure = new ValidationFailure(fullFhirPath, error.ErrorMessage);
+                        validationFailure.ErrorCode = "Custom";
+                        context.AddFailure(validationFailure);
                         isValid = false;
                     }
                 }
