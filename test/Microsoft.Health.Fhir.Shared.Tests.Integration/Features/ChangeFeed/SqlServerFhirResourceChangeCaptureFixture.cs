@@ -5,41 +5,47 @@
 
 using System;
 using System.Numerics;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.SqlServer;
+using Xunit;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.ChangeFeed
+namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 {
     /// <summary>
     /// A fixture class to share a single database instance among all resource change capture tests.
     /// </summary>
-    public class SqlServerFhirResourceChangeCaptureFixture : IDisposable
+    public class SqlServerFhirResourceChangeCaptureFixture : IAsyncLifetime
     {
         private IOptions<CoreFeatureConfiguration> _coreFeatureConfigOptions;
-        private readonly FhirStorageTestsFixture _fixture;
+        private readonly FhirStorageTestsFixture _storageFixture;
+        private readonly SqlServerFhirStorageTestsFixture _sqlFixture;
         private string _databaseName;
 
         public SqlServerFhirResourceChangeCaptureFixture()
         {
             _databaseName = $"FHIRRESOURCECHANGEINTTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
             _coreFeatureConfigOptions = Options.Create(new CoreFeatureConfiguration() { SupportsResourceChangeCapture = true });
-            _fixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, _databaseName, _coreFeatureConfigOptions));
-            _fixture.InitializeAsync().Wait();
-
-            Mediator = _fixture.Mediator;
-            DatabaseName = _databaseName;
+            _sqlFixture = new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, _databaseName, _coreFeatureConfigOptions);
+            _storageFixture = new FhirStorageTestsFixture(_sqlFixture);
         }
 
-        public string DatabaseName { get; private set; }
+        public Mediator Mediator => _storageFixture.Mediator;
 
-        public Mediator Mediator { get; private set; }
+        public ISqlConnectionFactory SqlConnectionFactory => _sqlFixture.SqlConnectionFactory;
 
-        public async void Dispose()
+        public async Task InitializeAsync()
         {
-            await _fixture?.DisposeAsync();
+            await _storageFixture.InitializeAsync();
+        }
+
+        public async Task DisposeAsync()
+        {
+            await _storageFixture?.DisposeAsync();
         }
     }
 }
