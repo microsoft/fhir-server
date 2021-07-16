@@ -38,7 +38,7 @@ jobs:
     displayName: 'Run Integration Tests'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.Integration*.dll"'
+      arguments: ' --logger console;verbosity=detailed "**\*${{ parameters.version }}.Tests.Integration*.dll"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} Integration'
     env:
@@ -123,7 +123,7 @@ jobs:
     displayName: 'E2E ${{ parameters.version }} CosmosDB'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=Authorization"'
+      arguments: ' --logger console;verbosity=detailed "**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category!=ExportLongRunning&Category!=Authorization"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} CosmosDB'
     env:
@@ -232,7 +232,7 @@ jobs:
     displayName: 'E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=Authorization"'
+      arguments: ' --logger console;verbosity=detailed "**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category!=ExportLongRunning&Category!=Authorization"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} SQL'
     env:
