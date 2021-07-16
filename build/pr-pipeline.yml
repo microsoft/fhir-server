@@ -52,6 +52,8 @@ stages:
       vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
+      parameters:
+        packageArtifacts: false
     
 
 - stage: DockerBuild  
