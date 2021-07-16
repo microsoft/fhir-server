@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.GraphQl
     public class GraphQlHandlerTests
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
-        private readonly IBundleFactory _bundleFactory = Substitute.For<IBundleFactory>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
 
         private readonly GraphQlHandler _graphQlHandler;
@@ -44,9 +43,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.GraphQl
             var resultEntries = searchResult.Results.ToList();
             var expectedResourceElements = new List<ResourceElement>();
 
-            foreach (var entry in resultEntries)
+            foreach (SearchResultEntry entry in resultEntries)
             {
-                var element = _resourceDeserializer.Deserialize(entry.Resource);
+                ResourceElement element = _resourceDeserializer.Deserialize(entry.Resource);
                 expectedResourceElements.Add(element);
             }
 
