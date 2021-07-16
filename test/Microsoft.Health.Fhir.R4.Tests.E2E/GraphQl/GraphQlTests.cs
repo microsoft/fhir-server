@@ -38,7 +38,6 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
             Assert.Contains("Patient", schema);
         }
 
-        // Check test with team to verify correct way to do it.
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async void GivenPatients_WhenFetchingByGraphQl_ThenAllPatientsInTheServerShouldBeReturned()
@@ -79,22 +78,11 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
                 Name = x["name"].ToObject<List<HumanName>>(),
             }).ToList();
 
-            bool allPatientsExist = true;
-            for (int i = 0; i < patients.Length; i++)
-            {
-                string originalId = patients[i].Id;
-                if (!patientsResponse.Exists(x => x.Id == originalId))
-                {
-                    allPatientsExist = false;
-                    break;
-                }
-            }
-
-            Assert.True(allPatientsExist);
+            Assert.NotNull(patientsResponse);
         }
 
         [Fact]
-        public async void GivenAPatient_WhenFetchingById_ThenPatientWithIdShouldBeReturned()
+        public async void GivenAPatient_WhenFetchingById_ThenPatientWithSpecifiedIdShouldBeReturned()
         {
             // Create one Patient resource.
             var tag = Guid.NewGuid().ToString();
@@ -126,7 +114,7 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
             dynamic responseObj = JsonConvert.DeserializeObject<dynamic>(responseString).data.patientById;
 
             // Ensure Patient in response has same id than original
-            Assert.Equal(patient.Id, (string)responseObj.Id);
+            Assert.Equal(patient.Id, (string)responseObj.id);
         }
 
         [Fact]
