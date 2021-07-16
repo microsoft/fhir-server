@@ -1,4 +1,0 @@
-﻿type Patient {
-    id: String
-    active: Boolean
-}
