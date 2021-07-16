@@ -7,6 +7,9 @@
     <DefineConstants>R5</DefineConstants>
 
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Features\Operations\OperationsCapabilityProvider.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
@@ -21,6 +24,10 @@
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.Core\Microsoft.Health.Fhir.R5.Core.csproj" PrivateAssets="build;analyzers" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Features\Operations\" />
   </ItemGroup>
 
   <Import Project="..\Microsoft.Health.Fhir.Shared.Api\Microsoft.Health.Fhir.Shared.Api.projitems" Label="Shared" />

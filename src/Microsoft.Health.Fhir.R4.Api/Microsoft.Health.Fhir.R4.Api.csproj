@@ -7,6 +7,9 @@
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Features\Operations\OperationsCapabilityProvider.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Api\Modules\AnonymizationModule.cs" Link="Modules\AnonymizationModule.cs" />
   </ItemGroup>
 
@@ -22,10 +25,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.Fhir.R4.Core\Microsoft.Health.Fhir.R4.Core.csproj" PrivateAssets="build;analyzers"/>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.R4.Core\Microsoft.Health.Fhir.R4.Core.csproj" PrivateAssets="build;analyzers" />
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Features\Operations\" />
     <Folder Include="Modules\" />
   </ItemGroup>
 

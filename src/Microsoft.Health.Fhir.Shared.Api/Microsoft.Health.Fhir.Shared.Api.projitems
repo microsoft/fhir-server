@@ -26,7 +26,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ParameterCompatibleFilter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\SearchParameterFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\GraphQl\PatientQueries.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\GraphQl\DataLoader\PatientByIdDataLoader.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\IProvenanceHeaderState.cs" />
@@ -70,5 +69,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Features\Operations\" />
   </ItemGroup>
 </Project>
