@@ -809,6 +809,42 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Patching immutable properties is not allowed..
+        /// </summary>
+        internal static string PatchImmutablePropertiesIsNotValid {
+            get {
+                return ResourceManager.GetString("PatchImmutablePropertiesIsNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error patching resource: &apos;{0}&apos;..
+        /// </summary>
+        internal static string PatchResourceError {
+            get {
+                return ResourceManager.GetString("PatchResourceError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The resource to patch must be in JSON format..
+        /// </summary>
+        internal static string PatchResourceMustBeJson {
+            get {
+                return ResourceManager.GetString("PatchResourceMustBeJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Patching a specific record version is not supported..
+        /// </summary>
+        internal static string PatchVersionNotAllowed {
+            get {
+                return ResourceManager.GetString("PatchVersionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to X-Provenance header is malformed and can&apos;t be parsed.
         /// </summary>
         internal static string ProvenanceHeaderMalformed {

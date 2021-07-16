@@ -103,7 +103,7 @@ jobs:
         Write-Host "$exportStoreUri"
         $exportStoreAccountName = [System.Uri]::new("$exportStoreUri").Host.Split('.')[0]
         $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
-        
+
         Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
         Write-Host "##vso[task.setvariable variable=TestExportStoreKey]$($exportStoreKey.Value)"
 

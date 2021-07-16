@@ -13,6 +13,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
@@ -26,7 +27,6 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -55,8 +55,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<FhirController> _logger;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
-        private readonly IAuthorizationService _authorizationService;
-        private readonly FeatureConfiguration _featureConfiguration;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -87,8 +85,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
-            _authorizationService = authorizationService;
-            _featureConfiguration = uiConfiguration.Value;
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -412,14 +408,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
+        /// <param name="patchDocument">The JSON patch document</param>
         [HttpPatch]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Controller methods won't be called if static.")]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "Need the parameters for routing to work.")]
-        public Task<IActionResult> Patch(string typeParameter, string idParameter)
+        public async Task<IActionResult> Patch(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument)
         {
-            throw new MethodNotAllowedException(Resources.PatchNotSupported);
+            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), patchDocument, HttpContext.RequestAborted);
+
+            return ToSaveOutcomeResult(response.Outcome);
         }
 
         /// <summary>

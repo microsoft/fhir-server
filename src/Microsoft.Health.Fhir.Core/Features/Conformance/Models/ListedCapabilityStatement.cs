@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             Kind = new DefaultOptionHashSet<string>("capability", StringComparer.Ordinal);
             Rest = new HashSet<ListedRestComponent>(new PropertyEqualityComparer<ListedRestComponent>(x => x.Mode));
             Format = new HashSet<string>(StringComparer.Ordinal);
+            PatchFormat = new HashSet<string>(StringComparer.Ordinal);
             AdditionalData = new Dictionary<string, JToken>();
             Profile = new List<ReferenceComponent>();
         }
@@ -50,6 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
         public string FhirVersion { get; set; }
 
         public ICollection<string> Format { get; }
+
+        public ICollection<string> PatchFormat { get; }
 
         public ICollection<ListedRestComponent> Rest { get; }
 

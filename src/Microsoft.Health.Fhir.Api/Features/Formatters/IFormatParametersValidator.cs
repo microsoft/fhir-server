@@ -19,5 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         void CheckElementsParameter(HttpContext httpContext);
 
         Task<bool> IsFormatSupportedAsync(string format);
+
+        Task<bool> IsPatchFormatSupportedAsync(string format);
     }
 }

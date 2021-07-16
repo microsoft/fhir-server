@@ -124,7 +124,6 @@ jobs:
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
-        # ----------------------------------------
 
         dotnet dev-certs https
 
@@ -255,7 +254,6 @@ jobs:
             }
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($plainValue)"
         }
-        # ----------------------------------------
 
         dotnet dev-certs https
 

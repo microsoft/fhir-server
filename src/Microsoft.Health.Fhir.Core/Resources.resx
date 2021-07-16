@@ -544,6 +544,15 @@
   <data name="ReindexingResourceNotFound" xml:space="preserve">
     <value>One or more resources to be reindexed were not found, indicating that they have been deleted since the reindex job kicked off.</value>
   </data>
+  <data name="PatchImmutablePropertiesIsNotValid" xml:space="preserve">
+    <value>Patching immutable properties is not allowed.</value>
+  </data>
+  <data name="PatchResourceError" xml:space="preserve">
+    <value>Error patching resource: '{0}'.</value>
+  </data>
+  <data name="PatchVersionNotAllowed" xml:space="preserve">
+    <value>Patching a specific record version is not supported.</value>
+  </data>
   <data name="UnableToUpdateSearchParameter" xml:space="preserve">
     <value>Attempt to update SearchParameter {0} failed.</value>
     <comment>{0} the uri identifying the search parameter.</comment>
@@ -581,5 +590,8 @@
   </data>
   <data name="LinksCantBeCreated" xml:space="preserve">
     <value>Bundle.link values omitted because they exceeded the maximum Uri length.</value>
+  </data>
+  <data name="PatchResourceMustBeJson" xml:space="preserve">
+    <value>The resource to patch must be in JSON format.</value>
   </data>
 </root>
