@@ -7,6 +7,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class IntegrationDataStoreConfiguration
     {
+        private const int DefaultMaxRetryCount = 3;
+
+        private const int DefaultRetryInternalInSeconds = 5;
+
+        private const int DefaultMaxWaitTimeInSeconds = -1;
+
         public string StorageAccountConnection { get; set; } = string.Empty;
 
         /// <summary>
@@ -18,5 +24,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
             "CA1056:Uri properties should not be strings",
             Justification = "Set from an environment variable.")]
         public string StorageAccountUri { get; set; } = string.Empty;
+
+        public int MaxRetryCount { get; set; } = DefaultMaxRetryCount;
+
+        public int RetryInternalInSecondes { get; set; } = DefaultRetryInternalInSeconds;
+
+        public int MaxWaitTimeInSeconds { get; set; } = DefaultMaxWaitTimeInSeconds;
     }
 }

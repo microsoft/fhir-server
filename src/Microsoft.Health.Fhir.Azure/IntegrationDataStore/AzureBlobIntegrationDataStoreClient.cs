@@ -14,25 +14,30 @@ using EnsureThat;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Polly;
 
 namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 {
     public class AzureBlobIntegrationDataStoreClient : IIntegrationDataStoreClient
     {
         private IIntegrationDataStoreClientInitilizer<CloudBlobClient> _integrationDataStoreClientInitializer;
+        private IntegrationStoreRetryExceptionPolicyFactory _integrationStoreRetryExceptionPolicyFactory;
         private ILogger<AzureBlobIntegrationDataStoreClient> _logger;
 
         public AzureBlobIntegrationDataStoreClient(
             IIntegrationDataStoreClientInitilizer<CloudBlobClient> integrationDataStoreClientInitializer,
+            IOptions<IntegrationDataStoreConfiguration> integrationDataStoreConfiguration,
             ILogger<AzureBlobIntegrationDataStoreClient> logger)
         {
             EnsureArg.IsNotNull(integrationDataStoreClientInitializer, nameof(integrationDataStoreClientInitializer));
+            EnsureArg.IsNotNull(integrationDataStoreConfiguration?.Value, nameof(integrationDataStoreConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _integrationDataStoreClientInitializer = integrationDataStoreClientInitializer;
+            _integrationStoreRetryExceptionPolicyFactory = new IntegrationStoreRetryExceptionPolicyFactory(integrationDataStoreConfiguration);
             _logger = logger;
         }
 
@@ -50,21 +55,19 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                return await Policy.Handle<StorageException>()
-                    .WaitAndRetryAsync(
-                        retryCount: 3,
-                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
-                    .ExecuteAsync(async () =>
-                        {
-                            CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-                            CloudBlobContainer container = cloudBlobClient.GetContainerReference(containerId);
+                return await _integrationStoreRetryExceptionPolicyFactory
+                            .RetryPolicy
+                            .ExecuteAsync(async () =>
+                                {
+                                    CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
+                                    CloudBlobContainer container = cloudBlobClient.GetContainerReference(containerId);
 
-                            await container.CreateIfNotExistsAsync(cancellationToken);
+                                    await container.CreateIfNotExistsAsync(cancellationToken);
 
-                            CloudBlob blob = container.GetBlobReference(fileName);
+                                    CloudBlob blob = container.GetBlobReference(fileName);
 
-                            return blob.Uri;
-                        });
+                                    return blob.Uri;
+                                });
             }
             catch (StorageException storageEx)
             {
@@ -83,15 +86,13 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                await Policy.Handle<StorageException>()
-                    .WaitAndRetryAsync(
-                        retryCount: 3,
-                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
-                    .ExecuteAsync(async () =>
-                    {
-                        CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
-                        await UploadBlockInternalAsync(blob, stream, blockId, cancellationToken);
-                    });
+                await _integrationStoreRetryExceptionPolicyFactory
+                            .RetryPolicy
+                            .ExecuteAsync(async () =>
+                            {
+                                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                                await UploadBlockInternalAsync(blob, stream, blockId, cancellationToken);
+                            });
             }
             catch (StorageException storageEx)
             {
@@ -109,15 +110,13 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                await Policy.Handle<StorageException>()
-                    .WaitAndRetryAsync(
-                        retryCount: 3,
-                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
-                    .ExecuteAsync(async () =>
-                    {
-                        CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
-                        await CommitInternalAsync(blob, blockIds, cancellationToken);
-                    });
+                await _integrationStoreRetryExceptionPolicyFactory
+                            .RetryPolicy
+                            .ExecuteAsync(async () =>
+                            {
+                                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                                await CommitInternalAsync(blob, blockIds, cancellationToken);
+                            });
             }
             catch (StorageException storageEx)
             {
@@ -135,15 +134,13 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                await Policy.Handle<StorageException>()
-                    .WaitAndRetryAsync(
-                        retryCount: 2,
-                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
-                    .ExecuteAsync(async () =>
-                    {
-                        CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
-                        await AppendCommitInternalAsync(blob, blockIds, cancellationToken);
-                    });
+                await _integrationStoreRetryExceptionPolicyFactory
+                            .RetryPolicy
+                            .ExecuteAsync(async () =>
+                            {
+                                CloudBlockBlob blob = await GetCloudBlobClientAsync(resourceUri, cancellationToken);
+                                await AppendCommitInternalAsync(blob, blockIds, cancellationToken);
+                            });
             }
             catch (StorageException storageEx)
             {
@@ -160,21 +157,19 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
 
             try
             {
-                return await Policy.Handle<StorageException>()
-                    .WaitAndRetryAsync(
-                        retryCount: 3,
-                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
-                    .ExecuteAsync(async () =>
-                    {
-                        CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
-                        ICloudBlob blob = await cloudBlobClient.GetBlobReferenceFromServerAsync(resourceUri);
+                return await _integrationStoreRetryExceptionPolicyFactory
+                            .RetryPolicy
+                            .ExecuteAsync(async () =>
+                            {
+                                CloudBlobClient cloudBlobClient = await _integrationDataStoreClientInitializer.GetAuthorizedClientAsync(cancellationToken);
+                                ICloudBlob blob = await cloudBlobClient.GetBlobReferenceFromServerAsync(resourceUri);
 
-                        Dictionary<string, object> result = new Dictionary<string, object>();
-                        result[IntegrationDataStoreClientConstants.BlobPropertyETag] = blob.Properties.ETag;
-                        result[IntegrationDataStoreClientConstants.BlobPropertyLength] = blob.Properties.Length;
+                                Dictionary<string, object> result = new Dictionary<string, object>();
+                                result[IntegrationDataStoreClientConstants.BlobPropertyETag] = blob.Properties.ETag;
+                                result[IntegrationDataStoreClientConstants.BlobPropertyLength] = blob.Properties.Length;
 
-                        return result;
-                    });
+                                return result;
+                            });
             }
             catch (StorageException storageEx)
             {

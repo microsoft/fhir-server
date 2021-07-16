@@ -80,6 +80,11 @@ namespace Microsoft.Health.Fhir.Azure
             return fhirServerBuilder;
         }
 
+        /// <summary>
+        /// Customer can use this DataStore to integrate with other Azure services for data purpose.
+        /// </summary>
+        /// <param name="fhirServerBuilder">Service builder for FHIR server</param>
+        /// <param name="configuration">Configuration for FHIR server</param>
         public static IFhirServerBuilder AddAzureIntegrationDataStoreClient(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));

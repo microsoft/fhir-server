@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 blob.UploadFromStream(sourceStream);
 
                 sourceStream.Position = 0;
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 using Stream targetStream = blobClient.DownloadResource(blob.Uri, 0, CancellationToken.None);
                 using StreamReader sourceReader = new StreamReader(sourceStream);
                 using StreamReader targetReader = new StreamReader(targetStream);
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
                 long startPosition = 2021;
                 sourceStream.Position = startPosition;
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 using Stream targetStream = blobClient.DownloadResource(blob.Uri, startPosition, CancellationToken.None);
                 using StreamReader sourceReader = new StreamReader(sourceStream);
                 using StreamReader targetReader = new StreamReader(targetStream);
@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
             try
             {
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 Uri fileUri = await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
                 Assert.True(await client.GetContainerReference(containerName).ExistsAsync());
                 Assert.Equal(blobUri, fileUri);
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
                 sourceStream.Position = 0;
                 blob.UploadFromStream(sourceStream);
 
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 Dictionary<string, object> properties = await blobClient.GetPropertiesAsync(blobUri, CancellationToken.None);
                 Assert.True(properties.ContainsKey(IntegrationDataStoreClientConstants.BlobPropertyETag));
                 Assert.True(properties.ContainsKey(IntegrationDataStoreClientConstants.BlobPropertyLength));
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
             try
             {
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
@@ -240,7 +240,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
             try
             {
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
@@ -292,7 +292,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
             try
             {
-                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, new NullLogger<AzureBlobIntegrationDataStoreClient>());
+                AzureBlobIntegrationDataStoreClient blobClient = new AzureBlobIntegrationDataStoreClient(initializer, GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureBlobIntegrationDataStoreClient>());
                 await blobClient.PrepareResourceAsync(containerName, blobName, CancellationToken.None);
 
                 long count = 30;
@@ -323,12 +323,15 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.IntegrationDataStore
 
         private static IIntegrationDataStoreClientInitilizer<CloudBlobClient> GetClientInitializer()
         {
-            IntegrationDataStoreConfiguration configuration = new IntegrationDataStoreConfiguration()
-            {
-                StorageAccountConnection = "UseDevelopmentStorage=true",
-            };
-            AzureConnectionStringClientInitializerV2 initializer = new AzureConnectionStringClientInitializerV2(Options.Create(configuration), new NullLogger<AzureConnectionStringClientInitializerV2>());
-            return initializer;
+            return new AzureConnectionStringClientInitializerV2(GetIntegrationDataStoreConfigurationOption(), new NullLogger<AzureConnectionStringClientInitializerV2>());
+        }
+
+        private static IOptions<IntegrationDataStoreConfiguration> GetIntegrationDataStoreConfigurationOption()
+        {
+            return Options.Create(new IntegrationDataStoreConfiguration()
+                            {
+                                StorageAccountConnection = "UseDevelopmentStorage=true",
+                            });
         }
     }
 }

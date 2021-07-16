@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using System.Net;
-using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public IntegrationDataStoreException(string message, HttpStatusCode statusCode)
             : base(message)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+            Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty.");
 
             StatusCode = statusCode;
         }

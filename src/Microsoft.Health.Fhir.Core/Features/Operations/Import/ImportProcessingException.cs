@@ -4,23 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
+using System.Diagnostics;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
     public class ImportProcessingException : Exception
     {
         public ImportProcessingException(string message)
-            : base(message)
+            : this(message, null)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
         }
 
         public ImportProcessingException(string message, Exception innerException)
             : base(message, innerException)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
-            EnsureArg.IsNotNull(innerException, nameof(innerException));
+            Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty.");
         }
     }
 }
