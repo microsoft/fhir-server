@@ -25,17 +25,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly IUrlResolver _urlResolver;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
-        private readonly IResourceDeserializer _resourceDeserializer;
 
-        public BundleFactory(IUrlResolver urlResolver, IResourceDeserializer resourceDeserializer, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _urlResolver = urlResolver;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _resourceDeserializer = resourceDeserializer;
         }
 
         public ResourceElement CreateSearchBundle(SearchResult result)
