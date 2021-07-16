@@ -16,19 +16,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ResourceToNdjsonBytesSerializer : IResourceToByteArraySerializer
     {
-        private readonly FhirJsonSerializationSettings _serializerSettings;
-
-        public ResourceToNdjsonBytesSerializer(FhirJsonSerializationSettings settings = null)
-        {
-            _serializerSettings = settings;
-        }
-
         /// <inheritdoc />
         public byte[] Serialize(ResourceElement resourceElement)
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            string resourceData = resourceElement.Instance.ToJson(_serializerSettings);
+            string resourceData = resourceElement.Instance.ToJson();
 
             byte[] bytesToWrite = Encoding.UTF8.GetBytes($"{resourceData}\n");
 
