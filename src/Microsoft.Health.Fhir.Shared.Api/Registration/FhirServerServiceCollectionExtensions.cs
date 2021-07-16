@@ -50,10 +50,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddOptions();
             services.AddMvc(options =>
-            {
-                options.EnableEndpointRouting = false;
-                options.RespectBrowserAcceptHeader = true;
-            })
+                {
+                    options.EnableEndpointRouting = false;
+                    options.RespectBrowserAcceptHeader = true;
+                })
                 .AddNewtonsoftJson()
                 .AddRazorRuntimeCompilation();
 
