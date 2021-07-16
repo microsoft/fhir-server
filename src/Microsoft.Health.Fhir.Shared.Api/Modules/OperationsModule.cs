@@ -7,8 +7,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -62,10 +60,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
 
-            services.Add<OperationsCapabilityProvider>()
+            /*services.Add<OperationsCapabilityProvider>()
                 .Transient()
                 .AsService<IProvideCapability>();
-
+            */
             services.AddSingleton<IPatientEverythingService, PatientEverythingService>();
         }
     }
