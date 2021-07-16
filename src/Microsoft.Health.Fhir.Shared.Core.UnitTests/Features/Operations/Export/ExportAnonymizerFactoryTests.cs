@@ -4,12 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Anonymizer.Core;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 
@@ -38,6 +43,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 		}
 	]
 }";
+
+        [Fact]
+        public void GivenAnonymizer_WhenUpdatingReferenceLibraryVersion_ThenAnonymizerShouldBeUpdatedToSameVersion()
+        {
+            AssemblyName[] referencesFromAnonymizationEngion = typeof(AnonymizerEngine).Assembly.GetReferencedAssemblies();
+            Assert.Contains(typeof(FhirJsonParser).Assembly.FullName, referencesFromAnonymizationEngion.Select(r => r.FullName));
+            Assert.Contains(typeof(JsonConvert).Assembly.FullName, referencesFromAnonymizationEngion.Select(r => r.FullName));
+        }
 
         [Fact]
         public async Task GivenAValidAnonymizationConfiguration_WhenCreatingAnonymizer_AnonymizerShouldBeCreated()
