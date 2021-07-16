@@ -60,7 +60,7 @@ query {
   }
 }
 
-### Get Patient by I with using GraphQL.
+### Get Patient by ID with using GraphQL.
 # To modify the following request, first get all patients
 # in the server with query shown above (line 28). Then,
 # pick one ID from your response and past it to the line 83.
@@ -86,7 +86,7 @@ query($id: String) {
 ### Get 2 Patients by ID with different fields using GraphQl.
 # To modify the following request, first get all patients
 # in the server with query shown above (line 28). Then,
-# pick 2 IDs from your response and past it to the lines 107 y 108.
+# pick 2 IDs from your response and paste it into lines 107 y 108.
 
 POST https://{{hostname}}/graphql
 Content-Type: application/json
