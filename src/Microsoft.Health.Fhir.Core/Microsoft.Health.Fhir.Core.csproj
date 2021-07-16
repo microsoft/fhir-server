@@ -3,14 +3,6 @@
     <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Features\NewFolder1\**" />
-    <Compile Remove="Features\NewFolder\**" />
-    <EmbeddedResource Remove="Features\NewFolder1\**" />
-    <EmbeddedResource Remove="Features\NewFolder\**" />
-    <None Remove="Features\NewFolder1\**" />
-    <None Remove="Features\NewFolder\**" />
-  </ItemGroup>
-  <ItemGroup>
     <None Remove="Data\OperationDefinition\member-match.json" />
     <None Remove="Features\Security\roles.schema.json" />
   </ItemGroup>
