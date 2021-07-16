@@ -1454,6 +1454,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(capturedSearch);
         }
 
+        [Fact]
+        public async Task GivenAnonymizedExportJob_WhenExecuted_IfAnonymizerRuturnsEmptyResult_ThenEmptyResourcesWillBeExported()
+        {
+            bool capturedSearch = false;
+
+            ExportJobRecord exportJobRecordWithOneResource =
+                CreateExportJobRecord(maximumNumberOfResourcesPerQuery: 1, numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit, anonymizationConfigurationLocation: "anonymization-config-file");
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
+
+            // First search should not have continuation token in the list of query parameters.
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    return CreateSearchResult(new[]
+                        {
+                            CreateSearchResultEntry("1", "Patient"),
+                        });
+                });
+
+            IAnonymizer anonymizer = Substitute.For<IAnonymizer>();
+            IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
+
+            anonymizer.Anonymize(Arg.Any<ResourceElement>()).Returns(
+                _ =>
+                {
+                    capturedSearch = true;
+                    return new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive("{}")));
+                });
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
+            var inMemoryDestinationClient = new InMemoryExportDestinationClient();
+
+            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScope());
+
+            await anonymizedExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedValue = inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+
+            Assert.Equal("{}", exportedValue);
+            Assert.True(capturedSearch);
+        }
+
         [Theory]
         [InlineData(typeof(AnonymizationConfigurationNotFoundException), "config not found", HttpStatusCode.BadRequest)]
         [InlineData(typeof(FailedToParseAnonymizationConfigurationException), "cannot parse the config", HttpStatusCode.BadRequest)]

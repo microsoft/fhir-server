@@ -24,9 +24,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            // In Anonymizer Engine, null value will be returned if skipping processing error.
             var element = _engine.AnonymizeElement(resourceElement.Instance);
-            return element == null ? new ResourceElement(element) : null;
+            return new ResourceElement(element);
         }
     }
 }
