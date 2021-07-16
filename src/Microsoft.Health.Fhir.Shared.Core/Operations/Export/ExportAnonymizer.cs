@@ -24,8 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            var element = _engine.AnonymizeElement(resourceElement.Instance);
-            return new ResourceElement(element);
+            return new ResourceElement(_engine.AnonymizeElement(resourceElement.Instance));
         }
     }
 }
