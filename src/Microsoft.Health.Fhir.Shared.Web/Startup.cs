@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Web
 {
     public class Startup
     {
+        private const string Path = "../Microsoft.Health.Fhir.Core/Data/GraphQl/";
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -39,8 +41,8 @@ namespace Microsoft.Health.Fhir.Web
                 .AddGraphQLServer()
 
                 // Adding our scheme
-                .AddDocumentFromFile("./patient.graphql")
-                .AddDocumentFromFile("./types.graphql")
+                .AddDocumentFromFile(Path + "patient.graphql")
+                .AddDocumentFromFile(Path + "types.graphql")
 
                 // Next we add the types to our schema
                 .AddQueryType(d => d.Name("Query"))
