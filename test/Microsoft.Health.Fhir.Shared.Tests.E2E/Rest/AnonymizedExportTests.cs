@@ -61,14 +61,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
         {
             _metricHandler?.ResetCount();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
             await _testFhirClient.UpdateAsync(resourceToCreate);
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName, etag, path);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, path);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _metricHandler?.ResetCount();
 
             var patientToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             patientToCreate.Id = Guid.NewGuid().ToString();
             var patientReponse = await _testFhirClient.UpdateAsync(patientToCreate);
             var patientId = patientReponse.Resource.Id;
@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName, etag, $"Group/{groupId}/");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, $"Group/{groupId}/");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAValidConfigurationWithETagNoQuotes_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
             _metricHandler?.ResetCount();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
             await _testFhirClient.UpdateAsync(resourceToCreate);
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             etag = etag.Substring(1, 17);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName, etag);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -181,13 +181,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             await _testFhirClient.UpdateAsync(resourceToCreate);
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -214,9 +214,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _metricHandler?.ResetCount();
 
             (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName, etag);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -234,12 +234,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAGroupIdNotExisted_WhenExportingGroupAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string groupId = "not-exist-id";
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName, etag, $"Group/{groupId}/");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, $"Group/{groupId}/");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -257,11 +257,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenInvalidEtagProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName, "\"0x000000000000000\"");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, "\"0x000000000000000\"");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -279,11 +279,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenEtagInWrongFormatProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName, "\"invalid-etag");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, "\"invalid-etag");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -301,11 +301,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAContainerNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             await InitializeAnonymizationContainer();
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", dateTime.ToString(), containerName);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", dateTime, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -323,12 +323,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenALargeConfigurationProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             _metricHandler?.ResetCount();
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName, etag);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -345,11 +345,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenAnAnonymizedExportRequestWithoutContainerName_WhenExportingAnonymizedData_ThenFhirExceptionShouldBeThrewFromFhirClient()
         {
-            PartialDateTime dateTime = new PartialDateTime(DateTimeOffset.Now);
+            var dateTime = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = string.Empty;
-            await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, dateTime.ToString(), containerName));
+            await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName));
         }
 
         private async Task<(string name, string eTag)> UploadConfigurationAsync(string configurationContent, string blobName = null)
