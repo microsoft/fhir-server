@@ -11,14 +11,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
 using NSubstitute;
 using Xunit;
 using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
+namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerTaskConsumerTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
