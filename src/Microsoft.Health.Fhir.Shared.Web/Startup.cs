@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader;
 using Microsoft.Health.Fhir.Azure;
+using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.Fhir.Shared.Api.Features.GraphQl;
 
 namespace Microsoft.Health.Fhir.Web
@@ -92,7 +93,10 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
-                fhirServerBuilder.AddSqlServer(Configuration);
+                fhirServerBuilder.AddSqlServer(config =>
+                {
+                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                });
             }
 
             /*

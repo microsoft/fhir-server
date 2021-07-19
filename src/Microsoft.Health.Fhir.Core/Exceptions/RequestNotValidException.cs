@@ -3,21 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
+using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
     public class RequestNotValidException : FhirException
     {
-        public RequestNotValidException(string message)
+        public RequestNotValidException(string message, string issueType = OperationOutcomeConstants.IssueType.Invalid)
             : base(message)
         {
-            EnsureArg.IsNotNull(message, nameof(message));
+            Debug.Assert(!string.IsNullOrEmpty(message));
+            Debug.Assert(!string.IsNullOrEmpty(issueType));
 
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.Invalid,
+                issueType,
                 message));
         }
     }

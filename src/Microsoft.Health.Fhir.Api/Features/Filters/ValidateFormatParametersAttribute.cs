@@ -59,6 +59,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     throw new UnsupportedMediaTypeException(Resources.ContentTypeHeaderRequired);
                 }
             }
+            else if (httpContext.Request.Method.Equals(HttpMethod.Patch.Method, StringComparison.OrdinalIgnoreCase))
+            {
+                if (httpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
+                {
+                    if (!await _parametersValidator.IsPatchFormatSupportedAsync(headerValue[0]))
+                    {
+                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
+                    }
+                }
+            }
 
             await base.OnActionExecutionAsync(context, next);
         }
