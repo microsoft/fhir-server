@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Text;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -58,6 +60,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             byte[] actualBytes = _serializer.Serialize(element);
 
             Assert.Equal(_expectedBytes, actualBytes);
+        }
+
+        [Fact]
+        public void GivenAInvalidElementNode_WhenSerialized_ByteArrayShouldBeProduced()
+        {
+            var rawResource = new RawResource(
+                new FhirJsonSerializer().SerializeToString(_resource),
+                FhirResourceFormat.Json,
+                isMetaSet: false);
+
+            ResourceWrapper resourceWrapper = CreateResourceWrapper(rawResource);
+            ResourceElement element = _resourceDeserializaer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
+
+            var node = ElementNode.FromElement(element.Instance);
+            (((ScopedNode)node.Select("Observation.text").First()).Current as ElementNode).Value = "invalid";
+            var newElement = new ResourceElement(node);
+            Assert.Throws<FormatException>(() => newElement.Instance.ToPoco<Resource>().ToJson());
+
+            Assert.Equal(Samples.GetInvalidResourceBytes(), _serializer.Serialize(newElement));
         }
 
         [Fact]
