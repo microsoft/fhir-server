@@ -283,37 +283,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             await _jobSemaphore.WaitAsync(_cancellationToken);
             try
             {
-                const string message = "Encountered an unhandled exception.";
-                await HandleRetryableError(message, OperationOutcomeConstants.IssueType.Exception, ex);
+                _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    ex.Message));
+
+                _reindexJobRecord.FailureCount++;
+
+                _logger.LogError(ex, "Encountered an unhandled exception. The job failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
+
+                await UpdateJobAsync();
+
+                if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
+                {
+                    await MoveToFinalStatusAsync(OperationStatus.Failed);
+                }
+                else
+                {
+                    _reindexJobRecord.Status = OperationStatus.Queued;
+                    await UpdateJobAsync();
+                }
             }
             finally
             {
                 _jobSemaphore.Release();
-            }
-        }
-
-        private async Task HandleRetryableError(string message, string issueType, Exception ex = null)
-        {
-            _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
-                OperationOutcomeConstants.IssueSeverity.Error,
-                issueType,
-                ex == null ? message : ex.Message));
-
-            _reindexJobRecord.FailureCount++;
-
-            _logger.LogError(message);
-            _logger.LogError(ex, "The job failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
-
-            await UpdateJobAsync();
-
-            if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
-            {
-                await MoveToFinalStatusAsync(OperationStatus.Failed);
-            }
-            else
-            {
-                _reindexJobRecord.Status = OperationStatus.Queued;
-                await UpdateJobAsync();
             }
         }
 
@@ -551,11 +544,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (_reindexJobRecord.QueryList.Keys.All(q => q.Status == OperationStatus.Completed))
                 {
                     // Perform a final check to make sure there are no resources left to reindex
-                    int totalCount = await CalculateTotalCount();
+                    (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount();
                     if (totalCount != 0)
                     {
-                        string message = $"{totalCount} resources failed to be reindexed.";
-                        await HandleRetryableError(message, OperationOutcomeConstants.IssueType.Incomplete);
+                        string message = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'.";
+                        string userMessage = message + " Resubmit the same reindex job to finish indexing the remaining resources.";
+                        _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Incomplete,
+                            userMessage));
+                        _logger.LogError(message);
+
+                        await MoveToFinalStatusAsync(OperationStatus.Failed);
                     }
                     else
                     {
@@ -653,9 +653,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexJobRecord.Count = totalCount;
         }
 
-        private async Task<int> CalculateTotalCount()
+        private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount()
         {
             int totalCount = 0;
+            var resourcesTypes = new List<string>();
+
             foreach (string resourceType in _reindexJobRecord.Resources)
             {
                 var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
@@ -665,13 +667,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 };
 
                 SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, _cancellationToken);
-                if (countOnlyResults?.TotalCount != null)
+
+                if (countOnlyResults?.TotalCount != null && countOnlyResults.TotalCount.Value > 0)
                 {
                     totalCount += countOnlyResults.TotalCount.Value;
+                    resourcesTypes.Add(resourceType);
                 }
             }
 
-            return totalCount;
+            return (totalCount, resourcesTypes);
         }
 
         private async Task UpdateParametersAndCompleteJob()
