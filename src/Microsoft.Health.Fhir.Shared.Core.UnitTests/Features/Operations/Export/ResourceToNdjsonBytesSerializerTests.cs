@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var newElement = new ResourceElement(node);
             Assert.Throws<FormatException>(() => newElement.Instance.ToPoco<Resource>().ToJson());
 
-            Assert.Equal(Samples.GetInvalidResourceBytes(), _serializer.Serialize(newElement));
+            Assert.Equal(Encoding.UTF8.GetBytes(Samples.GetInvalidResourceJson()), _serializer.Serialize(newElement));
         }
 
         [Fact]

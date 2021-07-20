@@ -26,9 +26,9 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// <summary>
         /// This returns invalid resource bytes from the json files
         /// </summary>
-        public static byte[] GetInvalidResourceBytes()
+        public static string GetInvalidResourceJson()
         {
-            return Encoding.UTF8.GetBytes(GetJson("invalid"));
+            return GetJson("invalid");
         }
 
         /// <summary>
