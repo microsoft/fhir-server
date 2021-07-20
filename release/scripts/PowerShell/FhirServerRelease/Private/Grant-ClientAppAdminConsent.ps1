@@ -54,20 +54,18 @@ function Grant-ClientAppAdminConsent {
         throw
     }
 
-    # There currently is no documented or supported way of programatically
-    # granting admin consent. So for now we resort to a hack. 
-    # We call an API that is used from the portal. An admin *user* is required for this, a service principal will not work.
-    # Also, the call can fail when the app has just been created, so we include a retry loop. 
-
-    $windowsAadServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId "00000002-0000-0000-c000-000000000000"
+    $windowsAadId = "00000002-0000-0000-c000-000000000000"
+    $windowsAadServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$windowsAadId'"
     $windowsAadObjectId = $windowsAadServicePrincipal.ObjectId
-    $resourceApiServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId $ResourceApplicationId
+
+    $resourceApiServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$ResourceApplicationId'"
     $resourceApiObjectId = $resourceApiServicePrincipal.ObjectId
-    $clientServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId $AppId
+
+    $clientServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$AppId'"
     $clientObjectId = $clientServicePrincipal.ObjectId
 
     $header = @{
-        'Authorization'          = 'Bearer ' + $response.access_token
+        'Authorization' = 'Bearer ' + $response.access_token
         'Content-Type' = 'application/json'
     }
 
@@ -80,21 +78,14 @@ function Grant-ClientAppAdminConsent {
         scope = "User.Read"
     }
 
-    while ($true) {
-        try {
-            Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForReadPermisions | ConvertTo-Json) -ErrorVariable error 
-        }
-        catch {
-            if ($retryCount -lt 3) {
-                $retryCount++
-                Write-Warning "Received failure when posting to $permissionGrantUrl to grant user.read permission. Will retry in 10 seconds."
-                Write-Warning "Error message: $error"
-                Start-Sleep -Seconds 10
-            }
-            else {
-                throw
-            }    
-        }
+    try {
+        $response = Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForReadPermisions | ConvertTo-Json) -ErrorVariable error
+    }
+    catch {
+        Write-Warning "Received failure when posting to $permissionGrantUrl to grant user.read permission."
+        Write-Warning "Error message: $error"
+
+        throw
     }
 
     $bodyForApiPermisions = @{
@@ -104,20 +95,13 @@ function Grant-ClientAppAdminConsent {
         scope = "user_impersonation"
     }
 
-    while ($true) {
-        try {
-            Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForApiPermisions | ConvertTo-Json) -ErrorVariable error 
-        }
-        catch {
-            if ($retryCount -lt 3) {
-                $retryCount++
-                Write-Warning "Received failure when posting to $permissionGrantUrl to grant user_impersonation permission. Will retry in 10 seconds."
-                Write-Warning "Error message: $error"
-                Start-Sleep -Seconds 10
-            }
-            else {
-                throw
-            }    
-        }
+    try {
+        $response = Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForApiPermisions | ConvertTo-Json) -ErrorVariable error
+    }
+    catch {
+        Write-Warning "Received failure when posting to $permissionGrantUrl to grant user_impersonation permission."
+        Write-Warning "Error message: $error"
+
+        throw
     }
 }
