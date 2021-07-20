@@ -60,28 +60,29 @@ function Grant-ClientAppAdminConsent {
     # Also, the call can fail when the app has just been created, so we include a retry loop. 
 
     $windowsAadServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId "00000002-0000-0000-c000-000000000000"
+    $windowsAadObjectId = $windowsAadServicePrincipal.ObjectId
     $resourceApiServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId $ResourceApplicationId
+    $resourceApiObjectId = $resourceApiServicePrincipal.ObjectId
     $clientServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId $AppId
+    $clientObjectId = $clientServicePrincipal.ObjectId
 
     $header = @{
         'Authorization'          = 'Bearer ' + $response.access_token
-        'x-ms-client-request-id' = [guid]::NewGuid()
         'Content-Type' = 'application/json'
     }
 
     $permissionGrantUrl = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants"
 
     $bodyForReadPermisions = @{
-        clientId = $clientServicePrincipal.ObjectId
+        clientId = $clientObjectId
         consentType = "AllPrincipals"
-        resourceId = $windowsAadServicePrincipal.ObjectId
+        resourceId = $windowsAadObjectId
         scope = "User.Read"
     }
 
     while ($true) {
         try {
-            Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body $bodyForReadPermisions -ErrorVariable error | Out-Null
-            return
+            Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForReadPermisions | ConvertTo-Json) -ErrorVariable error 
         }
         catch {
             if ($retryCount -lt 3) {
@@ -97,16 +98,15 @@ function Grant-ClientAppAdminConsent {
     }
 
     $bodyForApiPermisions = @{
-        clientId = $clientServicePrincipal.ObjectId
+        clientId = $clientObjectId
         consentType = "AllPrincipals"
-        resourceId = $resourceApiServicePrincipal.ObjectId
+        resourceId = $resourceApiObjectId
         scope = "user_impersonation"
     }
 
     while ($true) {
         try {
-            Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body $bodyForApiPermisions -ErrorVariable error | Out-Null
-            return
+            Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForApiPermisions | ConvertTo-Json) -ErrorVariable error 
         }
         catch {
             if ($retryCount -lt 3) {
