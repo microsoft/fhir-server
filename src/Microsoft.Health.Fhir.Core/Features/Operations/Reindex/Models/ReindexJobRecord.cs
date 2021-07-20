@@ -18,6 +18,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord
     {
+        private int queryDelayIntervalInMilliseconds;
+        private ushort maximumConcurrency;
+        private uint maximumNumberOfResourcesPerQuery;
+        private ushort? targetDataStoreUsagePercentage;
+        private IReadOnlyCollection<string> targetResourceTypes;
+
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
             IReadOnlyCollection<string> targetResourceTypes,
@@ -51,7 +57,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         }
 
         [JsonProperty(JobRecordProperties.MaximumConcurrency)]
-        public ushort MaximumConcurrency { get; private set; }
+        public ushort MaximumConcurrency
+        {
+            get
+            {
+                return maximumConcurrency;
+            }
+
+            set
+            {
+                if (value > 10)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(MaximumConcurrency));
+                }
+                else
+                {
+                    maximumConcurrency = value;
+                }
+            }
+        }
 
         [JsonProperty(JobRecordProperties.Error)]
         public ICollection<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
@@ -90,13 +114,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ICollection<string> SearchParams { get; private set; } = new List<string>();
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
-        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
+        public uint MaximumNumberOfResourcesPerQuery
+        {
+            get
+            {
+                return maximumNumberOfResourcesPerQuery;
+            }
+
+            set
+            {
+                if (value < 1 || value > 5000)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(MaximumNumberOfResourcesPerQuery));
+                }
+                else
+                {
+                    maximumNumberOfResourcesPerQuery = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Controls the time between queries of resources to be reindexed
         /// </summary>
         [JsonProperty(JobRecordProperties.QueryDelayIntervalInMilliseconds)]
-        public int QueryDelayIntervalInMilliseconds { get; set; }
+        public int QueryDelayIntervalInMilliseconds
+        {
+            get
+            {
+                return queryDelayIntervalInMilliseconds;
+            }
+
+            set
+            {
+                if (value < 5 || value > 500000)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(QueryDelayIntervalInMilliseconds));
+                }
+                else
+                {
+                    queryDelayIntervalInMilliseconds = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Controls the target percentage of how much of the allocated
@@ -105,14 +165,48 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// 0 means the value is not set, no throttling will occur
         /// </summary>
         [JsonProperty(JobRecordProperties.TargetDataStoreUsagePercentage)]
-        public ushort? TargetDataStoreUsagePercentage { get; set; }
+        public ushort? TargetDataStoreUsagePercentage
+        {
+            get
+            {
+                return targetDataStoreUsagePercentage;
+            }
+
+            set
+            {
+                if (value < 0 || value > 100)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(TargetDataStoreUsagePercentage));
+                }
+                else
+                {
+                    targetDataStoreUsagePercentage = value;
+                }
+            }
+        }
 
         /// <summary>
         /// A user can optionally limit the scope of the Reindex job to specific
         /// resource types
         /// </summary>
         [JsonProperty(JobRecordProperties.TargetResourceTypes)]
-        public IReadOnlyCollection<string> TargetResourceTypes { get; private set; } = new List<string>();
+        public IReadOnlyCollection<string> TargetResourceTypes
+        {
+            get
+            {
+                return targetResourceTypes;
+            }
+
+            set
+            {
+                foreach (var type in value)
+                {
+                    ModelInfoProvider.EnsureValidResourceType(type, nameof(type));
+                }
+
+                targetResourceTypes = value;
+            }
+        }
 
         [JsonIgnore]
         public string ResourceList
