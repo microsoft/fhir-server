@@ -46,8 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             _resourceMetaPopulator.Populate(id, resource);
 
-            ITypedElement element = resource.ToTypedElement();
-            ResourceElement resourceElement = new ResourceElement(element);
+            ResourceElement resourceElement = resource.ToResourceElement();
             ResourceWrapper resourceWapper = _resourceFactory.Create(resourceElement, false, true);
 
             return new ImportResource(id, index, resourceWapper)
