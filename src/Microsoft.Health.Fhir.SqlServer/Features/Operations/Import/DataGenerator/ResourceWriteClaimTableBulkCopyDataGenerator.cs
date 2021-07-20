@@ -37,6 +37,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {
+            EnsureArg.IsNotNull(table, nameof(table));
+            EnsureArg.IsNotNull(input, nameof(input));
+
             IEnumerable<BulkResourceWriteClaimTableTypeV1Row> claims = _generator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
             foreach (var claim in claims)

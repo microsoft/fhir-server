@@ -9,9 +9,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Models;
@@ -27,15 +27,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private IResourceWrapperFactory _resourceFactory;
         private IResourceMetaPopulator _resourceMetaPopulator;
         private RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
+        private ICompressedRawResourceConverter _compressedRawResourceConverter;
 
-        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, IResourceMetaPopulator resourceMetaPopulator)
+        public ImportResourceParser(FhirJsonParser parser, IResourceWrapperFactory resourceFactory, IResourceMetaPopulator resourceMetaPopulator, ICompressedRawResourceConverter compressedRawResourceConverter)
         {
             EnsureArg.IsNotNull(parser, nameof(parser));
             EnsureArg.IsNotNull(resourceFactory, nameof(resourceFactory));
+            EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
 
             _parser = parser;
             _resourceFactory = resourceFactory;
             _resourceMetaPopulator = resourceMetaPopulator;
+            _compressedRawResourceConverter = compressedRawResourceConverter;
             _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
@@ -75,9 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private Stream GenerateCompressedRawResource(string rawResource)
         {
             var outputStream = new RecyclableMemoryStream(_recyclableMemoryStreamManager);
-            using var gzipStream = new GZipStream(outputStream, CompressionMode.Compress, leaveOpen: true);
-            using var writer = new StreamWriter(gzipStream, ResourceEncoding);
-            writer.Write(rawResource);
+            _compressedRawResourceConverter.WriteCompressedRawResource(outputStream, rawResource);
 
             return outputStream;
         }

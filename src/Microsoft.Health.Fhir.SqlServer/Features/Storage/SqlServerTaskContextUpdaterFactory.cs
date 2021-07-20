@@ -28,6 +28,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public IContextUpdater CreateContextUpdater(string taskId, string runId)
         {
+            EnsureArg.IsNotEmptyOrWhiteSpace(taskId, nameof(taskId));
+            EnsureArg.IsNotEmptyOrWhiteSpace(runId, nameof(runId));
+
             return new SqlServerTaskContextUpdater(taskId, runId, _sqlConnectionWrapperFactory, _loggerFactory.CreateLogger<SqlServerTaskContextUpdater>());
         }
     }

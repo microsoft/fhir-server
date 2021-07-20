@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Data;
+using EnsureThat;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
@@ -22,6 +23,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
         internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
         {
+            EnsureArg.IsNotNull(table, nameof(table));
+            EnsureArg.IsNotNull(input, nameof(input));
+
             FillDataTable(table, input.ResourceTypeId, input.Resource.ResourceId, input.ResourceSurrogateId, input.CompressedRawData, input.Resource.SearchParameterHash);
         }
 

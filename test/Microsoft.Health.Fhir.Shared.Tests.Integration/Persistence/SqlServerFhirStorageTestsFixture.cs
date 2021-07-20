@@ -152,6 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 bulkReindexResourceTvpGenerator,
                 options,
                 SqlConnectionWrapperFactory,
+                new CompressedRawResourceConverter(),
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInformation);
 
@@ -189,6 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlConnectionWrapperFactory,
                 schemaInformation,
                 fhirRequestContextAccessor,
+                new CompressedRawResourceConverter(),
                 () => searchableSearchParameterDefinitionManager,
                 NullLogger<SqlServerSearchService>.Instance);
 

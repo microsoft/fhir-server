@@ -145,6 +145,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
+            services.Add<CompressedRawResourceConverter>()
+                .Transient()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             services.Add<SqlBulkCopyDataWrapperFactory>()
                 .Transient()
                 .AsSelf()

@@ -20,6 +20,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
+        private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private readonly ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver _searchParameterDefinitionManagerResolver;
         private const int _resourceTableColumnCount = 10;
@@ -69,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
+            ICompressedRawResourceConverter compressedRawResourceConverter,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
@@ -79,6 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
+            EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -92,6 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
+            _compressedRawResourceConverter = compressedRawResourceConverter;
             _searchParameterDefinitionManagerResolver = searchParameterDefinitionManagerResolver;
         }
 
@@ -295,7 +300,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         // See if this resource is a continuation token candidate and increase the count
