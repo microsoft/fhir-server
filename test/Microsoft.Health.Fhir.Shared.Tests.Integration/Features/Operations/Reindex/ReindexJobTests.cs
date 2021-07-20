@@ -519,7 +519,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             int delayCount = 0;
 
-            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < 40)
+            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < 60)
             {
                 await Task.Delay(delay);
                 delayCount++;
