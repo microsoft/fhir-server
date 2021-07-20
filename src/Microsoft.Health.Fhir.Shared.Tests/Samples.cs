@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         /// </summary>
         public static string GetInvalidResourceJson()
         {
-            return GetJson("invalid");
+            return GetJson("InvalidObservation");
         }
 
         /// <summary>

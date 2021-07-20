@@ -277,6 +277,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithValidBundleEntry.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Transaction.json" />
+    <EmbeddedResource Include="TestFiles\Normative\InvalidObservation.json" />
     <EmbeddedResource Include="TestFiles\Normative\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWith20MinuteApgarScore.json" />
@@ -318,7 +319,6 @@
     <EmbeddedResource Include="TestFiles\Normative\ValueSet.json" />
     <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
     <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
-    <EmbeddedResource Include="TestFiles\Normative\invalid.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
