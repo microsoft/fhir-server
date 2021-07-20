@@ -30,45 +30,88 @@ function Grant-ClientAppAdminConsent {
 
     Write-Host "Granting admin consent for app ID $AppId"
 
-    # There currently is no documented or supported way of programatically
-    # granting admin consent. So for now we resort to a hack. 
-    # We call an API that is used from the portal. An admin *user* is required for this, a service principal will not work.
-    # Also, the call can fail when the app has just been created, so we include a retry loop. 
+    # Get token to take to graph api
+    $tenantId = (Get-AzureADCurrentSessionInfo).TenantId.ToString()
+
+    $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
+    $resource = "https://graph.microsoft.com/"
 
     $body = @{
         grant_type = "password"
         username   = $TenantAdminCredential.GetNetworkCredential().UserName
         password   = $TenantAdminCredential.GetNetworkCredential().Password
-        resource   = "74658136-14ec-4630-ad9b-26e160ff0fc6" # This is the resource id of the main.iam endpoint.
+        resource   = $resource
         client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
     }
-    
-    # $tokenResponse = Invoke-RestMethod (Get-AzureADTokenEndpoint) -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded'
-    
+
+    try {
+        $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorVariable error
+    }
+    catch {
+        Write-Warning "Failed to get authorization to talk to graph api."
+        Write-Warning "Error message: $error"
+
+        throw
+    }
+
+    # There currently is no documented or supported way of programatically
+    # granting admin consent. So for now we resort to a hack. 
+    # We call an API that is used from the portal. An admin *user* is required for this, a service principal will not work.
+    # Also, the call can fail when the app has just been created, so we include a retry loop. 
+
+    $windowsAadServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId "00000002-0000-0000-c000-000000000000"
+    $resourceApiServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId $ResourceApplicationId
+    $clientServicePrincipal = Get-AzureAdServicePrincipalByAppId -AppId $AppId
+
     $header = @{
-        'Authorization'          = 'Bearer ' + $AccessToken
+        'Authorization'          = 'Bearer ' + $response.access_token
         'x-ms-client-request-id' = [guid]::NewGuid()
+        'Content-Type' = 'application/json'
     }
 
-    # $url = "https://main.iam.ad.ext.azure.com/api/RegisteredApplications/$AppId/Consent?onBehalfOfAll=true"
-    $url = "https://graph.microsoft.com/v1.0/servicePrincipals/$AppId/appRoleAssignments/"
-    $bodyForAdminConsent = @{
-        principalId = $AppId
-        resourceId  = $ResourceApplicationId
-        appRoleId   = "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3" # AAD built-in Application Administrator role
-    }
+    $permissionGrantUrl = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants"
 
-    $retryCount = 0
+    $bodyForReadPermisions = @{
+        clientId = $clientServicePrincipal.ObjectId
+        consentType = "AllPrincipals"
+        resourceId = $windowsAadServicePrincipal.ObjectId
+        scope = "User.Read"
+    }
 
     while ($true) {
         try {
-            Invoke-RestMethod -Uri $url -Headers $header -Method POST -Body $bodyForAdminConsent -ErrorVariable error | Out-Null
+            Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body $bodyForReadPermisions -ErrorVariable error | Out-Null
             return
         }
         catch {
-            if ($retryCount -lt 6) {
+            if ($retryCount -lt 3) {
                 $retryCount++
-                Write-Warning "Received failure when posting to $url. Will retry in 10 seconds."
+                Write-Warning "Received failure when posting to $permissionGrantUrl to grant user.read permission. Will retry in 10 seconds."
+                Write-Warning "Error message: $error"
+                Start-Sleep -Seconds 10
+            }
+            else {
+                throw
+            }    
+        }
+    }
+
+    $bodyForApiPermisions = @{
+        clientId = $clientServicePrincipal.ObjectId
+        consentType = "AllPrincipals"
+        resourceId = $resourceApiServicePrincipal.ObjectId
+        scope = "user_impersonation"
+    }
+
+    while ($true) {
+        try {
+            Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body $bodyForApiPermisions -ErrorVariable error | Out-Null
+            return
+        }
+        catch {
+            if ($retryCount -lt 3) {
+                $retryCount++
+                Write-Warning "Received failure when posting to $permissionGrantUrl to grant user_impersonation permission. Will retry in 10 seconds."
                 Write-Warning "Error message: $error"
                 Start-Sleep -Seconds 10
             }
