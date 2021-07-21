@@ -393,6 +393,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Immunization.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\InvalidObservation.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWith1MinuteApgarScore.json" />
