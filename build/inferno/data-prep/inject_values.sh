@@ -1,5 +1,7 @@
 #!/bin/bash
 
+pwd
+
 echo "Injecting values to the different tests configurations"
 
 echo "the patients are $PATIENT_IDS"
