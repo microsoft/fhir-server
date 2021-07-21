@@ -39,40 +39,40 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             _logger = logger;
         }
 
-        public async Task ExecuteAsync(Container client)
+        public async Task ExecuteAsync(Container container)
         {
-            EnsureArg.IsNotNull(client, nameof(client));
+            EnsureArg.IsNotNull(container, nameof(container));
 
-            var thisVersion = await GetLatestCollectionVersion(client);
+            var thisVersion = await GetLatestCollectionVersion(container);
 
             if (thisVersion.Version < CollectionSettingsVersion)
             {
                 _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}");
 
-                var container = await client.ReadContainerAsync();
+                var containerResponse = await container.ReadContainerAsync();
 
                 // For more information on setting indexing policies refer to:
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/how-to-manage-indexing-policy
                 // It is no longer necessary to explicitly set the kind (range/hash)
-                container.Resource.IndexingPolicy.IncludedPaths.Clear();
-                container.Resource.IndexingPolicy.IncludedPaths.Add(new IncludedPath
+                containerResponse.Resource.IndexingPolicy.IncludedPaths.Clear();
+                containerResponse.Resource.IndexingPolicy.IncludedPaths.Add(new IncludedPath
                 {
                     Path = "/*",
                 });
 
-                container.Resource.IndexingPolicy.ExcludedPaths.Clear();
-                container.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.RawResource}/*", });
-                container.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/\"_etag\"/?", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Clear();
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.RawResource}/*", });
+                containerResponse.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/\"_etag\"/?", });
 
                 // Setting the DefaultTTL to -1 means that by default all documents in the collection will live forever
                 // but the Cosmos DB service should monitor this collection for documents that have overridden this default.
                 // See: https://docs.microsoft.com/en-us/azure/cosmos-db/time-to-live
-                container.Resource.DefaultTimeToLive = -1;
+                containerResponse.Resource.DefaultTimeToLive = -1;
 
-                await client.ReplaceContainerAsync(container);
+                await container.ReplaceContainerAsync(containerResponse);
 
                 thisVersion.Version = CollectionSettingsVersion;
-                await client.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey));
+                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey));
             }
         }
 

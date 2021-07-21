@@ -10,16 +10,24 @@ namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
     public class DeleteResourceResponse
     {
-        public DeleteResourceResponse(ResourceKey resourceKey, WeakETag weakETag = null)
+        public DeleteResourceResponse(ResourceKey resourceKey, int resourcesDeleted = 1, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
 
             ResourceKey = resourceKey;
+            ResourcesDeleted = resourcesDeleted;
             WeakETag = weakETag;
+        }
+
+        public DeleteResourceResponse(int resourcesDeleted)
+        {
+            ResourcesDeleted = resourcesDeleted;
         }
 
         public ResourceKey ResourceKey { get; }
 
         public WeakETag WeakETag { get; }
+
+        public int ResourcesDeleted { get; }
     }
 }

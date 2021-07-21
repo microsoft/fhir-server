@@ -134,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
         private static string GetCacheKey(string registryServer)
         {
-            return string.Format("registry_{0}", registryServer);
+            return $"registry_{registryServer}";
         }
 
         public void Dispose()

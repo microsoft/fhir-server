@@ -7,10 +7,12 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
@@ -1638,7 +1640,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     .AddKnownTypes("Device", "DiagnosticReport", "MedicationRequest", "MedicationDispense", "Location", "Practitioner", "Organization", "Bundle")
                     .Build();
                 var mediator = Substitute.For<IMediator>();
-                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator);
+                var searchService = Substitute.For<ISearchService>();
+                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider, mediator, () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             }
 
             public ISearchParameterDefinitionManager SearchParameterDefinitionManager { get; }
@@ -1648,6 +1651,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 if (!isInitialized)
                 {
                     await ((SearchParameterDefinitionManager)SearchParameterDefinitionManager).StartAsync(CancellationToken.None);
+                    await ((SearchParameterDefinitionManager)SearchParameterDefinitionManager).EnsureInitializedAsync(CancellationToken.None);
                     isInitialized = true;
                 }
             }

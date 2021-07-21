@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Client
         public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
+            return CreateAsync(resource.TypeName, resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
         }
 
         public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
@@ -156,13 +156,13 @@ namespace Microsoft.Health.Fhir.Client
         public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
         }
 
         public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
         }
 
         public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Client
         public Task<FhirResponse> DeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return DeleteAsync($"{resource.ResourceType}/{resource.Id}", cancellationToken);
+            return DeleteAsync($"{resource.TypeName}/{resource.Id}", cancellationToken);
         }
 
         public async Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default)
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Client
         public Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true", cancellationToken);
+            return DeleteAsync($"{resource.TypeName}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
         public async Task<FhirResponse> PatchAsync(string uri, string content, CancellationToken cancellationToken = default)
@@ -294,7 +294,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<FhirResponse<Resource>> PostAsync(string resourceType, string body, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}")
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}")
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),
             };
@@ -474,6 +474,23 @@ namespace Microsoft.Health.Fhir.Client
             return new FhirResponse<T>(
                 response,
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
+        }
+
+        public async Task<Parameters> MemberMatch(Patient patient, Coverage coverage, CancellationToken cancellationToken = default)
+        {
+            var inParams = new Parameters();
+            inParams.Add("MemberPatient", patient);
+            inParams.Add("OldCoverage", coverage);
+
+            using var message = new HttpRequestMessage(HttpMethod.Post, "Patient/$member-match");
+            message.Headers.Accept.Add(_mediaType);
+            message.Content = CreateStringContent(inParams);
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await CreateResponseAsync<Parameters>(response);
         }
     }
 }

@@ -15,8 +15,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
@@ -73,6 +75,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Theory]
         [InlineData((int)SchemaVersion.V7)]
         [InlineData((int)SchemaVersion.V8)]
+        [InlineData((int)SchemaVersion.V9)]
+        [InlineData((int)SchemaVersion.V10)]
+        [InlineData((int)SchemaVersion.V11)]
+        [InlineData((int)SchemaVersion.V12)]
         [InlineData(SchemaVersionConstants.Max)]
         public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed(int schemaVersion)
         {
@@ -101,7 +107,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
-            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>());
+            var searchService = Substitute.For<ISearchService>();
+            ISearchParameterDefinitionManager defManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, Substitute.For<IMediator>(), () => searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             FilebasedSearchParameterStatusDataStore statusStore = new FilebasedSearchParameterStatusDataStore(defManager, ModelInfoProvider.Instance);
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSchemaVersion);
@@ -138,7 +145,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var schemaUpgradeRunner = new SchemaUpgradeRunner(
                 scriptProvider,
                 baseScriptProvider,
-                mediator,
                 NullLogger<SchemaUpgradeRunner>.Instance,
                 sqlConnectionFactory,
                 schemaManagerDataStore);
@@ -149,6 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 schemaInformation,
                 sqlConnectionFactory,
                 sqlConnectionStringProvider,
+                mediator,
                 NullLogger<SchemaInitializer>.Instance);
 
             await testHelper.CreateAndInitializeDatabase(
@@ -227,11 +234,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
-                if (schemaDifference.TargetObject.ObjectType.Name == "Table")
+                if (schemaDifference.Name == "SqlTable" &&
+                    (schemaDifference.SourceObject.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
+                    schemaDifference.SourceObject.Name.ToString() == "[dbo].[StringSearchParam]"))
                 {
                     foreach (SchemaDifference child in schemaDifference.Children)
                     {
-                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
+                        if (child.TargetObject == null && child.SourceObject == null && (child.Name == "PartitionColumn" || child.Name == "PartitionScheme"))
+                        {
+                            // Expected
+                            continue;
+                        }
+                        else if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
                         {
                             // Expected
                             continue;

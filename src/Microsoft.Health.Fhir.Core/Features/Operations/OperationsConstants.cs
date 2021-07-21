@@ -26,5 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string ReindexContentTypeHeaderValue = "application/json";
 
         public const string ConvertData = "convert-data";
+
+        public const string MemberMatch = "member-match";
     }
 }

@@ -98,16 +98,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             return _listedCapabilityStatement;
         }
 
-        public void ConfigureOptionalCapabilities(Action<ListedCapabilityStatement> builderAction)
+        public void ConfigureOptionalCapabilities(Action<ListedCapabilityStatement> builder)
         {
-            EnsureArg.IsNotNull(builderAction, nameof(builderAction));
+            EnsureArg.IsNotNull(builder, nameof(builder));
 
             if (_listedCapabilityStatement != null)
             {
                 throw new InvalidOperationException("Post capability configuration changes can no longer be applied.");
             }
 
-            _configurationUpdates.Add(builderAction);
+            _configurationUpdates.Add(builder);
         }
 
         public void Dispose()

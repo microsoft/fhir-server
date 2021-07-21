@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     /// </summary>
     public class UrlResolver : IUrlResolver
     {
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlHelperFactory _urlHelperFactory;
 
         // If we update the search implementation to not use these, we should remove
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
         /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
         public UrlResolver(
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlHelperFactory urlHelperFactory,
             IHttpContextAccessor httpContextAccessor,
             IActionContextAccessor actionContextAccessor,
@@ -144,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false)
         {
-            string routeName = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
+            string routeName = _fhirRequestContextAccessor.RequestContext.RouteName;
 
             Debug.Assert(!string.IsNullOrWhiteSpace(routeName), "The routeName should not be null or empty.");
 
@@ -168,10 +169,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
                     if (string.Equals(searchParam.Key, KnownQueryParameterNames.Sort, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (resultSortOrder?.Count > 0)
+                        switch (resultSortOrder?.Count)
                         {
+                            case null:
+                            case 0:
+                                break;
+
                             // rewrite the sort order based on the sort order that was actually applied
-                            routeValues.Add(searchParam.Key, new StringValues(resultSortOrder.Select(s => $"{(s.sortOrder == SortOrder.Ascending ? string.Empty : "-")}{s.searchParameterInfo.Code}").ToArray()));
+                            case 1 when resultSortOrder[0].sortOrder == SortOrder.Ascending:
+                                routeValues.Add(searchParam.Key, resultSortOrder[0].searchParameterInfo.Code);
+                                break;
+                            default:
+                                routeValues.Add(searchParam.Key, string.Join(',', resultSortOrder.Select(s => $"{(s.sortOrder == SortOrder.Ascending ? string.Empty : "-")}{s.searchParameterInfo.Code}")));
+                                break;
                         }
                     }
                     else if (string.Equals(searchParam.Key, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
@@ -286,6 +296,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.ConvertData:
                     routeName = RouteNames.ConvertDataOperationDefinition;
                     break;
+                case OperationsConstants.MemberMatch:
+                    routeName = RouteNames.MemberMatchOperationDefinition;
+                    break;
+
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }

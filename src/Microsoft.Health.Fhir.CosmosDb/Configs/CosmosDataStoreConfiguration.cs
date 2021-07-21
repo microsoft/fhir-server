@@ -48,9 +48,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         public int SearchEnumerationTimeoutInSeconds { get; set; } = 30;
 
         /// <summary>
-        /// Enables chained searches in CosmosDB
+        /// Uses query statistics to determine the optimal level of partition parallelism needed to return results
         /// </summary>
-        public bool EnableChainedSearch { get; set; }
+        public bool UseQueryStatistics { get; set; }
 
         /// <summary>
         /// A list of Search Parameter URIs that will be enabled on first initialization

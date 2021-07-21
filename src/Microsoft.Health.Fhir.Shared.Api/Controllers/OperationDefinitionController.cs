@@ -104,6 +104,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.ConvertData);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.MemberMatchOperationDefinition, Name = RouteNames.MemberMatchOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> MemberMatchOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.MemberMatch);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -132,6 +140,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     break;
                 case OperationsConstants.ConvertData:
                     operationEnabled = _operationConfiguration.ConvertData.Enabled;
+                    break;
+                case OperationsConstants.MemberMatch:
+                    operationEnabled = true;
                     break;
                 default:
                     break;

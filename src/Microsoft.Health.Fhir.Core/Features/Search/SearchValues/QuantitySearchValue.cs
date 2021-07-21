@@ -147,17 +147,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             if (System != null)
             {
-                sb.Append("|").Append(System.EscapeSearchParameterValue());
+                sb.Append('|').Append(System.EscapeSearchParameterValue());
             }
 
             if (Code != null)
             {
                 if (System == null)
                 {
-                    sb.Append("|");
+                    sb.Append('|');
                 }
 
-                sb.Append("|").Append(Code.EscapeSearchParameterValue());
+                sb.Append('|').Append(Code.EscapeSearchParameterValue());
             }
 
             return sb.ToString();

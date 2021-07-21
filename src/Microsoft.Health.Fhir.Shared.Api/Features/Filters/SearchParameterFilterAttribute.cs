@@ -14,7 +14,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Method)]
-    internal class SearchParameterFilterAttribute : ActionFilterAttribute
+    internal sealed class SearchParameterFilterAttribute : ActionFilterAttribute
     {
         private ISearchParameterValidator _searchParameterValidator;
 
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 if (parsedModel is SearchParameter searchParameter)
                 {
                     // wait for the validation checks to pass before allowing the FHIRController action to continue
-                    await _searchParameterValidator.ValidateSearchParamterInput(
+                    await _searchParameterValidator.ValidateSearchParameterInput(
                         searchParameter,
                         context.HttpContext.Request.Method,
                         context.HttpContext.RequestAborted);

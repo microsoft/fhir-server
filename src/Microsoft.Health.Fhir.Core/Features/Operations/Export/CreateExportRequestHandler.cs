@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// </summary>
         /// <param name="filterString">The _typeFilter parameter input.</param>
         /// <returns>A list of <see cref="ExportJobFilter"/></returns>
-        private IList<ExportJobFilter> ParseFilter(string filterString)
+        private static IList<ExportJobFilter> ParseFilter(string filterString)
         {
             var filters = new List<ExportJobFilter>();
 
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     {
                         var keyValue = parameter.Split("=");
 
-                        if (keyValue.Count() != 2)
+                        if (keyValue.Length != 2)
                         {
                             throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
                         }

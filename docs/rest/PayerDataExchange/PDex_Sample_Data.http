@@ -1,0 +1,284 @@
+# This file includes all the sample data to load for the PDex IG
+### REST Client
+@fhirurl=<FHIR SERVER URL>
+@clientid=<Client Application ID>
+@clientsecret=<Client Secret>
+@tenantid=<Tenant ID>
+@contentType = application/json
+
+### Get access token
+# @name getAADToken
+POST https://login.microsoftonline.com/{{tenantid}}/oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&resource={{fhirurl}}
+&client_id={{clientid}}
+&client_secret={{clientsecret}}
+
+### Capture access token from getToken request
+@token={{getAADToken.response.body.access_token}}
+
+### Create a Patient
+# @name Patient1
+POST {{fhirurl}}/Patient
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Patient",
+  "id": "1",
+  "meta": {
+    "lastUpdated": "2020-07-07T13:26:22.0314215+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+    ]
+  },
+  "language": "en-US",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en-US\" lang=\"en-US\"><p><b>Generated Narrative</b></p><p><b>identifier</b>: Member Number: https://www.xxxhealthplan.com/fhir/memberidentifier#1234-234-1243-12345678901, Medical record number: 1234-234-1243-12345678901m, Health Plan Identifier: 1234-234-1243-12345678901u, Patient external identifier: 1234-234-1243-12345678901a</p><p><b>active</b>: true</p><p><b>name</b>: Johnny Appleseed </p><p><b>telecom</b>: ph: (410)678-2323</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 1986-01-01</p><p><b>address</b>: 123 Main Street Pittsburgh PA 12519 </p><p><b>maritalStatus</b>: <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-NullFlavor UNK}\">unknown</span></p></div>"
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MB"
+          }
+        ]
+      },
+      "system": "https://www.xxxhealthplan.com/fhir/memberidentifier",
+      "value": "https://www.xxxhealthplan.com/fhir/memberidentifier#1234-234-1243-12345678901"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MR"
+          }
+        ]
+      },
+      "system": "https://www.xxxhealthplan.com/fhir/medicalrecordnumber",
+      "value": "1234-234-1243-12345678901m"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "XV"
+          }
+        ]
+      },
+      "system": "https://www.xxxhealthplan.com/fhir/uniquememberidentifier",
+      "value": "1234-234-1243-12345678901u"
+    },
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "PT"
+          }
+        ]
+      },
+      "system": "https://www.xxxhealthplan.com/fhir/patacctnum",
+      "value": "1234-234-1243-12345678901a"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Appleseed",
+      "given": [
+        "Johnny"
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "(410)678-2323",
+      "rank": 2
+    }
+  ],
+  "gender": "male",
+  "birthDate": "1986-01-01",
+  "address": [
+    {
+      "type": "physical",
+      "line": [
+        "123 Main Street"
+      ],
+      "city": "Pittsburgh",
+      "state": "PA",
+      "postalCode": "12519"
+    }
+  ],
+  "maritalStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-NullFlavor",
+        "code": "UNK"
+      }
+    ]
+  }
+}
+
+@PatientID={{Patient1.response.body.id}}
+
+### Create Location
+# @name Location
+POST {{fhirurl}}/Location
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Location",
+  "id": "hl7east",
+  "meta": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/instance-name",
+        "valueString": "HL7East Example"
+      },
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/instance-description",
+        "valueMarkdown": "This is a HL7East example for the *US Core Location Profile*."
+      }
+    ],
+    "profile": [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-location"
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>identifier</b>: id: 29</p><p><b>status</b>: active</p><p><b>name</b>: Health Level Seven International - Amherst</p><p><b>description</b>: HL7 Headquarters - East</p><p><b>telecom</b>: ph: (+1) 734-677-7777</p><p><b>address</b>: 3300 Washtenaw Avenue, Suite 227 Amherst MA 01002 USA </p><h3>Positions</h3><table class=\"grid\"><tr><td>-</td><td><b>Longitude</b></td><td><b>Latitude</b></td></tr><tr><td>*</td><td>-72.519854</td><td>42.373222</td></tr></table><p><b>managingOrganization</b>: <span>Health Level Seven International</span></p></div>"
+  },
+  "identifier": [
+    {
+      "system": "http://www.acme.org/location",
+      "value": "29"
+    }
+  ],
+  "status": "active",
+  "name": "Health Level Seven International - Amherst",
+  "description": "HL7 Headquarters - East",
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "(+1) 734-677-7777"
+    }
+  ],
+  "address": {
+    "line": [
+      "3300 Washtenaw Avenue, Suite 227"
+    ],
+    "city": "Amherst",
+    "state": "MA",
+    "postalCode": "01002",
+    "country": "USA"
+  },
+  "position": {
+    "longitude": -72.519854,
+    "latitude": 42.373222
+  },
+  "managingOrganization": {
+    "display": "Health Level Seven International"
+  }
+}
+
+@LocationID={{Location.response.body.id}}
+
+### Create an Encounter
+POST {{fhirurl}}/Encounter
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Encounter",
+  "id": "6",
+  "meta": {
+    "lastUpdated": "2020-07-14T19:26:23.217+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-encounter"
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>status</b>: finished</p><p><b>class</b>: <span title=\"{http://terminology.hl7.org/CodeSystem/v3-ActCode AMB}\">Ambulatory</span></p><p><b>type</b>: <span title=\"Codes: {http://snomed.info/sct 11429006}\">Consultation</span></p><p><b>subject</b>: <a href=\"Patient-1.html\">Generated Summary: language: en-US; Member Number: https://www.xxxhealthplan.com/fhir/memberidentifier#1234-234-1243-12345678901, Medical record number: 1234-234-1243-12345678901m, Health Plan Identifier: 1234-234-1243-12345678901u, Patient external identifier: 1234-234-1243-12345678901a; active; Johnny Appleseed ; Phone: (410)678-2323; gender: male; birthDate: 1986-01-01; <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-NullFlavor UNK}\">unknown</span></a></p></div>"
+  },
+  "status": "finished",
+  "class": {
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+    "code": "AMB",
+    "display": "Ambulatory"
+  },
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "version": "http://snomed.info/sct/731000124108",
+          "code": "11429006",
+          "display": "Consultation"
+        }
+      ]
+    }
+  ],
+  "location": {
+      "location": {
+      "reference": "Location/{{LocationID}}"
+      }
+  },
+  "subject": {
+    "reference": "Patient/{{PatientID}}"
+  }
+}
+
+### Create Coverage
+POST {{fhirurl}}/Coverage
+Authorization: Bearer {{token}}
+content-type: {{contentType}}
+
+{
+  "resourceType": "Coverage",
+  "id": "883210",
+  "meta": {
+    "versionId": "1",
+    "lastUpdated": "2020-10-28T09:26:23.217+00:00",
+    "profile": [
+      "http://hl7.org/fhir/us/davinci-pdex/StructureDefinition/hrex-coverage"
+    ]
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>identifier</b>: id: 1039399818, id: 234567</p><p><b>status</b>: active</p><p><b>subscriberId</b>: 97531</p><p><b>beneficiary</b>: <a href=\"Patient-1.html\">Generated Summary: language: en-US; Member Number: https://www.xxxhealthplan.com/fhir/memberidentifier#1234-234-1243-12345678901, Medical record number: 1234-234-1243-12345678901m, Health Plan Identifier: 1234-234-1243-12345678901u, Patient external identifier: 1234-234-1243-12345678901a; active; Johnny Appleseed ; Phone: (410)678-2323; gender: male; birthDate: 1986-01-01; <span title=\"Codes: {http://terminology.hl7.org/CodeSystem/v3-NullFlavor UNK}\">unknown</span></a></p><p><b>payor</b>: <a href=\"Organization-2.html\">Generated Summary: language: en-US; National Provider Identifier: 345678; active; name: Payer 1</a></p></div>"
+  },
+  "identifier": [
+    {
+      "system": "http://example.org/someOrg/identifiers/whatever",
+      "value": "1039399818"
+    },
+    {
+      "system": "http://example.org/new-payer/identifiers/coverage",
+      "value": "234567"
+    }
+  ],
+  "status": "active",
+  "subscriberId": "97531",
+  "subscriber":{
+      "reference": "Patient/{{PatientID}}"
+  },
+  "beneficiary": {
+    "reference": "Patient/{{PatientID}}"
+  },
+  "payor": [
+    {
+      "reference": "Organization/2"
+    }
+  ]
+}

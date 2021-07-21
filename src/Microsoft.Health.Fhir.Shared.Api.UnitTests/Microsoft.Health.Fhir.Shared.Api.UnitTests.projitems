@@ -6,7 +6,7 @@
     <SharedGUID>fcbad356-8af3-41b0-b578-eaaef6a5d365</SharedGUID>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
-    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Api.UnitTests</Import_RootNamespace>
+    <Import_RootNamespace>Microsoft.Health.Fhir.Api.UnitTests</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
@@ -14,6 +14,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\MemberMatchControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />

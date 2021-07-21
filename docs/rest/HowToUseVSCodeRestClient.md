@@ -4,7 +4,7 @@ Visual Studio Code's REST Client extension can be used to manually test a sequen
 
 1. Install [Visual Studio Code](https://code.visualstudio.com/download)
 2. Add the REST Client extension in the Extensions tab in Visual Studio Code or install it [here](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
-3. Run the FHIR server locally
+3. Run the FHIR server locally with `dotnet run --project .\src\Microsoft.Health.Fhir.<version>.Web`
 4. Navigate to the `docs\rest` folder, open the `.http` test file you would like to use in Visual Studio Code
 5. Click "Send Request" above each HTTP request in the file
 

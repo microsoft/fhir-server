@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
 
             // Execute the actual search.
-            return await SearchInternalAsync(searchOptions, cancellationToken);
+            return await SearchAsync(searchOptions, cancellationToken);
         }
 
         /// <inheritdoc />
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters);
 
             // Execute the actual search.
-            return await SearchInternalAsync(searchOptions, cancellationToken);
+            return await SearchAsync(searchOptions, cancellationToken);
         }
 
         public async Task<SearchResult> SearchHistoryAsync(
@@ -197,13 +197,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        /// <summary>
-        /// Performs the actual search.
-        /// </summary>
-        /// <param name="searchOptions">The options to use during the search.</param>
-        /// <param name="cancellationToken">The cancellationToken.</param>
-        /// <returns>The search result.</returns>
-        protected abstract Task<SearchResult> SearchInternalAsync(
+        /// <inheritdoc />
+        public abstract Task<SearchResult> SearchAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 

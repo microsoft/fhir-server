@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model.Primitives;
+using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {

@@ -309,6 +309,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
+        [Fact]
+        public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedOrUpdatedResources()
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&_include=Patient:organization");
+
+            ValidateSearchEntryMode(bundle, ResourceType.Patient);
+            ValidateBundle(
+                bundle,
+                Fixture.PatiPatient,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.AdamsPatient,
+                Fixture.PatientWithDeletedOrganization,
+                Fixture.Organization);
+        }
+
+        [Fact]
+        public async Task GivenAnRevIncludeSearchExpression_WhenSearched_DoesnotIncludeDeletedResources()
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&_revinclude=Device:patient");
+
+            ValidateSearchEntryMode(bundle, ResourceType.Patient);
+            ValidateBundle(
+                bundle,
+                Fixture.PatiPatient,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.AdamsPatient,
+                Fixture.PatientWithDeletedOrganization);
+        }
+
         // RevInclude
         [Fact]
         public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
@@ -506,7 +537,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.PatiPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
-                Fixture.AdamsPatient);
+                Fixture.AdamsPatient,
+                Fixture.PatientWithDeletedOrganization);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
@@ -868,6 +900,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsMedicationDispense,
@@ -879,11 +912,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_summary=count");
-            Assert.Equal(4, bundle.Total);
+            Assert.Equal(5, bundle.Total);
 
             // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
             bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_total=accurate");
-            Assert.Equal(4, bundle.Total);
+            Assert.Equal(5, bundle.Total);
         }
 
         [Fact]
@@ -901,6 +934,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsMedicationDispense,
@@ -912,11 +946,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_summary=count");
-            Assert.Equal(4, bundle.Total);
+            Assert.Equal(5, bundle.Total);
 
             // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
             bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_total=accurate");
-            Assert.Equal(4, bundle.Total);
+            Assert.Equal(5, bundle.Total);
         }
 
         [Fact]
@@ -934,6 +968,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsMedicationDispense,
@@ -1050,6 +1085,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
@@ -1078,6 +1114,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.CareTeam);
 
             ValidateSearchEntryMode(bundle, ResourceType.Practitioner);
@@ -1104,6 +1141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SanchezPractitioner,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.PatiPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
@@ -1167,6 +1205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest);
 
@@ -1189,6 +1228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TaylorPractitioner,
                 Fixture.Practitioner,
                 Fixture.PatiPatient,
+                Fixture.PatientWithDeletedOrganization,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient);
@@ -1211,7 +1251,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
-                Fixture.TrumanPatient);
+                Fixture.TrumanPatient,
+                Fixture.PatientWithDeletedOrganization);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
@@ -1297,7 +1338,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             foreach (Bundle.EntryComponent entry in bundle.Entry)
             {
-                var searchEntryMode = entry.Resource.ResourceType == matchResourceType ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include;
+                var searchEntryMode = entry.Resource.TypeName == matchResourceType.ToString() ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include;
                 Assert.Equal(searchEntryMode, entry.Search.Mode);
             }
         }

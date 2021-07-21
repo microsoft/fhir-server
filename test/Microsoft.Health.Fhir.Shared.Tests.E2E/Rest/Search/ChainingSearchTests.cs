@@ -11,7 +11,6 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -269,10 +268,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Patient resource = Samples.GetJsonSample("Patient-f001").ToPoco<Patient>();
 
-            // Create 101 patients that exceed the sub-query limit
-            for (var i = 0; i < 101; i++)
+            // Create 1001 patients that exceed the sub-query limit
+            foreach (IEnumerable<int> batch in Enumerable.Range(1, 1001).TakeBatch(100))
             {
-                await Client.CreateAsync(resource);
+                await Task.WhenAll(batch.Select(_ => Client.CreateAsync(resource)));
             }
 
             await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Observation, query));
@@ -390,7 +389,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             Meta = meta,
                             Status = ObservationStatus.Final,
                             Code = code,
-                            Subject = new ResourceReference($"{subject.ResourceType}/{subject.Id}"),
+                            Subject = new ResourceReference($"{subject.TypeName}/{subject.Id}"),
                         })).Resource;
                 }
             }

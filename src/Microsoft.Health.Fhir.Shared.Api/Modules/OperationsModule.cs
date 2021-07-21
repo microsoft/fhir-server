@@ -4,12 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -54,13 +57,16 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add<ReindexJobWorker>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .ReplaceService<INotificationHandler<SearchParametersInitializedNotification>>();
 
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
 
             services.Add<OperationsCapabilityProvider>()
                 .Transient()
                 .AsService<IProvideCapability>();
+
+            services.AddSingleton<IPatientEverythingService, PatientEverythingService>();
         }
     }
 }

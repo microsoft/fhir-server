@@ -98,6 +98,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
+        /// Creates a <see cref="StringExpression"/> that represents left side starts with operation.
+        /// </summary>
+        /// <param name="fieldName">The field name.</param>
+        /// <param name="componentIndex">The component index.</param>
+        /// <param name="value">The value.</param>
+        /// <param name="ignoreCase">A flag indicating whether it's case and accent sensitive or not.</param>
+        /// <returns>A <see cref="StringExpression"/> that represents contains operation.</returns>
+        public static StringExpression LeftSideStartsWith(FieldName fieldName, int? componentIndex, string value, bool ignoreCase)
+        {
+            return new StringExpression(StringOperator.LeftSideStartsWith, fieldName, componentIndex, value, ignoreCase);
+        }
+
+        /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents contains operation.
         /// </summary>
         /// <param name="fieldName">The field name.</param>

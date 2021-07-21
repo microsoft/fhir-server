@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// NOTE: These tests will fail if security is disabled..
     /// </summary>
     [Trait(Traits.Category, Categories.Authorization)]
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class BasicAuthTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private static readonly Regex WwwAuthenticatePattern = new Regex(@"authorization_uri=\""(?<authorization_uri>[^\s,]+)+\"", resource_id=\""(?<resource_id>[^\s,]+)+\"", realm=\""(?<realm>[^\s,]+)+\""", RegexOptions.IgnoreCase);

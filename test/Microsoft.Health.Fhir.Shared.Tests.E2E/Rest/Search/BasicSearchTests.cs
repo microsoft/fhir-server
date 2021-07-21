@@ -8,10 +8,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Specification;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -46,25 +48,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenResourceWithVariousValues_WhenSearchedWithMultipleParams_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
         {
             // Create various resources.
+            string tag = Guid.NewGuid().ToString();
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "Seattle", "Robinson"),
-                p => SetPatientInfo(p, "Portland", "Williamas"),
-                p => SetPatientInfo(p, "Seattle", "Jones"));
+                p => SetPatientInfo(p, "Seattle", "Robinson", tag),
+                p => SetPatientInfo(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
-            await ExecuteAndValidateBundle("Patient?address-city=seattle&family=Jones", patients[2]);
-
-            void SetPatientInfo(Patient patient, string city, string family)
-            {
-                patient.Address = new List<Address>()
-                {
-                    new Address() { City = city },
-                };
-
-                patient.Name = new List<HumanName>()
-                {
-                    new HumanName() { Family = family },
-                };
-            }
+            await ExecuteAndValidateBundle($"Patient?address-city=seattle&family=Jones&_tag={tag}", patients[2]);
         }
 
         [Fact]
@@ -75,30 +65,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
-                p => SetPatientInfo(p, "seattle", "Robinson"), // match
-                p => SetPatientInfo(p, "Portland", "Williamas"),
-                p => SetPatientInfo(p, "SEATTLE", "Skouras"), // match
-                p => SetPatientInfo(p, "Sea", "Luecke"),
-                p => SetPatientInfo(p, "Seattle", "Jones"), // match
-                p => SetPatientInfo(p, "New York", "Cook"),
-                p => SetPatientInfo(p, "Amsterdam", "Hill"));
+                p => SetPatientInfo(p, "seattle", "Robinson", tag), // match
+                p => SetPatientInfo(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "SEATTLE", "Skouras", tag), // match
+                p => SetPatientInfo(p, "Sea", "Luecke", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag), // match
+                p => SetPatientInfo(p, "New York", "Cook", tag),
+                p => SetPatientInfo(p, "Amsterdam", "Hill", tag));
 
-            await ExecuteAndValidateBundle("Patient?address-city=Seattle", patients[0], patients[2], patients[4]);
-
-            void SetPatientInfo(Patient patient, string city, string family)
-            {
-                patient.Meta = new Meta();
-                patient.Meta.Tag.Add(new Coding(null, tag));
-                patient.Address = new List<Address>()
-                {
-                    new Address() { City = city },
-                };
-
-                patient.Name = new List<HumanName>()
-                {
-                    new HumanName() { Family = family },
-                };
-            }
+            await ExecuteAndValidateBundle($"Patient?address-city=Seattle&_tag={tag}", patients[0], patients[2], patients[4]);
         }
 
         [Fact]
@@ -188,6 +163,68 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={organization.Id}");
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", organization.Id));
             ValidateBundle(bundle, $"?_type=Patient,Observation&_id={organization.Id}");
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenMultiplePagesOfVariousTypesOfResourcesInSql_WhenUsingTypeParameterToSearchForMultipleResourceTypes_ThenCorrectResourcesAreReturned()
+        {
+            // Create various resources.
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "city1", "name1", tag),
+                p => SetPatientInfo(p, "city2", "name2", tag),
+                p => SetPatientInfo(p, "city3", "name3", tag),
+                p => SetPatientInfo(p, "city4", "name4", tag));
+
+            Observation[] observations = await Client.CreateResourcesAsync<Observation>(
+                o => SetObservationInfo(o, tag),
+                o => SetObservationInfo(o, tag));
+
+            List<Resource> expectedResources = new List<Resource>();
+            foreach (Observation observation in observations)
+            {
+                expectedResources.Add(observation);
+            }
+
+            foreach (Patient patient in patients)
+            {
+                expectedResources.Add(patient);
+            }
+
+            await ExecuteAndValidateBundle($"?_type=Patient,Observation&_tag={tag}&_count=3", sort: false, pageSize: 3, expectedResources.ToArray());
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenMultiplePagesOfVariousTypesOfResourcesInCosmos_WhenUsingTypeParameterToSearchForMultipleResourceTypes_ThenCorrectResourcesAreReturned()
+        {
+            // Create various resources.
+            string tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "city1", "name1", tag),
+                p => SetPatientInfo(p, "city2", "name2", tag),
+                p => SetPatientInfo(p, "city3", "name3", tag),
+                p => SetPatientInfo(p, "city4", "name4", tag));
+
+            Observation[] observations = await Client.CreateResourcesAsync<Observation>(
+                o => SetObservationInfo(o, tag),
+                o => SetObservationInfo(o, tag));
+
+            List<Resource> expectedResources = new List<Resource>();
+            foreach (Patient patient in patients)
+            {
+                expectedResources.Add(patient);
+            }
+
+            foreach (Observation observation in observations)
+            {
+                expectedResources.Add(observation);
+            }
+
+            await ExecuteAndValidateBundle($"?_type=Patient,Observation&_tag={tag}&_count=3", sort: false, pageSize: 3, expectedResources.ToArray());
         }
 
         [Fact]
@@ -476,11 +513,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
+            Observation[] observations = await CreateObservationWithSpecifiedElements(tag, elements);
 
-            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}");
+            Bundle bundle = await Client.SearchAsync($"Observation?_tag={tag.Code}&_elements={string.Join(',', elements)}");
 
-            ValidateBundle(bundle, patients);
+            ValidateBundle(bundle, observations);
         }
 
         [Fact]
@@ -490,11 +527,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
+            Observation[] observations = await CreateObservationWithSpecifiedElements(tag, elements);
 
-            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements=invalidProperty,{string.Join(',', elements)}");
+            Bundle bundle = await Client.SearchAsync($"Observation?_tag={tag.Code}&_elements=invalidProperty,{string.Join(',', elements)}");
 
-            ValidateBundle(bundle, patients);
+            ValidateBundle(bundle, observations);
         }
 
         [InlineData("id", "count")]
@@ -522,11 +559,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
+            Observation[] observations = await CreateObservationWithSpecifiedElements(tag, elements);
 
-            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}&_summary=false");
+            Bundle bundle = await Client.SearchAsync($"Observation?_tag={tag.Code}&_elements={string.Join(',', elements)}&_summary=false");
 
-            ValidateBundle(bundle, patients);
+            ValidateBundle(bundle, observations);
         }
 
         [Fact]
@@ -830,24 +867,146 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
-        private async Task<Patient[]> CreatePatientsWithSpecifiedElements(Coding tag, string[] elements)
+        [Fact]
+        public async Task GivenSetOfChunkyResources_WhenIteratingOverThem_ThenAllResourcesReturned()
+        {
+            int n = 30;
+            var tag = Guid.NewGuid().ToString();
+            var sb = new StringBuilder();
+            for (int i = 0; i < 500_000; i++)
+            {
+                sb.Append('A');
+            }
+
+            var text = "<div>" + sb.ToString() + "</div>";
+
+            for (int i = 0; i < n; i++)
+            {
+                var observation = await Client.CreateResourcesAsync<Observation>(() => new Observation()
+                {
+                    Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } },
+                    Status = ObservationStatus.Final,
+                    Text = new Narrative() { Div = text },
+                    Code = new CodeableConcept("http://loinc.org", "11557-6"),
+                    Value = new Quantity(i, "kPa"),
+                });
+            }
+
+            List<int> values = new();
+            int count = 0;
+            string nextLink = $"Observation?_count=20&_tag={tag}";
+            do
+            {
+                Bundle firstBundle = await Client.SearchAsync(nextLink);
+                foreach (var entity in firstBundle.Entry)
+                {
+                    values.Add((int)((Quantity)((Observation)entity.Resource).Value).Value);
+                }
+
+                count += firstBundle.Entry.Count;
+                nextLink = firstBundle.NextLink?.ToString();
+            }
+            while (nextLink != null);
+            Assert.Equal(n, count);
+            Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
+        }
+
+        [Fact]
+        public async Task GivenSetOfChunkyResources_WhenIteratingOverThemWithSort_ThenAllResourcesReturned()
+        {
+            int n = 30;
+            var tag = Guid.NewGuid().ToString();
+            var sb = new StringBuilder();
+            for (int i = 0; i < 500_000; i++)
+            {
+                sb.Append('A');
+            }
+
+            var text = "<div>" + sb.ToString() + "</div>";
+            var date = new DateTime(2000, 01, 01);
+            for (int i = 0; i < n; i++)
+            {
+                var observation = await Client.CreateResourcesAsync<Patient>(() => new Patient()
+                {
+                    Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) } },
+                    BirthDate = date.AddDays(i).ToString("yyyy-MM-dd"),
+                    Text = new Narrative() { Div = text },
+                });
+            }
+
+            List<int> values = new();
+            int count = 0;
+            string nextLink = $"Patient?_count=20&_tag={tag}&_sort=-_lastUpdated";
+            do
+            {
+                Bundle firstBundle = await Client.SearchAsync(nextLink);
+                foreach (var entity in firstBundle.Entry)
+                {
+                    values.Add(DateTime.Parse(((Patient)entity.Resource).BirthDate).Subtract(date).Days);
+                }
+
+                count += firstBundle.Entry.Count;
+                nextLink = firstBundle.NextLink?.ToString();
+            }
+            while (nextLink != null);
+            Assert.Equal(n, count);
+            Assert.Equal(Enumerable.Range(0, n), values.OrderBy(x => x));
+        }
+
+        private async Task<Observation[]> CreateObservationWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;
+            IStructureDefinitionSummaryProvider summaryProvider = new PocoStructureDefinitionSummaryProvider();
+            var typeinfo = summaryProvider.Provide("Observation");
+            var required = typeinfo.GetElements().Where(e => e.IsRequired).Select(x => x.ElementName).ToList();
+            required.Add("meta");
+            elements = elements.Union(required).ToArray();
 
-            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
-            var patients = new Patient[numberOfResources];
+            Observation patient = Samples.GetDefaultObservation().ToPoco<Observation>();
+            var patients = new Observation[numberOfResources];
 
             for (int i = 0; i < numberOfResources; i++)
             {
                 patient.Meta = new Meta();
                 patient.Meta.Tag.Add(tag);
 
-                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
-                patients[i] = MaskingNode.ForElements(new ScopedNode(createdPatient.Resource.ToTypedElement()), elements)
-                    .ToPoco<Patient>();
+                FhirResponse<Observation> createdObservation = await Client.CreateAsync(patient);
+                patients[i] = MaskingNode.ForElements(new ScopedNode(createdObservation.Resource.ToTypedElement()), elements)
+                    .ToPoco<Observation>();
+                var subsettedTag = new Coding("http://hl7.org/fhir/v3/ObservationValue", "SUBSETTED");
+                patients[i].Meta.Tag.Add(subsettedTag);
             }
 
             return patients;
+        }
+
+        private void SetPatientInfo(Patient patient, string city, string family, string tag)
+        {
+            if (tag != null)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(new Coding(null, tag));
+            }
+
+            patient.Address = new List<Address>()
+                {
+                    new Address() { City = city },
+                };
+
+            patient.Name = new List<HumanName>()
+                {
+                    new HumanName() { Family = family },
+                };
+        }
+
+        private void SetObservationInfo(Observation observation, string tag)
+        {
+            observation.Status = ObservationStatus.Final;
+            observation.Code = new CodeableConcept
+            {
+                Coding = new List<Coding> { new Coding(null, tag) },
+            };
+            observation.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
         }
     }
 }

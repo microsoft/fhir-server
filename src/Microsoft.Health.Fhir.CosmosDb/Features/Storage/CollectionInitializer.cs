@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -56,7 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             _logger.LogInformation("Finding Container: {collectionId}", _cosmosCollectionConfiguration.CollectionId);
 
-            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.GetRetryPolicy();
+            AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.RetryPolicy;
 
             var existingContainer = await retryPolicy.ExecuteAsync(async () => await database.TryGetContainerAsync(_cosmosCollectionConfiguration.CollectionId));
 

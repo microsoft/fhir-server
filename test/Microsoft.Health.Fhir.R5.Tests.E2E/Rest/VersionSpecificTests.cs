@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenR5Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
-            await TestCapabilityStatementFhirVersion("4.4.0");
+            await TestCapabilityStatementFhirVersion("4.5.0");
         }
 
         [Fact]
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Resource actual = await _client.CreateAsync(mpd);
 
             Assert.NotNull(actual);
-            Assert.Equal(ResourceType.MedicinalProductDefinition, actual.ResourceType);
+            Assert.Equal(ResourceType.MedicinalProductDefinition.ToString(), actual.TypeName);
 
             // We should also be able to search.
             Bundle bundle = await _client.SearchAsync(ResourceType.MedicinalProductDefinition, $"identifier={testId}");

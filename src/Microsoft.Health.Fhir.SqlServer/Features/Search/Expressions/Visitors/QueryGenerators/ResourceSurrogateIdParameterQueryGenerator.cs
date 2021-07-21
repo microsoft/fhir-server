@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, expression.ComponentIndex, expression.Value);
+            VisitSimpleBinary(expression.BinaryOperator, context, VLatest.Resource.ResourceSurrogateId, expression.ComponentIndex, expression.Value, includeInParameterHash: false);
             return context;
         }
     }
