@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         private const int MaxQueryDelayIntervalInMilliseconds = 500000;
         private const int MinQueryDelayIntervalInMilliseconds = 5;
         private const ushort MaxTargetDataStoreUsagePercentage = 100;
-        private const ushort MinTargetDataStoreUsagePercentage = 1;
+        private const ushort MinTargetDataStoreUsagePercentage = 0;
 
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
