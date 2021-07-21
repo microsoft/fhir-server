@@ -143,8 +143,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, 5001)]
         [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, 500001)]
         [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, 101)]
+        [InlineData(JobRecordProperties.MaximumConcurrency, 0)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, 0)]
         [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, 4)]
+        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, 0)]
         [InlineData("Foo", 4)]
         public async Task GivenOutOfRangeReindexParameter_WhenCreatingAReindexJob_ThenExceptionShouldBeThrown(string jobRecordProperty, int value)
         {
@@ -175,7 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             catch (FhirException fhirExp)
             {
                 Assert.NotNull(fhirExp);
-                Assert.Equal(fhirExp.Message.ToLower(), $"Specified argument was out of the range of valid values. (Parameter '{jobRecordProperty}'). Please specify different value within a range.".ToLower());
+                Assert.Contains($"Argument '{jobRecordProperty}' was out of the range of valid values. Please specify different value within a range".ToLower(), fhirExp.Message.ToLower());
             }
             catch (ArgumentException exp)
             {
@@ -191,7 +193,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         [InlineData(JobRecordProperties.MaximumConcurrency, 0)]
         [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, 1)]
         [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, 5)]
-        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, 0)]
+        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, 1)]
         [InlineData("Patient", 4)]
         public async Task GivenValidReindexParameter_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated(string jobRecordProperty, int value)
         {

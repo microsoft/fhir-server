@@ -19,6 +19,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord
     {
+        private const ushort MaxMaximumConcurrency = 10;
+        private const ushort MinMaximumConcurrency = 1;
+        private const uint MaxMaximumNumberOfResourcesPerQuery = 5000;
+        private const uint MinMaximumNumberOfResourcesPerQuery = 1;
+        private const int MaxQueryDelayIntervalInMilliseconds = 500000;
+        private const int MinQueryDelayIntervalInMilliseconds = 5;
+        private const ushort MaxTargetDataStoreUsagePercentage = 100;
+        private const ushort MinTargetDataStoreUsagePercentage = 1;
+
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
             IReadOnlyCollection<string> targetResourceTypes,
@@ -41,9 +50,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             ResourceTypeSearchParameterHashMap = searchParametersHash;
 
             // check for MaximumConcurrency boundary
-            if (maxiumumConcurrency > 10)
+            if (maxiumumConcurrency > MaxMaximumConcurrency)
             {
-                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumConcurrency)));
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumConcurrency), MinMaximumConcurrency.ToString(), MaxMaximumConcurrency.ToString()));
             }
             else
             {
@@ -51,9 +60,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             }
 
             // check for MaximumNumberOfResourcesPerQuery boundary
-            if (maxResourcesPerQuery < 1 || maxResourcesPerQuery > 5000)
+            if (maxResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maxResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
             {
-                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerQuery)));
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery.ToString(), MaxMaximumNumberOfResourcesPerQuery.ToString()));
             }
             else
             {
@@ -61,9 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             }
 
             // check for QueryDelayIntervalInMilliseconds boundary
-            if (queryDelayIntervalInMilliseconds < 5 || queryDelayIntervalInMilliseconds > 500000)
+            if (queryDelayIntervalInMilliseconds < MinQueryDelayIntervalInMilliseconds || queryDelayIntervalInMilliseconds > MaxQueryDelayIntervalInMilliseconds)
             {
-                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(QueryDelayIntervalInMilliseconds)));
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(QueryDelayIntervalInMilliseconds), MinQueryDelayIntervalInMilliseconds.ToString(), MaxQueryDelayIntervalInMilliseconds.ToString()));
             }
             else
             {
@@ -71,9 +80,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             }
 
             // check for TargetDataStoreUsagePercentage boundary
-            if (targetDataStoreUsagePercentage < 0 || targetDataStoreUsagePercentage > 100)
+            if (targetDataStoreUsagePercentage < MinTargetDataStoreUsagePercentage || targetDataStoreUsagePercentage > MaxTargetDataStoreUsagePercentage)
             {
-                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(TargetDataStoreUsagePercentage)));
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(TargetDataStoreUsagePercentage), MinTargetDataStoreUsagePercentage.ToString(), MaxTargetDataStoreUsagePercentage.ToString()));
             }
             else
             {
