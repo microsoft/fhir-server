@@ -1,12 +1,14 @@
-function Grant-ClientAppAdminConsent {
+function Grant-ClientAppDelegatedPermissions {
     <#
     .SYNOPSIS
-    Grants admin consent to a client app, so that users of the app are 
+    Grants delegated permissions to a client app, so that users of the app are 
     not required to consent to the app calling the FHIR apli app on their behalf.
     .PARAMETER AppId
     The client application app ID.
     .PARAMETER TenantAdminCredential
     Credentials for a tenant admin user
+    .PARAMETER ResourceApplicationId
+    Application Id for the resource for which we need access
     #>
     param(
         [Parameter(Mandatory = $true)]
@@ -19,18 +21,14 @@ function Grant-ClientAppAdminConsent {
 
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
-        [string]$AccessToken,
-
-        [Parameter(Mandatory = $true)]
-        [ValidateNotNull()]
         [string]$ResourceApplicationId
     )
 
     Set-StrictMode -Version Latest
 
-    Write-Host "Granting admin consent for app ID $AppId"
+    Write-Host "Granting delegated permissions for app ID $AppId"
 
-    # Get token to take to graph api
+    # Get token to talk to graph api
     $tenantId = (Get-AzureADCurrentSessionInfo).TenantId.ToString()
 
     $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
@@ -48,13 +46,13 @@ function Grant-ClientAppAdminConsent {
         $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body -ErrorVariable error
     }
     catch {
-        Write-Warning "Failed to get authorization to talk to graph api."
+        Write-Warning "Failed to get auth token to talk to graph api."
         Write-Warning "Error message: $error"
 
         throw
     }
 
-    $windowsAadId = "00000002-0000-0000-c000-000000000000"
+    $windowsAadId = "00000002-0000-0000-c000-000000000000"  #ResourceId for Windows Azure Active Directory
     $windowsAadServicePrincipal = Get-AzureAdServicePrincipal -Filter "appId eq '$windowsAadId'"
     $windowsAadObjectId = $windowsAadServicePrincipal.ObjectId
 
@@ -78,6 +76,8 @@ function Grant-ClientAppAdminConsent {
         scope = "User.Read"
     }
 
+    # TODO: Handle scenario where application might already have these permissions.
+
     try {
         $response = Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForReadPermisions | ConvertTo-Json) -ErrorVariable error
     }
@@ -88,6 +88,7 @@ function Grant-ClientAppAdminConsent {
         throw
     }
 
+    # This permission allows the client app to talk to the fhir-server (resource) without asking for user consent
     $bodyForApiPermisions = @{
         clientId = $clientObjectId
         consentType = "AllPrincipals"
