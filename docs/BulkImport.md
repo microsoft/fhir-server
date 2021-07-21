@@ -27,7 +27,7 @@ To use $import, you need
     1. ```200``` returned as status code and no error url(described in [Get Status](#get-status)) returned, means all input resources have been imported successfully.
     2. ```200``` returned as status code howerver have some error urls, means there are some unsupported or error(mistyped, duplicated...) resources, but all other resources are imported succcessfully.
     3. Non ```200``` status code returned, means some fatal errors occured during the operation processing, 
-5. **Turn off ```FhirServer:Operation:Import:InitImportMode```** and restart app. Navigate to app service portal, set this to _false_ in app configuration or simply remove it. Then **save** it and restart the app, then all write requests can restore use.
+5. **Turn off ```FhirServer:Operation:Import:InitImportMode```** and restart app. Navigate to app service portal, set this to _false_ in app configuration or simply remove it. Then **save** it and restart the app, so that all write requests can restore usage.
 
 ## Deploy new fhir server 
 Follow the guide [_QuickstartDeployPortal_](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployPortal.md) to deploy a new fhir server, fill in following parameters as well as reqired ones (tagged with *):
