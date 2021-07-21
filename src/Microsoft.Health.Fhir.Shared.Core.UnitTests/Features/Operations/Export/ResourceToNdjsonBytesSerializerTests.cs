@@ -65,15 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public void GivenAInvalidElementNode_WhenSerialized_ByteArrayShouldBeProduced()
         {
-            var rawResource = new RawResource(
-                new FhirJsonSerializer().SerializeToString(_resource),
-                FhirResourceFormat.Json,
-                isMetaSet: false);
-
-            ResourceWrapper resourceWrapper = CreateResourceWrapper(rawResource);
-            ResourceElement element = _resourceDeserializaer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
-
-            var node = ElementNode.FromElement(element.Instance);
+            var node = ElementNode.FromElement(_resource.ToTypedElement());
             (((ScopedNode)node.Select("Observation.text").First()).Current as ElementNode).Value = "invalid";
             var newElement = new ResourceElement(node);
             Assert.Throws<FormatException>(() => newElement.Instance.ToPoco<Resource>().ToJson());
