@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 {
     [RequiresIsolatedDatabase]
     public class StartupWithMetricHandler : StartupBaseForCustomProviders

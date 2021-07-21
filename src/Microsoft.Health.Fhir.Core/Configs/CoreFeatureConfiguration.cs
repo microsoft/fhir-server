@@ -56,5 +56,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Maximum items allowed to be deleted when using Conditional Delete.
         /// </summary>
         public int ConditionalDeleteMaxItems { get; set; } = 100;
+
+        /// <summary>
+        /// Gets or sets a value whether capturing resource change data is enabled or not.
+        /// </summary>
+        public bool SupportsResourceChangeCapture { get; set; } = false;
     }
 }

@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -27,12 +28,13 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.AddSqlServerBase<SchemaVersion>(configuration, configureAction);
+            services.AddSqlServerConnection(configureAction);
+            services.AddSqlServerManagement<SchemaVersion>();
             services.AddSqlServerApi();
 
             services.Add(provider => new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max))
@@ -109,6 +111,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<ReindexJobSqlThrottlingController>()
                 .Singleton()
+                .AsImplementedInterfaces();
+
+            services.Add<PurgeOperationCapabilityProvider>()
+                .Transient()
                 .AsImplementedInterfaces();
 
             return fhirServerBuilder;

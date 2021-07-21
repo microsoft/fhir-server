@@ -16,10 +16,12 @@
         }
     ],
     "kind": [ "capability" ],
-    "fhirVersion": "3.0.1",
     "format": [
         "application/fhir+json",
         "json"
+    ],
+    "patchFormat": [
+        "application/json-patch+json"
     ],
     "acceptUnknown": "both",
     "rest": [

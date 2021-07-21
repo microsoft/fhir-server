@@ -6,11 +6,10 @@
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     public class ExportTestFixture : HttpIntegrationTestFixture<StartupForExportTestProvider>
     {

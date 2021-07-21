@@ -6,8 +6,8 @@
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {

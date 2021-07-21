@@ -48,7 +48,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 ## Additional Capabilities
 - [Bulk Export](docs/BulkExport.md): Describes using Bulk Export within the FHIR Server.
 - [Convert Data](docs/ConvertDataOperation.md): Describes how to use $convert to convert data into FHIR.
-- [FHIR Proxy](https://github.com/microsoft/health-architectures/tree/master/FHIR/FHIRProxy): Secure FHIR Gateway and Proxy to FHIR Servers.
+- [FHIR Proxy](https://github.com/microsoft/fhir-proxy): Secure FHIR Gateway and Proxy to FHIR Servers.
 
 ## Tutorials & How-to Guides
 - [Health Architectures](https://aka.ms/healtharchitectures): A collection of reference architectures illustrating end-to-end best practices for using the Azure API for FHIR and related technologies.

@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         private readonly IConformanceProvider _conformanceProvider;
         private readonly ICollection<TextOutputFormatter> _outputFormatters;
         private readonly ConcurrentDictionary<ResourceFormat, bool> _supportedFormats = new ConcurrentDictionary<ResourceFormat, bool>();
+        private readonly ConcurrentDictionary<string, bool> _supportedPatchFormats = new ConcurrentDictionary<string, bool>();
 
         public FormatParametersValidator(
             IConformanceProvider conformanceProvider,
@@ -74,7 +75,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                     foreach (MediaTypeHeaderValue acceptHeader in acceptHeaders)
                     {
-                        isAcceptHeaderValid = await IsFormatSupportedAsync(acceptHeader.MediaType.ToString());
+                        var headerValue = acceptHeader.MediaType.ToString();
+                        isAcceptHeaderValid = await IsFormatSupportedAsync(headerValue);
 
                         if (isAcceptHeaderValid)
                         {
@@ -143,6 +145,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     default:
                         return false;
                 }
+            });
+        }
+
+        public async Task<bool> IsPatchFormatSupportedAsync(string format)
+        {
+            if (_supportedPatchFormats.TryGetValue(format, out var isSupported))
+            {
+                return isSupported;
+            }
+
+            ResourceElement typedStatement = await _conformanceProvider.GetCapabilityStatementOnStartup();
+
+            IEnumerable<string> formats = typedStatement.Select("CapabilityStatement.patchFormat").Select(x => (string)x.Value);
+
+            return _supportedPatchFormats.GetOrAdd(format, format =>
+            {
+                return formats.Any(f => format.Contains(f, StringComparison.Ordinal));
             });
         }
 

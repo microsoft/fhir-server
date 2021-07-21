@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 Converters = new List<JsonConverter>
                 {
-                    new ProfileReferenceConverter(_modelInfoProvider),
+                    new ReferenceComponentConverter(_modelInfoProvider),
                 },
                 NullValueHandling = NullValueHandling.Ignore,
             });

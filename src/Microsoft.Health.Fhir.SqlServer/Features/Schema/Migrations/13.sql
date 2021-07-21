@@ -1,5 +1,11 @@
 -- Style guide: please see: https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Convention%20and%20T-SQL%20Programming%20Style.md
 
+-- The wrapping up of the initialization script under a transaction is removed from the schema-manager tool, so adding transaction in the script itself.
+
+SET XACT_ABORT ON
+
+BEGIN TRANSACTION
+
 /*************************************************************
     Schema Version
 **************************************************************/
@@ -3297,4 +3303,8 @@ AS
 	from dbo.TaskInfo task INNER JOIN @availableJobs availableJob ON task.TaskId = availableJob.TaskId
 
     COMMIT TRANSACTION
+GO
+
+COMMIT TRANSACTION
+
 GO

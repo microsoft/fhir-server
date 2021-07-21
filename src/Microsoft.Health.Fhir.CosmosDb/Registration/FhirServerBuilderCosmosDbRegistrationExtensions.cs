@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
+using Microsoft.Health.Fhir.CosmosDb.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -215,6 +216,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<QueryPartitionStatisticsCache>()
                 .Singleton()
                 .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<PurgeOperationCapabilityProvider>()
+                .Transient()
                 .AsImplementedInterfaces();
 
             return fhirServerBuilder;
