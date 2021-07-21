@@ -65,7 +65,6 @@ and [Parameters](http://hl7.org/fhir/parameters.html) resource in body described
 | ----------- | ----------- | ----------- | ----------- |
 | inputFormat      | Data source format, currently must be ndjson format with each line having a valid FHIR resource. | 1..1 | ```application/fhir+ndjson``` |
 | mode      | Import mode, currently only InitLoad mode is supported. | 1..1 | ```InitialLoad``` |
-| force      | [to be] | 1..1 | ```True```|
 | input   | Details of an input file. | 1..* | A json arrary with 3 parts, described in below table. |
 
 | Input part name   | Description | Card. |  Accepted values |
@@ -125,7 +124,7 @@ and [Parameters](http://hl7.org/fhir/parameters.html) resource in body described
 As _$import_ is an async operation, a **_callback_** link will be returned in response's _Content-location_ header as well as ```202-Accepted``` in status code.
 
 ## Get status
-Make a http call with ```Get``` method to the **_callback_** link. If the operation is still running,  ```202-Accepted``` should be returned, or if it completed successfully, ```200-Ok``` should return with details in reponse body. Some errors may occured and caused part of the reosuces import failed but didn't result in overall failure, these are recorded as files and then uploaded to the source blob, and urls are also returned in body.
+Make a http call with ```Get``` method to the **_callback_** link. If the operation is still running,  ```202-Accepted``` should be returned, or if it completed successfully, ```200-Ok``` should return with details in reponse body. Some errors may occured and caused part of the reosuces import failed but didn't result in overall failure, these are recorded as files and then uploaded to the source blob, and urls are also returned in body named _url_ under corresponding file closure.
 
 **Sample response:**
 ```json
@@ -142,7 +141,6 @@ Make a http call with ```Get``` method to the **_callback_** link. If the operat
             "type": "CarePlan",
             "count": 200000,
             "inputUrl": "https://example.blob.core.windows.net/resources/CarePlan.ndjson",
-            // url of error log
             "url": "https://example.blob.core.windows.net/fhirlogs/CarePlan06b88c6933a34c7c83cb18b7dd6ae3d8.ndjson"
         }
     ]
