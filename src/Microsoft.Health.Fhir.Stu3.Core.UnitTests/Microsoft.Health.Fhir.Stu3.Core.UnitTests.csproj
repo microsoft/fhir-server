@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\Export\ExportAnonymizerFactoryTests.cs" Link="Features\Export\ExportAnonymizerFactoryTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\Export\ExportAnonymizerTests.cs" Link="Features\Export\ExportAnonymizerTests.cs" />  
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
