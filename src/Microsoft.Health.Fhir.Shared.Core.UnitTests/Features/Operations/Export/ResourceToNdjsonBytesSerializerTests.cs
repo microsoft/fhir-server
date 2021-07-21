@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var newElement = new ResourceElement(node);
             Assert.Throws<FormatException>(() => newElement.Instance.ToPoco<Resource>().ToJson());
 
-            Assert.Equal(Samples.GetInvalidResourceJson(), Encoding.UTF8.GetString(_serializer.Serialize(newElement)));
+            Assert.Equal(Samples.GetInvalidResourceJson().Replace("\r\n", string.Empty), Encoding.UTF8.GetString(_serializer.Serialize(newElement)).Replace("\r\n", string.Empty));
         }
 
         [Fact]
