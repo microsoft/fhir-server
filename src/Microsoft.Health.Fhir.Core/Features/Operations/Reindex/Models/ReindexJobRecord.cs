@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
@@ -18,12 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord
     {
-        private int queryDelayIntervalInMilliseconds;
-        private ushort maximumConcurrency;
-        private uint maximumNumberOfResourcesPerQuery;
-        private ushort? targetDataStoreUsagePercentage;
-        private IReadOnlyCollection<string> targetResourceTypes;
-
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
             IReadOnlyCollection<string> targetResourceTypes,
@@ -44,10 +39,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             LastModified = Clock.UtcNow;
 
             ResourceTypeSearchParameterHashMap = searchParametersHash;
-            MaximumConcurrency = maxiumumConcurrency;
-            MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
-            QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
-            TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
+
+            // check for MaximumConcurrency boundary
+            if (maxiumumConcurrency > 10)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumConcurrency)));
+            }
+            else
+            {
+                MaximumConcurrency = maxiumumConcurrency;
+            }
+
+            // check for MaximumNumberOfResourcesPerQuery boundary
+            if (maxResourcesPerQuery < 1 || maxResourcesPerQuery > 5000)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerQuery)));
+            }
+            else
+            {
+                MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
+            }
+
+            // check for QueryDelayIntervalInMilliseconds boundary
+            if (queryDelayIntervalInMilliseconds < 5 || queryDelayIntervalInMilliseconds > 500000)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(QueryDelayIntervalInMilliseconds)));
+            }
+            else
+            {
+                QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
+            }
+
+            // check for TargetDataStoreUsagePercentage boundary
+            if (targetDataStoreUsagePercentage < 0 || targetDataStoreUsagePercentage > 100)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(TargetDataStoreUsagePercentage)));
+            }
+            else
+            {
+                TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
+            }
+
+            // check for TargetResourceTypes boundary
+            foreach (var type in targetResourceTypes)
+            {
+                ModelInfoProvider.EnsureValidResourceType(type, nameof(type));
+            }
+
             TargetResourceTypes = targetResourceTypes;
         }
 
@@ -57,25 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         }
 
         [JsonProperty(JobRecordProperties.MaximumConcurrency)]
-        public ushort MaximumConcurrency
-        {
-            get
-            {
-                return maximumConcurrency;
-            }
-
-            set
-            {
-                if (value > 10)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(MaximumConcurrency));
-                }
-                else
-                {
-                    maximumConcurrency = value;
-                }
-            }
-        }
+        public ushort MaximumConcurrency { get; private set; }
 
         [JsonProperty(JobRecordProperties.Error)]
         public ICollection<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
@@ -114,49 +134,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ICollection<string> SearchParams { get; private set; } = new List<string>();
 
         [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
-        public uint MaximumNumberOfResourcesPerQuery
-        {
-            get
-            {
-                return maximumNumberOfResourcesPerQuery;
-            }
-
-            set
-            {
-                if (value < 1 || value > 5000)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(MaximumNumberOfResourcesPerQuery));
-                }
-                else
-                {
-                    maximumNumberOfResourcesPerQuery = value;
-                }
-            }
-        }
+        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
 
         /// <summary>
         /// Controls the time between queries of resources to be reindexed
         /// </summary>
         [JsonProperty(JobRecordProperties.QueryDelayIntervalInMilliseconds)]
-        public int QueryDelayIntervalInMilliseconds
-        {
-            get
-            {
-                return queryDelayIntervalInMilliseconds;
-            }
-
-            set
-            {
-                if (value < 5 || value > 500000)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(QueryDelayIntervalInMilliseconds));
-                }
-                else
-                {
-                    queryDelayIntervalInMilliseconds = value;
-                }
-            }
-        }
+        public int QueryDelayIntervalInMilliseconds { get; set; }
 
         /// <summary>
         /// Controls the target percentage of how much of the allocated
@@ -165,48 +149,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         /// 0 means the value is not set, no throttling will occur
         /// </summary>
         [JsonProperty(JobRecordProperties.TargetDataStoreUsagePercentage)]
-        public ushort? TargetDataStoreUsagePercentage
-        {
-            get
-            {
-                return targetDataStoreUsagePercentage;
-            }
-
-            set
-            {
-                if (value < 0 || value > 100)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(TargetDataStoreUsagePercentage));
-                }
-                else
-                {
-                    targetDataStoreUsagePercentage = value;
-                }
-            }
-        }
+        public ushort? TargetDataStoreUsagePercentage { get; set; }
 
         /// <summary>
         /// A user can optionally limit the scope of the Reindex job to specific
         /// resource types
         /// </summary>
         [JsonProperty(JobRecordProperties.TargetResourceTypes)]
-        public IReadOnlyCollection<string> TargetResourceTypes
-        {
-            get
-            {
-                return targetResourceTypes;
-            }
-
-            set
-            {
-                foreach (var type in value)
-                {
-                    ModelInfoProvider.EnsureValidResourceType(type, nameof(type));
-                }
-
-                targetResourceTypes = value;
-            }
-        }
+        public IReadOnlyCollection<string> TargetResourceTypes { get; private set; } = new List<string>();
 
         [JsonIgnore]
         public string ResourceList

@@ -313,15 +313,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Please specify different value within a range..
-        /// </summary>
-        public static string InvalidReIndexParameterValue {
-            get {
-                return ResourceManager.GetString("InvalidReIndexParameterValue", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The requested &quot;_summary&quot; parameter &apos;{0}&apos; is invalid. Allowed values are &apos;{1}&apos;..
         /// </summary>
         public static string InvalidSummaryParameter {

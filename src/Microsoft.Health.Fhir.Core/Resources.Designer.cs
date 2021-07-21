@@ -575,6 +575,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Specified argument was out of the range of valid values. (Parameter &apos;{0}&apos;). Please specify different value within a range..
+        /// </summary>
+        internal static string InvalidReIndexParameterValue {
+            get {
+                return ResourceManager.GetString("InvalidReIndexParameterValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The count must be greater than zero..
         /// </summary>
         internal static string InvalidSearchCountSpecified {

@@ -172,17 +172,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
                 CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
             }
-            catch (Exception exp)
+            catch (FhirException fhirExp)
             {
-                Assert.NotNull(exp);
-                if (jobRecordProperty != "Foo")
-                {
-                    Assert.Equal(exp.Message.ToLower(), $"Specified argument was out of the range of valid values. (Parameter '{jobRecordProperty}')".ToLower());
-                }
-                else
-                {
-                    Assert.Equal(exp.Message.ToLower(), $"Resource type 'Foo' is not supported. (Parameter 'type')".ToLower());
-                }
+                Assert.NotNull(fhirExp);
+                Assert.Equal(fhirExp.Message.ToLower(), $"Specified argument was out of the range of valid values. (Parameter '{jobRecordProperty}'). Please specify different value within a range.".ToLower());
+            }
+            catch (ArgumentException exp)
+            {
+                Assert.Equal(exp.Message.ToLower(), $"Resource type 'Foo' is not supported. (Parameter 'type')".ToLower());
             }
         }
 

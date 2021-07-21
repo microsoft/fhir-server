@@ -232,23 +232,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenAnArgumentOutOfRangeException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
-        {
-            ValidateOperationOutcome(new ArgumentOutOfRangeException(), HttpStatusCode.BadRequest);
-
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
-
-            _context.Exception = new ArgumentOutOfRangeException();
-
-            filter.OnActionExecuted(_context);
-            var result = _context.Result as OperationOutcomeResult;
-
-            Assert.True(_context.ExceptionHandled);
-            Assert.NotNull(_context.Result);
-            Assert.Contains(Api.Resources.InvalidReIndexParameterValue, result.Result.Issue[0].Diagnostics);
-        }
-
-        [Fact]
         public void GivenAnUnrecognizedExceptionAndInnerException_WhenExecutingAnAction_ThenNoResponseShouldBeCreated()
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);

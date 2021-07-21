@@ -220,11 +220,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     }
                 }
             }
-            else if (context.Exception is ArgumentOutOfRangeException argumentOutOfRangeException)
-            {
-                context.Result = CreateOperationOutcomeResult(argumentOutOfRangeException.Message + " " + Api.Resources.InvalidReIndexParameterValue, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Exception, HttpStatusCode.BadRequest);
-                context.ExceptionHandled = true;
-            }
         }
 
         private OperationOutcomeResult CreateOperationOutcomeResult(string message, OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, HttpStatusCode httpStatusCode)
