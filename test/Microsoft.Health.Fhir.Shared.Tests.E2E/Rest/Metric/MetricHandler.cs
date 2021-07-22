@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 {
     public class MetricHandler : INotificationHandler<INotification>
     {

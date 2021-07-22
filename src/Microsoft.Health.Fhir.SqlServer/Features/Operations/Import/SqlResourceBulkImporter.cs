@@ -152,6 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 
             try
             {
+                await _sqlBulkCopyDataWrapperFactory.EnsureInitializedAsync();
                 await _sqlImportOperation.CleanBatchResourceAsync(inputData.ResourceType, beginSequenceId + endIndex, endSequenceId, cancellationToken);
             }
             catch (OperationCanceledException)

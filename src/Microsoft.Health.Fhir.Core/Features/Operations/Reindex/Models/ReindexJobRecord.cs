@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
@@ -18,6 +19,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord
     {
+        private const ushort MaxMaximumConcurrency = 10;
+        private const ushort MinMaximumConcurrency = 1;
+        private const uint MaxMaximumNumberOfResourcesPerQuery = 5000;
+        private const uint MinMaximumNumberOfResourcesPerQuery = 1;
+        private const int MaxQueryDelayIntervalInMilliseconds = 500000;
+        private const int MinQueryDelayIntervalInMilliseconds = 5;
+        private const ushort MaxTargetDataStoreUsagePercentage = 100;
+        private const ushort MinTargetDataStoreUsagePercentage = 0;
+
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
             IReadOnlyCollection<string> targetResourceTypes,
@@ -38,10 +48,53 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             LastModified = Clock.UtcNow;
 
             ResourceTypeSearchParameterHashMap = searchParametersHash;
-            MaximumConcurrency = maxiumumConcurrency;
-            MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
-            QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
-            TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
+
+            // check for MaximumConcurrency boundary
+            if (maxiumumConcurrency > MaxMaximumConcurrency)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumConcurrency), MinMaximumConcurrency.ToString(), MaxMaximumConcurrency.ToString()));
+            }
+            else
+            {
+                MaximumConcurrency = maxiumumConcurrency;
+            }
+
+            // check for MaximumNumberOfResourcesPerQuery boundary
+            if (maxResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maxResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery.ToString(), MaxMaximumNumberOfResourcesPerQuery.ToString()));
+            }
+            else
+            {
+                MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
+            }
+
+            // check for QueryDelayIntervalInMilliseconds boundary
+            if (queryDelayIntervalInMilliseconds < MinQueryDelayIntervalInMilliseconds || queryDelayIntervalInMilliseconds > MaxQueryDelayIntervalInMilliseconds)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(QueryDelayIntervalInMilliseconds), MinQueryDelayIntervalInMilliseconds.ToString(), MaxQueryDelayIntervalInMilliseconds.ToString()));
+            }
+            else
+            {
+                QueryDelayIntervalInMilliseconds = queryDelayIntervalInMilliseconds;
+            }
+
+            // check for TargetDataStoreUsagePercentage boundary
+            if (targetDataStoreUsagePercentage < MinTargetDataStoreUsagePercentage || targetDataStoreUsagePercentage > MaxTargetDataStoreUsagePercentage)
+            {
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(TargetDataStoreUsagePercentage), MinTargetDataStoreUsagePercentage.ToString(), MaxTargetDataStoreUsagePercentage.ToString()));
+            }
+            else
+            {
+                TargetDataStoreUsagePercentage = targetDataStoreUsagePercentage;
+            }
+
+            // check for TargetResourceTypes boundary
+            foreach (var type in targetResourceTypes)
+            {
+                ModelInfoProvider.EnsureValidResourceType(type, nameof(type));
+            }
+
             TargetResourceTypes = targetResourceTypes;
         }
 

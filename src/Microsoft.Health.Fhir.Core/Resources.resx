@@ -260,6 +260,9 @@
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The continuation token is invalid.</value>
   </data>
+  <data name="InvalidReIndexParameterValue" xml:space="preserve">
+    <value>Argument '{0}' was out of the range of valid values. Please specify different value within a range '{1}' - '{2}'.</value>
+  </data>
   <data name="InvalidSearchCountSpecified" xml:space="preserve">
     <value>The count must be greater than zero.</value>
   </data>
