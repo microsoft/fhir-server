@@ -24,12 +24,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {
+            // If we only need the count, we don't want to execute any sort specific queries.
             if (context.CountOnly)
             {
                 return expression;
             }
 
-            // Proceed if we sort params were requested.
+            // Proceed if no sort params were requested.
             if (context.Sort.Count == 0)
             {
                 return expression;
@@ -38,12 +39,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // _type and _lastUpdated sort params are handled differently than others, because they can be
             // inferred directly from the resource table itself.
             if (context.Sort.All(s => s.searchParameterInfo.Name is SearchParameterNames.ResourceType or SearchParameterNames.LastUpdated))
-            {
-                return expression;
-            }
-
-            // If we only need the count, we don't want to execute any sort specific queries.
-            if (context.CountOnly)
             {
                 return expression;
             }

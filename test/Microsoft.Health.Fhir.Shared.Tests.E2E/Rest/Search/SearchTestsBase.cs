@@ -11,7 +11,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
@@ -76,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Bundle nextBundle = await Client.SearchAsync(nextLink);
 
                 // Truncating host and appending continuation token
-                nextLink = selfLink + nextLink.Substring(nextLink.IndexOf(ContinuationToken));
+                nextLink = selfLink + nextLink.Substring(_continuationToken.Match(nextLink).Index);
                 var remainingResources = expectedResources[(pageSize * requestCount)..];
                 if (remainingResources.Length > pageSize)
                 {
