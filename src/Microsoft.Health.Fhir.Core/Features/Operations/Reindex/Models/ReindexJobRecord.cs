@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core;
-using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             // check for MaximumConcurrency boundary
             if (maxiumumConcurrency > MaxMaximumConcurrency)
             {
-                throw new ArgumentOutOfRangeFhirException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumConcurrency), MinMaximumConcurrency.ToString(), MaxMaximumConcurrency.ToString()));
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumConcurrency), MinMaximumConcurrency.ToString(), MaxMaximumConcurrency.ToString()));
             }
             else
             {
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             // check for MaximumNumberOfResourcesPerQuery boundary
             if (maxResourcesPerQuery < MinMaximumNumberOfResourcesPerQuery || maxResourcesPerQuery > MaxMaximumNumberOfResourcesPerQuery)
             {
-                throw new ArgumentOutOfRangeFhirException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery.ToString(), MaxMaximumNumberOfResourcesPerQuery.ToString()));
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumNumberOfResourcesPerQuery), MinMaximumNumberOfResourcesPerQuery.ToString(), MaxMaximumNumberOfResourcesPerQuery.ToString()));
             }
             else
             {
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             // check for QueryDelayIntervalInMilliseconds boundary
             if (queryDelayIntervalInMilliseconds < MinQueryDelayIntervalInMilliseconds || queryDelayIntervalInMilliseconds > MaxQueryDelayIntervalInMilliseconds)
             {
-                throw new ArgumentOutOfRangeFhirException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(QueryDelayIntervalInMilliseconds), MinQueryDelayIntervalInMilliseconds.ToString(), MaxQueryDelayIntervalInMilliseconds.ToString()));
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(QueryDelayIntervalInMilliseconds), MinQueryDelayIntervalInMilliseconds.ToString(), MaxQueryDelayIntervalInMilliseconds.ToString()));
             }
             else
             {
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             // check for TargetDataStoreUsagePercentage boundary
             if (targetDataStoreUsagePercentage < MinTargetDataStoreUsagePercentage || targetDataStoreUsagePercentage > MaxTargetDataStoreUsagePercentage)
             {
-                throw new ArgumentOutOfRangeFhirException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(TargetDataStoreUsagePercentage), MinTargetDataStoreUsagePercentage.ToString(), MaxTargetDataStoreUsagePercentage.ToString()));
+                throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(TargetDataStoreUsagePercentage), MinTargetDataStoreUsagePercentage.ToString(), MaxTargetDataStoreUsagePercentage.ToString()));
             }
             else
             {

@@ -219,12 +219,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenAnArgumnetOutOfRangeFhirException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
-        {
-            ValidateOperationOutcome(new ArgumentOutOfRangeFhirException("test"), HttpStatusCode.BadRequest);
-        }
-
-        [Fact]
         public void GivenAnUnrecognizedException_WhenExecutingAnAction_ThenNoResponseShouldBeCreated()
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);

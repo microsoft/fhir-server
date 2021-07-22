@@ -103,7 +103,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
                     case BadRequestException _:
-                    case ArgumentOutOfRangeFhirException _:
                     case RequestNotValidException _:
                     case BundleEntryLimitExceededException _:
                     case ProvenanceHeaderException _:
