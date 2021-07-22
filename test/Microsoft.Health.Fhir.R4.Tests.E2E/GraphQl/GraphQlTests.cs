@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.R4.Tests.E2E.GraphQl
                 Name = x["name"].ToObject<List<HumanName>>(),
             }).ToList();
 
-            Assert.NotNull(patientsResponse);
+            Assert.True(patientsResponse.Capacity >= 3);
         }
 
         [Fact]
