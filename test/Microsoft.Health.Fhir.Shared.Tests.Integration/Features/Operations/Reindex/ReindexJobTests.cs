@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             catch (FhirException fhirExp)
             {
                 Assert.NotNull(fhirExp);
-                Assert.Contains($"Argument '{jobRecordProperty}' was out of the range of valid values. Please specify different value within a range".ToLower(), fhirExp.Message.ToLower());
+                Assert.Contains($"Reindex operation parameter '{jobRecordProperty}' was out of the range of valid values. Please specify different value within a range".ToLower(), fhirExp.Message.ToLower());
             }
             catch (ArgumentException exp)
             {
