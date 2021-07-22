@@ -25,7 +25,6 @@ using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
-using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
 using Polly;
 
@@ -51,12 +50,23 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddOptions();
             services.AddMvc(options =>
-            {
-                options.EnableEndpointRouting = false;
-                options.RespectBrowserAcceptHeader = true;
-            })
+                {
+                    options.EnableEndpointRouting = false;
+                    options.RespectBrowserAcceptHeader = true;
+                })
                 .AddNewtonsoftJson()
                 .AddRazorRuntimeCompilation();
+
+            services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(
+                    builder =>
+                    {
+                        builder.WithOrigins("http://127.0.0.1:5500")
+                                            .AllowAnyHeader()
+                                            .AllowAnyMethod();
+                    });
+            });
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
@@ -144,7 +154,7 @@ namespace Microsoft.Extensions.DependencyInjection
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();
 
-                    app.UseCors(Constants.DefaultCorsPolicy);
+                    app.UseCors();
 
                     // This middleware should be registered at the beginning since it generates correlation id among other things,
                     // which will be used in other middlewares.
