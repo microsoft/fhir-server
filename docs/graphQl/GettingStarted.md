@@ -3,7 +3,7 @@
 > for [GraphQL with FHIR](https://build.fhir.org/graphql.html).
  
 ## What Can I do with GraphQL in FHIR-Server?
-* ✅ Get all Patients in your FHIR-Server with specified properties based on [Patient Resource](https://www.hl7.org/fhir/patient.html).
+* ✅ Get first 10 Patients in your FHIR-Server with specified properties based on [Patient Resource](https://www.hl7.org/fhir/patient.html).
 * ✅ Get Patient by ID with specified properties.
 * ✅ Get more than one Patient by ID with specified properties.
 
@@ -33,5 +33,7 @@ https://dotnet.microsoft.com/download/dotnet-core/
     * Click "Send Request" above each HTTP request in the file.
     * To learn about VS Code extension see [How to use Visual Studio Code's REST Client](https://github.com/microsoft/fhir-server/blob/main/docs/rest/HowToUseVSCodeRestClient.md).
 
-## Samples
-## Next Steps
+## Next Steps and Important Notes
+* Currently it is not supporting pagination, when you are doing a **patients** query, you are getting the first 10 patients in the server.
+* FHIR specification says that the endpoint should be `[base]\$graphql`, currently it is `[base]\graphql`.
+* There are some fields from the schema that are not supported such as `patient -> deceasedBoolean`. If you want to see the current schema, you can find the .graphql file in `src/Microsoft.Health.Fhir.Core/Data/GraphQL/patient.graphql` or `src/Microsoft.Health.Fhir.Core/Data/GraphQL/types.graphql` for further information.
