@@ -998,7 +998,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The search parameter with definition URL &apos;{0}&apos; is not supported..
+        ///   Looks up a localized string similar to The search parameter with definition URL &apos;{0}&apos; is not supported. Location &apos;{1}&apos;.
         /// </summary>
         internal static string SearchParameterByDefinitionUriNotSupported {
             get {

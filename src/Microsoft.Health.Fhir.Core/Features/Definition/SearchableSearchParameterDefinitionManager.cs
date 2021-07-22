@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
@@ -87,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 return parameter;
             }
 
-            throw new SearchParameterNotSupportedException(definitionUri);
+            throw new SearchParameterNotSupportedException(definitionUri, "SearchableSPDM");
         }
 
         private IEnumerable<SearchParameterInfo> GetAllSearchParameters()

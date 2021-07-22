@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 return value;
             }
 
-            throw new SearchParameterNotSupportedException(definitionUri);
+            throw new SearchParameterNotSupportedException(definitionUri, "SPDM");
         }
 
         public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value)

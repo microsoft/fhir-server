@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!supportedResult.Supported)
                 {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url, "SPO - while adding");
                 }
 
                 // check data store specific support for SearchParameter
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!supportedResult.Supported)
                 {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
+                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url, "SPO-While Updating");
                 }
 
                 // check data store specific support for SearchParameter

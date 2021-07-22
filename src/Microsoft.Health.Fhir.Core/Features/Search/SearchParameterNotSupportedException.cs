@@ -45,11 +45,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Initializes a new instance of the <see cref="SearchParameterNotSupportedException"/> class.
         /// </summary>
         /// <param name="definitionUri">The search parameter definition URL.</param>
-        public SearchParameterNotSupportedException(Uri definitionUri)
+        /// <param name="location">The search parameter location of the error.</param>
+        public SearchParameterNotSupportedException(Uri definitionUri, string location)
         {
             EnsureArg.IsNotNull(definitionUri, nameof(definitionUri));
 
-            AddIssue(string.Format(Core.Resources.SearchParameterByDefinitionUriNotSupported, definitionUri.ToString()));
+            AddIssue(string.Format(Core.Resources.SearchParameterByDefinitionUriNotSupported, definitionUri.ToString(), location));
         }
 
         /// <summary>
