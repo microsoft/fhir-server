@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!supportedResult.Supported)
                 {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url, "SPO - while adding");
+                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
                 }
 
                 // check data store specific support for SearchParameter
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!supportedResult.Supported)
                 {
-                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url, "SPO-While Updating");
+                    throw new SearchParameterNotSupportedException(searchParameterInfo.Url);
                 }
 
                 // check data store specific support for SearchParameter
@@ -222,6 +222,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             var paramsToAdd = new List<ITypedElement>();
+            var newUpdatedSearchParameterStatus = new List<ResourceSearchParameterStatus>();
+
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted))
             {
                 var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.ToString(), cancellationToken);
@@ -241,6 +243,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 paramsToAdd.Add(searchParamResource);
+                newUpdatedSearchParameterStatus.Add(searchParam);
             }
 
             // Now add the new or updated parameters to the SearchParameterDefinitionManager
@@ -251,7 +254,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             // Once added to the definition manager we can update their status
             await _searchParameterStatusManager.ApplySearchParameterStatus(
-                updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted).ToList(),
+                newUpdatedSearchParameterStatus,
                 cancellationToken);
         }
 

@@ -46,11 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="definitionUri">The search parameter definition URL.</param>
         /// <param name="location">The search parameter location of the error.</param>
-        public SearchParameterNotSupportedException(Uri definitionUri, string location)
+        public SearchParameterNotSupportedException(Uri definitionUri)
         {
             EnsureArg.IsNotNull(definitionUri, nameof(definitionUri));
 
-            AddIssue(string.Format(Core.Resources.SearchParameterByDefinitionUriNotSupported, definitionUri.ToString(), location));
+            AddIssue(string.Format(Core.Resources.SearchParameterByDefinitionUriNotSupported, definitionUri.ToString()));
         }
 
         /// <summary>

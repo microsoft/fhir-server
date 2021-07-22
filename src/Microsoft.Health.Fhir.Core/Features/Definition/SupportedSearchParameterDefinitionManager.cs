@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 return parameter;
             }
 
-            throw new SearchParameterNotSupportedException(definitionUri, "SupportedSPDM");
+            throw new SearchParameterNotSupportedException(definitionUri);
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParametersRequiringReindexing()

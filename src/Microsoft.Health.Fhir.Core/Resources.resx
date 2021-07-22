@@ -358,7 +358,7 @@
     <value>The '_count' parameter exceeds limit configured for server. Current limit is {0} while `_count` parameter set to {1}.</value>
   </data>
   <data name="SearchParameterByDefinitionUriNotSupported" xml:space="preserve">
-    <value>The search parameter with definition URL '{0}' is not supported. Location '{1}'</value>
+    <value>The search parameter with definition URL '{0}' is not supported.</value>
   </data>
   <data name="SearchParameterDefinitionBaseNotDefined" xml:space="preserve">
     <value>SearchParameter[{0}].resource.base is not defined.</value>
