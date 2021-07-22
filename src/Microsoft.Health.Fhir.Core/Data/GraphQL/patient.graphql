@@ -1,6 +1,12 @@
 ﻿# FHIR GraphQL Schema. Version 4.6.0
 
-# import the types from 'types.graphql'
+### IMPORTANT NOTE:
+# Currently, there are some fields commented, that means they are not supported in the query. 
+# The reason why they are not working, is because using schema first approach, 
+# is matching the attribute name in the .graphql file with the variable name in the POCO's. 
+# For example, Patient has -> multipleBirthBoolean and multipleBirthInterger, 
+# but in the POCO's it is just ONE variable called MultipleBirth with type: DataType. 
+# The graphql approach (schema first) will take the first one declared in the .graphql.
 
 type Patient {
   id: ID
