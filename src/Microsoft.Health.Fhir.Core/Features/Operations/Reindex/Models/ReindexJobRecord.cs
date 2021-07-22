@@ -19,14 +19,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord
     {
-        private const ushort MaxMaximumConcurrency = 10;
-        private const ushort MinMaximumConcurrency = 1;
-        private const uint MaxMaximumNumberOfResourcesPerQuery = 5000;
-        private const uint MinMaximumNumberOfResourcesPerQuery = 1;
-        private const int MaxQueryDelayIntervalInMilliseconds = 500000;
-        private const int MinQueryDelayIntervalInMilliseconds = 5;
-        private const ushort MaxTargetDataStoreUsagePercentage = 100;
-        private const ushort MinTargetDataStoreUsagePercentage = 0;
+        public const ushort MaxMaximumConcurrency = 10;
+        public const ushort MinMaximumConcurrency = 1;
+        public const uint MaxMaximumNumberOfResourcesPerQuery = 5000;
+        public const uint MinMaximumNumberOfResourcesPerQuery = 1;
+        public const int MaxQueryDelayIntervalInMilliseconds = 500000;
+        public const int MinQueryDelayIntervalInMilliseconds = 5;
+        public const ushort MaxTargetDataStoreUsagePercentage = 100;
+        public const ushort MinTargetDataStoreUsagePercentage = 0;
 
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             ResourceTypeSearchParameterHashMap = searchParametersHash;
 
             // check for MaximumConcurrency boundary
-            if (maxiumumConcurrency > MaxMaximumConcurrency)
+            if (maxiumumConcurrency < MinMaximumConcurrency || maxiumumConcurrency > MaxMaximumConcurrency)
             {
                 throw new BadRequestException(string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, nameof(MaximumConcurrency), MinMaximumConcurrency.ToString(), MaxMaximumConcurrency.ToString()));
             }
