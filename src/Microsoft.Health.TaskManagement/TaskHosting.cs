@@ -168,7 +168,7 @@ namespace Microsoft.Health.TaskManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                Task intervalDelayTask = Task.Delay(TaskHeartbeatIntervalInSeconds, CancellationToken.None);
+                Task intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(TaskHeartbeatIntervalInSeconds), CancellationToken.None);
                 KeyValuePair<string, ITask>[] activeTaskRecords = _activeTaskRecordsForKeepAlive.ToArray();
 
                 foreach ((string taskId, ITask task) in activeTaskRecords)
