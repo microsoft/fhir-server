@@ -24,7 +24,7 @@
   </PropertyGroup>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
-    <IdentityModelVersion>6.11.1</IdentityModelVersion>
+    <IdentityModelVersion>6.12.0</IdentityModelVersion>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.7</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>3.1.0</HealthcareSharedPackageVersion>
