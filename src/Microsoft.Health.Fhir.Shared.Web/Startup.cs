@@ -15,15 +15,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.GraphQl.DataLoader;
 using Microsoft.Health.Fhir.Azure;
-using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.Fhir.Core.Features.GraphQl;
 using Microsoft.Health.Fhir.Shared.Api.Features.GraphQl;
+using Microsoft.Health.SqlServer.Configs;
 
 namespace Microsoft.Health.Fhir.Web
 {
     public class Startup
     {
-        private const string Path = "../Microsoft.Health.Fhir.Core/Data/GraphQl/";
-
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -42,8 +41,8 @@ namespace Microsoft.Health.Fhir.Web
                 .AddGraphQLServer()
 
                 // Adding our scheme
-                .AddDocumentFromFile(Path + "patient.graphql")
-                .AddDocumentFromFile(Path + "types.graphql")
+                .AddDocumentFromString(GraphQlLoader.GetDefinition("patient"))
+                .AddDocumentFromString(GraphQlLoader.GetDefinition("types"))
 
                 // Next we add the types to our schema
                 .AddQueryType(d => d.Name("Query"))
