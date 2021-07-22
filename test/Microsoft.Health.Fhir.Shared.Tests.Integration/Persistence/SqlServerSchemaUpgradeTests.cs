@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var connectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions };
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions });
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
@@ -145,6 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var schemaInitializer = new SchemaInitializer(
                 config,
+                schemaManagerDataStore,
                 schemaUpgradeRunner,
                 schemaInformation,
                 sqlConnectionFactory,

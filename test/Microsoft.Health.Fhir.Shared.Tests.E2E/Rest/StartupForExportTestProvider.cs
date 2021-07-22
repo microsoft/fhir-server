@@ -11,9 +11,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
+using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [RequiresIsolatedDatabase]
     public class StartupForExportTestProvider : StartupBaseForCustomProviders

@@ -40,6 +40,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceReferenceResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceHandler.cs" />
