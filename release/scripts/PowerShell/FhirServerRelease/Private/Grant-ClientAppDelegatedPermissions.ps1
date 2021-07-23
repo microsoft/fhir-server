@@ -67,25 +67,32 @@ function Grant-ClientAppDelegatedPermissions {
         'Content-Type' = 'application/json'
     }
 
+    $userReadScope = "User.Read"
+    $userImpersonationScope = "user_impersonation"
+
     $permissionGrantUrl = "https://graph.microsoft.com/v1.0/oauth2PermissionGrants"
 
     $bodyForReadPermisions = @{
         clientId = $clientObjectId
         consentType = "AllPrincipals"
         resourceId = $windowsAadObjectId
-        scope = "User.Read"
+        scope = $userReadScope
     }
-
-    # TODO: Handle scenario where application might already have these permissions.
 
     try {
         $response = Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForReadPermisions | ConvertTo-Json) -ErrorVariable error
     }
     catch {
-        Write-Warning "Received failure when posting to $permissionGrantUrl to grant user.read permission."
+        Write-Warning "Received failure when posting to $permissionGrantUrl to grant $userReadScope permission."
         Write-Warning "Error message: $error"
 
-        throw
+        $existingPermission = Get-AzureADOAuth2PermissionGrant -All $true | ? {$_.ClientId -eq $clientObjectId -and $_.ResourceId -eq $windowsAadObjectId -and $_.Scope -eq $userReadScope }
+        if($existingPermission) {
+            Write-Host "$userReadScope permission already exists."
+        }
+        else {
+            throw
+        }
     }
 
     # This permission allows the client app to talk to the fhir-server (resource) without asking for user consent
@@ -93,16 +100,22 @@ function Grant-ClientAppDelegatedPermissions {
         clientId = $clientObjectId
         consentType = "AllPrincipals"
         resourceId = $resourceApiObjectId
-        scope = "user_impersonation"
+        scope = $userImpersonationScope
     }
 
     try {
         $response = Invoke-RestMethod -Uri $permissionGrantUrl -Headers $header -Method POST -Body ($bodyForApiPermisions | ConvertTo-Json) -ErrorVariable error
     }
     catch {
-        Write-Warning "Received failure when posting to $permissionGrantUrl to grant user_impersonation permission."
+        Write-Warning "Received failure when posting to $permissionGrantUrl to grant $userImpersonationScope permission."
         Write-Warning "Error message: $error"
 
-        throw
+        $existingPermission = Get-AzureADOAuth2PermissionGrant -All $true | ? {$_.ClientId -eq $clientObjectId -and $_.ResourceId -eq $resourceApiObjectId -and $_.Scope -eq $userImpersonationScope }
+        if($existingPermission) {
+            Write-Host "$userImpersonationScope permission already exists."
+        }
+        else {
+            throw
+        }
     }
 }
