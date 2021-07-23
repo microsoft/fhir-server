@@ -145,7 +145,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             ResourceElement resourceElement = anonymizer.Anonymize(new ResourceElement(patient.ToTypedElement()));
             Patient anonymizedResource = resourceElement.Instance.ToPoco<Patient>();
-            string resourceId = EncryptUtility.DecryptTextFromBase64WithAes(anonymizedResource.Id, Encoding.UTF8.GetBytes("704ab12c8e3e46d4bea600ef62a6bec7"));
             Assert.Equal("test", anonymizedResource.Name.First().Family);
         }
 
