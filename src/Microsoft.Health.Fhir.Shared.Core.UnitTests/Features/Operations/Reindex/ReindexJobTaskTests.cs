@@ -65,13 +65,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _fhirOperationDataStore.UpdateReindexJobAsync(job, _weakETag, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
-            _searchService.SearchForReindexAsync(
-                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                    Arg.Any<string>(),
-                    true,
-                    Arg.Any<CancellationToken>()).
-                Returns(new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()));
-
             _throttleController.GetThrottleBasedDelay().Returns(0);
             _reindexJobTaskFactory = () =>
                  new ReindexJobTask(
@@ -103,6 +96,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
             // setup search result
+            _searchService.SearchForReindexAsync(
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    Arg.Any<string>(),
+                    true,
+                    Arg.Any<CancellationToken>()).
+                Returns(
+                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()), // First call checks how many resources need to be reindexed
+                    new SearchResult(0, new List<Tuple<string, string>>())); // Second call checks that there are no resources left to be reindexed
+
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<string>(),
@@ -145,6 +147,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _fhirOperationDataStore.GetReindexJobByIdAsync(job.Id, _cancellationToken).ReturnsForAnyArgs(new ReindexJobWrapper(job, _weakETag));
 
             // setup search result
+            _searchService.SearchForReindexAsync(
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    Arg.Any<string>(),
+                    true,
+                    Arg.Any<CancellationToken>()).
+                Returns(
+                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()), // First call checks how many resources need to be reindexed
+                    new SearchResult(0, new List<Tuple<string, string>>())); // Second call checks that there are no resources left to be reindexed
+
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<string>(),
@@ -200,20 +211,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // setup search result
             _searchService.SearchForReindexAsync(
+                    Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                    Arg.Any<string>(),
+                    true,
+                    Arg.Any<CancellationToken>()).
+                Returns(
+                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()), // First two calls check how many resources need to be reindexed
+                    new SearchResult(_mockedSearchCount, new List<Tuple<string, string>>()),
+                    new SearchResult(0, new List<Tuple<string, string>>()), // Last two calls check that there are no resources left to be reindexed
+                    new SearchResult(0, new List<Tuple<string, string>>()));
+
+            _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 Arg.Any<string>(),
                 false,
-                Arg.Any<CancellationToken>()).
-                Returns(
-                    x => CreateSearchResult("token"),
-                    x => CreateSearchResult("token"),
-                    x => CreateSearchResult(),
-                    x => CreateSearchResult());
+                Arg.Any<CancellationToken>()).Returns(
+                x => CreateSearchResult("token"),
+                x => CreateSearchResult("token"),
+                x => CreateSearchResult(),
+                x => CreateSearchResult());
 
             await _reindexJobTaskFactory().ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
-            await _searchService.Received(2).SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+            await _searchService.Received(4).SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
