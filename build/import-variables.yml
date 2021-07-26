@@ -1,8 +1,9 @@
 variables:
-    ResourceGroupRegion: 'westus2'
+    ResourceGroupRegion: 'southcentralus'
     resourceGroupRoot: 'msh-fhir-import'
     appServicePlanName: '$(resourceGroupRoot)-asp'
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
     ResourceGroupName: '$(resourceGroupRoot)'
     TestEnvironmentName: 'OSS import'
-    ImageTag: '$(build.BuildNumber)'
+    ImageTag: 'master'
+    nuGetVersion: '5.8.1'
