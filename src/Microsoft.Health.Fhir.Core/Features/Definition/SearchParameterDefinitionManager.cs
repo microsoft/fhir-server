@@ -239,21 +239,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     queryParams.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, continuationToken));
                 }
 
-                var searchOptions = new SearchOptions();
-                searchOptions.MaxItemCount = 2;
-                searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
-                searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
-
-                // searchOptions.Expression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.Patient, false));
                 var result = await search.Value.SearchAsync("SearchParameter", queryParams, cancellationToken);
-                if (!string.IsNullOrEmpty(result?.ContinuationToken))
-                {
-                    continuationToken = ContinuationTokenConverter.Encode(result.ContinuationToken);
-                }
-                else
-                {
-                    continuationToken = null;
-                }
+                continuationToken = string.IsNullOrEmpty(result?.ContinuationToken) ? null : ContinuationTokenConverter.Encode(result.ContinuationToken);
 
                 if (result?.Results != null && result.Results.Any())
                 {
