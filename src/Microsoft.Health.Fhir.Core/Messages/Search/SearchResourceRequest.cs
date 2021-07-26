@@ -9,7 +9,7 @@ using MediatR;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
-    public class SearchResourceRequest : IRequest<SearchResourceResponse>
+    public class SearchResourceRequest : IRequest<NewSearchResourceResponse>
     {
         public SearchResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> queries)
         {

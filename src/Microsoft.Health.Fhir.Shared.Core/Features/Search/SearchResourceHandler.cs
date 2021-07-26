@@ -11,14 +11,13 @@ using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     /// <summary>
     /// Handler for searching resource.
     /// </summary>
-    public class SearchResourceHandler : IRequestHandler<SearchResourceRequest, SearchResourceResponse>
+    public class SearchResourceHandler : IRequestHandler<SearchResourceRequest, NewSearchResourceResponse>
     {
         private readonly ISearchService _searchService;
         private readonly IBundleFactory _bundleFactory;
@@ -42,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <inheritdoc />
-        public async Task<SearchResourceResponse> Handle(SearchResourceRequest request, CancellationToken cancellationToken)
+        public async Task<NewSearchResourceResponse> Handle(SearchResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -53,9 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             SearchResult searchResult = await _searchService.SearchAsync(request.ResourceType, request.Queries, cancellationToken);
 
-            ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
+            string bundle = _bundleFactory.CreateNewSearchBundle(searchResult);
 
-            return new SearchResourceResponse(bundle);
+            return new NewSearchResourceResponse(bundle);
         }
     }
 }

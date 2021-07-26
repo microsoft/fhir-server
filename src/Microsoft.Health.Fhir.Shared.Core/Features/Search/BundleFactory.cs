@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -48,6 +49,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 };
 
                 return resource;
+            });
+        }
+
+        public string CreateNewSearchBundle(SearchResult searchResult)
+        {
+            return CreateNewBundle(searchResult, Bundle.BundleType.Searchset, r =>
+            {
+                var fullUri = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
+                var search = r.SearchEntryMode == SearchEntryMode.Match ? "match" : "include";
+
+                var newResource = new JObject();
+                newResource.Add("fullUrl", fullUri.ToString());
+                newResource.Add("resource", new JRaw(r.Resource.RawResource.Data));
+                newResource.Add("search", new JRaw($"{{\"mode\":\"{search}\"}}"));
+                return newResource;
             });
         }
 
@@ -93,18 +109,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             });
         }
 
-        private void CreateLinks(SearchResult result, Bundle bundle)
+        private void CreateLinks(SearchResult result, JObject bundle)
         {
             bool problemWithLinks = false;
+            var links = new JArray();
             if (result.ContinuationToken != null)
             {
                 try
                 {
-                    bundle.NextLink = _urlResolver.ResolveRouteUrl(
+                    var nextLink = _urlResolver.ResolveRouteUrl(
                         result.UnsupportedSearchParameters,
                         result.SortOrder,
                         Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
                         true);
+
+                    links.Add(JToken.Parse($"{{\"relation\":\"next\", \"url\":\"{nextLink}\"}}"));
                 }
                 catch (UriFormatException)
                 {
@@ -115,7 +134,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             try
             {
                 // Add the self link to indicate which search parameters were used.
-                bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.SortOrder);
+                var selfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.SortOrder);
+                links.Add(JToken.Parse($"{{\"relation\":\"self\", \"url\":\"{selfLink}\"}}"));
             }
             catch (UriFormatException)
             {
@@ -130,6 +150,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                               OperationOutcomeConstants.IssueType.NotSupported,
                               string.Format(Core.Resources.LinksCantBeCreated)));
             }
+
+            bundle.Add("link", links);
+        }
+
+        private string CreateNewBundle(SearchResult result, Bundle.BundleType type, Func<SearchResultEntry, JToken> selectionFunction)
+        {
+            EnsureArg.IsNotNull(result, nameof(result));
+
+            // Create the bundle from the result.
+            var bundle = new JObject();
+            bundle.Add("resourceType", "Bundle");
+            bundle.Add("id", _fhirRequestContextAccessor.RequestContext.CorrelationId);
+            bundle.Add("type", type.ToString());
+            bundle.Add("meta", JToken.Parse($"{{\"lastUpdated\":\"{Clock.UtcNow.ToInstantString()}\"}}"));
+
+            CreateLinks(result, bundle);
+
+            JArray entries = new JArray(result.Results.Select(selectionFunction));
+
+            bundle.Add("entry", entries);
+
+            return bundle.ToString();
         }
 
         private ResourceElement CreateBundle(SearchResult result, Bundle.BundleType type, Func<SearchResultEntry, Bundle.EntryComponent> selectionFunction)
@@ -138,7 +180,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // Create the bundle from the result.
             var bundle = new Bundle();
-            CreateLinks(result, bundle);
+
+            // CreateLinks(result, bundle);
 
             if (_fhirRequestContextAccessor.RequestContext.BundleIssues.Any())
             {

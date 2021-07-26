@@ -479,9 +479,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private async Task<IActionResult> PerformSearch(string type, IReadOnlyList<Tuple<string, string>> queries)
         {
-            ResourceElement response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
+            string response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return new ContentResult
+            {
+                Content = response,
+                ContentType = "application/json",
+            };
         }
 
         /// <summary>
