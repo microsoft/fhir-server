@@ -263,7 +263,7 @@ jobs:
     displayName: 'E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category!=ExportLongRunning"'
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category!=ExportLongRunning&(Category!=Import|Category=ImportBasic)"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} SQL'
     env:
