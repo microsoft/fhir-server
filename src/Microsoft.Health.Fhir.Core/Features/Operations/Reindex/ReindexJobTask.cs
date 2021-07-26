@@ -511,6 +511,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                     {
+                        var issue = new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Exception,
+                            ex.Message);
+                        _reindexJobRecord.Error.Add(issue);
+
                         query.Status = OperationStatus.Failed;
                     }
                     else

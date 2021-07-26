@@ -8,7 +8,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
     public static class SchemaVersionConstants
     {
         public const int Min = (int)SchemaVersion.V4;
-        public const int Max = (int)SchemaVersion.V15;
+        public const int Max = (int)SchemaVersion.V16;
         public const int SearchParameterStatusSchemaVersion = (int)SchemaVersion.V6;
         public const int SupportForReferencesWithMissingTypeVersion = (int)SchemaVersion.V7;
         public const int SearchParameterHashSchemaVersion = (int)SchemaVersion.V8;
@@ -16,5 +16,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SearchParameterSynchronizationVersion = (int)SchemaVersion.V12;
         public const int PurgeHistoryVersion = (int)SchemaVersion.V13;
         public const int SupportsResourceChangeCaptureSchemaVersion = (int)SchemaVersion.V14;
+        public const int BulkReindexReturnsFailuresVersion = (int)SchemaVersion.V16;
     }
 }

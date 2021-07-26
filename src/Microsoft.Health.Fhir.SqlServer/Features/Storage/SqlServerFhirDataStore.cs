@@ -336,22 +336,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommandWrapper,
                     _bulkReindexResourcesTvpGeneratorVLatest.Generate(resources.ToList()));
 
-                try
+                if (_schemaInformation.Current >= SchemaVersionConstants.BulkReindexReturnsFailuresVersion)
                 {
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (SqlException e)
-                {
-                    switch (e.Number)
+                    // We will reindex the rest of the batch if one resource has a versioning conflict
+                    var failedResourceCount = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+
+                    if (failedResourceCount != 0)
                     {
-                        // TODO: we should attempt to reindex resources that failed to be reindexed
-                        case SqlErrorCodes.PreconditionFailed:
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflict));
-                        case SqlErrorCodes.NotFound:
-                            throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
-                        default:
-                            _logger.LogError(e, "Error from SQL database on reindex");
-                            throw;
+                        string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
+                        string userAction = string.Format(Core.Resources.ReindexingUserAction);
+
+                        _logger.LogError(message);
+                        throw new PreconditionFailedException(message + " " + userAction);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        // We are running an earlier schema version where will fail the whole batch if there is a versioning conflict
+                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                    catch (SqlException e)
+                    {
+                        switch (e.Number)
+                        {
+                            case SqlErrorCodes.PreconditionFailed:
+                                string message = string.Format(Core.Resources.ReindexingResourceVersionConflict);
+                                string userAction = string.Format(Core.Resources.ReindexingUserAction);
+
+                                _logger.LogError(message);
+                                throw new PreconditionFailedException(message + " " + userAction);
+                            case SqlErrorCodes.NotFound:
+                                _logger.LogWarning(string.Format(Core.Resources.ReindexingResourceNotFound));
+                                throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
+                            default:
+                                _logger.LogError(e, "Error from SQL database on reindex");
+                                throw;
+                        }
                     }
                 }
             }
@@ -408,7 +430,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         case SqlErrorCodes.PreconditionFailed:
                             // TODO: we should attempt to reindex the resource
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflict));
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount));
                         case SqlErrorCodes.NotFound:
                             throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
                         default:
