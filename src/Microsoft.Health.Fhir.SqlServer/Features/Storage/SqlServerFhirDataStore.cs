@@ -354,7 +354,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     try
                     {
-                        // We are running an earlier schema version where will fail the whole batch if there is a versioning conflict
+                        // We are running an earlier schema version where we will fail the whole batch if there is a versioning conflict
                         await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
                     }
                     catch (SqlException e)
