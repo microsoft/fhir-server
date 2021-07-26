@@ -5,7 +5,7 @@ trigger: none
 
 variables:
 - template: pr-variables.yml
-- template: build-variables.yml
+- template: import-variables.yml
 
 stages:
 - stage: UpdateVersion
