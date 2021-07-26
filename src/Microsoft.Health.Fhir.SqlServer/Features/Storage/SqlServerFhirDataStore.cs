@@ -339,15 +339,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (_schemaInformation.Current >= SchemaVersionConstants.BulkReindexReturnsFailuresVersion)
                 {
                     // We will reindex the rest of the batch if one resource has a versioning conflict
-                    var failedResourceCount = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
-
-                    if (failedResourceCount != 0)
+                    using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
-                        string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
-                        string userAction = string.Format(Core.Resources.ReindexingUserAction);
+                        if (!sqlDataReader.Read())
+                        {
+                            return;
+                        }
 
-                        _logger.LogError(message);
-                        throw new PreconditionFailedException(message + " " + userAction);
+                        int numberOfVersionConflicts = sqlDataReader.GetInt32(0);
+
+                        // TODO: Return total number of successfully reindexed resources.
+                        int numberOfDeletedResources = sqlDataReader.GetInt32(1);
+
+                        if (numberOfVersionConflicts != 0)
+                        {
+                            string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, numberOfVersionConflicts);
+                            string userAction = string.Format(Core.Resources.ReindexingUserAction);
+
+                            _logger.LogError(message);
+                            throw new PreconditionFailedException(message + " " + userAction);
+                        }
                     }
                 }
                 else

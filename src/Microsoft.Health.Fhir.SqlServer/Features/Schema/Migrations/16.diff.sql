@@ -42,7 +42,8 @@
 --         * Extracted token$number$number search params
 --
 -- RETURN VALUE
---     The number of resources that failed to reindex due to a versioning conflict.
+--     The number of resources that failed to reindex due to versioning conflicts.
+--     The number of resources that failed to reindex because they have been deleted.
 --
 CREATE OR ALTER PROCEDURE dbo.BulkReindexResources
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
@@ -279,7 +280,7 @@ AS
     FROM @tokenNumberNumberCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
-    SELECT @versionDiff
+    SELECT @versionDiff, @resourcesNotInDatabase
 
     COMMIT TRANSACTION
 GO
