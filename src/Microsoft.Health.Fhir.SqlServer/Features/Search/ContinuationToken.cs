@@ -7,7 +7,7 @@ using System;
 using System.Globalization;
 using System.Text.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     /// <summary>
     /// Represents the search continuation token.
