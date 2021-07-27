@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _output = output;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASearchParam_WhenUpdatingParam_ThenResourcesIndexedWithUpdatedParam()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
