@@ -389,6 +389,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             string batchIdPrefix,
             CancellationToken cancellationToken)
         {
+            if (anonymizer != null)
+            {
+                throw new FormatException("deid is denied in no serialization mode");
+            }
+
             // Current batch will be used to organize a set of search results into a group so that they can be committed together.
             string currentBatchId = batchIdPrefix + progress.Page.ToString("d6");
 
@@ -452,7 +457,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
                 {
-                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
+                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
                 }
 
                 if (searchResult.ContinuationToken == null)
@@ -582,6 +587,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             string batchIdPrefix,
             CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(anonymizer);
+
             // Current batch will be used to organize a set of search results into a group so that they can be committed together.
             string currentBatchId = batchIdPrefix + "-" + progress.Page.ToString("d6");
 
@@ -603,7 +610,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         cancellationToken);
                 }
 
-                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
+                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -622,11 +629,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await UpdateJobRecordAsync(cancellationToken);
         }
 
-        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, IAnonymizer anonymizer, CancellationToken cancellationToken)
+        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, CancellationToken cancellationToken)
         {
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
+
+                /*
                 ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
 
                 if (anonymizer != null)
@@ -640,9 +649,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         throw new FailedToAnonymizeResourceException(ex.Message, ex);
                     }
                 }
+                */
 
-                // Serialize into NDJson and write to the file.
-                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(element);
+                byte[] bytesToWrite = TextEncoding.Utf8.GetBytes($"{resourceWrapper.RawResource.Data}\n");
 
                 await _fileManager.WriteToFile(resourceWrapper.ResourceTypeName, partId, bytesToWrite, cancellationToken);
             }
