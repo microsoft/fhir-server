@@ -222,7 +222,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
 
             var paramsToAdd = new List<ITypedElement>();
-
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted))
             {
                 var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.ToString(), cancellationToken);
