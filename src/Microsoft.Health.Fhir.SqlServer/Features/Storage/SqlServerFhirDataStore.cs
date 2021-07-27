@@ -346,10 +346,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return;
                         }
 
+                        // TODO: Collect total count of resources that failed and return number of successfully reindexed resources.
                         int numberOfVersionConflicts = sqlDataReader.GetInt32(0);
-
-                        // TODO: Return total number of successfully reindexed resources.
-                        int numberOfDeletedResources = sqlDataReader.GetInt32(1);
 
                         if (numberOfVersionConflicts != 0)
                         {
