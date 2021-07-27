@@ -484,7 +484,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             if (searchParam != null)
             {
-                await Client.DeleteAsync(searchParam);
+                // Clean up new SearchParameter
+                // When there are multiple instances of the fhir-server running, it could take some time
+                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // adding some retries below to account for that delay.
+                int retryCount = 0;
+                bool success = true;
+                do
+                {
+                    success = true;
+                    retryCount++;
+                    try
+                    {
+                        await Client.DeleteAsync(searchParam);
+                    }
+                    catch (Exception exp)
+                    {
+                        _output.WriteLine($"Failed to delete searchParameter: {exp}");
+                        success = false;
+                        await Task.Delay(10000);
+                    }
+                }
+                while (!success && retryCount < 5);
+                Assert.True(success);
                 var ex = await Assert.ThrowsAsync<FhirException>(() => Client.ReadAsync<SearchParameter>(ResourceType.SearchParameter, searchParam.Id));
                 Assert.Contains("Gone", ex.Message);
             }
