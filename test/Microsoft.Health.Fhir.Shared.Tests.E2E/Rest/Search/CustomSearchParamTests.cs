@@ -184,6 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Equal(randomName, param.Value.ToString());
 
                 // When job complete, search for resources using new parameter
+                await Task.Delay(10000);
                 await ExecuteAndValidateBundle(
                             $"Patient?{searchParamPosted.Resource.Code}:exact={randomName}",
                             Tuple.Create("x-ms-use-partial-indices", "true"),
