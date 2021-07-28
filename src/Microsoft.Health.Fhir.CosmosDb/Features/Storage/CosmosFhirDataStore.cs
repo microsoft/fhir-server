@@ -138,6 +138,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     // this means there is already an existing version of this resource
                 }
+                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
+                {
+                    if ((e.Message != null && e.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase)) ||
+                        (e.InnerException != null && e.InnerException.Message != null && e.InnerException.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        throw new CosmosException(e.Message, HttpStatusCode.RequestTimeout, e.SubStatusCode, e.ActivityId, e.RequestCharge);
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
             }
 
             while (true)
@@ -170,18 +182,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     }
 
                     throw;
-                }
-                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
-                {
-                    if (e.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase) ||
-                        e.InnerException.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new CosmosException(e.Message, HttpStatusCode.RequestTimeout, e.SubStatusCode, e.ActivityId, e.RequestCharge);
-                    }
-                    else
-                    {
-                        throw;
-                    }
                 }
 
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
