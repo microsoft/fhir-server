@@ -173,6 +173,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Reindex just a single patient, so we can try searching with a partially indexed search param
                 (reindexJobResult, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters(), $"Patient/{expectedPatient.Resource.Id}/");
+                await WaitForReindexStatus(reindexJobUri, "Completed");
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == randomNameUpdated);
 
                 if (param == null)
@@ -184,7 +185,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Assert.Equal(randomName, param.Value.ToString());
 
                 // When job complete, search for resources using new parameter
-                await Task.Delay(10000);
                 await ExecuteAndValidateBundle(
                             $"Patient?{searchParamPosted.Resource.Code}:exact={randomName}",
                             Tuple.Create("x-ms-use-partial-indices", "true"),
