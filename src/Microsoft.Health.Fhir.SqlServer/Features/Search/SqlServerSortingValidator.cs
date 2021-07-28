@@ -18,6 +18,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal class SqlServerSortingValidator : ISortingValidator
     {
         private readonly SchemaInformation _schemaInformation;
+        private readonly HashSet<Uri> _supportedParameterUrisBeforeTablePartitioning;
+        private readonly HashSet<Uri> _supportedParameterUrisAfterTablePartitioning;
 
         internal static readonly HashSet<SearchParamType> SupportedSortParamTypes = new HashSet<SearchParamType>()
         {
@@ -29,7 +31,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             _schemaInformation = schemaInformation;
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+
+            _supportedParameterUrisBeforeTablePartitioning = new HashSet<Uri>()
+            {
+                SearchParameterNames.LastUpdatedUri,
+                new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"),
+                new Uri("http://hl7.org/fhir/SearchParameter/clinical-date"),
+                new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-date"),
+                new Uri("http://hl7.org/fhir/SearchParameter/Condition-onset-date"),
+                new Uri("http://hl7.org/fhir/SearchParameter/DiagnosticReport-issued"),
+                new Uri("http://hl7.org/fhir/SearchParameter/Claim-created"),
+                new Uri("http://hl7.org/fhir/SearchParameter/ClaimResponse-created"),
+                new Uri("http://hl7.org/fhir/SearchParameter/DocumentManifest-created"),
+                new Uri("http://hl7.org/fhir/SearchParameter/ExplanationOfBenefit-created"),
+                new Uri("http://hl7.org/fhir/SearchParameter/Media-created"),
+                new Uri("http://hl7.org/fhir/SearchParameter/PaymentNotice-created"),
+                new Uri("http://hl7.org/fhir/SearchParameter/PaymentReconciliation-created"),
+                new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-started"),
+                new Uri("http://hl7.org/fhir/SearchParameter/MedicationRequest-authoredon"),
+            };
+
+            _supportedParameterUrisAfterTablePartitioning = new HashSet<Uri>(_supportedParameterUrisBeforeTablePartitioning)
+            {
+                SearchParameterNames.ResourceTypeUri,
+            };
         }
+
+        internal HashSet<Uri> SupportedParameterUris => _schemaInformation.Current < SchemaVersionConstants.PartitionedTables ? _supportedParameterUrisBeforeTablePartitioning : _supportedParameterUrisAfterTablePartitioning;
 
         public bool ValidateSorting(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sorting, out IReadOnlyList<string> errorMessages)
         {
@@ -38,7 +66,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
-                case { Count: 1 } when SupportedSortParamTypes.Contains(sorting[0].searchParameter.Type):
+                case { Count: 1 } when _schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion &&
+                                        SupportedSortParamTypes.Contains(sorting[0].searchParameter.Type):
+                    errorMessages = Array.Empty<string>();
+                    return true;
+                case { Count: 1 } when _schemaInformation.Current < SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion &&
+                                        SupportedParameterUris.Contains(sorting[0].searchParameter.Url):
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:

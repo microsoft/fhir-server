@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         StringBuilder.Append("IsMatch DESC, ");
                     }
 
-                    if (isSpecialCaseSort || !IsSortValueNeeded(context))
+                    if (isSpecialCaseSort)
                     {
                         StringBuilder.AppendDelimited(", ", searchOptions.Sort, (sb, sort) =>
                             {
@@ -226,11 +226,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             })
                             .AppendLine();
                     }
-                    else
+                    else if (IsSortValueNeeded(context))
                     {
                         StringBuilder
                             .Append($"{TableExpressionName(_tableExpressionCounter)}.SortValue ")
                             .Append(searchOptions.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                    }
+                    else
+                    {
+                        StringBuilder
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
                     }
                 }
@@ -434,13 +439,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             bool isSpecialCaseSort = IsPrimaryKeySort(context);
             var sortExpression = isSpecialCaseSort ? null : "SortValue";
 
-            if (IsSortValueNeeded(context) || isSpecialCaseSort)
+            if (isSpecialCaseSort || !IsSortValueNeeded(context))
             {
-                sortExpression = $"{tableExpressionName}.SortValue";
+                sortExpression = null;
             }
             else
             {
-                sortExpression = null;
+                sortExpression = $"{tableExpressionName}.SortValue";
             }
 
             bool hasIncludeExpression = _rootExpression.SearchParamTableExpressions.Any(t => t.Kind == SearchParamTableExpressionKind.Include);
@@ -492,9 +497,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         sb.Append(column).Append(" ").Append(sort.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
                     });
                 }
+                else if (IsSortValueNeeded(context))
+                {
+                    StringBuilder.Append("SortValue ").Append(" ").Append(context.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", Sid1 ASC");
+                }
                 else
                 {
-                    StringBuilder.Append(sortExpression).Append(" ").Append(context.Sort[0].sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", Sid1 ASC");
+                    StringBuilder.Append("Sid1 ASC");
                 }
             }
         }
@@ -834,16 +843,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private void HandleTableKindIncludeUnionAll(SearchOptions context)
         {
             StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial ");
-            bool supportedSortParamExists = IsSortValueNeeded(context);
 
             bool isSpecialCaseSort = IsPrimaryKeySort(context);
-            if (isSpecialCaseSort || supportedSortParamExists)
+            if (!isSpecialCaseSort)
             {
-                StringBuilder.AppendLine();
+                if (IsSortValueNeeded(context))
+                {
+                    StringBuilder.AppendLine(", SortValue");
+                }
+                else
+                {
+                    StringBuilder.AppendLine();
+                }
             }
             else
             {
-                StringBuilder.AppendLine(", SortValue");
+                StringBuilder.AppendLine();
             }
 
             StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
@@ -854,7 +869,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("SELECT T1, Sid1, IsMatch, IsPartial");
                 if (!isSpecialCaseSort)
                 {
-                    StringBuilder.AppendLine(", NULL as SortValue ");
+                    if (IsSortValueNeeded(context))
+                    {
+                        StringBuilder.AppendLine(", NULL as SortValue ");
+                    }
+                    else
+                    {
+                        StringBuilder.AppendLine();
+                    }
                 }
                 else
                 {
