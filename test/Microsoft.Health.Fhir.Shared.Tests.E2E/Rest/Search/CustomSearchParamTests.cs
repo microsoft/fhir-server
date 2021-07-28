@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -173,7 +174,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Reindex just a single patient, so we can try searching with a partially indexed search param
                 (reindexJobResult, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters(), $"Patient/{expectedPatient.Resource.Id}/");
-                await WaitForReindexStatus(reindexJobUri, "Completed");
+                await Task.Delay(10000);
+
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == randomNameUpdated);
 
                 if (param == null)
