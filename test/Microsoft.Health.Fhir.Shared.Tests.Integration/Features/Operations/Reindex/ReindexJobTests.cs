@@ -132,9 +132,98 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         public async Task GivenLessThanMaximumRunningJobs_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated()
         {
             var request = new CreateReindexRequest(new List<string>());
-
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
 
+            Assert.NotNull(response);
+            Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
+        }
+
+        [Theory]
+        [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency + 1)]
+        [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery + 1)]
+        [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, ReindexJobRecord.MaxQueryDelayIntervalInMilliseconds + 1)]
+        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, ReindexJobRecord.MaxTargetDataStoreUsagePercentage + 1)]
+        [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MinMaximumConcurrency - 1)]
+        [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery - 1)]
+        [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, ReindexJobRecord.MinQueryDelayIntervalInMilliseconds - 1)]
+        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, ReindexJobRecord.MinTargetDataStoreUsagePercentage - 1)]
+        [InlineData("Foo", 4)]
+        public async Task GivenOutOfRangeReindexParameter_WhenCreatingAReindexJob_ThenExceptionShouldBeThrown(string jobRecordProperty, int value)
+        {
+            string errorMessage = "Test error message";
+            try
+            {
+                CreateReindexRequest request;
+                switch (jobRecordProperty)
+                {
+                    case JobRecordProperties.MaximumConcurrency:
+                        request = new CreateReindexRequest(new List<string>(), (ushort?)value);
+                        errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinMaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency);
+                        break;
+                    case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
+                        request = new CreateReindexRequest(new List<string>(), null, (uint?)value);
+                        errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery);
+                        break;
+                    case JobRecordProperties.QueryDelayIntervalInMilliseconds:
+                        request = new CreateReindexRequest(new List<string>(), null, null, value);
+                        errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinQueryDelayIntervalInMilliseconds, ReindexJobRecord.MaxQueryDelayIntervalInMilliseconds);
+                        break;
+                    case JobRecordProperties.TargetDataStoreUsagePercentage:
+                        request = new CreateReindexRequest(new List<string>(), null, null, null, (ushort?)value);
+                        errorMessage = string.Format(Fhir.Core.Resources.InvalidReIndexParameterValue, jobRecordProperty, ReindexJobRecord.MinTargetDataStoreUsagePercentage, ReindexJobRecord.MaxTargetDataStoreUsagePercentage);
+                        break;
+                    default:
+                        request = new CreateReindexRequest(new List<string>() { jobRecordProperty });
+                        errorMessage = $"Resource type 'Foo' is not supported. (Parameter 'type')";
+                        break;
+                }
+
+                CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
+            }
+            catch (FhirException fhirExp)
+            {
+                Assert.NotNull(fhirExp);
+                Assert.Equal(errorMessage.ToLower(), fhirExp.Message.ToLower());
+            }
+            catch (ArgumentException exp)
+            {
+                Assert.Equal(exp.Message.ToLower(), errorMessage.ToLower());
+            }
+        }
+
+        [Theory]
+        [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MaxMaximumConcurrency)]
+        [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MaxMaximumNumberOfResourcesPerQuery)]
+        [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, ReindexJobRecord.MaxQueryDelayIntervalInMilliseconds)]
+        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, ReindexJobRecord.MaxTargetDataStoreUsagePercentage)]
+        [InlineData(JobRecordProperties.MaximumConcurrency, ReindexJobRecord.MinMaximumConcurrency)]
+        [InlineData(JobRecordProperties.MaximumNumberOfResourcesPerQuery, ReindexJobRecord.MinMaximumNumberOfResourcesPerQuery)]
+        [InlineData(JobRecordProperties.QueryDelayIntervalInMilliseconds, ReindexJobRecord.MinQueryDelayIntervalInMilliseconds)]
+        [InlineData(JobRecordProperties.TargetDataStoreUsagePercentage, ReindexJobRecord.MinTargetDataStoreUsagePercentage)]
+        [InlineData("Patient", 4)]
+        public async Task GivenValidReindexParameter_WhenCreatingAReindexJob_ThenNewJobShouldBeCreated(string jobRecordProperty, int value)
+        {
+            CreateReindexRequest request;
+            switch (jobRecordProperty)
+            {
+                case JobRecordProperties.MaximumConcurrency:
+                    request = new CreateReindexRequest(new List<string>(), (ushort?)value);
+                    break;
+                case JobRecordProperties.MaximumNumberOfResourcesPerQuery:
+                    request = new CreateReindexRequest(new List<string>(), null, (uint?)value);
+                    break;
+                case JobRecordProperties.QueryDelayIntervalInMilliseconds:
+                    request = new CreateReindexRequest(new List<string>(), null, null, value);
+                    break;
+                case JobRecordProperties.TargetDataStoreUsagePercentage:
+                    request = new CreateReindexRequest(new List<string>(), null, null, null, (ushort?)value);
+                    break;
+                default:
+                    request = new CreateReindexRequest(new List<string>() { jobRecordProperty });
+                    break;
+            }
+
+            CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.Job.JobRecord.Id));
         }
@@ -519,7 +608,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             int delayCount = 0;
 
-            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < 40)
+            while (reindexJobWrapper.JobRecord.Status != operationStatus && delayCount < 60)
             {
                 await Task.Delay(delay);
                 delayCount++;

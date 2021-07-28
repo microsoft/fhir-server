@@ -331,7 +331,7 @@ stages:
   - deployStu3
   - deployStu3Sql
   jobs:
-  - template: ./jobs/run-pr-tests.yml
+  - template: ./jobs/run-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
@@ -345,7 +345,7 @@ stages:
   - deployR4
   - deployR4Sql
   jobs:
-  - template: ./jobs/run-pr-tests.yml
+  - template: ./jobs/run-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
@@ -359,7 +359,7 @@ stages:
   - deployR5
   - deployR5Sql
   jobs:
-  - template: ./jobs/run-pr-tests.yml
+  - template: ./jobs/run-tests.yml
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
