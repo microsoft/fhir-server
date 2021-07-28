@@ -2450,11 +2450,6 @@ AS
         THROW 50412, 'Precondition failed', 1;
     END
 
-    IF (@resourceSurrogateId IS NULL) BEGIN
-        -- You can't reindex a resource if the resource does not exist
-        THROW 50404, 'Resource not found', 1;
-    END
-
     UPDATE dbo.Resource
     SET SearchParamHash = @searchParamHash
     WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
@@ -2648,7 +2643,6 @@ GO
 --
 -- RETURN VALUE
 --     The number of resources that failed to reindex due to versioning conflicts.
---     The number of resources that failed to reindex because they have been deleted.
 --
 CREATE PROCEDURE dbo.BulkReindexResources
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
@@ -2697,15 +2691,6 @@ AS
         ON resourceInDB.ResourceTypeId = resourceToReindex.ResourceTypeId
             AND resourceInDB.ResourceId = resourceToReindex.ResourceId
             AND resourceInDB.IsHistory = 0
-
-    DECLARE @resourcesNotInDatabase int
-    SET @resourcesNotInDatabase = (SELECT COUNT(*) FROM @computedValues WHERE ResourceSurrogateId IS NULL)
-
-    IF (@resourcesNotInDatabase > 0) BEGIN
-        -- We can't reindex resources that do not exist
-        DELETE FROM @computedValues
-        WHERE ResourceSurrogateId IS NULL
-    END
 
     DECLARE @versionDiff int
     SET @versionDiff = (SELECT COUNT(*) FROM @computedValues WHERE VersionProvided IS NOT NULL AND VersionProvided <> VersionInDatabase)
@@ -2885,7 +2870,7 @@ AS
     FROM @tokenNumberNumberCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
 
-    SELECT @versionDiff, @resourcesNotInDatabase
+    SELECT @versionDiff
 
     COMMIT TRANSACTION
 GO

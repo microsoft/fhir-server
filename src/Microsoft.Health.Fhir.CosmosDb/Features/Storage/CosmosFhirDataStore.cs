@@ -352,16 +352,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
+                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
                         throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
-                    case HttpStatusCode.NotFound:
-                        throw new ResourceNotFoundException(string.Format(
-                            Core.Resources.ResourceNotFoundByIdAndVersion,
-                            resourceWrapper.ResourceTypeName,
-                            resourceWrapper.ResourceId,
-                            weakETag));
-
                     case HttpStatusCode.ServiceUnavailable:
+                        _logger.LogError(string.Format(Core.Resources.ReindexingServiceUnavailable));
                         throw new ServiceUnavailableException();
                 }
 
