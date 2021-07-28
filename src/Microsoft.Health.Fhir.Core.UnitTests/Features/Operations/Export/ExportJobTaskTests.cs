@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(newContinuationToken), KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -276,7 +276,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(continuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(ContinuationTokenConverter.Encode(newContinuationToken), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
