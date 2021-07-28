@@ -66,9 +66,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             SearchResult searchResult;
-            string encodedInternalContinuationToken = string.IsNullOrEmpty(continuationToken)
+            string encodedInternalContinuationToken = string.IsNullOrEmpty(token.InternalContinuationToken)
                 ? null
-                : ContinuationTokenConverter.Encode(continuationToken);
+                : ContinuationTokenConverter.Encode(token.InternalContinuationToken);
             IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
             var phase = token.Phase;
