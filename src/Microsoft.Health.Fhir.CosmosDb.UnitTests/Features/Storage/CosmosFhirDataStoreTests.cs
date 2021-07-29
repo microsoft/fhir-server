@@ -211,10 +211,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             var wrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
 
-            _container.Value.When(x => x.CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())).
-                Do(x => throw CreateCosmosException(null, HttpStatusCode.ServiceUnavailable));
+            var innerException = new Exception("RequestTimeout");
 
-            await Assert.ThrowsAsync<CosmosException>(() => _dataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None));
+            _container.Value.When(x => x.CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())).
+                Do(x => throw CreateCosmosException(innerException, HttpStatusCode.ServiceUnavailable));
+
+            // using try catch here instead of Assert.ThrowsAsync in order to verify exception property
+            try
+            {
+                await _dataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
+            }
+            catch (CosmosException e)
+            {
+                Assert.Equal(HttpStatusCode.RequestTimeout, e.StatusCode);
+            }
 
             await _container.Value.ReceivedWithAnyArgs(7).CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>());
         }
