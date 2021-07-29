@@ -171,17 +171,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                     throw;
                 }
-                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.ServiceUnavailable)
+                catch (CosmosException e) when (e.IsServiceUnavailableDueToTimeout())
                 {
-                    if (e.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase) ||
-                        e.InnerException.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new CosmosException(e.Message, HttpStatusCode.RequestTimeout, e.SubStatusCode, e.ActivityId, e.RequestCharge);
-                    }
-                    else
-                    {
-                        throw;
-                    }
+                    throw new CosmosException(e.Message, HttpStatusCode.RequestTimeout, e.SubStatusCode, e.ActivityId, e.RequestCharge);
                 }
 
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
