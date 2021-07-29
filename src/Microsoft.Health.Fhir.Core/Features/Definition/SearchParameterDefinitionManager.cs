@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 var searchOptions = new SearchOptions();
                 searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
                 searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
-                searchOptions.Expression = Expression.SearchParameter(SearchParameterInfo.ResourceSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
+                searchOptions.Expression = Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
                 if (continuationToken != null)
                 {
                     searchOptions.ContinuationToken = continuationToken;

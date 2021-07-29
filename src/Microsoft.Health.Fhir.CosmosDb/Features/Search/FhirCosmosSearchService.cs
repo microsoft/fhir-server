@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _physicalPartitionInfo = physicalPartitionInfo;
             _queryPartitionStatisticsCache = queryPartitionStatisticsCache;
             _logger = logger;
-            _resourceTypeSearchParameter = SearchParameterInfo.ResourceSearchParameter;
+            _resourceTypeSearchParameter = SearchParameterInfo.ResourceTypeSearchParameter;
             _resourceIdSearchParameter = new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id);
         }
 

@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>
             {
                 // _type is currently missing from the search params definition bundle, so we inject it in here.
-                (KnownResourceTypes.Resource, SearchParameterInfo.ResourceSearchParameter),
+                (KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter),
             };
 
             // Do the second pass to make sure the definition is valid.
