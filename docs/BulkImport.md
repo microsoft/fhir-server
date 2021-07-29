@@ -10,12 +10,13 @@ Follow these steps to setup and use $import API. Rest of this document details t
 
 To use $import, you need
 
-1. A fhir server. [Deploy new fhir server](#deploy-new-fhir-server) or [Use existing fhir server](#use-existing-fhir-server) that used **Sql Server** as datastore.
-1. FHIR data to be imported.
++ FHIR data to be imported in ndjson format.
 
 ### Setps to run $import
 
-1. **Turn on ```FhirServer:Operation:Import:InitImportMode```** After fhir-server app is ready, navigate to app service portal, click **configuration** then click **New application setting**, fill in *FhirServer:Operations:Import:InitImportMode* as _Name_ and  _true_ as value:
+1. Deploy a new fhir server, details in [Deploy new fhir server](#deploy-new-fhir-server).
+2. Upload your data to the storage deployed in first step, for large size data, use tool [_Azure storage explorer_](https://https://docs.microsoft.com/en-us/azure/vs-azure-tools-storage-manage-with-storage-explorer?tabs=windows) or command [_Az_copy_](https://docs.microsoft.com/en-us/azure/storage/common/storage-ref-azcopy). 
+3. **Turn on ```FhirServer:Operation:Import:InitImportMode```** After fhir-server app is ready, navigate to app service portal, click **configuration** then click **New application setting**, fill in *FhirServer:Operations:Import:InitImportMode* as _Name_ and  _true_ as value:
 
     ![set-initmode](./images/bulk-import/set-initmode.png)
    Click **OK** then **save** the configuration, a promopt window pop up, click **Continue** to restart the app and make the change take effect.
@@ -24,9 +25,9 @@ To use $import, you need
 2. Make an API call in client, details in [API Call](#api-call) section.
 3. Polling operation status, details in [Get Status](#get-status) section.
 4. Check final status. When a status code other than 202 is returned, it means the operation has completed. The result can be divide into 3 states:
-    1. ```200``` returned as status code and no error url(described in [Get Status](#get-status)) returned, means all input resources have been imported successfully.
-    2. ```200``` returned as status code howerver have some error urls, means there are some unsupported or error(mistyped, duplicated...) resources, but all other resources are imported succcessfully.
-    3. Non ```200``` status code returned, means some fatal errors occured during the operation processing, 
+    1. ```200``` return as status code and no error url(described in [Get Status](#get-status)) return -> all input resources import successfully.
+    2. ```200``` return as status code howerver have some error urls in body -> input data have unsupported, mistyped or duplicated resources, but all other resources are imported succcessfully.
+    3. Non ```200``` status code returned -> some fatal errors occur, the operation stop immediately, but successfully imported resources aren't rolled back.
 5. **Turn off ```FhirServer:Operation:Import:InitImportMode```** and restart app. Navigate to app service portal, set this to _false_ in app configuration or simply remove it. Then **save** it and restart the app, so that all write requests can restore usage.
 
 ## Deploy new fhir server 
@@ -37,21 +38,6 @@ Follow the guide [_QuickstartDeployPortal_](https://github.com/microsoft/fhir-se
 - *Sql Schema automatic Updates Enabled*: Choose **auto**.
 - *Enable Import*: Choose **true**.   
     ![arm-template-portal](./images/bulk-import/arm-template-portal.png)
-## Use existing fhir server 
-### Requirements
-Only sql server based fhir server can use $import, check ```FhirServer:DataStore``` setting to make sure the value is **SqlServer**, otherwise **it can't use $import**.
-
-### Configuration
-The following configuration are required, set it if different or missed:
-
-| Configuration setting      | Required value |
-| ----------- | ----------- |
-| `FhirServer:Operations:Import:Enabled`      | _true_ |
-| `FhirServer:TaskHosting:Enabled`      | _true_ |
-`FhirServer:Operations:IntegrationDataStore:StorageAccountUri`      | Uri of _source storage account_ |
-
-For _source storage account_, we assume that the fhir-server has permissions to read the data from this account. One way to achieve this (assuming you are running the fhir-server code in App Service with Managed Identity enabled) would be to give the App Service **Storage Blob Data Contributor** permissions for the  _source storage account_. If you don't know how to do it,  read this guide [Assign Azure roles using the Azure portal](https://docs.microsoft.com/en-us/azure/role-based-access-control/role-assignments-portal?tabs=current) for help.
-
 
 ## API call
 Make a http call with ```POST``` method to ```<<FHIR service base URL>>/$import``` with below required headers:
