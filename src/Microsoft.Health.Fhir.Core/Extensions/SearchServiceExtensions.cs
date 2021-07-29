@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             if (!string.IsNullOrEmpty(continuationToken))
             {
-                filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken))));
+                filteredParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, ContinuationTokenConverter.Encode(continuationToken)));
             }
 
             SearchResult results = await searchService.SearchAsync(instanceType, filteredParameters.ToImmutableList(), cancellationToken);
