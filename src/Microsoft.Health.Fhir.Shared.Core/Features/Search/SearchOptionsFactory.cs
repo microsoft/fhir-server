@@ -4,12 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
-using DotLiquid.Tags;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -92,15 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    try
-                    {
-                        continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
-                    }
-                    catch (FormatException)
-                    {
-                        throw new BadRequestException(Core.Resources.InvalidContinuationToken);
-                    }
-
+                    continuationToken = ContinuationTokenConverter.Decode(query.Item2);
                     setDefaultBundleTotal = false;
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Format || query.Item1 == KnownQueryParameterNames.Pretty)

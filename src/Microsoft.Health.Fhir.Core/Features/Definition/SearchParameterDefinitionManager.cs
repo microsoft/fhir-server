@@ -240,14 +240,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
 
                 var result = await search.Value.SearchAsync("SearchParameter", queryParams, cancellationToken);
-                if (!string.IsNullOrEmpty(result?.ContinuationToken))
-                {
-                    continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken));
-                }
-                else
-                {
-                    continuationToken = null;
-                }
+                continuationToken = string.IsNullOrEmpty(result?.ContinuationToken) ? null : ContinuationTokenConverter.Encode(result.ContinuationToken);
 
                 if (result?.Results != null && result.Results.Any())
                 {

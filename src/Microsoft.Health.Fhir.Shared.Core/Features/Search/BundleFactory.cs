@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     bundle.NextLink = _urlResolver.ResolveRouteUrl(
                         result.UnsupportedSearchParameters,
                         result.SortOrder,
-                        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
+                        ContinuationTokenConverter.Encode(result.ContinuationToken),
                         true);
                 }
                 catch (UriFormatException)
