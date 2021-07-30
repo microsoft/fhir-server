@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(TimeSpan.FromSeconds(10));
+                        await Task.Delay(10000);
                     }
                 }
                 while (!success && retryCount < 3);
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Reindex just a single patient, so we can try searching with a partially indexed search param
                 (reindexJobResult, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters(), $"Patient/{expectedPatient.Resource.Id}/");
-                await Task.Delay(TimeSpan.FromSeconds(10));
+                await Task.Delay(10000);
 
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == randomNameUpdated);
 
@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(TimeSpan.FromSeconds(10));
+                        await Task.Delay(10000);
                     }
 
                     // now searching for patient with same search parameter should not work
@@ -441,7 +441,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(TimeSpan.FromSeconds(10));
+                        await Task.Delay(10000);
                     }
                 }
                 while (!success && retryCount < 3);
@@ -505,8 +505,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to delete searchParameter: {exp}");
                         success = false;
-                        Debug.WriteLine(exp);
-                        await Task.Delay(TimeSpan.FromSeconds(10));
+                        await Task.Delay(10000);
                     }
                 }
                 while (!success && retryCount < 5);
