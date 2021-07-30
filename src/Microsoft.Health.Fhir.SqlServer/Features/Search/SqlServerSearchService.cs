@@ -194,9 +194,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     if (string.IsNullOrEmpty(continuationToken.SortValue))
                     {
-                        // it's a _lastUpdated or (_type,_lastUpdated) sort optimization
-
-                        (SearchParameterInfo _, SortOrder sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
+                        // Check whether it's a _lastUpdated or (_type,_lastUpdated) sort optimization
+                        bool optimize = true;
+                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
+                        if (searchOptions.Sort.Count > 0)
+                        {
+                            if (!(searchParamInfo.Name == SearchParameterNames.LastUpdated || searchParamInfo.Name == SearchParameterNames.ResourceType))
+                            {
+                                optimize = false;
+                            }
+                        }
 
                         FieldName fieldName;
                         object keyValue;
@@ -215,9 +222,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
                         }
 
+                        Expression lastUpdatedExpression = null;
+                        if (!optimize)
+                        {
+                            lastUpdatedExpression = Expression.GreaterThan(fieldName, null, keyValue);
+                        }
+                        else
+                        {
+                            if (sortOrder == SortOrder.Ascending)
+                            {
+                                lastUpdatedExpression = Expression.GreaterThan(fieldName, null, keyValue);
+                            }
+                            else
+                            {
+                                lastUpdatedExpression = Expression.LessThan(fieldName, null, keyValue);
+                            }
+                        }
+
+                        /*
                         Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending
                             ? Expression.GreaterThan(fieldName, null, keyValue)
                             : Expression.LessThan(fieldName, null, keyValue);
+                        */
 
                         var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
                         searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);

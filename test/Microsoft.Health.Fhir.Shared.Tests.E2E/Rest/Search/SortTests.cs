@@ -553,7 +553,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
-        public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyNameWithHyphen_ThenThosePatientsAreIncludedInResult(int count)
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginatedForSql_WhenSortingByFamilyNameWithHyphen_ThenThosePatientsAreIncludedInResult(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
+
+            var expectedPatients = new Patient[]
+                {
+                    patients[0],
+                    patients[4],
+                    patients[6],
+                    patients[5],
+                    patients[1],
+                    patients[2],
+                    patients[3],
+                };
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients);
+        }
+
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginatedForCosmos_WhenSortingByFamilyNameWithHyphen_ThenThosePatientsAreIncludedInResult(int count)
         {
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
@@ -634,9 +659,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Portland", "Williams", tag),
-                p => SetPatientInfo(p, "Portland", family: null, tag),
-                p => SetPatientInfo(p, "Seattle", family: null, tag),
-                p => SetPatientInfo(p, "Portland", family: null, tag),
+                p => SetPatientInfo(p, "Vancouver", family: null, tag),
+                p => SetPatientInfo(p, "Bellingham", family: null, tag),
+                p => SetPatientInfo(p, "Bend", family: null, tag),
                 p => SetPatientInfo(p, "Seattle", "Mary", tag),
                 p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
