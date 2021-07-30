@@ -339,12 +339,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (_schemaInformation.Current >= SchemaVersionConstants.BulkReindexReturnsFailuresVersion)
                 {
                     // We will reindex the rest of the batch if one resource has a versioning conflict
-                    var failedResourceCount = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                    int? failedResourceCount;
+                    try
+                    {
+                        failedResourceCount = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                    }
+                    catch (SqlException e)
+                    {
+                        _logger.LogError(e, "Error from SQL database on reindex.");
+                        throw;
+                    }
 
                     if (failedResourceCount != 0)
                     {
                         string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
-                        string userAction = string.Format(Core.Resources.ReindexingUserAction);
+                        string userAction = Core.Resources.ReindexingUserAction;
 
                         _logger.LogError(message);
                         throw new PreconditionFailedException(message + " " + userAction);
@@ -362,14 +371,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         switch (e.Number)
                         {
                             case SqlErrorCodes.PreconditionFailed:
-                                string message = string.Format(Core.Resources.ReindexingResourceVersionConflict);
-                                string userAction = string.Format(Core.Resources.ReindexingUserAction);
+                                string message = Core.Resources.ReindexingResourceVersionConflict;
+                                string userAction = Core.Resources.ReindexingUserAction;
 
                                 _logger.LogError(message);
                                 throw new PreconditionFailedException(message + " " + userAction);
 
                             default:
-                                _logger.LogError(e, string.Format(Core.Resources.ReindexingSqlError));
+                                _logger.LogError(e, "Error from SQL database on reindex.");
                                 throw;
                         }
                     }
@@ -431,7 +440,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
                         default:
-                            _logger.LogError(e, string.Format(Core.Resources.ReindexingSqlError));
+                            _logger.LogError(e, "Error from SQL database on reindex.");
                             throw;
                     }
                 }

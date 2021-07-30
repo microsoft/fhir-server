@@ -881,24 +881,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Failed to reindex resource because the Cosmos service was unavailable..
-        /// </summary>
-        internal static string ReindexingServiceUnavailable {
-            get {
-                return ResourceManager.GetString("ReindexingServiceUnavailable", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Error from SQL database on reindex..
-        /// </summary>
-        internal static string ReindexingSqlError {
-            get {
-                return ResourceManager.GetString("ReindexingSqlError", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to Resubmit the same reindex job to finish indexing the remaining resources..
         /// </summary>
         internal static string ReindexingUserAction {

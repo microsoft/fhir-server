@@ -590,10 +590,4 @@
   <data name="ReindexingResourceVersionConflict" xml:space="preserve">
     <value>One or more resources failed to reindex due to a non-matching version.</value>
   </data>
-  <data name="ReindexingServiceUnavailable" xml:space="preserve">
-    <value>Failed to reindex resource because the Cosmos service was unavailable.</value>
-  </data>
-  <data name="ReindexingSqlError" xml:space="preserve">
-    <value>Error from SQL database on reindex.</value>
-  </data>
 </root>
