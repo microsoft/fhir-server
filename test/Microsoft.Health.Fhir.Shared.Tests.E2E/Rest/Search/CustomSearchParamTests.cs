@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -41,7 +42,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [SkippableFact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
-            Skip.If(true);
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-AppointmentStatus");
             searchParam.Name = randomName;
@@ -145,7 +145,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [SkippableFact]
         public async Task GivenASearchParam_WhenUpdatingParam_ThenResourcesIndexedWithUpdatedParam()
         {
-            Skip.If(true);
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = randomName } } };
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter-Patient-foo");
@@ -175,6 +174,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Reindex just a single patient, so we can try searching with a partially indexed search param
                 (reindexJobResult, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters(), $"Patient/{expectedPatient.Resource.Id}/");
+                await Task.Delay(10000);
+
                 Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == randomNameUpdated);
 
                 if (param == null)
@@ -209,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Theory(Skip = "true")]
+        [Theory]
         [InlineData("SearchParameterBadSyntax", "A search parameter with the same code value 'diagnosis' already exists for base type 'Encounter'")]
         [InlineData("SearchParameterExpressionWrongProperty", "not supported")]
         [InlineData("SearchParameterInvalidBase", "Literal 'foo' is not a valid value for enumeration 'ResourceType'")]
@@ -232,7 +233,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact(Skip = "To re-enable when the bug(82891) is fixed")]
+        [SkippableFact]
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToResourceType_ThenOnlyTargetedTypesAreReindexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -351,7 +352,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact(Skip = "To re-enable when the bug(82891) is fixed")]
+        [SkippableFact]
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToSameListOfResourceTypes_ThenSearchParametersMarkedFullyIndexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -486,7 +487,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             if (searchParam != null)
             {
-                await Client.DeleteAsync(searchParam);
+                // Clean up new SearchParameter
+                // When there are multiple instances of the fhir-server running, it could take some time
+                // for the search parameter/reindex updates to propogate to all instances. Hence we are
+                // adding some retries below to account for that delay.
+                int retryCount = 0;
+                bool success = true;
+                do
+                {
+                    success = true;
+                    retryCount++;
+                    try
+                    {
+                        await Client.DeleteAsync(searchParam);
+                    }
+                    catch (Exception exp)
+                    {
+                        _output.WriteLine($"Failed to delete searchParameter: {exp}");
+                        success = false;
+                        await Task.Delay(10000);
+                    }
+                }
+                while (!success && retryCount < 5);
+                Assert.True(success);
                 var ex = await Assert.ThrowsAsync<FhirException>(() => Client.ReadAsync<SearchParameter>(ResourceType.SearchParameter, searchParam.Id));
                 Assert.Contains("Gone", ex.Message);
             }
