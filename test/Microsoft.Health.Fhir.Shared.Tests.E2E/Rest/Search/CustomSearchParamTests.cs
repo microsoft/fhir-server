@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         await Task.Delay(10000);
                     }
                 }
-                while (!success && retryCount < 3);
+                while (!success && retryCount < 10);
 
                 Assert.True(success);
             }
@@ -450,6 +450,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
+                _output.WriteLine($"Skipping because reindex is disabled.");
                 Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
                 return;
             }
@@ -503,12 +504,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception exp)
                     {
-                        _output.WriteLine($"Failed to delete searchParameter: {exp}");
+                        var fhirException = exp as FhirException;
+                        if (fhirException != null && fhirException.OperationOutcome?.Issue != null)
+                        {
+                            foreach (var issue in fhirException.OperationOutcome.Issue)
+                            {
+                                _output.WriteLine("Issue: {message}", issue.Diagnostics);
+                            }
+                        }
+                        else
+                        {
+                            _output.WriteLine($"Failed to delete searchParameter: {exp}");
+                        }
+
                         success = false;
                         await Task.Delay(10000);
                     }
                 }
                 while (!success && retryCount < 5);
+
                 Assert.True(success);
                 var ex = await Assert.ThrowsAsync<FhirException>(() => Client.ReadAsync<SearchParameter>(ResourceType.SearchParameter, searchParam.Id));
                 Assert.Contains("Gone", ex.Message);
