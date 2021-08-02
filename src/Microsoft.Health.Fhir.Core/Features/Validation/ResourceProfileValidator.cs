@@ -3,12 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using FluentValidation;
-using FluentValidation.Results;
-using FluentValidation.Validators;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
@@ -38,18 +35,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _runProfileValidation = runProfileValidation;
         }
 
-        public override IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
+        public override bool IsValid(ValidationContext<ResourceElement> context, ResourceElement value)
         {
             EnsureArg.IsNotNull(context, nameof(context));
+            bool isValid = true;
 
-            if (context.PropertyValue is ResourceElement resourceElement)
+            if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 var fhirContext = _contextAccessor.RequestContext;
                 var profileValidation = _runProfileValidation;
                 if (fhirContext.RequestHeaders.ContainsKey(KnownHeaders.ProfileValidation)
-                    && fhirContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var value))
+                    && fhirContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var hValue))
                 {
-                    if (bool.TryParse(value, out bool headerValue))
+                    if (bool.TryParse(hValue, out bool headerValue))
                     {
                         profileValidation = headerValue;
                     }
@@ -60,18 +58,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     var errors = _profileValidator.TryValidate(resourceElement.Instance);
                     foreach (var error in errors.Where(x => x.Severity == IssueSeverity.Error || x.Severity == IssueSeverity.Fatal))
                     {
-                        yield return new FhirValidationFailure(
+                        var validationFailure = new FhirValidationFailure(
                             resourceElement.InstanceType,
                             error.DetailsText,
                             error);
+                        validationFailure.ErrorCode = "Custom";
+                        context.AddFailure(validationFailure);
+                        isValid = false;
                     }
                 }
 
-                foreach (var baseError in base.Validate(context))
+                if (!base.IsValid(context, value))
                 {
-                    yield return baseError;
+                    isValid = false;
                 }
             }
+
+            return isValid;
         }
     }
 }

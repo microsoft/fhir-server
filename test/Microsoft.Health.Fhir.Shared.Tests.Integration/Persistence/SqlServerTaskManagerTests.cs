@@ -8,12 +8,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.TaskManagement;
 using Xunit;
 using TaskStatus = Microsoft.Health.TaskManagement.TaskStatus;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Persistence
+namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerTaskManagerTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {

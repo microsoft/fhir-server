@@ -324,9 +324,9 @@
     <value>The _type parameter must be included when using the _typeFilter parameter. </value>
     <comment>Export job parameter exception messsage</comment>
   </data>
-  <data name="ContainerRegistryNotConfigured" xml:space="preserve">
-    <value>The container registry '{0}' is not configured.</value>
-    <comment>{0}: the container registry login server</comment>
+  <data name="ConvertDataTemplateNotConfigured" xml:space="preserve">
+    <value>The template collection reference '{0}' is not configured.</value>
+    <comment>{0}: the template collection reference</comment>
   </data>
   <data name="ConfigLocationRequiredForAnonymizedExport" xml:space="preserve">
     <value>Missing '_anonymizationConfig' for anonymized export</value>

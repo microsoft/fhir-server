@@ -34,25 +34,14 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.Validate
             _configuredConformanceProvider
                 .ConfigureOptionalCapabilities(x =>
                 {
-                    if (_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
+                    x.Rest.Server().Operation.Add(new OperationComponent
                     {
-                        x.Rest.Server().Operation.Add(new OperationComponent()
+                        Name = OperationTypes.Validate,
+                        Definition = new ReferenceComponent
                         {
-                            Name = OperationTypes.Validate,
-                            Definition = new ReferenceComponent()
-                            {
-                                Reference = OperationTypes.ValidateUri,
-                            },
-                        });
-                    }
-                    else
-                    {
-                        x.Rest.Server().Operation.Add(new OperationComponent()
-                        {
-                            Name = OperationTypes.Validate,
-                            Definition = OperationTypes.ValidateUri,
-                        });
-                    }
+                            Reference = OperationTypes.ValidateUri,
+                        },
+                    });
                 });
         }
     }

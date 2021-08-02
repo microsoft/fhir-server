@@ -14,33 +14,31 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Client;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
 using FhirGroup = Hl7.Fhir.Model.Group;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [Trait(Traits.Category, Categories.Export)]
+    [Trait(Traits.Category, Categories.AnonymizedExport)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class AnonymizedExportTests : IClassFixture<ExportTestFixture>
     {
+        private const string LocalIntegrationStoreConnectionString = "UseDevelopmentStorage=true";
+
         private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
-        private readonly ExportJobConfiguration _exportConfiguration;
         private readonly MetricHandler _metricHandler;
         private const string RedactResourceIdAnonymizationConfiguration = @"
 {
@@ -55,25 +53,22 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;
             _metricHandler = fixture.MetricHandler;
-            _exportConfiguration = ((IOptions<ExportJobConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ExportJobConfiguration>)))?.Value;
         }
 
-        [SkippableTheory]
+        [Theory]
         [InlineData("")]
         [InlineData("Patient/")]
         public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
-
+            _metricHandler?.ResetCount();
+            var dateTime = DateTimeOffset.UtcNow;
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
             await _testFhirClient.UpdateAsync(resourceToCreate);
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag, path);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, path);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -87,17 +82,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
-        [SkippableFact]
+        [Fact]
         public async Task GivenAValidConfigurationWithETag_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
         {
-            Skip.IfNot(_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             var patientToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var dateTime = DateTimeOffset.UtcNow;
             patientToCreate.Id = Guid.NewGuid().ToString();
             var patientReponse = await _testFhirClient.UpdateAsync(patientToCreate);
             var patientId = patientReponse.Resource.Id;
@@ -120,7 +118,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag, $"Group/{groupId}/");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, $"Group/{groupId}/");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -135,16 +133,19 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             Assert.Equal(2, dataFromExport.Count());
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenAValidConfigurationWithETagNoQuotes_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
-
+            _metricHandler?.ResetCount();
+            var dateTime = DateTimeOffset.UtcNow;
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
             await _testFhirClient.UpdateAsync(resourceToCreate);
@@ -152,7 +153,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             etag = etag.Substring(1, 17);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -166,24 +167,27 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenAValidConfigurationWithoutETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
+            var dateTime = DateTimeOffset.UtcNow;
             await _testFhirClient.UpdateAsync(resourceToCreate);
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -197,147 +201,161 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenInvalidConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
 
             (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
-
+            var dateTime = DateTimeOffset.UtcNow;
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Failed to parse configuration file", responseContent);
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenAGroupIdNotExisted_WhenExportingGroupAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
-
+            _metricHandler?.ResetCount();
+            var dateTime = DateTimeOffset.UtcNow;
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string groupId = "not-exist-id";
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag, $"Group/{groupId}/");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag, $"Group/{groupId}/");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains($"Group {groupId} was not found", responseContent);
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenInvalidEtagProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
-
+            _metricHandler?.ResetCount();
+            var dateTime = DateTimeOffset.UtcNow;
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "\"0x000000000000000\"");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, "\"0x000000000000000\"");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("The condition specified using HTTP conditional header(s) is not met.", responseContent);
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenEtagInWrongFormatProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
-
+            _metricHandler?.ResetCount();
+            var dateTime = DateTimeOffset.UtcNow;
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "\"invalid-etag");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, "\"invalid-etag");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("invalid-etag' is invalid.", responseContent);
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenAContainerNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
+            _metricHandler?.ResetCount();
+            var dateTime = DateTimeOffset.UtcNow;
+            await InitializeAnonymizationContainer();
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", containerName);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", dateTime, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Configuration not found on the destination storage.", responseContent);
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenALargeConfigurationProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
-            _metricHandler.ResetCount();
-
+            _metricHandler?.ResetCount();
+            var dateTime = DateTimeOffset.UtcNow;
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Anonymization configuration is too large", responseContent);
 
-            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            // Only check metric for local tests
+            if (_isUsingInProcTestServer)
+            {
+                Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+            }
         }
 
         [SkippableFact]
         public async Task GivenAnAnonymizedExportRequestWithoutContainerName_WhenExportingAnonymizedData_ThenFhirExceptionShouldBeThrewFromFhirClient()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
-
+            var dateTime = DateTimeOffset.UtcNow;
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = string.Empty;
-            await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, containerName));
+            await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, dateTime, containerName));
         }
 
         private async Task<(string name, string eTag)> UploadConfigurationAsync(string configurationContent, string blobName = null)
         {
             blobName = blobName ?? $"{Guid.NewGuid()}.json";
-            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
-            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            CloudBlobContainer container = blobClient.GetContainerReference("anonymization");
-            await container.CreateIfNotExistsAsync();
+            CloudBlobContainer container = await InitializeAnonymizationContainer();
 
             CloudBlockBlob blob = container.GetBlockBlobReference(blobName);
             await blob.DeleteIfExistsAsync();
@@ -345,6 +363,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await blob.UploadTextAsync(configurationContent);
 
             return (blobName, blob.Properties.ETag);
+        }
+
+        private async Task<CloudBlobContainer> InitializeAnonymizationContainer()
+        {
+            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
+            CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
+            CloudBlobContainer container = blobClient.GetContainerReference("anonymization");
+            await container.CreateIfNotExistsAsync();
+            return container;
         }
 
         private async Task<HttpResponseMessage> WaitForCompleteAsync(Uri contentLocation)
@@ -406,30 +433,28 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
         private CloudStorageAccount GetCloudStorageAccountHelper()
         {
-            CloudStorageAccount cloudAccount = null;
-            string connectionString = _exportConfiguration.StorageAccountConnection;
-            if (string.IsNullOrEmpty(connectionString))
+            CloudStorageAccount storageAccount = null;
+
+            string exportStoreFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestExportStoreUri");
+            string exportStoreKeyFromEnvironmentVariable = Environment.GetEnvironmentVariable("TestExportStoreKey");
+            if (!string.IsNullOrEmpty(exportStoreFromEnvironmentVariable) && !string.IsNullOrEmpty(exportStoreKeyFromEnvironmentVariable))
             {
-                Uri sampleUri = new Uri(_exportConfiguration.StorageAccountUri);
-                string storageAccountName = sampleUri.Host.Split('.')[0];
-                string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
-                if (!string.IsNullOrWhiteSpace(storageSecret))
-                {
-                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
-                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
-                }
+                Uri integrationStoreUri = new Uri(exportStoreFromEnvironmentVariable);
+                string storageAccountName = integrationStoreUri.Host.Split('.')[0];
+                StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, exportStoreKeyFromEnvironmentVariable);
+                storageAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
             }
             else
             {
-                CloudStorageAccount.TryParse(_exportConfiguration.StorageAccountConnection, out cloudAccount);
+                CloudStorageAccount.TryParse(LocalIntegrationStoreConnectionString, out storageAccount);
             }
 
-            if (cloudAccount == null)
+            if (storageAccount == null)
             {
                 throw new Exception("Unable to create a cloud storage account");
             }
 
-            return cloudAccount;
+            return storageAccount;
         }
     }
 }
