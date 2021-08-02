@@ -58554,7 +58554,7 @@
                     },
                     {
                         "definition": "http://hl7.org/fhir/SearchParameter/Observation-value-date",
-                        "expression": "value.as(DateTime) | value.as(Period)"
+                        "expression": "value.as(dateTime) | value.as(Period)"
                     }
                 ]
             }

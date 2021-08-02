@@ -2656,7 +2656,7 @@
         ],
         "type": "date",
         "description": "Multiple Resources: \r\n\r\n* [Consent](consent.html): When this Consent was created or indexed\r\n* [SupplyRequest](supplyrequest.html): When the request was made\r\n* [RiskAssessment](riskassessment.html): When was assessment made?\r\n* [CareTeam](careteam.html): Time period team covers\r\n* [FamilyMemberHistory](familymemberhistory.html): When history was captured/updated\r\n* [Encounter](encounter.html): A date within the period the Encounter lasted\r\n* [AllergyIntolerance](allergyintolerance.html): Date record was believed accurate\r\n* [CarePlan](careplan.html): Time period plan covers\r\n* [EpisodeOfCare](episodeofcare.html): The provided date search value falls within the episode of care's period\r\n* [Procedure](procedure.html): Date/Period the procedure was performed\r\n* [List](list.html): When the list was prepared\r\n* [Immunization](immunization.html): Vaccination  (non)-Administration Date\r\n* [Flag](flag.html): Time period when flag is active\r\n* [Observation](observation.html): Obtained date/time. If the obtained element is a period, a date that falls in the period\r\n* [DiagnosticReport](diagnosticreport.html): The clinically relevant time of the report\r\n* [Composition](composition.html): Composition editing time\r\n* [DetectedIssue](detectedissue.html): When identified\r\n* [ClinicalImpression](clinicalimpression.html): When the assessment was documented\r\n",
-        "expression": "Consent.dateTime | SupplyRequest.authoredOn | RiskAssessment.occurrence.as(DateTime) | CareTeam.period | FamilyMemberHistory.date | Encounter.period | AllergyIntolerance.assertedDate | CarePlan.period | EpisodeOfCare.period | Procedure.performed | List.date | Immunization.date | Flag.period | Observation.effective | DiagnosticReport.effective | Composition.date | DetectedIssue.date | ClinicalImpression.date",
+        "expression": "Consent.dateTime | SupplyRequest.authoredOn | RiskAssessment.occurrence.as(dateTime) | CareTeam.period | FamilyMemberHistory.date | Encounter.period | AllergyIntolerance.assertedDate | CarePlan.period | EpisodeOfCare.period | Procedure.performed | List.date | Immunization.date | Flag.period | Observation.effective | DiagnosticReport.effective | Composition.date | DetectedIssue.date | ClinicalImpression.date",
         "xpath": "f:Consent/f:dateTime | f:SupplyRequest/f:authoredOn | f:RiskAssessment/f:occurrenceDateTime | f:CareTeam/f:period | f:FamilyMemberHistory/f:date | f:Encounter/f:period | f:AllergyIntolerance/f:assertedDate | f:CarePlan/f:period | f:EpisodeOfCare/f:period | f:Procedure/f:performedDateTime | f:Procedure/f:performedPeriod | f:List/f:date | f:Immunization/f:date | f:Flag/f:period | f:Observation/f:effectiveDateTime | f:Observation/f:effectivePeriod | f:DiagnosticReport/f:effectiveDateTime | f:DiagnosticReport/f:effectivePeriod | f:Composition/f:date | f:DetectedIssue/f:date | f:ClinicalImpression/f:date",
         "xpathUsage": "normal"
       }
@@ -11301,7 +11301,7 @@
         ],
         "type": "date",
         "description": "When scheduled",
-        "expression": "CommunicationRequest.occurrence.as(DateTime)",
+        "expression": "CommunicationRequest.occurrence.as(dateTime)",
         "xpath": "f:CommunicationRequest/f:occurrenceDateTime",
         "xpathUsage": "normal"
       }
@@ -13402,7 +13402,7 @@
         ],
         "type": "reference",
         "description": "Identifies the source of the concepts which are being mapped",
-        "expression": "ConceptMap.source.as(Uri)",
+        "expression": "ConceptMap.source.as(uri)",
         "xpath": "f:ConceptMap/f:sourceUri",
         "xpathUsage": "normal",
         "target": [
@@ -13608,7 +13608,7 @@
         ],
         "type": "reference",
         "description": "Provides context to the mappings",
-        "expression": "ConceptMap.target.as(Uri)",
+        "expression": "ConceptMap.target.as(uri)",
         "xpath": "f:ConceptMap/f:targetUri",
         "xpathUsage": "normal",
         "target": [
@@ -18354,7 +18354,7 @@
         ],
         "type": "date",
         "description": "When service should occur",
-        "expression": "DeviceRequest.occurrence.as(DateTime) | DeviceRequest.occurrence.as(Period)",
+        "expression": "DeviceRequest.occurrence.as(dateTime) | DeviceRequest.occurrence.as(Period)",
         "xpath": "f:DeviceRequest/f:occurrenceDateTime | f:DeviceRequest/f:occurrencePeriod",
         "xpathUsage": "normal"
       }
@@ -24442,7 +24442,7 @@
         ],
         "type": "date",
         "description": "When goal pursuit begins",
-        "expression": "Goal.start.as(Date)",
+        "expression": "Goal.start.as(date)",
         "xpath": "f:Goal/f:startDate",
         "xpathUsage": "normal"
       }
@@ -24567,7 +24567,7 @@
         ],
         "type": "date",
         "description": "Reach goal on or before",
-        "expression": "Goal.target.due.as(Date)",
+        "expression": "Goal.target.due.as(date)",
         "xpath": "f:Goal/f:target/f:dueDate",
         "xpathUsage": "normal"
       }
@@ -36857,7 +36857,7 @@
             "definition": {
               "reference": "http://hl7.org/fhir/SearchParameter/Observation-value-date"
             },
-            "expression": "value.as(DateTime) | value.as(Period)"
+            "expression": "value.as(dateTime) | value.as(Period)"
           }
         ]
       }
@@ -38056,7 +38056,7 @@
         ],
         "type": "date",
         "description": "The value of the observation, if the value is a date or period of time",
-        "expression": "Observation.value.as(DateTime) | Observation.value.as(Period)",
+        "expression": "Observation.value.as(dateTime) | Observation.value.as(Period)",
         "xpath": "f:Observation/f:valueDateTime | f:Observation/f:valuePeriod",
         "xpathUsage": "normal"
       }
@@ -38136,7 +38136,7 @@
         ],
         "type": "string",
         "description": "The value of the observation, if the value is a string, and also searches in CodeableConcept.text",
-        "expression": "Observation.value.as(String)",
+        "expression": "Observation.value.as(string)",
         "xpath": "f:Observation/f:valueString",
         "xpathUsage": "normal"
       }
@@ -39728,7 +39728,7 @@
         ],
         "type": "date",
         "description": "The date of death has been provided and satisfies this search value",
-        "expression": "Patient.deceased.as(DateTime)",
+        "expression": "Patient.deceased.as(dateTime)",
         "xpath": "f:Patient/f:deceasedDateTime",
         "xpathUsage": "normal"
       }

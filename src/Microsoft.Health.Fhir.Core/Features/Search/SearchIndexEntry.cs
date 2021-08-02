@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -13,6 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// <summary>
     /// Represents a search index entry.
     /// </summary>
+    [DebuggerDisplay("Parameter: {SearchParameter.Code} {Value}")]
     public class SearchIndexEntry : IEquatable<SearchIndexEntry>
     {
         /// <summary>

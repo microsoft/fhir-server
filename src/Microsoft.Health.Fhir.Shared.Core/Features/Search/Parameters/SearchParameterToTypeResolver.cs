@@ -305,20 +305,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             switch (type.ToUpperInvariant())
             {
-                case "AGE":
+                case "Age":
                     return GetMapping(typeof(Age));
-                case "DATETIME":
-                case "DATE":
+                case "dateTime":
+                case "date":
                     return GetMapping(typeof(FhirDateTime));
-                case "URI":
+                case "uri":
                     return GetMapping(typeof(FhirUri));
-                case "BOOLEAN":
+                case "boolean":
                     return GetMapping(typeof(FhirBoolean));
-                case "STRING":
+                case "string":
                     return GetMapping(typeof(FhirString));
-                case "PERIOD":
+                case "Period":
                     return GetMapping(typeof(Period));
-                case "RANGE":
+                case "Range":
                     return GetMapping(typeof(Range));
                 default:
                     return GetMapping(ModelInfoProvider.Instance.GetTypeForFhirType(type));
