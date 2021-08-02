@@ -303,7 +303,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static ClassMapping GetMapping(string type)
         {
-            switch (type.ToUpperInvariant())
+            switch (type)
             {
                 case "Age":
                     return GetMapping(typeof(Age));
