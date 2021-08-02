@@ -171,7 +171,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var source = new SchemaCompareDatabaseEndpoint(testConnectionString1);
             var target = new SchemaCompareDatabaseEndpoint(testConnectionString2);
-            var comparison = new SchemaComparison(source, target);
+            var comparison = new SchemaComparison(source, target)
+            {
+                Options = { IgnoreWhitespace = true, IgnoreComments = true },
+            };
 
             SchemaComparisonResult result = comparison.Compare();
 

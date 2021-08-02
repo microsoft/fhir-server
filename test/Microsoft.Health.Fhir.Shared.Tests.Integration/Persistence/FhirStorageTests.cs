@@ -691,7 +691,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenAnUpdatedResourceWithWrongResourceId_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
+        public async Task GivenADeletedResource_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
@@ -704,10 +704,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
                 ISearchValue searchValue = new StringSearchValue(searchParamName);
 
-                // Update the resource wrapper, adding the new search parameter and a different ID
-                (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue, null, Guid.NewGuid().ToString());
+                // Update the resource wrapper, adding the new search parameter
+                (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
-                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None));
+                ResourceWrapper deletedWrapper = CreateDeletedWrapper(original);
+                await _dataStore.UpsertAsync(deletedWrapper, WeakETag.FromVersionId(deletedWrapper.Version), allowCreate: true, keepHistory: false, CancellationToken.None);
+
+                // Attempt to reindex the version of the resource that hasn't been deleted
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(updated.Version), CancellationToken.None));
             }
             finally
             {
@@ -819,7 +823,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenUpdatedResourcesWithWrongResourceId_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
+        public async Task GivenDeletedResource_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
             SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
@@ -835,13 +839,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
                 ISearchValue searchValue = new StringSearchValue(searchParamName);
 
-                // Update the resource wrappers, adding the new search parameter and a different ID
-                (_, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue, null, Guid.NewGuid().ToString());
-                (_, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue, null, Guid.NewGuid().ToString());
+                // Update the resource wrappers, adding the new search parameter
+                (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue);
+                (_, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue);
+
+                // Delete one of the two resources
+                ResourceWrapper deletedWrapper = CreateDeletedWrapper(original1);
+                await _dataStore.UpsertAsync(deletedWrapper, WeakETag.FromVersionId(deletedWrapper.Version), allowCreate: true, keepHistory: false, CancellationToken.None);
 
                 var resources = new List<ResourceWrapper> { updated1, updated2 };
 
-                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
+                // Attempt to reindex both resources, one of which has since been deleted and has a version that is out of date.
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
             }
             finally
             {
@@ -894,6 +903,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
 
             return (originalWrapper, updatedWrapper);
+        }
+
+        private ResourceWrapper CreateDeletedWrapper(ResourceWrapper originalWrapper)
+        {
+            return new ResourceWrapper(
+                originalWrapper.ResourceId,
+                originalWrapper.Version,
+                originalWrapper.ResourceTypeName,
+                originalWrapper.RawResource,
+                new ResourceRequest(HttpMethod.Delete, null),
+                originalWrapper.LastModified,
+                deleted: true,
+                originalWrapper.SearchIndices,
+                originalWrapper.CompartmentIndices,
+                originalWrapper.LastModifiedClaims,
+                originalWrapper.SearchParameterHash);
         }
 
         private async Task<SearchParameter> CreatePatientSearchParam(string searchParamName, SearchParamType type, string expression)

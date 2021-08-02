@@ -541,8 +541,8 @@
     <value>The 'handling' value '{0}' is invalid. The supported values are: {1}.</value>
     <comment>{0}: the invalid handling value. {1}: the supported handling values.</comment>
   </data>
-  <data name="ReindexingResourceVersionConflict" xml:space="preserve">
-    <value>The version of one or more resources did not match, indicating that they have been updated since the reindex job kicked off.</value>
+  <data name="ReindexingResourceVersionConflictWithCount" xml:space="preserve">
+    <value>{0} resource(s) failed to reindex due to a non-matching version.</value>
   </data>
   <data name="ReindexingResourceNotFound" xml:space="preserve">
     <value>One or more resources to be reindexed were not found, indicating that they have been deleted since the reindex job kicked off.</value>
@@ -586,5 +586,11 @@
   </data>
   <data name="PatchResourceMustBeJson" xml:space="preserve">
     <value>The resource to patch must be in JSON format.</value>
+  </data>
+  <data name="ReindexingUserAction" xml:space="preserve">
+    <value>Resubmit the same reindex job to finish indexing the remaining resources.</value>
+  </data>
+  <data name="ReindexingResourceVersionConflict" xml:space="preserve">
+    <value>One or more resources failed to reindex due to a non-matching version.</value>
   </data>
 </root>
