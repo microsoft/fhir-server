@@ -67,7 +67,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 // This can occur when SearchService decides to run a second search while processing the current query.
                 // Or it could be a query from the client with a hardcoded "special" continuation token.
                 if (context.SortQuerySecondPhase ||
-                    (continuationToken != null && continuationToken.ResourceSurrogateId == 0 && continuationToken.SortValue == "sentinelSortValue"))
+                    (continuationToken != null &&
+                        continuationToken.ResourceSurrogateId == 0 &&
+                        continuationToken.SortValue == SqlSearchConstants.SortSentinelValueForCt))
                 {
                     context.ContinuationToken = null;
                     if (context.Sort[0].sortOrder == SortOrder.Descending)

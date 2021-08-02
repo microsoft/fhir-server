@@ -1132,8 +1132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 return false;
             }
 
-            var sortParamInfo = context.Sort[0].searchParameterInfo;
-            if (sortParamInfo == null || sortParamInfo.Code == KnownQueryParameterNames.LastUpdated)
+            if (IsPrimaryKeySort(context))
             {
                 return false;
             }

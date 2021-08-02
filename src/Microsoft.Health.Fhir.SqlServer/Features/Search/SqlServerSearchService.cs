@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         // a "special" ct so that we the subsequent request will be handled correctly.
                         var ct = new ContinuationToken(new object[]
                             {
-                                    "sentinelSortValue",
+                                    SqlSearchConstants.SortSentinelValueForCt,
                                     0,
                             });
 
