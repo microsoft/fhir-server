@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -17,6 +18,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.Test.Utilities;
+using Polly;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -27,6 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private const string _resourceType = KnownResourceTypes.Encounter;
         private readonly TestFhirClient _client;
+        private SemaphoreSlim _createSemaphore = new(5, 5);
 
         public ConditionalDeleteTests(HttpIntegrationTestFixture<Startup> fixture)
         {
@@ -108,13 +111,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [InlineData(true)]
         [InlineData(false)]
-        [Theory]
+        [SkippableTheory]
         public async Task Given50MatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully(bool hardDelete)
         {
             var identifier = Guid.NewGuid().ToString();
 
             await Task.WhenAll(Enumerable.Range(1, 50).Select(_ => CreateWithIdentifier(identifier)));
-            await ValidateResults(identifier, 50);
+
+            var countOfCreated = await GetResourceCount(identifier);
+            Skip.If(countOfCreated != 50, "Resources could not be setup correctly to run test.");
 
             FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
 
@@ -126,18 +131,44 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task CreateWithIdentifier(string identifier)
         {
-            Encounter observation = Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco<Encounter>();
+            await _createSemaphore.WaitAsync();
 
-            observation.Identifier.Add(new Identifier("http://e2etests", identifier));
-            using FhirResponse<Encounter> response = await _client.CreateAsync(observation);
+            try
+            {
+                Encounter observation = Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco<Encounter>();
 
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+                observation.Identifier.Add(new Identifier("http://e2etests", identifier));
+
+                await Policy
+                    .Handle<FhirException>(e =>
+                        e.StatusCode == HttpStatusCode.TooManyRequests ||
+                        e.StatusCode == HttpStatusCode.ServiceUnavailable ||
+                        e.StatusCode == HttpStatusCode.BadRequest)
+                    .WaitAndRetryAsync(
+                        5,
+                        retryCount => TimeSpan.FromSeconds(retryCount))
+                    .ExecuteAsync(async () =>
+                    {
+                        using FhirResponse<Encounter> response = await _client.CreateAsync(observation);
+                        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+                    });
+            }
+            finally
+            {
+                _createSemaphore.Release();
+            }
         }
 
         private async Task ValidateResults(string identifier, int expected)
         {
+            var result = await GetResourceCount(identifier);
+            Assert.Equal(expected, result);
+        }
+
+        private async Task<int?> GetResourceCount(string identifier)
+        {
             FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_total=accurate");
-            Assert.Equal(expected, result.Resource.Total);
+            return result.Resource.Total;
         }
     }
 }
