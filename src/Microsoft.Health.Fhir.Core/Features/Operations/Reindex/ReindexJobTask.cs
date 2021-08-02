@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.SearchParams.Add(searchParams);
             }
 
-            await CalculateTotalAndResourceCounts();
+            await CalculateAndSetTotalAndResourceCounts();
 
             if (_reindexJobRecord.Count == 0)
             {
@@ -447,8 +447,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // For cases like retry or stale query we don't want to start another chain.
                     if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.CreatedChild)
                     {
-                        var encodedContinuationToken =
-                            Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(results.ContinuationToken));
+                        var encodedContinuationToken = ContinuationTokenConverter.Encode(results.ContinuationToken);
                         var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
                         {
                             LastModified = Clock.UtcNow,
@@ -483,9 +482,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // to ensure reindex job document doesn't grow too large
                         if (_reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).Count() > 10)
                         {
-                            var queryStatusToRemove = _reindexJobRecord.QueryList.Keys
-                                .Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified)
-                                .FirstOrDefault();
+                            var queryStatusToRemove = _reindexJobRecord.QueryList.Keys.Where(q => q.Status == OperationStatus.Completed).OrderBy(q => q.LastModified).FirstOrDefault();
                             _reindexJobRecord.QueryList.TryRemove(queryStatusToRemove, out var removedByte);
                         }
 
@@ -565,7 +562,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // all queries marked as complete, reindex job is done, check success or failure
                 if (_reindexJobRecord.QueryList.Keys.All(q => q.Status == OperationStatus.Completed))
                 {
-                    await UpdateParametersAndCompleteJob();
+                    // Perform a final check to make sure there are no resources left to reindex
+                    (int totalCount, List<string> resourcesTypes) = await CalculateTotalCount();
+                    if (totalCount != 0)
+                    {
+                        string message = $"{totalCount} resource(s) of the following type(s) failed to be reindexed: '{string.Join("', '", resourcesTypes)}'.";
+                        string userMessage = message + " Resubmit the same reindex job to finish indexing the remaining resources.";
+                        _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Incomplete,
+                            userMessage));
+                        _logger.LogError(message);
+
+                        await MoveToFinalStatusAsync(OperationStatus.Failed);
+                    }
+                    else
+                    {
+                        await UpdateParametersAndCompleteJob();
+                    }
                 }
                 else
                 {
@@ -629,7 +643,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task CalculateTotalAndResourceCounts()
+        private async Task CalculateAndSetTotalAndResourceCounts()
         {
             int totalCount = 0;
             foreach (string resourceType in _reindexJobRecord.Resources)
@@ -656,6 +670,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             _reindexJobRecord.Count = totalCount;
+        }
+
+        private async Task<(int totalCount, List<string> resourcesTypes)> CalculateTotalCount()
+        {
+            int totalCount = 0;
+            var resourcesTypes = new List<string>();
+
+            foreach (string resourceType in _reindexJobRecord.Resources)
+            {
+                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                {
+                    LastModified = Clock.UtcNow,
+                    Status = OperationStatus.Queued,
+                };
+
+                SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, _cancellationToken);
+
+                if (countOnlyResults?.TotalCount != null && countOnlyResults.TotalCount.Value > 0)
+                {
+                    totalCount += countOnlyResults.TotalCount.Value;
+                    resourcesTypes.Add(resourceType);
+                }
+            }
+
+            return (totalCount, resourcesTypes);
         }
 
         private async Task UpdateParametersAndCompleteJob()

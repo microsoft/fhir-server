@@ -138,6 +138,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     // this means there is already an existing version of this resource
                 }
+                catch (CosmosException e) when (e.IsServiceUnavailableDueToTimeout())
+                {
+                    throw new CosmosException(e.Message, HttpStatusCode.RequestTimeout, e.SubStatusCode, e.ActivityId, e.RequestCharge);
+                }
             }
 
             while (true)

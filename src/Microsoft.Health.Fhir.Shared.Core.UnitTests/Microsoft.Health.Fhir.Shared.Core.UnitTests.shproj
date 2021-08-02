@@ -11,6 +11,7 @@
   
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ExportAnonymizerFactoryTests.cs" />
+	<None Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ExportAnonymizerTests.cs" />
     <None Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\ContainerRegistryTemplateProviderTests.cs" />
     <None Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\ConvertDataEngineTests.cs" />
     <None Include="$(MSBuildThisFileDirectory)Features\Operations\ConvertData\ConvertDataRequestHandlerTests.cs" />

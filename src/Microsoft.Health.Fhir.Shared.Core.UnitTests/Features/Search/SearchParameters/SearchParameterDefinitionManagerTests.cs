@@ -428,19 +428,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             searchService.SearchAsync(
                 "SearchParameter",
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(
-                    l => l.FirstOrDefault().Item2 == Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("token"))),
+                    l => l.FirstOrDefault().Item2 == ContinuationTokenConverter.Encode("token")),
                 Arg.Any<CancellationToken>())
                 .Returns(result2);
             searchService.SearchAsync(
                 "SearchParameter",
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(
-                    l => l.FirstOrDefault().Item2 == Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("token2"))),
+                    l => l.FirstOrDefault().Item2 == ContinuationTokenConverter.Encode("token2")),
                 Arg.Any<CancellationToken>())
                 .Returns(result3);
             searchService.SearchAsync(
                 "SearchParameter",
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(
-                    l => l.FirstOrDefault().Item2 == Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("token3"))),
+                    l => l.FirstOrDefault().Item2 == ContinuationTokenConverter.Encode("token3")),
                 Arg.Any<CancellationToken>())
                 .Returns(result4);
 

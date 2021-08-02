@@ -5,9 +5,7 @@
 
 using System.Text;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -18,21 +16,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ResourceToNdjsonBytesSerializer : IResourceToByteArraySerializer
     {
-        private readonly FhirJsonSerializer _fhirJsonSerializer;
-
-        public ResourceToNdjsonBytesSerializer(FhirJsonSerializer fhirJsonSerializer)
-        {
-            EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
-
-            _fhirJsonSerializer = fhirJsonSerializer;
-        }
-
         /// <inheritdoc />
         public byte[] Serialize(ResourceElement resourceElement)
         {
             EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            string resourceData = _fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Resource>());
+            string resourceData = resourceElement.Instance.ToJson();
 
             byte[] bytesToWrite = Encoding.UTF8.GetBytes($"{resourceData}\n");
 
