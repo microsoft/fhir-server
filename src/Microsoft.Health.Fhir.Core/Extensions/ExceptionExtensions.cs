@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 
