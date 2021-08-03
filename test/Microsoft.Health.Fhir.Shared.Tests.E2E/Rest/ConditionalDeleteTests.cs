@@ -18,7 +18,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.Test.Utilities;
-using Polly;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -111,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [InlineData(true)]
         [InlineData(false)]
-        [SkippableTheory]
+        [Theory]
         public async Task Given50MatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully(bool hardDelete)
         {
             var identifier = Guid.NewGuid().ToString();
@@ -119,12 +118,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await Task.WhenAll(Enumerable.Range(1, 50).Select(_ => CreateWithIdentifier(identifier)));
 
             var countOfCreated = await GetResourceCount(identifier);
-            Skip.If(countOfCreated != 50, "Resources could not be setup correctly to run test.");
 
             FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Equal(50, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
+            Assert.Equal(countOfCreated, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
 
             await ValidateResults(identifier, 0);
         }
@@ -135,23 +133,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             try
             {
-                Encounter observation = Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco<Encounter>();
+                Encounter encounter = Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco<Encounter>();
 
-                observation.Identifier.Add(new Identifier("http://e2etests", identifier));
+                encounter.Identifier.Add(new Identifier("http://e2etests", identifier));
+                using FhirResponse<Encounter> response = await _client.CreateAsync(encounter);
 
-                await Policy
-                    .Handle<FhirException>(e =>
-                        e.StatusCode == HttpStatusCode.TooManyRequests ||
-                        e.StatusCode == HttpStatusCode.ServiceUnavailable ||
-                        e.StatusCode == HttpStatusCode.BadRequest)
-                    .WaitAndRetryAsync(
-                        5,
-                        retryCount => TimeSpan.FromSeconds(retryCount))
-                    .ExecuteAsync(async () =>
-                    {
-                        using FhirResponse<Encounter> response = await _client.CreateAsync(observation);
-                        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-                    });
+                Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             }
             finally
             {
@@ -167,7 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         private async Task<int?> GetResourceCount(string identifier)
         {
-            FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_total=accurate");
+            FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_summary=count");
             return result.Resource.Total;
         }
     }
