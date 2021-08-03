@@ -13,6 +13,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -20,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Models
     [DebuggerDisplay("{Name}, Type: {Type}")]
     public class SearchParameterInfo : IEquatable<SearchParameterInfo>
     {
+        public static readonly SearchParameterInfo ResourceTypeSearchParameter = new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, SearchParamType.Token, SearchParameterNames.ResourceTypeUri, null, "Resource.type().name", null);
+
         public SearchParameterInfo(
             string name,
             string code,
