@@ -352,6 +352,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 EnsureArg.IsNotNull(compoundCode, nameof(compoundCode));
                 EnsureArg.IsNotNull(redirectUri, nameof(redirectUri));
+                EnsureArg.IsNotNull(clientId, nameof(clientId));
+                EnsureArg.IsNotNull(clientSecret, nameof(clientSecret));
             }
             catch (ArgumentNullException ex)
             {
@@ -372,16 +374,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
-
-            try
-            {
-                EnsureArg.IsNotNull(clientId, nameof(clientId));
-                EnsureArg.IsNotNull(clientSecret, nameof(clientSecret));
-            }
-            catch (ArgumentNullException ex)
-            {
-                throw new AadSmartOnFhirProxyBadRequestException(string.Format(Resources.ValueCannotBeNull, ex.ParamName), ex);
-            }
 
             using var content = new FormUrlEncodedContent(
                  new[]
