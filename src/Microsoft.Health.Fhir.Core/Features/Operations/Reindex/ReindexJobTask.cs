@@ -17,6 +17,7 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -446,7 +447,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // For cases like retry or stale query we don't want to start another chain.
                     if (!string.IsNullOrEmpty(results?.ContinuationToken) && !query.CreatedChild)
                     {
-                        var encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(results.ContinuationToken));
+                        var encodedContinuationToken = ContinuationTokenConverter.Encode(results.ContinuationToken);
                         var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
                         {
                             LastModified = Clock.UtcNow,
@@ -500,33 +501,51 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 return query;
             }
+            catch (FhirException ex)
+            {
+                return await HandleQueryException(query, ex, true, cancellationToken);
+            }
             catch (Exception ex)
             {
-                await _jobSemaphore.WaitAsync(cancellationToken);
-                try
-                {
-                    query.Error = ex.Message;
-                    query.FailureCount++;
-                    _logger.LogError(ex, "Encountered an unhandled exception. The query failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
-
-                    if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
-                    {
-                        query.Status = OperationStatus.Failed;
-                    }
-                    else
-                    {
-                        query.Status = OperationStatus.Queued;
-                    }
-
-                    await UpdateJobAsync();
-                }
-                finally
-                {
-                    _jobSemaphore.Release();
-                }
-
-                return query;
+                return await HandleQueryException(query, ex, false, cancellationToken);
             }
+        }
+
+        private async Task<ReindexJobQueryStatus> HandleQueryException(ReindexJobQueryStatus query, Exception ex, bool isFhirException, CancellationToken cancellationToken)
+        {
+            await _jobSemaphore.WaitAsync(cancellationToken);
+            try
+            {
+                query.Error = ex.Message;
+                query.FailureCount++;
+                _logger.LogError(ex, "Encountered an unhandled exception. The query failure count increased to {failureCount}.", _reindexJobRecord.FailureCount);
+
+                if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
+                {
+                    if (isFhirException)
+                    {
+                        var issue = new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Exception,
+                            ex.Message);
+                        _reindexJobRecord.Error.Add(issue);
+                    }
+
+                    query.Status = OperationStatus.Failed;
+                }
+                else
+                {
+                    query.Status = OperationStatus.Queued;
+                }
+
+                await UpdateJobAsync();
+            }
+            finally
+            {
+                _jobSemaphore.Release();
+            }
+
+            return query;
         }
 
         private async Task CheckJobCompletionStatus()

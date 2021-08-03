@@ -138,6 +138,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     // this means there is already an existing version of this resource
                 }
+                catch (CosmosException e) when (e.IsServiceUnavailableDueToTimeout())
+                {
+                    throw new CosmosException(e.Message, HttpStatusCode.RequestTimeout, e.SubStatusCode, e.ActivityId, e.RequestCharge);
+                }
             }
 
             while (true)
@@ -352,16 +356,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
+                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
                         throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
-                    case HttpStatusCode.NotFound:
-                        throw new ResourceNotFoundException(string.Format(
-                            Core.Resources.ResourceNotFoundByIdAndVersion,
-                            resourceWrapper.ResourceTypeName,
-                            resourceWrapper.ResourceId,
-                            weakETag));
-
                     case HttpStatusCode.ServiceUnavailable:
+                        _logger.LogError("Failed to reindex resource because the Cosmos service was unavailable.");
                         throw new ServiceUnavailableException();
                 }
 
