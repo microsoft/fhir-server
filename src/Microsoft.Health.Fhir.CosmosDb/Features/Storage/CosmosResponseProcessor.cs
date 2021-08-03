@@ -59,18 +59,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage)
         {
+            Exception exception = null;
+
             if (statusCode == HttpStatusCode.TooManyRequests)
             {
                 string retryHeader = headers["x-ms-retry-after-ms"];
-                var exception = new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
-                await EmitExceptionNotificationAsync(statusCode, exception);
-                throw exception;
+                exception = new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
             }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
-                var exception = new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
-                await EmitExceptionNotificationAsync(statusCode, exception);
-                throw exception;
+                exception = new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
             }
             else if (statusCode == HttpStatusCode.RequestEntityTooLarge
                      || (statusCode == HttpStatusCode.BadRequest && errorMessage.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase)))
@@ -78,19 +76,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // There are multiple known failures relating to RequestEntityTooLarge.
                 // 1. When the document size is ~2mb (just under or at the limit) it can make it into the stored proc and fail on create
                 // 2. Larger documents are rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
-                var exception = new Core.Exceptions.RequestEntityTooLargeException();
-                await EmitExceptionNotificationAsync(statusCode, exception);
-                throw exception;
+                exception = new Core.Exceptions.RequestEntityTooLargeException();
             }
             else if (statusCode == HttpStatusCode.Forbidden)
             {
                 int? subStatusValue = headers.GetSubStatusValue();
                 if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
                 {
-                    var exception = new Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
-                    await EmitExceptionNotificationAsync(statusCode, exception);
-                    throw exception;
+                    exception = new Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
                 }
+            }
+
+            if (exception != null)
+            {
+                await EmitExceptionNotificationAsync(statusCode, exception);
+                throw exception;
             }
         }
 
@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
-                var innerMostException = exception.GetInnerMostException();
+                var innerMostException = exception.GetBaseException();
 
                 exceptionNotification.CorrelationId = fhirRequestContext?.CorrelationId;
                 exceptionNotification.FhirOperation = fhirRequestContext?.AuditEventType;

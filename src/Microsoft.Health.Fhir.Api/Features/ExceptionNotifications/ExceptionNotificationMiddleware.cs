@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
                 try
                 {
                     IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
-                    var innerMostException = exception.GetInnerMostException();
+                    var innerMostException = exception.GetBaseException();
 
                     exceptionNotification.CorrelationId = fhirRequestContext?.CorrelationId;
                     exceptionNotification.FhirOperation = fhirRequestContext?.AuditEventType;
