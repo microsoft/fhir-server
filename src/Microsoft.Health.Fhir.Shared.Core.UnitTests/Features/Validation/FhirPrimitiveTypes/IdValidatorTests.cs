@@ -3,13 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using FluentValidation;
-using FluentValidation.Internal;
-using FluentValidation.Results;
-using FluentValidation.Validators;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Validation.FhirPrimitiveTypes;
 using Microsoft.Health.Fhir.Core.Models;
@@ -29,18 +23,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         {
             var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 
-            IEnumerable<ValidationFailure> result = GetValidationFailures(defaultObservation);
-            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
+            var result = GetValidationFailures(defaultObservation);
 
-            Assert.Single(validationFailures);
-
-            var actualPartialFhirPath = validationFailures.FirstOrDefault()?.PropertyName;
-
-            var expectedPartialFhirPath = validationFailures?.FirstOrDefault()?.PropertyName;
-            expectedPartialFhirPath = string.IsNullOrEmpty(expectedPartialFhirPath) ? string.Empty : expectedPartialFhirPath;
-
-            // TODO: Test full path once resource type is included in path.
-            Assert.Equal(expectedPartialFhirPath, actualPartialFhirPath);
+            Assert.False(result);
         }
 
         [Theory]
@@ -54,23 +39,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         {
             var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 
-            IEnumerable<ValidationFailure> result = GetValidationFailures(defaultObservation);
+            var result = GetValidationFailures(defaultObservation);
 
-            Assert.Empty(result);
+            Assert.True(result);
         }
 
-        private static IEnumerable<ValidationFailure> GetValidationFailures(ResourceElement defaultObservation)
+        private static bool GetValidationFailures(ResourceElement defaultObservation)
         {
-            var validator = new IdValidator();
-
-            var result = validator.Validate(
-                new PropertyValidatorContext(
-                    new ValidationContext<ResourceElement>(defaultObservation),
-                    PropertyRule.Create<ResourceElement, string>(x => x.Id),
-                    "Id",
-                    defaultObservation.Id));
-
-            return result;
+            var validator = new IdValidator<ResourceElement>();
+            var validationContext = new ValidationContext<ResourceElement>(defaultObservation);
+            return validator.IsValid(validationContext, defaultObservation.Id);
         }
     }
 }

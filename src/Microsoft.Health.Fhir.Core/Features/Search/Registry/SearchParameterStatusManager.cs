@@ -109,6 +109,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)
         {
+            EnsureArg.IsNotNull(searchParameterUris);
+
+            if (searchParameterUris.Count == 0)
+            {
+                return;
+            }
+
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
             var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses())
@@ -116,6 +123,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (string uri in searchParameterUris)
             {
+                _logger.LogTrace("Setting the search parameter status of '{uri}' to '{newStatus}'", uri, status.ToString());
+
                 var searchParamUri = new Uri(uri);
 
                 SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
@@ -182,19 +191,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (var paramStatus in updatedSearchParameterStatus)
             {
-                var param = _searchParameterDefinitionManager.GetSearchParameter(paramStatus.Uri);
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri, out var param))
+                {
+                    var tempStatus = EvaluateSearchParamStatus(paramStatus);
 
-                var tempStatus = EvaluateSearchParamStatus(paramStatus);
+                    param.IsSearchable = tempStatus.IsSearchable;
+                    param.IsSupported = tempStatus.IsSupported;
+                    param.IsPartiallySupported = tempStatus.IsPartiallySupported;
+                    param.SortStatus = paramStatus.SortStatus;
 
-                param.IsSearchable = tempStatus.IsSearchable;
-                param.IsSupported = tempStatus.IsSupported;
-                param.IsPartiallySupported = tempStatus.IsPartiallySupported;
-                param.SortStatus = paramStatus.SortStatus;
-
-                updated.Add(param);
+                    updated.Add(param);
+                }
+                else if (!updatedSearchParameterStatus.Any(p => p.Uri.Equals(paramStatus.Uri) && p.Status == SearchParameterStatus.Deleted))
+                {
+                    // if we cannot find the search parameter in the search parameter definition manager
+                    // and there is an entry in the list of updates with a delete status then it indicates
+                    // the search parameter was deleted before it was added to this instance, and there is no issue
+                    // however if there is no indication that the search parameter was deleted, then there is a problem
+                    throw new UnableToUpdateSearchParameterException(paramStatus.Uri);
+                }
             }
 
-            _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
+            if (updatedSearchParameterStatus.Any())
+            {
+                _latestSearchParams = updatedSearchParameterStatus.Select(p => p.LastUpdated).Max();
+            }
 
             _searchParameterStatusDataStore.SyncStatuses(updatedSearchParameterStatus);
 

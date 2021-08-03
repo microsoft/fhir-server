@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -372,7 +373,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
             Assert.NotEqual(saveResult.RawResourceElement.VersionId, deletedResourceKey.ResourceKey.VersionId);
 
@@ -385,7 +386,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             string id = "missingid";
 
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", id), DeleteOperation.SoftDelete);
 
             Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
@@ -400,9 +401,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var resourceKey = new ResourceKey("Observation", saveResult.RawResourceElement.Id);
 
-            await Mediator.DeleteResourceAsync(resourceKey, false);
+            await Mediator.DeleteResourceAsync(resourceKey, DeleteOperation.SoftDelete);
 
-            var deletedResourceKey2 = await Mediator.DeleteResourceAsync(resourceKey, false);
+            var deletedResourceKey2 = await Mediator.DeleteResourceAsync(resourceKey, DeleteOperation.SoftDelete);
 
             Assert.Null(deletedResourceKey2.ResourceKey.VersionId);
 
@@ -417,7 +418,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), true);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.HardDelete);
 
             Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
@@ -441,11 +442,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var deserializedResult = createResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
             string resourceId = createResult.RawResourceElement.Id;
 
-            var deleteResult = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), false);
+            var deleteResult = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), DeleteOperation.SoftDelete);
             var updateResult = await Mediator.UpsertResourceAsync(deserializedResult);
 
             // Hard-delete the resource.
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), true);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), DeleteOperation.HardDelete);
 
             Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
@@ -483,14 +484,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task WhenDeletingSpecificVersion_ThenMethodNotAllowedIsThrown()
         {
             await Assert.ThrowsAsync<MethodNotAllowedException>(
-                async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), false); });
+                async () => { await Mediator.DeleteResourceAsync(new ResourceKey<Observation>(Guid.NewGuid().ToString(), Guid.NewGuid().ToString()), DeleteOperation.SoftDelete); });
         }
 
         [Fact]
         public async Task GivenADeletedResource_WhenUpsertingWithValidETagHeader_ThenTheDeletedResourceIsRevived()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
             Assert.NotEqual(saveResult.RawResourceElement.VersionId, deletedResourceKey.ResourceKey.VersionId);
             await Assert.ThrowsAsync<ResourceGoneException>(
@@ -690,7 +691,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenAnUpdatedResourceWithWrongResourceId_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
+        public async Task GivenADeletedResource_WhenUpdatingSearchParameterIndexAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource = CreatePatientResourceElement("Patient", Guid.NewGuid().ToString());
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
@@ -703,10 +704,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
                 ISearchValue searchValue = new StringSearchValue(searchParamName);
 
-                // Update the resource wrapper, adding the new search parameter and a different ID
-                (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue, null, Guid.NewGuid().ToString());
+                // Update the resource wrapper, adding the new search parameter
+                (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingPatient(upsertResult, searchParam, searchValue);
 
-                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None));
+                ResourceWrapper deletedWrapper = CreateDeletedWrapper(original);
+                await _dataStore.UpsertAsync(deletedWrapper, WeakETag.FromVersionId(deletedWrapper.Version), allowCreate: true, keepHistory: false, CancellationToken.None);
+
+                // Attempt to reindex the version of the resource that hasn't been deleted
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchParameterIndicesAsync(updated, WeakETag.FromVersionId(updated.Version), CancellationToken.None));
             }
             finally
             {
@@ -818,7 +823,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenUpdatedResourcesWithWrongResourceId_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
+        public async Task GivenDeletedResource_WhenBulkUpdatingSearchParameterIndicesAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource1 = CreatePatientResourceElement("Patient1", Guid.NewGuid().ToString());
             SaveOutcome upsertResult1 = await Mediator.UpsertResourceAsync(patientResource1);
@@ -834,13 +839,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchParam = await CreatePatientSearchParam(searchParamName, SearchParamType.String, "Patient.name");
                 ISearchValue searchValue = new StringSearchValue(searchParamName);
 
-                // Update the resource wrappers, adding the new search parameter and a different ID
-                (_, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue, null, Guid.NewGuid().ToString());
-                (_, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue, null, Guid.NewGuid().ToString());
+                // Update the resource wrappers, adding the new search parameter
+                (ResourceWrapper original1, ResourceWrapper updated1) = await CreateUpdatedWrapperFromExistingPatient(upsertResult1, searchParam, searchValue);
+                (_, ResourceWrapper updated2) = await CreateUpdatedWrapperFromExistingPatient(upsertResult2, searchParam, searchValue);
+
+                // Delete one of the two resources
+                ResourceWrapper deletedWrapper = CreateDeletedWrapper(original1);
+                await _dataStore.UpsertAsync(deletedWrapper, WeakETag.FromVersionId(deletedWrapper.Version), allowCreate: true, keepHistory: false, CancellationToken.None);
 
                 var resources = new List<ResourceWrapper> { updated1, updated2 };
 
-                await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
+                // Attempt to reindex both resources, one of which has since been deleted and has a version that is out of date.
+                await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.BulkUpdateSearchParameterIndicesAsync(resources, CancellationToken.None));
             }
             finally
             {
@@ -893,6 +903,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
 
             return (originalWrapper, updatedWrapper);
+        }
+
+        private ResourceWrapper CreateDeletedWrapper(ResourceWrapper originalWrapper)
+        {
+            return new ResourceWrapper(
+                originalWrapper.ResourceId,
+                originalWrapper.Version,
+                originalWrapper.ResourceTypeName,
+                originalWrapper.RawResource,
+                new ResourceRequest(HttpMethod.Delete, null),
+                originalWrapper.LastModified,
+                deleted: true,
+                originalWrapper.SearchIndices,
+                originalWrapper.CompartmentIndices,
+                originalWrapper.LastModifiedClaims,
+                originalWrapper.SearchParameterHash);
         }
 
         private async Task<SearchParameter> CreatePatientSearchParam(string searchParamName, SearchParamType type, string expression)

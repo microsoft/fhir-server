@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Web;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E
+namespace Microsoft.Health.Fhir.Tests.E2E
 {
     public class StartupBaseForCustomProviders : Startup
     {

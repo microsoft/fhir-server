@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,7 +32,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static FhirTypedElementToSearchValueConverterManager _fhirTypedElementToSearchValueConverterManager;
 
         private SearchParameterDefinitionManager _searchDefinitionManager;
-        private SupportedSearchParameterDefinitionManager _supportedSearchDefinitionManager;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         static SearchParameterFixtureData()
@@ -43,11 +44,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task<SearchParameterDefinitionManager> GetSearchDefinitionManagerAsync()
         {
             return _searchDefinitionManager ??= await CreateSearchParameterDefinitionManagerAsync(new VersionSpecificModelInfoProvider(), _mediator);
-        }
-
-        public async Task<SupportedSearchParameterDefinitionManager> GetSupportedSearchDefinitionManagerAsync()
-        {
-            return _supportedSearchDefinitionManager ??= new SupportedSearchParameterDefinitionManager(await GetSearchDefinitionManagerAsync());
         }
 
         public static async Task<FhirTypedElementToSearchValueConverterManager> GetFhirTypedElementToSearchValueConverterManagerAsync()
@@ -66,8 +62,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
             await codeSystemResolver.StartAsync(CancellationToken.None);
 
-            var fhirElementToSearchValueConverters =
-                types.Select(x => (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(x, referenceSearchValueParser, codeSystemResolver));
+            var fhirElementToSearchValueConverters = new List<ITypedElementToSearchValueConverter>();
+
+            foreach (Type type in types)
+            {
+                // Filter out the extension converter because it will be added to the converter dictionary in the converter manager's constructor
+                if (type.Name != nameof(FhirTypedElementToSearchValueConverterManager.ExtensionConverter))
+                {
+                    var x = (ITypedElementToSearchValueConverter)Mock.TypeWithArguments(type, referenceSearchValueParser, codeSystemResolver);
+                    fhirElementToSearchValueConverters.Add(x);
+                }
+            }
 
             return new FhirTypedElementToSearchValueConverterManager(fhirElementToSearchValueConverters);
         }

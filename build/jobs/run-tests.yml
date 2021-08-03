@@ -98,6 +98,15 @@ jobs:
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
 
+        $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
+        $exportStoreUri = $exportStoreSettings[0].Value
+        Write-Host "$exportStoreUri"
+        $exportStoreAccountName = [System.Uri]::new("$exportStoreUri").Host.Split('.')[0]
+        $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
+
+        Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
+        Write-Host "##vso[task.setvariable variable=TestExportStoreKey]$($exportStoreKey.Value)"
+
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
@@ -133,6 +142,8 @@ jobs:
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestContainerRegistryServer': $(TestContainerRegistryServer)
       'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
+      'TestExportStoreUri': $(TestExportStoreUri)
+      'TestExportStoreKey': $(TestExportStoreKey)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
@@ -207,6 +218,15 @@ jobs:
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryServer]$($acrLoginServer)"
         Write-Host "##vso[task.setvariable variable=TestContainerRegistryPassword]$($acrPassword)"
 
+        $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
+        $exportStoreUri = $exportStoreSettings[0].Value
+        Write-Host "$exportStoreUri"
+        $exportStoreAccountName = [System.Uri]::new("$exportStoreUri").Host.Split('.')[0]
+        $exportStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$exportStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
+        
+        Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
+        Write-Host "##vso[task.setvariable variable=TestExportStoreKey]$($exportStoreKey.Value)"
+
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
@@ -242,6 +262,8 @@ jobs:
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestContainerRegistryServer': $(TestContainerRegistryServer)
       'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
+      'TestExportStoreUri': $(TestExportStoreUri)
+      'TestExportStoreKey': $(TestExportStoreKey)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)

@@ -28,20 +28,12 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
+    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         public BasicSearchTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
         }
-
-        public async Task InitializeAsync()
-        {
-            // Delete all patients before starting the test.
-            await Client.DeleteAllResources(ResourceType.Patient);
-        }
-
-        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -80,26 +72,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchedByResourceType_ThenOnlyResourcesMatchingTheResourceTypeShouldBeReturned()
         {
+            var tag = Guid.NewGuid().ToString();
+
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3, tag);
             await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
             await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>());
-
-            await ExecuteAndValidateBundle("Patient", patients);
+            Bundle bundle = await Client.SearchAsync("Patient");
+            foreach (var entity in bundle.Entry.Where(x => x.Search.Mode == Bundle.SearchEntryMode.Match))
+            {
+                Assert.Equal("Patient", entity.Resource.TypeName);
+            }
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourcesWithVariousValues_WhenSearchedWithTheMissingModifer_ThenOnlyTheResourcesWithMissingOrPresentParametersAreReturned()
         {
-            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p => p.Gender = AdministrativeGender.Female)).Single();
-            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p => { })).Single();
+            var tag = Guid.NewGuid().ToString();
+            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Gender = AdministrativeGender.Female;
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            })).Single();
+            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            })).Single();
 
-            await ExecuteAndValidateBundle("Patient?gender:missing=true", unspecifiedPatient);
-            await ExecuteAndValidateBundle("Patient?gender:missing=false", femalePatient);
+            await ExecuteAndValidateBundle($"Patient?gender:missing=true&_tag={tag}", unspecifiedPatient);
+            await ExecuteAndValidateBundle($"Patient?gender:missing=false&_tag={tag}", femalePatient);
 
-            await ExecuteAndValidateBundle("Patient?_type:missing=true");
-            await ExecuteAndValidateBundle("Patient?_type:missing=false", femalePatient, unspecifiedPatient);
+            await ExecuteAndValidateBundle($"Patient?address:missing=false&_tag={tag}");
+            await ExecuteAndValidateBundle($"Patient?address:missing=true&_tag={tag}", femalePatient, unspecifiedPatient);
         }
 
         [Fact]
@@ -125,31 +142,75 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourcesWithMissingReference_WhenSearchedWithTheMissingModiferAndOtherParameter_ThenOnlyMatchingResourcesWithMissingOrPresentReferenceAreReturned()
         {
+            var tag = Guid.NewGuid().ToString();
             Patient patientWithReference = (await Client.CreateResourcesAsync<Patient>(p =>
             {
                 p.Gender = AdministrativeGender.Female;
                 p.ManagingOrganization = new ResourceReference("Organization/123");
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
             })).Single();
-            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p => p.Gender = AdministrativeGender.Female)).Single();
-            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p => { })).Single();
+            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Gender = AdministrativeGender.Female;
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            })).Single();
+            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", tag),
+                    },
+                };
+            })).Single();
 
-            await ExecuteAndValidateBundle("Patient?gender=female&organization:missing=true", femalePatient);
-            await ExecuteAndValidateBundle("Patient?gender=female&organization:missing=false", patientWithReference);
+            await ExecuteAndValidateBundle($"Patient?gender=female&organization:missing=true&_tag={tag}", femalePatient);
+            await ExecuteAndValidateBundle($"Patient?gender=female&organization:missing=false&_tag={tag}", patientWithReference);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task GivenTooBigPostRequest_WhenSearching_ThenDontCrashServer()
+        {
+            var sb = new StringBuilder();
+
+            for (int i = 0; i < 100_000; i++)
+            {
+                sb.Append('a');
+            }
+
+            await Client.SearchPostAsync("Patient", default, ("name", sb.ToString()));
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypes_ThenOnlyResourcesMatchingTypeParameterShouldBeReturned()
         {
+            var tag = Guid.NewGuid().ToString();
+
             // Create various resources.
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3, tag);
             Observation observation = (await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>())).Resource;
             Organization organization = (await Client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>())).Resource;
 
-            await ExecuteAndValidateBundle("?_type=Patient", patients);
+            await ExecuteAndValidateBundle($"?_type=Patient&_tag={tag}", patients);
 
-            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"));
-            ValidateBundle(bundle, "?_type=Patient", patients);
+            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"), ("_tag", tag));
+            ValidateBundle(bundle, $"?_type=Patient&_tag={tag}", patients);
 
             bundle = await Client.SearchAsync("?_type=Observation,Patient");
             Assert.True(bundle.Entry.Count > patients.Length);
@@ -157,6 +218,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.True(bundle.Entry.Count > patients.Length);
 
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={observation.Id}", observation);
+
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", observation.Id));
             ValidateBundle(bundle, $"?_type=Patient,Observation&_id={observation.Id}", observation);
 
@@ -270,18 +332,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenSomeInvalidTypeOfResources_WhenSearchingAcrossAllResourceTypes_ThenSearchHasProperOutcome()
         {
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3, tag);
             string[] expectedDiagnostics = { string.Format(Core.Resources.InvalidTypeParameter, "'Patient1'") };
             OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
 
-            Bundle bundle = await Client.SearchAsync("?_type=Patient,Patient1");
+            Bundle bundle = await Client.SearchAsync($"?_type=Patient,Patient1&_tag={tag}");
             Assert.Contains("_type=Patient,Patient1", bundle.Link[0].Url);
             OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
             ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
 
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient"));
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient"), ("_tag", tag));
             Assert.Contains("_type=Patient1,Patient", bundle.Link[0].Url);
             outcome = GetAndValidateOperationOutcome(bundle);
             ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
@@ -384,13 +447,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenMoreSearchResultsThanCount_WhenSearched_ThenNextLinkUrlShouldBePopulated()
         {
+            var tag = Guid.NewGuid().ToString();
+
             // Create the resources
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(10);
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(10, tag);
 
             Bundle results = new Bundle();
 
             // Search with count = 2, which should results in 5 pages.
-            string url = "Patient?_count=2";
+            string url = $"Patient?_count=2&_tag={tag}";
             string baseUrl = Fixture.GenerateFullUrl(url);
 
             int loop = 1;
@@ -424,13 +489,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPostSearchWithCount_WhenSearched_ThenNextLinkUrlWouldYeildMoreResults()
         {
+            var tag = Guid.NewGuid().ToString();
+
             // Create the resources
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(4);
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(4, tag);
             var pageSize = 2;
-            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"), ("_count", pageSize.ToString()));
+            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"), ("_count", pageSize.ToString()), ("_tag", tag));
 
             var expectedFirstBundle = patients.Length > pageSize ? patients.ToList().GetRange(0, pageSize).ToArray() : patients;
-            ValidateBundle(bundle, "?_type=Patient&_count=2", expectedFirstBundle);
+            ValidateBundle(bundle, $"?_type=Patient&_count={pageSize}&_tag={tag}", expectedFirstBundle);
 
             var nextLink = bundle.NextLink?.ToString();
             if (nextLink != null)
@@ -438,7 +505,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
 
                 // Truncating host and appending continuation token
-                nextLink = "?_type=Patient&_count=2" + nextLink.Substring(nextLink.IndexOf("&ct"));
+                nextLink = $"?_type=Patient&_count={pageSize}&_tag={tag}" + nextLink.Substring(nextLink.IndexOf("&ct"));
                 ValidateBundle(secondBundle, nextLink, patients.ToList().GetRange(pageSize, patients.Length - pageSize).ToArray());
             }
         }
@@ -500,7 +567,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithIncorrectFormatParams_ThenExceptionShouldBeThrown(string key, string val)
         {
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
@@ -740,7 +806,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
         {
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             var expectedStatusCode = HttpStatusCode.BadRequest;
@@ -856,6 +921,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenASearchRequestWithValidParametersAndStrictHandling_WhenHandled_ReturnsSearchResults()
         {
             var response = await Client.SearchAsync("Patient?name=ronda", Tuple.Create(KnownHeaders.Prefer, "handling=strict"));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenACompositeTokenNumberNumberSearchParameter_WhenSearching_ReturnsSearchResults()
+        {
+            var sequenceType = ModelInfoProvider.Version == FhirSpecification.Stu3 ? "Sequence" : "MolecularSequence";
+            var response = await Client.SearchAsync($"{sequenceType}?referenceseqid-window-coordinate=NT_007592.15$18130918$18143955");
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 

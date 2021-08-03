@@ -1,0 +1,52 @@
+{
+  "resourceType": "SearchParameter",
+  "id": "healthcareservice-coverage-area",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative</b></p><p><b>url</b>: <code>http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/healthcareservice-coverage-area</code></p><p><b>version</b>: 1.0.0</p><p><b>name</b>: Plannet_sp_healthcareservice_coverage_area</p><p><b>derivedFrom</b>: <a href=\"http://hl7.org/fhir/SearchParameter/HealthcareService-coverage-area\">http://hl7.org/fhir/SearchParameter/HealthcareService-coverage-area</a></p><p><b>status</b>: active</p><p><b>date</b>: May 23, 2018 12:00:00 AM</p><p><b>publisher</b>: HL7 Financial Management Working Group</p><p><b>contact</b>: HL7 Financial Management Working Group: <a href=\"http://www.hl7.org/Special/committees/fm/index.cfm\">http://www.hl7.org/Special/committees/fm/index.cfm</a>,<a href=\"mailto:fm@lists.HL7.org\">fm@lists.HL7.org</a></p><p><b>description</b>: Select services available in a region described by the specified location</p><p><b>jurisdiction</b>: <span title=\"Codes: {urn:iso:std:iso:3166 US}\">United States of America</span></p><p><b>code</b>: coverage-area</p><p><b>base</b>: HealthcareService</p><p><b>type</b>: reference</p><p><b>expression</b>: HealthcareService.coverageArea</p><p><b>target</b>: Location</p><p><b>multipleOr</b>: true</p><p><b>multipleAnd</b>: true</p></div>"
+  },
+  "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/SearchParameter/healthcareservice-coverage-area",
+  "version": "1.0.0",
+  "name": "coverage-area",
+  "derivedFrom": "http://hl7.org/fhir/SearchParameter/HealthcareService-coverage-area",
+  "status": "active",
+  "date": "2018-05-23T00:00:00+00:00",
+  "publisher": "HL7 Financial Management Working Group",
+  "contact": [
+    {
+      "name": "HL7 Financial Management Working Group",
+      "telecom": [
+        {
+          "system": "url",
+          "value": "http://www.hl7.org/Special/committees/fm/index.cfm"
+        },
+        {
+          "system": "email",
+          "value": "fm@lists.HL7.org"
+        }
+      ]
+    }
+  ],
+  "description": "Select services available in a region described by the specified location",
+  "jurisdiction": [
+    {
+      "coding": [
+        {
+          "system": "urn:iso:std:iso:3166",
+          "code": "US"
+        }
+      ]
+    }
+  ],
+  "code": "coverage-area",
+  "base": [
+    "HealthcareService"
+  ],
+  "type": "reference",
+  "expression": "HealthcareService.coverageArea",
+  "target": [
+    "Location"
+  ],
+  "multipleOr": true,
+  "multipleAnd": true
+}

@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 true,
                 Arg.Any<CancellationToken>());
 
-            await _fhirDataStore.Received().HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received().HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             if (hardDelete)
             {
-                _fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+                _fhirDataStore.HardDeleteAsync(Arg.Any<ResourceKey>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
             }
             else
             {
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Updated));
             }
 
-            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete, count);
+            var message = new ConditionalDeleteResourceRequest(resourceType, list, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, count);
 
             return message;
         }

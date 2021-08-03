@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         private async Task<List<ArtifactSummary>> GetSummaries()
         {
-            var result = new List<ArtifactSummary>();
+            var result = new Dictionary<string, ArtifactSummary>();
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
                 foreach (var type in _supportedTypes)
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                             var queryParameters = new List<Tuple<string, string>>();
                             if (ct != null)
                             {
-                                ct = Convert.ToBase64String(Encoding.UTF8.GetBytes(ct));
+                                ct = ContinuationTokenConverter.Encode(ct);
                                 queryParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, ct));
                             }
 
@@ -119,7 +119,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                                             properties[ArtifactSummaryProperties.OriginKey] = searchItem.Resource.RawResource.Data;
                                         };
                                     var artifacts = ArtifactSummaryGenerator.Default.Generate(navStream, setOrigin);
-                                    result.AddRange(artifacts);
+
+                                    foreach (var artifact in artifacts)
+                                    {
+                                        result[artifact.ResourceUri] = artifact;
+                                    }
                                 }
                             }
 
@@ -129,7 +133,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     }
                 }
 
-                return result;
+                return result.Values.ToList();
             }
         }
 

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -20,10 +21,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public IReadOnlyList<RiskAssessment> RiskAssessments { get; private set; }
 
+        public string Tag { get; private set; }
+
         protected override async Task OnInitializedAsync()
         {
+            Tag = Guid.NewGuid().ToString();
+
+            var meta = new Meta
+            {
+                Tag = new List<Coding>
+                    {
+                        new Coding("testTag", Tag),
+                    },
+            };
+
             // Prepare the resources used for number search tests.
-            await TestFhirClient.DeleteAllResources(ResourceType.RiskAssessment);
 
             RiskAssessments = await TestFhirClient.CreateResourcesAsync<RiskAssessment>(
                 i => SetRiskAssessment(i, 1),
@@ -34,6 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             void SetRiskAssessment(RiskAssessment riskAssessment, int probability)
             {
+                riskAssessment.Meta = meta;
                 riskAssessment.Status = ObservationStatus.Final;
                 riskAssessment.Subject = new ResourceReference("Patient/123");
                 riskAssessment.Prediction = new List<RiskAssessment.PredictionComponent>

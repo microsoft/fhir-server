@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             using Stream resourceStream = modelInfoProvider.OpenVersionedFileStream("BaseCapabilities.json");
             using var reader = new StreamReader(resourceStream);
             var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
+            statement.FhirVersion = modelInfoProvider.SupportedVersion.ToString();
             statement.Date = File.GetCreationTime(Assembly.GetExecutingAssembly().Location).ToUniversalTime().ToString("O");
             return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, supportedProfiles);
         }
@@ -262,6 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 if (!string.Equals(resource, KnownResourceTypes.AuditEvent, StringComparison.Ordinal))
                 {
                     AddResourceInteraction(resource, TypeRestfulInteraction.Update);
+                    AddResourceInteraction(resource, TypeRestfulInteraction.Patch);
                     AddResourceInteraction(resource, TypeRestfulInteraction.Delete);
                 }
 
@@ -343,7 +345,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     new DefaultOptionHashSetJsonConverter(),
                     new EnumLiteralJsonConverter(),
-                    new ProfileReferenceConverter(_modelInfoProvider),
+                    new ReferenceComponentConverter(_modelInfoProvider),
                     new CodingJsonConverter(),
                 },
                 NullValueHandling = NullValueHandling.Ignore,

@@ -6,9 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
+using System.Threading;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -17,14 +21,20 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 {
@@ -33,16 +43,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly CosmosFhirDataStore _dataStore;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration();
+        private readonly IScoped<Container> _container;
 
         public CosmosFhirDataStoreTests()
         {
+            _container = Substitute.For<Container>().CreateMockScope();
             _cosmosQueryFactory = Substitute.For<ICosmosQueryFactory>();
+            var fhirRequestContext = Substitute.For<IFhirRequestContext>();
+            fhirRequestContext.ExecutingBatchOrTransaction.Returns(true);
+            var requestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            requestContextAccessor.RequestContext.Returns(fhirRequestContext);
             _dataStore = new CosmosFhirDataStore(
-                Substitute.For<IScoped<Container>>(),
+                _container,
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,
-                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<RequestContextAccessor<IFhirRequestContext>>()),
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, requestContextAccessor),
                 NullLogger<CosmosFhirDataStore>.Instance,
                 Options.Create(new CoreFeatureConfiguration()),
                 new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()));
@@ -183,6 +199,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             Assert.Equal("5", continuationToken);
         }
 
+        [Fact]
+        public async Task GivenAnUpsertDuringABatch_When503ExceptionOccurs_RetryWillHappen()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = "id1";
+            observation.VersionId = "version1";
+            observation.Meta.Profile = new List<string> { "test" };
+            var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
+            ResourceElement typedElement = observation.ToResourceElement();
+
+            var wrapper = new ResourceWrapper(typedElement, rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+
+            var innerException = new Exception("RequestTimeout");
+
+            _container.Value.When(x => x.CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>())).
+                Do(x => throw CreateCosmosException(innerException, HttpStatusCode.ServiceUnavailable));
+
+            // using try catch here instead of Assert.ThrowsAsync in order to verify exception property
+            try
+            {
+                await _dataStore.UpsertAsync(wrapper, null, true, true, CancellationToken.None);
+            }
+            catch (CosmosException e)
+            {
+                Assert.Equal(HttpStatusCode.RequestTimeout, e.StatusCode);
+            }
+
+            await _container.Value.ReceivedWithAnyArgs(7).CreateItemAsync(Arg.Any<FhirCosmosResourceWrapper>(), Arg.Any<PartitionKey>(), Arg.Any<ItemRequestOptions>(), Arg.Any<CancellationToken>());
+        }
+
         private void CreateResponses(int pageSize, string continuationToken, params FeedResponse<int>[] responses)
         {
             ICosmosQuery<int> cosmosQuery = Substitute.For<ICosmosQuery<int>>();
@@ -206,9 +252,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             return feedResponse;
         }
 
-        private CosmosException CreateCosmosException(Exception innerException)
+        private CosmosException CreateCosmosException(Exception innerException, HttpStatusCode? statusCode = null)
         {
-            var cosmosException = (CosmosException)RuntimeHelpers.GetUninitializedObject(typeof(CosmosException));
+            CosmosException cosmosException = null;
+            if (statusCode.HasValue)
+            {
+                cosmosException = new CosmosException("message", statusCode.Value, 0, "id", 0.0);
+            }
+            else
+            {
+                cosmosException = (CosmosException)RuntimeHelpers.GetUninitializedObject(typeof(CosmosException));
+            }
 
             var sampleException = new Exception(null, innerException);
             foreach (FieldInfo fieldInfo in typeof(Exception).GetFields(BindingFlags.Instance | BindingFlags.NonPublic))

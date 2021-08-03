@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             var jobRecord = new ReindexJobRecord(
                 _searchParameterDefinitionManager.SearchParameterHashMap,
+                request.TargetResourceTypes,
                 request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
                 request.MaximumResourcesPerQuery ?? _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 request.QueryDelayIntervalInMilliseconds ?? _reindexJobConfiguration.QueryDelayIntervalInMilliseconds,

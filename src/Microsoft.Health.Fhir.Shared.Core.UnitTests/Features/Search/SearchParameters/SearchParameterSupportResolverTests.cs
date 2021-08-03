@@ -12,12 +12,9 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchParameterSupportResolverTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
+    public class SearchParameterSupportResolverTests : IAsyncLifetime
     {
-        private readonly SearchParameterFixtureData _fixture;
         private SearchParameterSupportResolver _resolver;
-
-        public SearchParameterSupportResolverTests(SearchParameterFixtureData fixture) => _fixture = fixture;
 
         public async Task InitializeAsync()
         {

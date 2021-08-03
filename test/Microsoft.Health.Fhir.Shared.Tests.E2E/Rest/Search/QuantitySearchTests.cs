@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("eb5.0001|system1|unit2")]
         public async Task GivenAQuantitySearchParameterWithQuantity_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"value-quantity={queryValue}");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"_tag={Fixture.Tag}&value-quantity={queryValue}");
 
             Observation[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
 

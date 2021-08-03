@@ -12,15 +12,15 @@
                 "resourceType": "CompartmentDefinition",
                 "id": "patient",
                 "text": {
-                    "status": "generated",
+                    "status": "extensions",
                     "div": "<div>!-- Snipped for Brevity --></div>"
                 },
                 "url": "http://hl7.org/fhir/CompartmentDefinition/patient",
-                "version": "4.2.0",
+                "version": "4.6.0",
                 "name": "Base FHIR compartment definition for Patient",
                 "status": "draft",
                 "experimental": true,
-                "date": "2019-12-31T21:03:40+11:00",
+                "date": "2021-04-15T12:25:09+10:00",
                 "publisher": "FHIR Project Team",
                 "contact": [
                     {
@@ -38,9 +38,7 @@
                 "resource": [
                     {
                         "code": "Account",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "ActivityDefinition"
@@ -50,9 +48,7 @@
                     },
                     {
                         "code": "AdverseEvent",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "AllergyIntolerance",
@@ -64,21 +60,15 @@
                     },
                     {
                         "code": "Appointment",
-                        "param": [
-                            "actor"
-                        ]
+                        "param": [ "actor" ]
                     },
                     {
                         "code": "AppointmentResponse",
-                        "param": [
-                            "actor"
-                        ]
+                        "param": [ "actor" ]
                     },
                     {
                         "code": "AuditEvent",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "Basic",
@@ -95,9 +85,7 @@
                     },
                     {
                         "code": "BodyStructure",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "Bundle"
@@ -127,12 +115,13 @@
                     },
                     {
                         "code": "ChargeItem",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "ChargeItemDefinition"
+                    },
+                    {
+                        "code": "Citation"
                     },
                     {
                         "code": "Claim",
@@ -143,15 +132,11 @@
                     },
                     {
                         "code": "ClaimResponse",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "ClinicalImpression",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "ClinicalUseIssue"
@@ -202,9 +187,7 @@
                     },
                     {
                         "code": "Consent",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "Contract"
@@ -220,24 +203,19 @@
                     },
                     {
                         "code": "CoverageEligibilityRequest",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "CoverageEligibilityResponse",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "DetectedIssue",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
-                        "code": "Device"
+                        "code": "Device",
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "DeviceDefinition"
@@ -253,16 +231,12 @@
                         ]
                     },
                     {
-                        "code": "DeviceUseStatement",
-                        "param": [
-                            "subject"
-                        ]
+                        "code": "DeviceUsage",
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "DiagnosticReport",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "DocumentManifest",
@@ -281,33 +255,30 @@
                     },
                     {
                         "code": "Encounter",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "Endpoint"
                     },
                     {
                         "code": "EnrollmentRequest",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "EnrollmentResponse"
                     },
                     {
                         "code": "EpisodeOfCare",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "EventDefinition"
                     },
                     {
                         "code": "Evidence"
+                    },
+                    {
+                        "code": "EvidenceReport"
                     },
                     {
                         "code": "EvidenceVariable"
@@ -324,30 +295,22 @@
                     },
                     {
                         "code": "FamilyMemberHistory",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "Flag",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "Goal",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "GraphDefinition"
                     },
                     {
                         "code": "Group",
-                        "param": [
-                            "member"
-                        ]
+                        "param": [ "member" ]
                     },
                     {
                         "code": "GuidanceResponse"
@@ -357,27 +320,19 @@
                     },
                     {
                         "code": "ImagingStudy",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "Immunization",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "ImmunizationEvaluation",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "ImmunizationRecommendation",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "ImplementationGuide"
@@ -387,6 +342,9 @@
                     },
                     {
                         "code": "InsurancePlan"
+                    },
+                    {
+                        "code": "InventoryReport"
                     },
                     {
                         "code": "Invoice",
@@ -420,9 +378,7 @@
                     },
                     {
                         "code": "MeasureReport",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "Medication"
@@ -448,15 +404,11 @@
                     },
                     {
                         "code": "MedicationRequest",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "MedicationUsage",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "MedicinalProductDefinition"
@@ -469,9 +421,7 @@
                     },
                     {
                         "code": "MolecularSequence",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "NamingSystem"
@@ -485,9 +435,10 @@
                     },
                     {
                         "code": "NutritionOrder",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
+                    },
+                    {
+                        "code": "NutritionProduct"
                     },
                     {
                         "code": "Observation",
@@ -516,9 +467,7 @@
                     },
                     {
                         "code": "Patient",
-                        "param": [
-                            "link"
-                        ]
+                        "param": [ "link" ]
                     },
                     {
                         "code": "PaymentNotice"
@@ -527,10 +476,11 @@
                         "code": "PaymentReconciliation"
                     },
                     {
+                        "code": "Permission"
+                    },
+                    {
                         "code": "Person",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "PlanDefinition"
@@ -550,9 +500,7 @@
                     },
                     {
                         "code": "Provenance",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "Questionnaire"
@@ -569,9 +517,7 @@
                     },
                     {
                         "code": "RelatedPerson",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "RequestGroup",
@@ -585,21 +531,15 @@
                     },
                     {
                         "code": "ResearchSubject",
-                        "param": [
-                            "individual"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "RiskAssessment",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "Schedule",
-                        "param": [
-                            "actor"
-                        ]
+                        "param": [ "actor" ]
                     },
                     {
                         "code": "SearchParameter"
@@ -616,9 +556,7 @@
                     },
                     {
                         "code": "Specimen",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "SpecimenDefinition"
@@ -631,6 +569,12 @@
                     },
                     {
                         "code": "Subscription"
+                    },
+                    {
+                        "code": "SubscriptionStatus"
+                    },
+                    {
+                        "code": "SubscriptionTopic"
                     },
                     {
                         "code": "Substance"
@@ -655,15 +599,11 @@
                     },
                     {
                         "code": "SupplyDelivery",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     },
                     {
                         "code": "SupplyRequest",
-                        "param": [
-                            "subject"
-                        ]
+                        "param": [ "subject" ]
                     },
                     {
                         "code": "Task"
@@ -685,9 +625,7 @@
                     },
                     {
                         "code": "VisionPrescription",
-                        "param": [
-                            "patient"
-                        ]
+                        "param": [ "patient" ]
                     }
                 ]
             }
@@ -698,15 +636,15 @@
                 "resourceType": "CompartmentDefinition",
                 "id": "encounter",
                 "text": {
-                    "status": "generated",
+                    "status": "extensions",
                     "div": "<div>!-- Snipped for Brevity --></div>"
                 },
                 "url": "http://hl7.org/fhir/CompartmentDefinition/encounter",
-                "version": "4.2.0",
+                "version": "4.6.0",
                 "name": "Base FHIR compartment definition for Encounter",
                 "status": "draft",
                 "experimental": true,
-                "date": "2019-12-31T21:03:40+11:00",
+                "date": "2021-04-15T12:25:09+10:00",
                 "publisher": "FHIR Project Team",
                 "contact": [
                     {
@@ -769,9 +707,7 @@
                     },
                     {
                         "code": "CarePlan",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "CareTeam"
@@ -781,27 +717,24 @@
                     },
                     {
                         "code": "ChargeItem",
-                        "param": [
-                            "context"
-                        ]
+                        "param": [ "context" ]
                     },
                     {
                         "code": "ChargeItemDefinition"
                     },
                     {
+                        "code": "Citation"
+                    },
+                    {
                         "code": "Claim",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "ClaimResponse"
                     },
                     {
                         "code": "ClinicalImpression",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "ClinicalUseIssue"
@@ -811,33 +744,25 @@
                     },
                     {
                         "code": "Communication",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "CommunicationRequest",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "CompartmentDefinition"
                     },
                     {
                         "code": "Composition",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "ConceptMap"
                     },
                     {
                         "code": "Condition",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "ConditionDefinition"
@@ -871,36 +796,26 @@
                     },
                     {
                         "code": "DeviceRequest",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
-                        "code": "DeviceUseStatement"
+                        "code": "DeviceUsage"
                     },
                     {
                         "code": "DiagnosticReport",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "DocumentManifest",
-                        "param": [
-                            "related-ref"
-                        ]
+                        "param": [ "related-ref" ]
                     },
                     {
                         "code": "DocumentReference",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "Encounter",
-                        "param": [
-                            "{def}"
-                        ]
+                        "param": [ "{def}" ]
                     },
                     {
                         "code": "Endpoint"
@@ -921,6 +836,9 @@
                         "code": "Evidence"
                     },
                     {
+                        "code": "EvidenceReport"
+                    },
+                    {
                         "code": "EvidenceVariable"
                     },
                     {
@@ -928,9 +846,7 @@
                     },
                     {
                         "code": "ExplanationOfBenefit",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "FamilyMemberHistory"
@@ -975,6 +891,9 @@
                         "code": "InsurancePlan"
                     },
                     {
+                        "code": "InventoryReport"
+                    },
+                    {
                         "code": "Invoice"
                     },
                     {
@@ -1003,30 +922,22 @@
                     },
                     {
                         "code": "MedicationAdministration",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "MedicationDispense",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "MedicationKnowledge"
                     },
                     {
                         "code": "MedicationRequest",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "MedicationUsage",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "MedicinalProductDefinition"
@@ -1045,21 +956,18 @@
                     },
                     {
                         "code": "NutritionIntake",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "NutritionOrder",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
+                    },
+                    {
+                        "code": "NutritionProduct"
                     },
                     {
                         "code": "Observation",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "ObservationDefinition"
@@ -1089,6 +997,9 @@
                         "code": "PaymentReconciliation"
                     },
                     {
+                        "code": "Permission"
+                    },
+                    {
                         "code": "Person"
                     },
                     {
@@ -1102,9 +1013,7 @@
                     },
                     {
                         "code": "Procedure",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "Provenance"
@@ -1114,9 +1023,7 @@
                     },
                     {
                         "code": "QuestionnaireResponse",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "RegulatedAuthorization"
@@ -1126,9 +1033,7 @@
                     },
                     {
                         "code": "RequestGroup",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "ResearchStudy"
@@ -1147,9 +1052,7 @@
                     },
                     {
                         "code": "ServiceRequest",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     },
                     {
                         "code": "Slot"
@@ -1168,6 +1071,12 @@
                     },
                     {
                         "code": "Subscription"
+                    },
+                    {
+                        "code": "SubscriptionStatus"
+                    },
+                    {
+                        "code": "SubscriptionTopic"
                     },
                     {
                         "code": "Substance"
@@ -1216,9 +1125,7 @@
                     },
                     {
                         "code": "VisionPrescription",
-                        "param": [
-                            "encounter"
-                        ]
+                        "param": [ "encounter" ]
                     }
                 ]
             }

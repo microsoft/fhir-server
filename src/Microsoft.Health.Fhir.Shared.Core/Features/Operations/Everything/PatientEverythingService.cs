@@ -56,17 +56,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            using IScoped<ISearchService> search = _searchServiceFactory();
-
-            // Will enable this after more tests
-            if (string.Equals(search.Value.GetType().Name, "SqlServerSearchService", StringComparison.Ordinal))
-            {
-                throw new OperationNotImplementedException("$everything operation is not yet implemented in SQL Server.");
-            }
-
             EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
                 ? new EverythingOperationContinuationToken(0, null)
-                : EverythingOperationContinuationToken.FromString(DecodeContinuationTokenFromBase64String(continuationToken));
+                : EverythingOperationContinuationToken.FromString(ContinuationTokenConverter.Decode(continuationToken));
 
             if (token == null || token.Phase < 0 || token.Phase > 3)
             {
@@ -74,7 +66,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             SearchResult searchResult;
-            string encodedInternalContinuationToken = EncodeContinuationToken(token.InternalContinuationToken);
+            string encodedInternalContinuationToken = string.IsNullOrEmpty(token.InternalContinuationToken)
+                ? null
+                : ContinuationTokenConverter.Encode(token.InternalContinuationToken);
             IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
             var phase = token.Phase;
@@ -190,7 +184,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            if (types.Any() && !types.Contains(_revinclude.resourceType))
+            // R5 include device into compartment so no sence to do search.
+            // But if we expand _revinclude to be a list this should be revisted!
+            if ((ModelInfoProvider.Version == FhirSpecification.R5) ||
+                (types.Any() && !types.Contains(_revinclude.resourceType)))
             {
                 return new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, Array.Empty<Tuple<string, string>>());
             }
@@ -340,25 +337,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             using IScoped<ISearchService> search = _searchServiceFactory();
             SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
-        }
-
-        private static string DecodeContinuationTokenFromBase64String(string encodedString)
-        {
-            try
-            {
-                return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encodedString));
-            }
-            catch (FormatException)
-            {
-                throw new BadRequestException(Core.Resources.InvalidContinuationToken);
-            }
-        }
-
-        private static string EncodeContinuationToken(string continuationToken)
-        {
-            return string.IsNullOrEmpty(continuationToken)
-                ? null
-                : Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken));
         }
     }
 }

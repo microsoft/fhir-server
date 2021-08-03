@@ -16,6 +16,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -176,6 +177,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // The export job was updated externally. There might be some additional resources that were exported
                 // but we will not be updating the job record.
                 _logger.LogTrace("The job was updated by another process.");
+            }
+            catch (RequestRateExceededException)
+            {
+                _logger.LogTrace("Job failed due to RequestRateExceeded.");
             }
             catch (DestinationConnectionException dce)
             {
@@ -653,7 +658,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             // Update the continuation token in local cache and queryParams.
             // We will add or udpate the continuation token in the query parameters list.
-            progress.UpdateContinuationToken(Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken)));
+            progress.UpdateContinuationToken(ContinuationTokenConverter.Encode(continuationToken));
 
             bool replacedContinuationToken = false;
             for (int index = 0; index < queryParametersList.Count; index++)
