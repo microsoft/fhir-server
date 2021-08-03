@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -22,6 +23,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public SqlServerSortingValidatorTests()
         {
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Max, SchemaVersionConstants.Max);
+            _schemaInformation.Current = SchemaVersionConstants.Max;
             _sqlServerSortingValidator = new SqlServerSortingValidator(_schemaInformation);
         }
 
@@ -58,8 +60,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenMultipleSortParameters_WhenValidating_ThenReturnsFalse()
         {
-            SearchParameterInfo dateParamInfo = new SearchParameterInfo(name: "birthdate", code: "birthdate", SearchParamType.Date);
-            SearchParameterInfo stringParamInfo = new SearchParameterInfo(name: "name", code: "name", SearchParamType.String);
+            SearchParameterInfo dateParamInfo = new SearchParameterInfo(name: "birthdate", code: "birthdate", SearchParamType.Date, new Uri("http://hl7.org/fhir/SearchParameter/individual-birthdate"));
+            SearchParameterInfo stringParamInfo = new SearchParameterInfo(name: "name", code: "name", SearchParamType.String, new Uri("http://hl7.org/fhir/SearchParameter/Patient-name"));
             IReadOnlyList<(SearchParameterInfo, SortOrder)> searchList = new List<(SearchParameterInfo, SortOrder)>()
             {
                 { (dateParamInfo, SortOrder.Ascending) },
