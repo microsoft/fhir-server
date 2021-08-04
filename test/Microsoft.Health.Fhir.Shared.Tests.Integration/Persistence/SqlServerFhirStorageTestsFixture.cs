@@ -191,7 +191,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 schemaInformation,
                 fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
-                () => searchableSearchParameterDefinitionManager,
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
