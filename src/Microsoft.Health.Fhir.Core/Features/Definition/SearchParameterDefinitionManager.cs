@@ -238,6 +238,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
                 searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
                 searchOptions.Expression = Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
+                searchOptions.MaxItemCount = 10;
                 if (continuationToken != null)
                 {
                     searchOptions.ContinuationToken = continuationToken;
@@ -275,7 +276,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     }
                 }
             }
-            while (continuationToken != null);
+            while (continuationToken != null && !continuationToken.Contains("null", StringComparison.OrdinalIgnoreCase));
         }
     }
 }
