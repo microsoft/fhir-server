@@ -10,28 +10,36 @@ Follow these steps to setup and use $import API. Rest of this document details t
 
 To use $import, you need
 
-+ FHIR data to be imported in ndjson format.
++ FHIR data to be imported in ndjson format 
+
+### Limitations
+
+Below are some limitations about source data, resources beyond are not imported:
+
+1. Resource shouldn't contain conditional reference
+2. One file should have only one resource type, which is denoted in **type** part of the request, resources of different types are not imported.
+3. Duplicated resources are imported only once.
 
 ### Setps to run $import
 
 1. Deploy a new fhir server, details in [Deploy new fhir server](#deploy-new-fhir-server).
 2. Upload your data to the storage deployed in first step, for large size data, use tool [_Azure storage explorer_](https://https://docs.microsoft.com/en-us/azure/vs-azure-tools-storage-manage-with-storage-explorer?tabs=windows) or command [_Az_copy_](https://docs.microsoft.com/en-us/azure/storage/common/storage-ref-azcopy). 
-3. **Turn on ```FhirServer:Operation:Import:InitImportMode```** After fhir-server app is ready, navigate to app service portal, click **configuration** then click **New application setting**, fill in *FhirServer:Operations:Import:InitImportMode* as _Name_ and  _true_ as value:
+3. **Create configuration ```FhirServer:Operation:Import:InitImportMode```**. After fhir-server app is ready, navigate to app service portal, click **configuration** then click **New application setting**, fill in *FhirServer:Operations:Import:InitImportMode* as _Name_ and  _true_ as value:
 
     ![set-initmode](./images/bulk-import/set-initmode.png)
    Click **OK** then **save** the configuration, a promopt window pop up, click **Continue** to restart the app and make the change take effect.
    
-   ⚠ Note when this config is set, all write requests will be blocked.
-2. Make an API call in client, details in [API Call](#api-call) section.
+   ⚠ Note when the config is set, all write requests are blocked.
+2. Make the imported call, details in [API Call](#api-call) section.
 3. Polling operation status, details in [Get Status](#get-status) section.
 4. Check final status. When a status code other than 202 is returned, it means the operation has completed. The result can be divide into 3 states:
-    1. ```200``` return as status code and no error url(described in [Get Status](#get-status)) return -> all input resources import successfully.
-    2. ```200``` return as status code howerver have some error urls in body -> input data have unsupported, mistyped or duplicated resources, but all other resources are imported succcessfully.
+    1. ```200``` return as status code and no error url(described in [Get Status](#get-status)) return -> all input resources are imported successfully.
+    2. ```200``` return as status code howerver having some error urls in body -> input data contains resources beyond the [Limitations](#limitations), but all other resources are imported succcessfully.
     3. Non ```200``` status code returned -> some fatal errors occur, the operation stop immediately, but successfully imported resources aren't rolled back.
-5. **Turn off ```FhirServer:Operation:Import:InitImportMode```** and restart app. Navigate to app service portal, set this to _false_ in app configuration or simply remove it. Then **save** it and restart the app, so that all write requests can restore usage.
+5. **Delete configuration ```FhirServer:Operation:Import:InitImportMode```** and restart app. Navigate to app service portal, set this to _false_ in app configuration or simply remove it. Then **save** it and restart the app, so that all write requests can restore usage.
 
 ## Deploy new fhir server 
-Follow the guide [_QuickstartDeployPortal_](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployPortal.md) to deploy a new fhir server, fill in following parameters as well as reqired ones (tagged with *):
+Follow the guide [_QuickstartDeployPortal_](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployPortal.md) to deploy a new fhir server, fill in following parameters as well as reqired ones:
 - *Number Of Instances*: Should **> 1**.
 - *Solution type*: Choose **FhirServerSqlServer**.
 - *Sql Admin Password*.
@@ -40,7 +48,7 @@ Follow the guide [_QuickstartDeployPortal_](https://github.com/microsoft/fhir-se
     ![arm-template-portal](./images/bulk-import/arm-template-portal.png)
 
 ## API call
-Make a http call with ```POST``` method to ```<<FHIR service base URL>>/$import``` with below required headers:
+Make the Rest call with ```POST``` method to ```<<FHIR service base URL>>/$import``` with below required headers:
 | Header Name     |  Accepted values |
 | ----------- | ----------- |
 | Prefer | ```respond-async``` |
@@ -58,8 +66,6 @@ and [Parameters](http://hl7.org/fhir/parameters.html) resource in body described
 | type   |  Resource type of input file   | 1..1 |  A valid [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html)|
 | url   |  Url of input file   | 1..1 |  A valid url.|
 | etag   |  Etag input file   | 0..1 |  A valid etag string.|
-
-⚠ Notice that all resources in a file should be the same type as your provided one, mismatched resources will not be imported and recorded in error log, but will not result in overall failure.
 
 **Sample request:**
 ```json
@@ -110,7 +116,12 @@ and [Parameters](http://hl7.org/fhir/parameters.html) resource in body described
 As _$import_ is an async operation, a **_callback_** link will be returned in response's _Content-location_ header as well as ```202-Accepted``` in status code.
 
 ## Get status
-Make a http call with ```Get``` method to the **_callback_** link. If the operation is still running,  ```202-Accepted``` should be returned, or if it completed successfully, ```200-Ok``` should return with details in reponse body. Some errors may occured and caused part of the reosuces import failed but didn't result in overall failure, these are recorded as files and then uploaded to the source blob, and urls are also returned in body named _url_ under corresponding file closure.
+Make the Rest call with ```Get``` method to the **_callback_** link. If the operation is still running,  ```202-Accepted``` should be returned, or if it completed successfully, ```200-Ok``` should return with details in reponse body.
+
++ transactionTime: Start time of bulk import operation.
++ output.count: Succeed resource count.
++ error.count: Failed resource count.
++ error.url: Url of error log, resources that exceeds [Limitations](#limitations) are logged here.
 
 **Sample response:**
 ```json
@@ -125,11 +136,16 @@ Make a http call with ```Get``` method to the **_callback_** link. If the operat
         },
         {
             "type": "CarePlan",
-            "count": 200000,
-            "inputUrl": "https://example.blob.core.windows.net/resources/CarePlan.ndjson",
-            "url": "https://example.blob.core.windows.net/fhirlogs/CarePlan06b88c6933a34c7c83cb18b7dd6ae3d8.ndjson"
+            "count": 199949,
+            "inputUrl": "https://example.blob.core.windows.net/resources/CarePlan.ndjson"
         }
-    ]
+    ],
+    "error": [{ 
+		"type": "OperationOutcome",
+		"count": 51,
+		"inputUrl": "https://example.blob.core.windows.net/resources/CarePlan.ndjson",
+		"url": "https://example.blob.core.windows.net/fhirlogs/CarePlan06b88c6933a34c7c83cb18b7dd6ae3d8.ndjson"
+	}]
 }
 ```
 
@@ -154,7 +170,7 @@ Below are some collected errors you may encounter:
     - Solution: Compare your input size * 3(because we will create many indexes for input resouces, 3 times of disk size is for ensure) with [Azure SQL database storage limit](), if it is samller than that, just exapand the disk size to that level. Or if it exceed the sql limit, consider upgrade your DB tier, e.g. General purpose DB may only support 4GB max space, switch to Hyperscale if your input is bigger. 
 
 2. conditional reference
-    - Behavior: Import operation would not fail and and [Get Status](#get-status) return ```200 OK``` when completed, but error log was produced.
+    - Behavior: Import operation succeed and [Get Status](#get-status) return ```200 OK``` when completed, but error log is produced.
     - Confirm error: Open the **error log** for debugging, and search key word *Conditional reference*, if you find content like this:
         ```json
         {
@@ -171,7 +187,7 @@ Below are some collected errors you may encounter:
         }
         ```
     we can make sure this error occured for some resources.
-    3. Solution: As *doesn't support conditional reference* is **by design**, you can only change the source file and remove or change this to a normal reference to slove the problem.
+    3. Solution: As mentioned before, *doesn't support conditional reference* is **by design**, so you can only change the source file and remove it or change it to a normal reference to slove the problem.
     
 3. storage authentication failed
     1. Behavior: Import operation failed and [Get Status](#get-status) return ```403 Forbidden``` when completed, response body return this content:
@@ -225,7 +241,7 @@ Below are some collected errors you may encounter:
     - For general purpose model sql server, increase the cpu number may imporve the performance, but there is a tipping point of it, after that, only increase cpu will not improve the performance.
     - Upgrade the tier to hyperscale directly, which is much faster than general purpose sql, but you can not change back after switch to hyperscale. 
     - For general purpose model sql server, you can also increase cpu number to increase performance.
-5. Turn on ```FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport``` when your input size is huge, e.g. more than 10GB.
+5. Create the configuration ```FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport``` and set it to true when your input size is huge, e.g. more than 10GB.
 6. Deploy all components in same region, containing _fhir-server_, _sql server database_ and _storage account_, network transmission between these shoud be fast if in one region. 
 
 
