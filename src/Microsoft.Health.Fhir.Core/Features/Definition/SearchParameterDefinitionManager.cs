@@ -276,7 +276,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     }
                 }
             }
-            while (continuationToken != null && !continuationToken.Contains("null", StringComparison.OrdinalIgnoreCase));
+            while (continuationToken != null);
         }
     }
 }
