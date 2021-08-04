@@ -1,5 +1,11 @@
 -- Style guide: please see: https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Convention%20and%20T-SQL%20Programming%20Style.md
 
+-- The wrapping up of the initialization script under a transaction is removed from the schema-manager tool, so adding transaction in the script itself.
+
+SET XACT_ABORT ON
+
+BEGIN TRANSACTION
+
 /*************************************************************
     Schema Version
 **************************************************************/
@@ -1339,7 +1345,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     UpsertResource_4
+--     UpsertResource_5
 --
 -- DESCRIPTION
 --     Creates or updates (including marking deleted) a FHIR resource
@@ -1398,11 +1404,13 @@ GO
 --         * Extracted token$string search params
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
+--     @isResourceChangeCaptureEnabled
+--         * Whether capturing resource change data
 --
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_4
+CREATE PROCEDURE dbo.UpsertResource_5
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -1428,7 +1436,8 @@ CREATE PROCEDURE dbo.UpsertResource_4
     @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY,
     @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
-    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
+    @isResourceChangeCaptureEnabled bit = 0
 AS
     SET NOCOUNT ON
 
@@ -1703,6 +1712,11 @@ AS
 
     SELECT @version
 
+    IF (@isResourceChangeCaptureEnabled = 1) BEGIN
+        --If the resource change capture feature is enabled, to execute a stored procedure called CaptureResourceChanges to insert resource change data.
+        EXEC dbo.CaptureResourceChanges @isDeleted=@isDeleted, @version=@version, @resourceId=@resourceId, @resourceTypeId=@resourceTypeId
+    END
+
     COMMIT TRANSACTION
 GO
 
@@ -1744,10 +1758,10 @@ GO
 
 --
 -- STORED PROCEDURE
---     Deletes a single resource
+--     Deletes a single resource's history, and optionally the resource itself
 --
 -- DESCRIPTION
---     Permanently deletes all data related to a resource.
+--     Permanently deletes all history data related to a resource. Optionally removes all data, including the current resource version.
 --     Data remains recoverable from the transaction log, however.
 --
 -- PARAMETERS
@@ -1755,10 +1769,13 @@ GO
 --         * The ID of the resource type (See ResourceType table)
 --     @resourceId
 --         * The resource ID (must be the same as in the resource itself)
+--     @keepCurrentVersion
+--         * When 1, the current resource version kept, else all data is removed.
 --
-CREATE PROCEDURE dbo.HardDeleteResource
+CREATE PROCEDURE dbo.HardDeleteResource_2
     @resourceTypeId smallint,
-    @resourceId varchar(64)
+    @resourceId varchar(64),
+    @keepCurrentVersion smallint
 AS
     SET NOCOUNT ON
 
@@ -1768,9 +1785,10 @@ AS
     DECLARE @resourceSurrogateIds TABLE(ResourceSurrogateId bigint NOT NULL)
 
     DELETE FROM dbo.Resource
-    OUTPUT deleted.ResourceSurrogateId
+        OUTPUT deleted.ResourceSurrogateId
     INTO @resourceSurrogateIds
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId
+      AND NOT(@keepCurrentVersion=1 and IsHistory=0)
 
     DELETE FROM dbo.ResourceWriteClaim
     WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
@@ -2657,6 +2675,9 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
+-- RETURN VALUE
+--     The number of resources that failed to reindex due to versioning conflicts.
+--
 CREATE PROCEDURE dbo.BulkReindexResources_2
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
@@ -3324,3 +3345,225 @@ AS
     COMMIT TRANSACTION
 GO
 
+/*************************************************************
+    Resource change capture feature
+**************************************************************/
+
+/*************************************************************
+    Resource change data table
+**************************************************************/
+
+CREATE TABLE dbo.ResourceChangeData
+(
+    Id bigint IDENTITY(1,1) NOT NULL,
+    Timestamp datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeData_Timestamp DEFAULT sysutcdatetime(),
+    ResourceId varchar(64) NOT NULL,
+    ResourceTypeId smallint NOT NULL,
+    ResourceVersion int NOT NULL,
+    ResourceChangeTypeId tinyint NOT NULL,
+   CONSTRAINT PK_ResourceChangeData PRIMARY KEY CLUSTERED (Id)
+)
+ON [PRIMARY]
+GO
+
+/*************************************************************
+    Resource change type table
+**************************************************************/
+CREATE TABLE dbo.ResourceChangeType
+(
+    ResourceChangeTypeId tinyint NOT NULL,
+    Name nvarchar(50) NOT NULL,
+    CONSTRAINT PK_ResourceChangeType PRIMARY KEY CLUSTERED (ResourceChangeTypeId),
+    CONSTRAINT UQ_ResourceChangeType_Name UNIQUE NONCLUSTERED (Name)
+)
+ON [PRIMARY]
+GO
+
+INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (0, N'Creation')
+INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (1, N'Update')
+INSERT dbo.ResourceChangeType (ResourceChangeTypeId, Name) VALUES (2, N'Deletion')
+GO
+
+
+/*************************************************************
+    Stored procedures for capturing and fetching resource changes
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     CaptureResourceChanges
+--
+-- DESCRIPTION
+--     Inserts resource change data
+--
+-- PARAMETERS
+--     @isDeleted
+--         * Whether this resource marks the resource as deleted.
+--     @version
+--         * The version of the resource being written
+--     @resourceId
+--         * The resource ID
+--     @resourceTypeId
+--         * The ID of the resource type
+--
+-- RETURN VALUE
+--     It does not return a value.
+--
+CREATE PROCEDURE dbo.CaptureResourceChanges
+    @isDeleted bit,
+    @version int,
+    @resourceId varchar(64),
+    @resourceTypeId smallint
+AS
+BEGIN
+    -- The CaptureResourceChanges procedure is intended to be called from
+    -- the UpsertResource_4 procedure, so it does not begin a new transaction here.
+    DECLARE @changeType SMALLINT
+    IF (@isDeleted = 1) BEGIN
+        SET @changeType = 2    /* DELETION */
+    END
+    ELSE BEGIN
+        IF (@version = 1) BEGIN
+            SET @changeType = 0 /* CREATION */
+        END
+        ELSE BEGIN
+            SET @changeType = 1 /* UPDATE */
+        END
+    END
+
+    INSERT INTO dbo.ResourceChangeData
+        (ResourceId, ResourceTypeId, ResourceVersion, ResourceChangeTypeId)
+    VALUES
+        (@resourceId, @resourceTypeId, @version, @changeType)
+END
+GO
+
+--
+-- STORED PROCEDURE
+--     FetchResourceChanges
+--
+-- DESCRIPTION
+--     Returns the number of resource change records from startId. The start id is inclusive.
+--
+-- PARAMETERS
+--     @startId
+--         * The start id of resource change records to fetch.
+--     @pageSize
+--         * The page size for fetching resource change records.
+--
+-- RETURN VALUE
+--     Resource change data rows.
+--
+CREATE PROCEDURE dbo.FetchResourceChanges
+    @startId bigint,
+    @pageSize smallint
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database,
+    -- using the Repeatable Read isolation level table hint to avoid skipping resource changes
+    -- due to interleaved transactions on the resource change data table.
+    -- In Repeatable Read, the select query execution will be blocked until other open transactions are completed
+    -- for rows that match the search condition of the select statement.
+    -- A write transaction (update/delete) on the rows that match
+    -- the search condition of the select statement will wait until the read transaction is completed.
+    -- But, other transactions can insert new rows.
+    SELECT TOP(@pageSize) Id,
+      Timestamp,
+      ResourceId,
+      ResourceTypeId,
+      ResourceVersion,
+      ResourceChangeTypeId
+      FROM dbo.ResourceChangeData WITH (REPEATABLEREAD)
+    WHERE Id >= @startId ORDER BY Id ASC
+END
+GO
+
+/*************************************************************
+    Event Agent checkpoint feature
+**************************************************************/
+
+/*************************************************************
+    Event Agent checkpoint table
+**************************************************************/
+
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'EventAgentCheckpoint')
+BEGIN
+    CREATE TABLE dbo.EventAgentCheckpoint
+    (
+        CheckpointId varchar(64) NOT NULL,
+        LastProcessedDateTime datetimeoffset(7),
+        LastProcessedIdentifier varchar(64),
+        UpdatedOn datetime2(7) NOT NULL DEFAULT sysutcdatetime(),
+        CONSTRAINT PK_EventAgentCheckpoint PRIMARY KEY CLUSTERED (CheckpointId)
+    )
+    ON [PRIMARY]
+END
+GO
+
+/*************************************************************
+    Stored procedures for getting and setting checkpoints
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     UpdateEventAgentCheckpoint
+--
+-- DESCRIPTION
+--     Sets a checkpoint for an Event Agent
+--
+-- PARAMETERS
+--     @CheckpointId
+--         * The identifier of the checkpoint.
+--     @LastProcessedDateTime
+--         * The datetime of last item that was processed.
+--     @LastProcessedIdentifier
+--         *The identifier of the last item that was processed.
+--
+-- RETURN VALUE
+--     It does not return a value.
+--
+CREATE OR ALTER PROCEDURE dbo.UpdateEventAgentCheckpoint
+    @CheckpointId varchar(64),
+    @LastProcessedDateTime datetimeoffset(7) = NULL,
+    @LastProcessedIdentifier varchar(64) = NULL
+AS
+BEGIN
+    IF EXISTS (SELECT * FROM dbo.EventAgentCheckpoint WHERE CheckpointId = @CheckpointId)
+    UPDATE dbo.EventAgentCheckpoint SET CheckpointId = @CheckpointId, LastProcessedDateTime = @LastProcessedDateTime, LastProcessedIdentifier = @LastProcessedIdentifier, UpdatedOn = sysutcdatetime()
+    WHERE CheckpointId = @CheckpointId
+    ELSE
+    INSERT INTO dbo.EventAgentCheckpoint
+        (CheckpointId, LastProcessedDateTime, LastProcessedIdentifier, UpdatedOn)
+    VALUES
+        (@CheckpointId, @LastProcessedDateTime, @LastProcessedIdentifier, sysutcdatetime())
+END
+GO
+
+--
+-- STORED PROCEDURE
+--     GetEventAgentCheckpoint
+--
+-- DESCRIPTION
+--     Gets a checkpoint for an Event Agent
+--
+-- PARAMETERS
+--     @Id
+--         * The identifier of the checkpoint.
+--
+-- RETURN VALUE
+--     A checkpoint for the given checkpoint id, if one exists.
+--
+CREATE OR ALTER PROCEDURE dbo.FetchEventAgentCheckpoint
+    @CheckpointId varchar(64)
+AS
+BEGIN
+    SELECT TOP(1) CheckpointId, LastProcessedDateTime, LastProcessedIdentifier
+    FROM dbo.EventAgentCheckpoint
+    WHERE CheckpointId = @CheckpointId
+END
+GO
+
+COMMIT TRANSACTION
+
+GO

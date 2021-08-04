@@ -195,7 +195,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     UpsertResource_4
+--     UpsertResource_5
 --
 -- DESCRIPTION
 --     Creates or updates (including marking deleted) a FHIR resource
@@ -254,11 +254,13 @@ GO
 --         * Extracted token$string search params
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
+--     @isResourceChangeCaptureEnabled
+--         * Whether capturing resource change data
 --
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE OR ALTER PROCEDURE dbo.UpsertResource_4
+CREATE OR ALTER PROCEDURE dbo.UpsertResource_5
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -284,7 +286,8 @@ CREATE OR ALTER PROCEDURE dbo.UpsertResource_4
     @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY,
     @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
-    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
+    @isResourceChangeCaptureEnabled bit = 0
 AS
     SET NOCOUNT ON
 
@@ -558,6 +561,11 @@ AS
     FROM @tokenNumberNumberCompositeSearchParams
 
     SELECT @version
+
+    IF (@isResourceChangeCaptureEnabled = 1) BEGIN
+        --If the resource change capture feature is enabled, to execute a stored procedure called CaptureResourceChanges to insert resource change data.
+        EXEC dbo.CaptureResourceChanges @isDeleted=@isDeleted, @version=@version, @resourceId=@resourceId, @resourceTypeId=@resourceTypeId
+    END
 
     COMMIT TRANSACTION
 GO

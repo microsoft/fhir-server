@@ -79,6 +79,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData((int)SchemaVersion.V10)]
         [InlineData((int)SchemaVersion.V11)]
         [InlineData((int)SchemaVersion.V12)]
+        [InlineData((int)SchemaVersion.V13)]
+        [InlineData((int)SchemaVersion.V14)]
+        [InlineData((int)SchemaVersion.V15)]
+        [InlineData((int)SchemaVersion.V16)]
         [InlineData(SchemaVersionConstants.Max)]
         public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed(int schemaVersion)
         {
@@ -192,6 +196,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
+                ("Procedure", "[dbo].[UpsertResource_4]"),
+                ("Procedure", "[dbo].[ReindexResource]"),
+                ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[HardDeleteResource]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
