@@ -101,6 +101,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             foreach (object item in Enum.GetValues(typeof(SchemaVersion)))
             {
+                // The schema upgrade scripts starting from v7 were made idempotent.
+                // Hence we need to run the tests only for versions 7 and above.
                 if ((int)item >= 7)
                 {
                     yield return new object[] { item };
