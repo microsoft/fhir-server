@@ -9,29 +9,30 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class BulkTokenSearchParameterV1RowGenerator : BulkSearchParameterRowGenerator<TokenSearchValue, BulkTokenSearchParamTableTypeV1Row>
+    internal class BulkIdentifierOfTypeSearchParameterV1RowGenerator : BulkSearchParameterRowGenerator<IdentifierOfTypeSearchValue, BulkIdentifierSearchParamTableTypeV1Row>
     {
         private short _resourceIdSearchParamId;
 
-        public BulkTokenSearchParameterV1RowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
-            : base(model, searchParameterTypeMap)
+        public BulkIdentifierOfTypeSearchParameterV1RowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
+              : base(model, searchParameterTypeMap)
         {
         }
 
-        internal override bool TryGenerateRow(int offset, short searchParamId, TokenSearchValue searchValue, out BulkTokenSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(int offset, short searchParamId, IdentifierOfTypeSearchValue searchValue, out BulkIdentifierSearchParamTableTypeV1Row row)
         {
-            // don't store if the code is empty or if this is the Resource _id parameter. The id is already maintained on the Resource table.
+            // don't store if this is the Resource _id parameter. The id is already maintained on the Resource table.
             if (searchParamId == _resourceIdSearchParamId)
             {
                 row = default;
                 return false;
             }
 
-            row = new BulkTokenSearchParamTableTypeV1Row(
+            row = new BulkIdentifierSearchParamTableTypeV1Row(
                 offset,
                 searchParamId,
                 searchValue.System == null ? null : Model.GetSystemId(searchValue.System),
-                searchValue.Code ?? string.Empty);
+                searchValue.Code,
+                searchValue.Value);
 
             return true;
         }

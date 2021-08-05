@@ -375,5 +375,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             return null;
         }
+
+        public void Visit(IdentifierOfTypeSearchValue identifier)
+        {
+            EnsureArg.IsNotNull(identifier, nameof(identifier));
+
+            EnsureOnlyEqualComparatorIsSupported();
+            _outputExpression = Expression.And(
+                        Expression.StringEquals(FieldName.IdentifierSystem, _componentIndex, identifier.System, false),
+                        Expression.StringEquals(FieldName.IdentifierCode, _componentIndex, identifier.Code, false),
+                        Expression.StringEquals(FieldName.IdentifierValue, _componentIndex, identifier.Value, false));
+        }
     }
 }

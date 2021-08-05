@@ -49,6 +49,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string StringName = "s";
 
+        public const string IdentifierValue = "iv";
+        public const string IdentifierSystem = "iss"; // 'is' is reserved word
+        public const string IdentifierCode = "ic";
+
         public const string TextName = "t";
 
         public const string UriName = "u";

@@ -168,6 +168,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 return TokenTextQueryGenerator.Instance;
             }
+            else if (expression.FieldName == FieldName.IdentifierSystem || expression.FieldName == FieldName.IdentifierCode || expression.FieldName == FieldName.IdentifierValue)
+            {
+                return IdentifierOfTypeQueryGenerator.Instance;
+            }
 
             return TokenQueryGenerator.Instance;
         }

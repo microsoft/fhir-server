@@ -131,6 +131,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
             }
         }
 
+        void ISearchValueVisitor.Visit(IdentifierOfTypeSearchValue identifier)
+        {
+            AddPropertyIfNotNull(SearchValueConstants.IdentifierSystem, identifier.System);
+            AddPropertyIfNotNull(SearchValueConstants.IdentifierCode, identifier.Code);
+            AddPropertyIfNotNull(SearchValueConstants.IdentifierValue, identifier.Value);
+        }
+
         void ISearchValueVisitor.Visit(UriSearchValue uri)
         {
             AddProperty(SearchValueConstants.UriName, uri.Uri);

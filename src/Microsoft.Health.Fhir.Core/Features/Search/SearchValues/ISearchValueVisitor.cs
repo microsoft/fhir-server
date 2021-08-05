@@ -54,5 +54,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// </summary>
         /// <param name="uri">The URI search value to visit.</param>
         void Visit(UriSearchValue uri);
+
+        /// <summary>
+        /// Visits the <see cref="IdentifierOfTypeSearchValue"/>.
+        /// </summary>
+        /// <param name="identifier">The identifier search value to visit.</param>
+        void Visit(IdentifierOfTypeSearchValue identifier);
     }
 }

@@ -26,5 +26,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         TokenSystem,
         TokenText,
         Uri,
+        IdentifierValue,
+        IdentifierSystem,
+        IdentifierCode,
     }
 }

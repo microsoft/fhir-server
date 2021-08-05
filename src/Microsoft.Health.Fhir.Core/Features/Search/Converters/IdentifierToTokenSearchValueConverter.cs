@@ -26,14 +26,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             string system = value.Scalar("system") as string;
             string type = value.Scalar("type.text") as string;
 
-            if (string.IsNullOrEmpty(stringValue))
-            {
-                yield break;
-            }
-
             // Based on spec: http://hl7.org/fhir/search.html#token,
             // the text for identifier is specified by Identifier.type.text.
             yield return new TokenSearchValue(system, stringValue, type);
+
+            var codingCollection = value.Select("type.coding");
+            foreach (var coding in codingCollection)
+            {
+                string codingCode = coding.Scalar("code") as string;
+                string codingSystem = coding.Scalar("system") as string;
+                if (!string.IsNullOrEmpty(codingCode) && !string.IsNullOrEmpty(codingSystem))
+                {
+                    yield return new IdentifierOfTypeSearchValue(codingSystem, codingCode, stringValue);
+                }
+            }
         }
     }
 }

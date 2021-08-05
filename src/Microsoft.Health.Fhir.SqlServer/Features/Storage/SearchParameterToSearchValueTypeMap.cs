@@ -49,8 +49,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             Type searchValueType = searchIndexEntry.Value.GetType();
 
-            Debug.Assert(searchValueType == GetSearchValueType(searchIndexEntry.SearchParameter), "Getting the search value type from the search parameter produced a different result from calling searchValue.GetType()");
-
             return searchValueType;
         }
 
