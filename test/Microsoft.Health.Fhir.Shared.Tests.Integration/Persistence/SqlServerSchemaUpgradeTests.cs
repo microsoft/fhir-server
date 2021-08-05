@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -72,8 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Theory]
-        [InlineData((int)SchemaVersion.V7)]
-        [InlineData(SchemaVersionConstants.Max)]
+        [MemberData(nameof(GetSchemaVersions))]
         public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed(int schemaVersion)
         {
             var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
@@ -94,6 +94,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             finally
             {
                 await testHelper.DeleteDatabase(snapshotDatabaseName);
+            }
+        }
+
+        public static IEnumerable<object[]> GetSchemaVersions()
+        {
+            foreach (object item in Enum.GetValues(typeof(SchemaVersion)))
+            {
+                if ((int)item >= 7)
+                {
+                    yield return new object[] { item };
+                }
             }
         }
 
