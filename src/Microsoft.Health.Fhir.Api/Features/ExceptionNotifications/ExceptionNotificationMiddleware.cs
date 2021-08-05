@@ -11,7 +11,6 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Api.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Task = System.Threading.Tasks.Task;
@@ -55,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
                 try
                 {
                     IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
-                    var innerMostException = exception.GetInnerMostException();
+                    var innerMostException = exception.GetBaseException();
 
                     exceptionNotification.CorrelationId = fhirRequestContext?.CorrelationId;
                     exceptionNotification.FhirOperation = fhirRequestContext?.AuditEventType;
