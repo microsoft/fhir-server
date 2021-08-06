@@ -4,15 +4,16 @@ parameters:
 - name: appServiceName
   type: string
 - name: appServiceType
-- type: string
+  type: string
 - name: TestEnvironmentUrlKey
-- type: string
+  type: string
 - name: TestEnvironmentUrlValue
-- type: string
+  type: string
 - name: TestEnvironmentUrlVersionKey
-- type: string
+  type: string
 - name: TestEnvironmentUrlVersionValue
-- type: string
+  type: string
+
 steps:
   - task: AzurePowerShell@4
     displayName: 'Set Variables'
