@@ -58,10 +58,6 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: ${{ parameters.appServiceName }}
       appServiceType: 'CosmosDb'
-      TestEnvironmentUrlKey: 'TestEnvironmentUrl'
-      TestEnvironmentUrlValue: $(TestEnvironmentUrl)
-      TestEnvironmentUrlVersionKey: 'TestEnvironmentUrl_${{ parameters.version }}'
-      TestEnvironmentUrlVersionValue: $(TestEnvironmentUrl_${{ parameters.version }})
 
 - job: 'sqlE2eTests'
   dependsOn: []
@@ -75,7 +71,3 @@ jobs:
       version: ${{ parameters.version }}
       appServiceName: '${{ parameters.appServiceName }}-sql'
       appServiceType: 'SqlServer'
-      TestEnvironmentUrlKey: 'TestEnvironmentUrl_Sql'
-      TestEnvironmentUrlValue: $(TestEnvironmentUrl_Sql)
-      TestEnvironmentUrlVersionKey: 'TestEnvironmentUrl_${{ parameters.version }}_Sql'
-      TestEnvironmentUrlVersionValue: $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
