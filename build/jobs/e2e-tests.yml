@@ -14,29 +14,6 @@ steps:
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
-        $dataStore = "${{ parameters.appServiceType }}"
-
-        $testEnvironmentUrlKey = "TestEnvironmentUrl"
-        $testEnvironmentUrlValue = "$(TestEnvironmentUrl)"
-        $fhirVersion = "${{ parameters.version }}"
-        if ($fhirVersion -ne "Stu3" -and $dataStore -eq "CosmosDb")
-        {
-            $testEnvironmentUrlKey += "_$fhirVersion"
-            $testEnvironmentUrlValue = "$(TestEnvironmentUrl_$fhirVersion)"
-        }
-        if ($fhirVersion -eq "Stu3" -and $dataStore -eq "SqlServer")
-        {
-            $testEnvironmentUrlKey += "_Sql"
-            $testEnvironmentUrlValue = "$(TestEnvironmentUrl_Sql)"
-        }
-        if ($fhirVersion -ne "Stu3" -and $dataStore -eq "SqlServer")
-        {
-            $testEnvironmentUrlKey += "_Sql"
-            $testEnvironmentUrlValue = "$(TestEnvironmentUrl_$fhirVersion_Sql)"
-        }
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrlKey]$($testEnvironmentUrlKey)"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrlValue]$($testEnvironmentUrlValue)"
-        Write-Host "urlKey : $testEnvironmentUrlKey; value: $testEnvironmentUrlValue"
         $keyVault = "$(DeploymentEnvironmentName)-ts"
         $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
         
@@ -112,7 +89,10 @@ steps:
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} ${{parameters.appServiceType}}'
     env:
-      '$(TestEnvironmentUrlKey)': $(TestEnvironmentUrlValue)
+      'TestEnvironmentUrl': $(TestEnvironmentUrl)
+      'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
+      'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
+      'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
       'Resource': $(Resource)
       'AllStorageAccounts': $(AllStorageAccounts)
       'TestContainerRegistryServer': $(TestContainerRegistryServer)
