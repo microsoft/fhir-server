@@ -1,6 +1,9 @@
 ﻿-- Style guide: please see: https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Convention%20and%20T-SQL%20Programming%20Style.md
 
 -- The wrapping up of the initialization script under a transaction is removed from the schema-manager tool, so adding transaction in the script itself.
+SET XACT_ABORT ON
+
+BEGIN TRANSACTION
 
 /*************************************************************
     Migration progress
@@ -3601,4 +3604,8 @@ BEGIN
     FROM dbo.EventAgentCheckpoint
     WHERE CheckpointId = @CheckpointId
 END
+GO
+
+COMMIT TRANSACTION
+
 GO

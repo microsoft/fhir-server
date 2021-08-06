@@ -98,6 +98,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         {
         }
 
+        public void Visit(IdentifierOfTypeSearchValue identifier)
+        {
+        }
+
         public void Visit(UriSearchValue uri)
         {
             AddProperty(_prefix, uri.Uri);
@@ -111,10 +115,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         private void AddProperty(string name, object value)
         {
             CurrentEntry.Add(new JProperty(name, value));
-        }
-
-        public void Visit(IdentifierOfTypeSearchValue identifier)
-        {
         }
     }
 }

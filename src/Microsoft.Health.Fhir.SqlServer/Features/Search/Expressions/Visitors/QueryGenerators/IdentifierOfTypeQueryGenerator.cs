@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.IdentifierOfTypeSearchParam.SystemId, expression.ComponentIndex, systemId);
                     }
 
-                    AppendColumnName(context, VLatest.TokenSearchParam.SystemId, expression)
+                    AppendColumnName(context, VLatest.IdentifierOfTypeSearchParam.SystemId, expression)
                         .Append(" IN (SELECT ")
                         .Append(VLatest.System.SystemId, null)
                         .Append(" FROM ").Append(VLatest.System)

@@ -53,10 +53,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public bool IsValidAsCompositeComponent => false;
 
         /// <summary>
-        /// Parses the string value to an instance of <see cref="TokenSearchValue"/>.
+        /// Parses the string value to an instance of <see cref="IdentifierOfTypeSearchValue"/>.
         /// </summary>
         /// <param name="s">The string to be parsed.</param>
-        /// <returns>An instance of <see cref="TokenSearchValue"/>.</returns>
+        /// <returns>An instance of <see cref="IdentifierOfTypeSearchValue"/>.</returns>
         public static IdentifierOfTypeSearchValue Parse(string s)
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
@@ -65,7 +65,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             if (parts.Count == 3)
             {
-                // There was no separator, so this value represents the code.
                 return new IdentifierOfTypeSearchValue(parts[0], parts[1], parts[2]);
             }
             else
@@ -89,16 +88,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 return false;
             }
 
-            var tokenSearchValueOther = other as IdentifierOfTypeSearchValue;
+            var identifierSearchValueOther = other as IdentifierOfTypeSearchValue;
 
-            if (tokenSearchValueOther == null)
+            if (identifierSearchValueOther == null)
             {
                 return false;
             }
 
-            return System.Equals(tokenSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
-                   Code.Equals(tokenSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
-                   Value.Equals(tokenSearchValueOther.Value, StringComparison.OrdinalIgnoreCase);
+            return System.Equals(identifierSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
+                   Code.Equals(identifierSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
+                   Value.Equals(identifierSearchValueOther.Value, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />

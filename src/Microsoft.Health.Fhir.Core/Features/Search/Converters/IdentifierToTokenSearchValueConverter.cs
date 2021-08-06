@@ -30,6 +30,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             // the text for identifier is specified by Identifier.type.text.
             yield return new TokenSearchValue(system, stringValue, type);
 
+            if (string.IsNullOrEmpty(stringValue))
+            {
+                yield break;
+            }
+
             var codingCollection = value.Select("type.coding");
             foreach (var coding in codingCollection)
             {
