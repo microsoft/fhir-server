@@ -24,7 +24,7 @@ WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_IdentifierOfTypeSearchParam_SearchParamId_Code_SystemId_Value
-ON dbo.TokenSearchParam
+ON dbo.IdentifierOfTypeSearchParam
 (
     ResourceTypeId,
     SearchParamId,
