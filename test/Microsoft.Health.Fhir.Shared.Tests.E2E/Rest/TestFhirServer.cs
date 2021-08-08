@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading;
@@ -235,7 +236,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                         return false;
                     })
-                    .OrResult<HttpResponseMessage>(message => (int)message.StatusCode == 429)
+                    .OrResult<HttpResponseMessage>(message => message.StatusCode == HttpStatusCode.TooManyRequests ||
+                                                              message.StatusCode == HttpStatusCode.ServiceUnavailable)
                     .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
             }
 
