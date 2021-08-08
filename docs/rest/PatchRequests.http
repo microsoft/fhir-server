@@ -152,3 +152,30 @@ Authorization: Bearer {{bearer.response.body.access_token}}
         "value": true
     }
 ]
+
+### Patch in a bundle
+## See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request
+
+POST https://{{hostname}}/
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Bundle",
+    "id": "bundle-batch",
+    "type": "batch",
+    "entry": [
+        {
+            "fullUrl": "Patient/{{patient.response.body.id}}",
+            "resource": {
+                "resourceType": "Binary",
+                "contentType": "application/json-patch+json",
+                "data": "W3sib3AiOiJyZXBsYWNlIiwicGF0aCI6Ii9nZW5kZXIiLCJ2YWx1ZSI6ImZlbWFsZSJ9XQ=="
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient/{{patient.response.body.id}}"
+            }
+        }
+    ]
+}

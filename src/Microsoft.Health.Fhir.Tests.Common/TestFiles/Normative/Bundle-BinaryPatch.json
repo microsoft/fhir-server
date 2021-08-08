@@ -1,0 +1,56 @@
+﻿{
+    "resourceType": "Bundle",
+    "id": "bundle-patch",
+    "meta": {
+        "lastUpdated": "2014-08-18T01:43:30Z"
+    },
+    "type": "batch",
+    "entry": [
+        {
+            "fullUrl": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5",
+            "resource": {
+                "id": "9F746C86-48B4-424D-9F92-1E46215E35D5",
+                "resourceType": "Patient",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http:/example.org/fhir/ids",
+                        "value": "9F746C86-48B4-424D-9F92-1E46215E35D5"
+                    }
+                ],
+                "active": true,
+                "name": [
+                    {
+                        "use": "official",
+                        "family": "Chalmers",
+                        "given": [
+                            "Peter",
+                            "James"
+                        ]
+                    }
+                ],
+                "gender": "male",
+                "birthDate": "1974-12-25"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5"
+            }
+        },
+        {
+            "fullUrl": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5",
+            "resource": {
+                "resourceType": "Binary",
+                "contentType": "application/json-patch+json",
+                "data": "W3sib3AiOiJyZXBsYWNlIiwicGF0aCI6Ii9nZW5kZXIiLCJ2YWx1ZSI6ImZlbWFsZSJ9XQ=="
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5"
+            }
+        }
+    ]
+}

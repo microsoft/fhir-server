@@ -5,6 +5,10 @@
     <RootNamespace>Microsoft.Health.Fhir.Api</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <DefineConstants>STU3</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Api\Modules\AnonymizationModule.cs" Link="Modules\AnonymizationModule.cs" />
   </ItemGroup>
