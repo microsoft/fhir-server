@@ -361,9 +361,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.BulkReindexResources.PopulateCommand(
+                if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTable)
+                {
+                    VLatest.BulkReindexResources.PopulateCommand(
                     sqlCommandWrapper,
                     _bulkReindexResourcesTvpGeneratorVLatest.Generate(resources.ToList()));
+                }
+                else
+                {
+                    V16.BulkReindexResources.PopulateCommand(sqlCommandWrapper, _bulkReindexResourcesTvpGeneratorV16.Generate(resources.ToList()));
+                }
 
                 if (_schemaInformation.Current >= SchemaVersionConstants.BulkReindexReturnsFailuresVersion)
                 {
@@ -446,13 +453,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.ReindexResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                    resourceId: resource.ResourceId,
-                    eTag,
-                    searchParamHash: resource.SearchParameterHash,
-                    tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
+                if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTable)
+                {
+                    VLatest.ReindexResource.PopulateCommand(
+                        sqlCommandWrapper,
+                        resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                        resourceId: resource.ResourceId,
+                        eTag,
+                        searchParamHash: resource.SearchParameterHash,
+                        tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }));
+                }
+                else
+                {
+                    V16.ReindexResource.PopulateCommand(
+                        sqlCommandWrapper,
+                        resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                        resourceId: resource.ResourceId,
+                        eTag,
+                        searchParamHash: resource.SearchParameterHash,
+                        tableValuedParameters: _reindexResourceTvpGeneratorV16.Generate(new List<ResourceWrapper> { resource }));
+                }
 
                 try
                 {
