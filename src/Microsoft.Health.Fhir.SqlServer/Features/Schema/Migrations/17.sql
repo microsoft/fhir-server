@@ -1620,7 +1620,7 @@ AS
             DELETE FROM dbo.TokenText
             WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
-            DELETE FROM dbo.IdentifierOfTypeSearchParameter
+            DELETE FROM dbo.IdentifierOfTypeSearchParam
             WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @previousResourceSurrogateId
 
             DELETE FROM dbo.StringSearchParam
