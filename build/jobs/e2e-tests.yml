@@ -127,6 +127,8 @@ steps:
       'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
       'user_globalExporterUser_id': $(user_globalExporterUser_id)
       'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
+      'user_globalImporterUser_id': $(user_globalImporterUser_id)
+      'user_globalImporterUser_secret': $(user_globalImporterUser_secret)
       'user_globalReaderUser_id': $(user_globalReaderUser_id)
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
