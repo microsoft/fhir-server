@@ -460,7 +460,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     ReindexResource
+--     ReindexResource_2
 --
 -- DESCRIPTION
 --     Updates the search indices of a given resource
@@ -511,7 +511,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE OR ALTER PROCEDURE dbo.ReindexResource
+CREATE OR ALTER PROCEDURE dbo.ReindexResource_2
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
@@ -695,7 +695,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     BulkReindexResources
+--     BulkReindexResources_2
 --
 -- DESCRIPTION
 --     Updates the search indices of a batch of resources
@@ -741,7 +741,7 @@ GO
 -- RETURN VALUE
 --     The number of resources that failed to reindex due to versioning conflicts.
 --
-CREATE OR ALTER PROCEDURE dbo.BulkReindexResources
+CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_2
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
