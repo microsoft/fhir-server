@@ -10,16 +10,16 @@ namespace ImportTool
         /// <summary>
         /// Azure storage connection string.
         /// /// </summary>
-        public string StorageConnectionString { get; set; }
+        public string StorageConnectionString { get; set; } = "UseDevelopmentStorage=true;";
 
         /// <summary>
         /// Determines the size of each splited file.
         /// /// </summary>
-        public long SplitSizeInBytes { get; set; }
+        public long SplitSizeInBytes { get; set; } = 200 * 1024 * 1024L;
 
         /// <summary>
         /// Determines the max number of input or splited file.
         /// /// </summary>
-        public int MaxFileNumber { get; set; }
+        public int MaxFileNumber { get; set; } = 2000;
     }
 }

@@ -11,15 +11,15 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
+using Task = System.Threading.Tasks.Task;
 
 namespace ImportTool
 {
     public static class RequestGenerator
     {
-        public static async Task<string> GenerateImportRequest(string connectionString, string prefix, int maxFileNumber)
+        public static async Task<string> GenerateImportRequest(string connectionString, string prefix, int maxFileNumber, FHIRVersion version)
         {
             Parameters parameters = new Parameters();
 
@@ -32,19 +32,15 @@ namespace ImportTool
             {
                 CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
 
-                (int count, int succeedCount) = await AddInputPartsFromBlobs(cloudBlobClient, prefix, maxFileNumber, parameters);
-
-                Console.WriteLine($"Total files: {count} traversed.");
-                Console.WriteLine($"Succeed files: {succeedCount} put as input.");
+                await AddInputPartsFromBlobs(cloudBlobClient, prefix, maxFileNumber, parameters);
             }
 
-            return new FhirJsonSerializer().SerializeToString(parameters);
+            return FHIRMultiVersionUtility.SerializeToString(parameters, version);
         }
 
-        private static async Task<Tuple<int, int>> AddInputPartsFromBlobs(CloudBlobClient cloudBlobClient, string prefix, int maxFileNumber, Parameters parameters)
+        private static async Task AddInputPartsFromBlobs(CloudBlobClient cloudBlobClient, string prefix, int maxFileNumber, Parameters parameters)
         {
             int count = 0;
-            int succeed_count = 0;
 
             BlobContinuationToken continuationToken = null;
             do
@@ -53,14 +49,14 @@ namespace ImportTool
                     prefix: prefix,
                     useFlatBlobListing: true,
                     blobListingDetails: BlobListingDetails.Metadata,
-                    maxResults: Math.Min(maxFileNumber, 5000),
+                    maxResults: 2000,
                     currentToken: continuationToken,
                     options: null,
                     operationContext: null);
 
                 foreach (var segment in segments.Results.Cast<CloudBlockBlob>())
                 {
-                    try
+                    if (Regex.Match(segment.Name, ".*\\.ndjson$", RegexOptions.IgnoreCase).Success)
                     {
                         string resourceType = await GetResourceType(segment);
                         List<Tuple<string, Base>> inputPart = new List<Tuple<string, Base>>();
@@ -69,19 +65,13 @@ namespace ImportTool
                         string etag = segment.Properties.ETag.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
                         inputPart.Add(Tuple.Create("etag", (Base)new FhirString(etag)));
                         parameters.Add("input", inputPart);
-                        succeed_count++;
+                        count++;
                     }
-                    catch (Exception oex)
-                    {
-                        Console.WriteLine($"Error reslove file {segment.Uri} due to exception {oex.Message}");
-                    }
-
-                    count++;
                 }
             }
             while (continuationToken != null && count < maxFileNumber);
 
-            return new Tuple<int, int>(count, succeed_count);
+            return;
         }
 
         // Get the first resouce in file to determine type
@@ -94,8 +84,8 @@ namespace ImportTool
                 {
                     using (StreamReader reader = new StreamReader(stream))
                     {
-                        reader.Read(buffer, 0, 128);
-                        return ExtractResourceType(new string(buffer));
+                        string resource = reader.ReadLine();
+                        return ExtractResourceType(resource);
                     }
                 }
                 finally
@@ -107,7 +97,7 @@ namespace ImportTool
 
         private static string ExtractResourceType(string content)
         {
-            Regex regex = new Regex("{\"resourceType\":\"([a-zA-Z]+)\",");
+            Regex regex = new Regex("{\"resourceType\":\"([a-zA-Z]+)\"", RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
             Match match = regex.Match(content);
             if (!match.Success)
             {
