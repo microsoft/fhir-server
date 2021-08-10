@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Can&apos;t find &apos;{0}&apos; in type &apos;{1}&apos;.
+        /// </summary>
+        internal static string CantResolveExpressionForAType {
+            get {
+                return ResourceManager.GetString("CantResolveExpressionForAType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The chained parameter must be a reference search parameter type..
         /// </summary>
         internal static string ChainedParameterMustBeReferenceSearchParamType {

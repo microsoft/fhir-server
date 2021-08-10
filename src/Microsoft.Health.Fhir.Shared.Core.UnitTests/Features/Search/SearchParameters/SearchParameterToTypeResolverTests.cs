@@ -100,5 +100,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Equal("Reference", results.Single().FhirNodeType);
         }
+
+        [Fact]
+        public void GivenABadFhirPathExpression_WhenResolving_ThenResolveThrowException()
+        {
+            var expression = _compiler.Parse("Patient.cookie");
+            Assert.Throws<NotSupportedException>(() =>
+                SearchParameterToTypeResolver.Resolve(
+                    KnownResourceTypes.Patient,
+                    (SearchParamType.Token, expression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-cookie")),
+                    null).ToArray());
+        }
     }
 }
