@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using EnsureThat;
@@ -71,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 string statusString = null;
 
-                string ConvertStatusString(HttpStatusCode statusCode)
+                string ToStatusString(HttpStatusCode statusCode)
                 {
                     return $"{(int)statusCode} {statusCode}";
                 }
@@ -79,31 +80,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 switch (httpVerb)
                 {
                     case Bundle.HTTPVerb.POST:
-                        statusString = ConvertStatusString(HttpStatusCode.Created);
+                        statusString = ToStatusString(HttpStatusCode.Created);
                         break;
                     case Bundle.HTTPVerb.PUT:
 
                         if (string.Equals(r.Resource.Version, "1", StringComparison.Ordinal))
                         {
-                            statusString = ConvertStatusString(HttpStatusCode.Created);
+                            statusString = ToStatusString(HttpStatusCode.Created);
                             break;
                         }
 
-                        statusString = ConvertStatusString(HttpStatusCode.OK);
+                        statusString = ToStatusString(HttpStatusCode.OK);
                         break;
 
                     case Bundle.HTTPVerb.GET:
 #if !Stu3
                     case Bundle.HTTPVerb.PATCH:
+                    case Bundle.HTTPVerb.HEAD:
 #endif
-                        statusString = ConvertStatusString(HttpStatusCode.OK);
+                        statusString = ToStatusString(HttpStatusCode.OK);
                         break;
                     case Bundle.HTTPVerb.DELETE:
-                        statusString = ConvertStatusString(HttpStatusCode.NoContent);
+                        statusString = ToStatusString(HttpStatusCode.NoContent);
                         break;
                     default:
-                        _logger.LogWarning(nameof(CreateHistoryBundle) + " tried to resolve a status string for {httpVerb} but a mapping wasn't defined.", httpVerb);
-                        break;
+                        throw new NotImplementedException($"{httpVerb} was not defined.");
                 }
 
                 resource.Response = new Bundle.ResponseComponent

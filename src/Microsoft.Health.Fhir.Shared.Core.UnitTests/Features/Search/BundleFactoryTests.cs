@@ -187,29 +187,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenAHistoryResultWithUnknownStatuses_WhenCreateSearchBundle_ThenCorrectBundleShouldNotCrash()
+        public void GivenAHistoryResultWithAllHttpVerbs_WhenCreateSearchBundle_ThenBundleShouldNotCrash()
         {
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
             _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>(), Arg.Any<bool>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
 
-            ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123").UpdateVersion("1");
-
-            var resourceWrappers = new[]
+            foreach (var verb in Enum.GetValues<Bundle.HTTPVerb>())
             {
-                new SearchResultEntry(CreateResourceWrapper(observation1, HttpMethod.Head)),
-            };
+                ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123").UpdateVersion("1");
 
-            var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
+                var resourceWrappers = new[]
+                {
+                    new SearchResultEntry(CreateResourceWrapper(observation1, new HttpMethod(verb.ToString()))),
+                };
 
-            var actual = _bundleFactory.CreateHistoryBundle(searchResult);
+                var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
 
-            if (ModelInfoProvider.Version == FhirSpecification.Stu3)
-            {
-                Assert.Equal("200 OK", actual.ToPoco<Bundle>().Entry[0].Response.Status);
-            }
-            else
-            {
-                Assert.Null(actual.ToPoco<Bundle>().Entry[0].Response.Status);
+                var actual = _bundleFactory.CreateHistoryBundle(searchResult);
+
+                Assert.NotNull(actual.ToPoco<Bundle>().Entry[0].Response.Status);
             }
         }
     }
