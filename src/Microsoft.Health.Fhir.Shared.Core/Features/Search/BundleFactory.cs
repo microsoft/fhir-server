@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -25,14 +26,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly IUrlResolver _urlResolver;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly ILogger<BundleFactory> _logger;
 
-        public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, ILogger<BundleFactory> logger)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _urlResolver = urlResolver;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _logger = logger;
         }
 
         public ResourceElement CreateSearchBundle(SearchResult result)
@@ -65,21 +69,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     Url = hasVerb ? $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}" : null,
                 };
 
-                string statusString;
+                string statusString = null;
+
+                string ConvertStatusString(HttpStatusCode statusCode)
+                {
+                    return $"{(int)statusCode} {statusCode}";
+                }
+
                 switch (httpVerb)
                 {
                     case Bundle.HTTPVerb.POST:
-                        statusString = ((int)HttpStatusCode.Created).ToString() + " " + HttpStatusCode.Created;
+                        statusString = ConvertStatusString(HttpStatusCode.Created);
                         break;
                     case Bundle.HTTPVerb.PUT:
+
+                        if (string.Equals(r.Resource.Version, "1", StringComparison.Ordinal))
+                        {
+                            statusString = ConvertStatusString(HttpStatusCode.Created);
+                            break;
+                        }
+
+                        statusString = ConvertStatusString(HttpStatusCode.OK);
+                        break;
+
                     case Bundle.HTTPVerb.GET:
-                        statusString = ((int)HttpStatusCode.OK).ToString() + " " + HttpStatusCode.OK;
+#if !Stu3
+                    case Bundle.HTTPVerb.PATCH:
+#endif
+                        statusString = ConvertStatusString(HttpStatusCode.OK);
                         break;
                     case Bundle.HTTPVerb.DELETE:
-                        statusString = ((int)HttpStatusCode.NoContent).ToString() + " " + HttpStatusCode.NoContent;
+                        statusString = ConvertStatusString(HttpStatusCode.NoContent);
                         break;
                     default:
-                        throw new NotImplementedException();
+                        _logger.LogWarning(nameof(CreateHistoryBundle) + " tried to resolve a status string for {httpVerb} but a mapping wasn't defined.", httpVerb);
+                        break;
                 }
 
                 resource.Response = new Bundle.ResponseComponent

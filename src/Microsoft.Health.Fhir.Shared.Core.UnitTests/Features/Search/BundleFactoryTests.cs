@@ -6,8 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -46,7 +48,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _bundleFactory = new BundleFactory(
                 _urlResolver,
-                _fhirRequestContextAccessor);
+                _fhirRequestContextAccessor,
+                NullLogger<BundleFactory>.Instance);
 
             IFhirRequestContext fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
@@ -85,8 +88,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var resourceWrappers = new SearchResultEntry[]
             {
-                new SearchResultEntry(CreateResourceWrapper(observation1)),
-                new SearchResultEntry(CreateResourceWrapper(observation2)),
+                new SearchResultEntry(CreateResourceWrapper(observation1, HttpMethod.Post)),
+                new SearchResultEntry(CreateResourceWrapper(observation2, HttpMethod.Post)),
             };
 
             var searchResult = new SearchResult(resourceWrappers,  continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
@@ -104,18 +107,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 actual.ToPoco<Bundle>().Entry,
                 async e => await ValidateEntry(observation1.ToPoco<Observation>(), e),
                 async e => await ValidateEntry(observation2.ToPoco<Observation>(), e));
-
-            ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement)
-            {
-                return new ResourceWrapper(
-                    resourceElement,
-                    new RawResource(_fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Observation>()), FhirResourceFormat.Json, isMetaSet: false),
-                    null,
-                    false,
-                    null,
-                    null,
-                    null);
-            }
 
             async Task ValidateEntry(Observation expected, Bundle.EntryComponent actualEntry)
             {
@@ -142,6 +133,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
+        private ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement, HttpMethod httpMethod)
+        {
+            return new ResourceWrapper(
+                resourceElement,
+                new RawResource(_fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Observation>()), FhirResourceFormat.Json, isMetaSet: false),
+                new ResourceRequest(httpMethod, url: "http://test/Resource/resourceId"),
+                false,
+                null,
+                null,
+                null);
+        }
+
         [Fact]
         public void GivenASearchResultWithContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
@@ -154,6 +157,60 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ResourceElement actual = _bundleFactory.CreateSearchBundle(searchResult);
 
             Assert.Equal(_nextUrl.OriginalString, actual.Scalar<string>("Bundle.link.where(relation='next').url"));
+        }
+
+        [Theory]
+        [InlineData("123", "1", "POST", "201 Created")]
+        [InlineData("123", "1", "PUT", "201 Created")]
+        [InlineData("123", "2", "PUT", "200 OK")]
+        [InlineData("123", "2", "PATCH", "200 OK")]
+        [InlineData("123", "2", "DELETE", "204 NoContent")]
+        public void GivenAHistoryResultWithDifferentStatuses_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned(string id, string version, string method, string statusString)
+        {
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>(), Arg.Any<bool>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
+
+            ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId(id).UpdateVersion(version);
+
+            var resourceWrappers = new[]
+            {
+                new SearchResultEntry(CreateResourceWrapper(observation1, new HttpMethod(method))),
+            };
+
+            var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
+
+            var actual = _bundleFactory.CreateHistoryBundle(searchResult);
+
+            Assert.Equal(statusString, actual.ToPoco<Bundle>().Entry[0].Response.Status);
+        }
+
+        [Fact]
+        public void GivenAHistoryResultWithUnknownStatuses_WhenCreateSearchBundle_ThenCorrectBundleShouldNotCrash()
+        {
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>(), Arg.Any<bool>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
+
+            ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123").UpdateVersion("1");
+
+            var resourceWrappers = new[]
+            {
+                new SearchResultEntry(CreateResourceWrapper(observation1, HttpMethod.Head)),
+            };
+
+            var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
+
+            var actual = _bundleFactory.CreateHistoryBundle(searchResult);
+
+            if (ModelInfoProvider.Version == FhirSpecification.Stu3)
+            {
+                Assert.Equal("200 OK", actual.ToPoco<Bundle>().Entry[0].Response.Status);
+            }
+            else
+            {
+                Assert.Null(actual.ToPoco<Bundle>().Entry[0].Response.Status);
+            }
         }
     }
 }
