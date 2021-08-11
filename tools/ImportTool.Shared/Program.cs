@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Mono.Options;
@@ -93,7 +94,9 @@ namespace ImportTool
 
                 if (generateRequest)
                 {
-                    await RequestGenerator.GenerateImportRequest(config.StorageConnectionString, prefix, config.MaxFileNumber);
+                    var requet = await RequestGenerator.GenerateImportRequest(config.StorageConnectionString, prefix, config.MaxFileNumber);
+                    _logger.LogInformation("Generate request completed, write it into local request.json file");
+                    File.WriteAllText(@"request.json", requet);
                 }
             }
             catch (OptionException oe)
