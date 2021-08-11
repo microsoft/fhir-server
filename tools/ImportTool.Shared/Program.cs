@@ -31,16 +31,28 @@ namespace ImportTool
             bool generateRequest = false;
             bool splitFile = false;
             string prefix = string.Empty;
+            string account = string.Empty;
+            string key = string.Empty;
 
             var option = new OptionSet()
             {
                 {
-                    "c|connectionString=", "the {CONNECTIONSTRING} of source blob.",
+                    "a|account=", "the {ACCOUNT} of azure storage.",
                     value =>
                     {
                         if (value != null)
                         {
-                            config.StorageConnectionString = value;
+                            account = value;
+                        }
+                    }
+                },
+                {
+                    "k|key=", "the {KEY} of azure storage account.",
+                    value =>
+                    {
+                        if (value != null)
+                        {
+                            key = value;
                         }
                     }
                 },
@@ -88,15 +100,20 @@ namespace ImportTool
                 },
             };
 
+            if (!(string.IsNullOrEmpty(account) || string.IsNullOrEmpty(key)))
+            {
+                config.StorageConnectionString = $"DefaultEndpointsProtocol=https;AccountName={account};AccountKey={key}";
+            }
+
             try
             {
                 option.Parse(args);
 
                 if (generateRequest)
                 {
-                    var requet = await RequestGenerator.GenerateImportRequest(config.StorageConnectionString, prefix, config.MaxFileNumber);
+                    var request = await RequestGenerator.GenerateImportRequest(config.StorageConnectionString, prefix, config.MaxFileNumber);
                     _logger.LogInformation("Generate request completed, write it into local request.json file");
-                    File.WriteAllText(@"request.json", requet);
+                    File.WriteAllText(@"request.json", request);
                 }
             }
             catch (OptionException oe)

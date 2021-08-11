@@ -50,7 +50,7 @@ namespace ImportTool
                     prefix: prefix,
                     useFlatBlobListing: true,
                     blobListingDetails: BlobListingDetails.Metadata,
-                    maxResults: 2000,
+                    maxResults: 500,
                     currentToken: continuationToken,
                     options: null,
                     operationContext: null);
@@ -67,10 +67,15 @@ namespace ImportTool
                         inputPart.Add(Tuple.Create("etag", (Base)new FhirString(etag)));
                         parameters.Add("input", inputPart);
                         count++;
+
+                        if (count >= maxFileNumber)
+                        {
+                            return;
+                        }
                     }
                 }
             }
-            while (continuationToken != null && count < maxFileNumber);
+            while (continuationToken != null);
 
             return;
         }
@@ -80,25 +85,17 @@ namespace ImportTool
         {
             using (var stream = await cloudBlockBlob.OpenReadAsync())
             {
-                char[] buffer = ArrayPool<char>.Shared.Rent(128);
-                try
+                using (StreamReader reader = new StreamReader(stream))
                 {
-                    using (StreamReader reader = new StreamReader(stream))
-                    {
-                        string resource = reader.ReadLine();
-                        return ExtractResourceType(resource);
-                    }
-                }
-                finally
-                {
-                    ArrayPool<char>.Shared.Return(buffer);
+                    string resource = reader.ReadLine();
+                    return ExtractResourceType(resource);
                 }
             }
         }
 
         private static string ExtractResourceType(string content)
         {
-            Regex regex = new Regex("{\"resourceType\":\"([a-zA-Z]+)\"", RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
+            Regex regex = new Regex("{\"resourceType\"[ ]+:[ ]+\"([a-zA-Z]+)\"", RegexOptions.IgnoreCase);
             Match match = regex.Match(content);
             if (!match.Success)
             {
