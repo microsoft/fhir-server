@@ -10,20 +10,25 @@ using Mono.Options;
 
 namespace ImportTool
 {
-    public class ImportTool
+    public static class Program
     {
-        private readonly ILogger<ImportTool> _logger;
+        private static ILogger _logger = GetLogger();
 
-        public ImportTool(ILogger<ImportTool> logger) => _logger = logger;
+        private static ILogger GetLogger()
+        {
+            using (var factory = LoggerFactory.Create(builder => builder.AddConsole()))
+            {
+                return factory.CreateLogger(typeof(Program).FullName);
+            }
+        }
 
-        public async Task Main(string[] args)
+        public static async Task Main(string[] args)
         {
             Config config = new Config();
 
             bool showHelp = false;
             bool generateRequest = false;
             bool splitFile = false;
-            FHIRVersion version = FHIRVersion.R4;
             string prefix = string.Empty;
 
             var option = new OptionSet()
@@ -80,16 +85,6 @@ namespace ImportTool
                     "h|help",  "show this message and exit",
                     value => showHelp = value != null
                 },
-                {
-                    "v|version=", "the {VERSION} of fhir resource.",
-                    value =>
-                    {
-                        if (value != null)
-                        {
-                            version = (FHIRVersion)Enum.Parse(typeof(FHIRVersion), value, true);
-                        }
-                    }
-                },
             };
 
             try
@@ -103,11 +98,11 @@ namespace ImportTool
             }
             catch (OptionException oe)
             {
-                _logger.LogError($"Failed to reslove arguments due to {oe.Message}");
+                _logger.LogError("Failed to reslove arguments due to {0}", oe.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to generate request or split file due to {ex.Message}");
+                _logger.LogError("Failed to generate request or split file due to {0}", ex.Message);
             }
         }
     }

@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Task = System.Threading.Tasks.Task;
@@ -19,7 +20,7 @@ namespace ImportTool
 {
     public static class RequestGenerator
     {
-        public static async Task<string> GenerateImportRequest(string connectionString, string prefix, int maxFileNumber, FHIRVersion version)
+        public static async Task<string> GenerateImportRequest(string connectionString, string prefix, int maxFileNumber)
         {
             Parameters parameters = new Parameters();
 
@@ -35,7 +36,7 @@ namespace ImportTool
                 await AddInputPartsFromBlobs(cloudBlobClient, prefix, maxFileNumber, parameters);
             }
 
-            return FHIRMultiVersionUtility.SerializeToString(parameters, version);
+            return new FhirJsonSerializer().SerializeToString(parameters);
         }
 
         private static async Task AddInputPartsFromBlobs(CloudBlobClient cloudBlobClient, string prefix, int maxFileNumber, Parameters parameters)

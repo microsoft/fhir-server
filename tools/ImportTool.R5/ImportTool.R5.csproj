@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hl7.Fhir.R5" Version="3.4.0" />
+    <PackageReference Include="Hl7.Fhir.Support.Poco" Version="3.4.0" />
+    <PackageReference Include="Hl7.FhirPath" Version="3.4.0" />
+    <PackageReference Include="Microsoft.Azure.Storage.Blob" Version="11.2.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0" />
+    <PackageReference Include="Mono.Options.Core" Version="1.0.0" />
+  </ItemGroup>
+
+  <Import Project="..\ImportTool.Shared\ImportTool.Shared.projitems" Label="Shared" />
+
+</Project>
