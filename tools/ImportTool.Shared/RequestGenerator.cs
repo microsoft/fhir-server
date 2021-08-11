@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -20,7 +19,7 @@ namespace ImportTool
 {
     public static class RequestGenerator
     {
-        public static async Task<string> GenerateImportRequest(string connectionString, string prefix, int maxFileNumber)
+        public static async Task<string> GenerateImportRequest(string connectionString, string prefix)
         {
             Parameters parameters = new Parameters();
 
@@ -33,16 +32,14 @@ namespace ImportTool
             {
                 CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
 
-                await AddInputPartsFromBlobs(cloudBlobClient, prefix, maxFileNumber, parameters);
+                await AddInputPartsFromBlobs(cloudBlobClient, prefix, parameters);
             }
 
             return new FhirJsonSerializer().SerializeToString(parameters);
         }
 
-        private static async Task AddInputPartsFromBlobs(CloudBlobClient cloudBlobClient, string prefix, int maxFileNumber, Parameters parameters)
+        private static async Task AddInputPartsFromBlobs(CloudBlobClient cloudBlobClient, string prefix, Parameters parameters)
         {
-            int count = 0;
-
             BlobContinuationToken continuationToken = null;
             do
             {
@@ -57,7 +54,7 @@ namespace ImportTool
 
                 foreach (var segment in segments.Results.Cast<CloudBlockBlob>())
                 {
-                    if (Regex.Match(segment.Name, ".*\\.ndjson$", RegexOptions.IgnoreCase).Success)
+                    if (Regex.Match(segment.Name, ".+\\.ndjson$", RegexOptions.IgnoreCase).Success)
                     {
                         string resourceType = await GetResourceType(segment);
                         List<Tuple<string, Base>> inputPart = new List<Tuple<string, Base>>();
@@ -66,12 +63,6 @@ namespace ImportTool
                         string etag = segment.Properties.ETag.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
                         inputPart.Add(Tuple.Create("etag", (Base)new FhirString(etag)));
                         parameters.Add("input", inputPart);
-                        count++;
-
-                        if (count >= maxFileNumber)
-                        {
-                            return;
-                        }
                     }
                 }
             }
@@ -95,14 +86,8 @@ namespace ImportTool
 
         private static string ExtractResourceType(string content)
         {
-            Regex regex = new Regex("{\"resourceType\"[ ]+:[ ]+\"([a-zA-Z]+)\"", RegexOptions.IgnoreCase);
-            Match match = regex.Match(content);
-            if (!match.Success)
-            {
-                throw new FormatException();
-            }
-
-            return match.Groups[1].Value;
+            var resource = new FhirJsonParser().Parse<Resource>(content);
+            return resource.TypeName;
         }
     }
 }

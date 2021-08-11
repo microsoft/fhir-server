@@ -67,16 +67,6 @@ namespace ImportTool
                     }
                 },
                 {
-                    "n|maxFileNumber=", "the {MaxNumber} of files to be used.",
-                    (int value) =>
-                    {
-                        if (value > 0)
-                        {
-                            config.MaxFileNumber = value;
-                        }
-                    }
-                },
-                {
                     "generate",  "generate the request from the given path",
                     value => generateRequest = value != null
                 },
@@ -111,7 +101,7 @@ namespace ImportTool
 
                 if (generateRequest)
                 {
-                    var request = await RequestGenerator.GenerateImportRequest(config.StorageConnectionString, prefix, config.MaxFileNumber);
+                    var request = await RequestGenerator.GenerateImportRequest(config.StorageConnectionString, prefix);
                     _logger.LogInformation("Generate request completed, write it into local request.json file");
                     File.WriteAllText(@"request.json", request);
                 }

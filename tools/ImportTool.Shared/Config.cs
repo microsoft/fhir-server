@@ -16,10 +16,5 @@ namespace ImportTool
         /// Determines the size of each splited file.
         /// /// </summary>
         public long SplitSizeInBytes { get; set; } = 200 * 1024 * 1024L;
-
-        /// <summary>
-        /// Determines the max number of input or splited file.
-        /// /// </summary>
-        public int MaxFileNumber { get; set; } = 2000;
     }
 }
