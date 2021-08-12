@@ -28,15 +28,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{B70945F4-01A6-4351-955B-C4A2943B5E3B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{404C6C33-DB00-4182-BD90-F10A8B17C321}"
-	ProjectSection(SolutionItems) = preProject
-		CustomAnalysisRules.ruleset = CustomAnalysisRules.ruleset
-		CustomAnalysisRules.Test.ruleset = CustomAnalysisRules.Test.ruleset
-		.editorconfig = .editorconfig
-		Directory.Build.props = Directory.Build.props
-		GitVersion.yml = GitVersion.yml
-		global.json = global.json
-		testauthenvironment.json = testauthenvironment.json
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{B5F2D2DF-D0C7-4861-8259-F6A041DB9854}"
 EndProject
@@ -146,11 +137,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManage
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "ImportTool.Shared", "tools\ImportTool.Shared\ImportTool.Shared.shproj", "{7D5F7C40-FEF9-471A-87D6-294161C8F9D6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImportTool.R4", "tools\ImportTool.R4\ImportTool.R4.csproj", "{AC4F806A-4939-4293-80FA-53413C75802A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImportTool.R4", "tools\ImportTool.R4\ImportTool.R4.csproj", "{AC4F806A-4939-4293-80FA-53413C75802A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImportTool.STU3", "tool\ImportTool.STU3\ImportTool.STU3.csproj", "{8A7DDD6C-5423-46E7-8ED0-9AFB87DB0389}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImportTool.STU3", "tools\ImportTool.STU3\ImportTool.STU3.csproj", "{8A7DDD6C-5423-46E7-8ED0-9AFB87DB0389}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImportTool.R5", "tools\ImportTool.R5\ImportTool.R5.csproj", "{FB09EACB-CED9-4B2B-8A9F-4A26C8AD4665}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImportTool.R5", "tools\ImportTool.R5\ImportTool.R5.csproj", "{FB09EACB-CED9-4B2B-8A9F-4A26C8AD4665}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution

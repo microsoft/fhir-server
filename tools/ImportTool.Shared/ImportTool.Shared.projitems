@@ -9,7 +9,6 @@
     <Import_RootNamespace>ImportTool.Shared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)Config.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)RequestGenerator.cs" />
   </ItemGroup>

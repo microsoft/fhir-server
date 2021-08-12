@@ -13,29 +13,59 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
+using Microsoft.Extensions.Logging;
 using Task = System.Threading.Tasks.Task;
 
 namespace ImportTool
 {
     public static class RequestGenerator
     {
-        public static async Task<string> GenerateImportRequest(string connectionString, string prefix)
+        private static ILogger _logger = GetLogger();
+
+        private static ILogger GetLogger()
         {
-            Parameters parameters = new Parameters();
-
-            // add fixed parts
-            parameters.Add("inputFormat", new FhirString("application/fhir+ndjson"));
-            parameters.Add("mode", new FhirString("InitialLoad"));
-
-            CloudStorageAccount storageAccount;
-            if (CloudStorageAccount.TryParse(connectionString, out storageAccount))
+            using (var factory = LoggerFactory.Create(builder => builder.AddConsole()))
             {
-                CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
+                return factory.CreateLogger(typeof(Program).FullName);
+            }
+        }
 
-                await AddInputPartsFromBlobs(cloudBlobClient, prefix, parameters);
+        public static async Task GenerateImportRequest(string account, string key, string prefix)
+        {
+            string storageConnectionString = "UseDevelopmentStorage=true;";
+            if (!(string.IsNullOrEmpty(account) || string.IsNullOrEmpty(key)))
+            {
+                storageConnectionString = $"DefaultEndpointsProtocol=https;AccountName={account};AccountKey={key}";
             }
 
-            return new FhirJsonSerializer().SerializeToString(parameters);
+            try
+            {
+                _logger.LogInformation("Start to generate request against storage {0} with prefix {1}", account, prefix);
+
+                Parameters parameters = new Parameters();
+
+                // add fixed parts
+                parameters.Add("inputFormat", new FhirString("application/fhir+ndjson"));
+                parameters.Add("mode", new FhirString("InitialLoad"));
+
+                CloudStorageAccount storageAccount;
+                if (CloudStorageAccount.TryParse(storageConnectionString, out storageAccount))
+                {
+                    _logger.LogDebug("Successfully parse storage account and key!");
+
+                    CloudBlobClient cloudBlobClient = storageAccount.CreateCloudBlobClient();
+                    _logger.LogDebug("Successfully Create blob client.");
+
+                    await AddInputPartsFromBlobs(cloudBlobClient, prefix, parameters);
+                }
+
+                string request = new FhirJsonSerializer().SerializeToString(parameters);
+                File.WriteAllText(@"request.json", request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Failed to generate request", ex.Message);
+            }
         }
 
         private static async Task AddInputPartsFromBlobs(CloudBlobClient cloudBlobClient, string prefix, Parameters parameters)
@@ -63,6 +93,8 @@ namespace ImportTool
                         string etag = segment.Properties.ETag.Replace("\"", string.Empty, StringComparison.OrdinalIgnoreCase);
                         inputPart.Add(Tuple.Create("etag", (Base)new FhirString(etag)));
                         parameters.Add("input", inputPart);
+
+                        _logger.LogDebug("Add {0} typed file {1} as input", resourceType, segment.Uri);
                     }
                 }
             }

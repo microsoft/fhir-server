@@ -3,117 +3,47 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.IO;
+using System.CommandLine;
+using System.CommandLine.Invocation;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Mono.Options;
 
 namespace ImportTool
 {
     public static class Program
     {
-        private static ILogger _logger = GetLogger();
-
-        private static ILogger GetLogger()
+        public static async Task<int> Main(string[] args)
         {
-            using (var factory = LoggerFactory.Create(builder => builder.AddConsole()))
-            {
-                return factory.CreateLogger(typeof(Program).FullName);
-            }
-        }
+            RootCommand rootCommand = new RootCommand(
+                description: "A tool that helps fast bootstrap bulk import.");
 
-        public static async Task Main(string[] args)
-        {
-            Config config = new Config();
+            Command generateRequestCommand = new Command(
+                name: "generate",
+                description: "Generate bulk import request from source storage with a prefix.");
 
-            bool showHelp = false;
-            bool generateRequest = false;
-            bool splitFile = false;
-            string prefix = string.Empty;
-            string account = string.Empty;
-            string key = string.Empty;
+            Option accountOption = new Option(
+                aliases: new string[] { "--account", "-a" },
+                description: "The account of source azure storage.",
+                argumentType: typeof(string));
+            generateRequestCommand.AddOption(accountOption);
 
-            var option = new OptionSet()
-            {
-                {
-                    "a|account=", "the {ACCOUNT} of azure storage.",
-                    value =>
-                    {
-                        if (value != null)
-                        {
-                            account = value;
-                        }
-                    }
-                },
-                {
-                    "k|key=", "the {KEY} of azure storage account.",
-                    value =>
-                    {
-                        if (value != null)
-                        {
-                            key = value;
-                        }
-                    }
-                },
-                {
-                    "s|splitSizeInMb=", "the {SIZE} of splited file.",
-                    (long value) =>
-                    {
-                        if (value > 0)
-                        {
-                            config.SplitSizeInBytes = value;
-                        }
-                    }
-                },
-                {
-                    "generate",  "generate the request from the given path",
-                    value => generateRequest = value != null
-                },
-                {
-                    "split",  "split the file from given path",
-                    value => splitFile = value != null
-                },
-                {
-                    "p|prefix=",  "the {PREFIX} of input or splited files",
-                    value =>
-                    {
-                        if (value != null)
-                        {
-                            prefix = value;
-                        }
-                    }
-                },
-                {
-                    "h|help",  "show this message and exit",
-                    value => showHelp = value != null
-                },
-            };
+            Option keyOption = new Option(
+                aliases: new string[] { "--key", "-k" },
+                description: "The key of source azure storage account.",
+                argumentType: typeof(string));
+            generateRequestCommand.AddOption(keyOption);
 
-            if (!(string.IsNullOrEmpty(account) || string.IsNullOrEmpty(key)))
-            {
-                config.StorageConnectionString = $"DefaultEndpointsProtocol=https;AccountName={account};AccountKey={key}";
-            }
+            Option prefixOption = new Option(
+                aliases: new string[] { "--prefix", "-p" },
+                description: "The prefix of target azure blobs.",
+                argumentType: typeof(string));
+            generateRequestCommand.AddOption(prefixOption);
 
-            try
-            {
-                option.Parse(args);
+            generateRequestCommand.Handler =
+                CommandHandler.Create<string, string, string>(RequestGenerator.GenerateImportRequest);
 
-                if (generateRequest)
-                {
-                    var request = await RequestGenerator.GenerateImportRequest(config.StorageConnectionString, prefix);
-                    _logger.LogInformation("Generate request completed, write it into local request.json file");
-                    File.WriteAllText(@"request.json", request);
-                }
-            }
-            catch (OptionException oe)
-            {
-                _logger.LogError("Failed to reslove arguments due to {0}", oe.Message);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Failed to generate request or split file due to {0}", ex.Message);
-            }
+            rootCommand.AddCommand(generateRequestCommand);
+
+            return await rootCommand.InvokeAsync(args);
         }
     }
 }
