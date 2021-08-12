@@ -24,6 +24,7 @@ function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
 
     let deletedResourceIdList = new Array();
 
+    throwTooManyRequestsError();
     tryQueryAndHardDelete();
 
     function tryQueryAndHardDelete() {
@@ -96,6 +97,6 @@ function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
     }
 
     function throwTooManyRequestsError() {
-        throw new Error(ErrorCodes.RequestEntityTooLarge, `The request could not be completed.`);
+        throw new Error(429, `The request could not be completed.`);
     }
 }
