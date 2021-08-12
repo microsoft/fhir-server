@@ -253,7 +253,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     {
                         if (child.TargetObject == null && child.SourceObject == null && (child.Name == "PartitionColumn" || child.Name == "PartitionScheme"))
                         {
-                            // Expected
+                            // The ParitionColumn and the PartitionScheme come up in the differences list even though
+                            // when digging into the "difference" object the values being compared are equal.
                             continue;
                         }
                         else if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))

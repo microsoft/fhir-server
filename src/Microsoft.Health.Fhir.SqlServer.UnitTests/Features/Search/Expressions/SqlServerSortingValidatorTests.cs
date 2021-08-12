@@ -20,6 +20,9 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         private SqlServerSortingValidator _sqlServerSortingValidator;
         private SchemaInformation _schemaInformation;
 
+        private SearchParameterInfo _lastUpdatedParamInfo = new SearchParameterInfo(name: "lastupdated", code: "lastupdated", SearchParamType.Date, SearchParameterNames.LastUpdatedUri);
+        private SearchParameterInfo _resourceTypeParamInfo = new SearchParameterInfo(name: "type", code: "type", SearchParamType.String, SearchParameterNames.ResourceTypeUri);
+
         public SqlServerSortingValidatorTests()
         {
             _schemaInformation = new SchemaInformation(SchemaVersionConstants.Max, SchemaVersionConstants.Max);
@@ -29,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         [Theory]
         [MemberData(nameof(GetSupportedSearchParamTypes))]
-        public void GivenSupportedSortParameters_WhenValidating_ThenReturnsTrue(SearchParamType searchParamType)
+        public void GivenSupportedSortParametersType_WhenValidating_ThenReturnsTrue(SearchParamType searchParamType)
         {
             SearchParameterInfo paramInfo = new SearchParameterInfo(name: "paramName", code: "paramName", searchParamType);
             IReadOnlyList<(SearchParameterInfo, SortOrder)> searchList = new List<(SearchParameterInfo, SortOrder)>()
@@ -43,8 +46,24 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Theory]
+        [MemberData(nameof(GetSupportedSearchParamTypes))]
+        public void GivenSupportedSortParametersTypeForSchemaOlderThanV17_WhenValidating_ThenReturnsFalse(SearchParamType searchParamType)
+        {
+            SearchParameterInfo paramInfo = new SearchParameterInfo(name: "paramName", code: "paramName", searchParamType);
+            IReadOnlyList<(SearchParameterInfo, SortOrder)> searchList = new List<(SearchParameterInfo, SortOrder)>()
+            {
+                { (paramInfo, SortOrder.Ascending) },
+            };
+
+            _schemaInformation.Current = (int)SchemaVersion.V16;
+            bool sortingValid = _sqlServerSortingValidator.ValidateSorting(searchList, out IReadOnlyList<string> errorMessage);
+            Assert.False(sortingValid);
+            Assert.NotEmpty(errorMessage);
+        }
+
+        [Theory]
         [MemberData(nameof(GetUnsupportedSearchParamTypes))]
-        public void GivenUnsupportedSortParameters_WhenValidating_ThenReturnsFalse(SearchParamType searchParamType)
+        public void GivenUnsupportedSortParametersType_WhenValidating_ThenReturnsFalse(SearchParamType searchParamType)
         {
             SearchParameterInfo paramInfo = new SearchParameterInfo(name: "paramName", code: "paramName", searchParamType);
             IReadOnlyList<(SearchParameterInfo, SortOrder)> searchList = new List<(SearchParameterInfo, SortOrder)>()
@@ -71,6 +90,57 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             bool sortingValid = _sqlServerSortingValidator.ValidateSorting(searchList, out IReadOnlyList<string> errorMessage);
             Assert.False(sortingValid);
             Assert.NotEmpty(errorMessage);
+        }
+
+        [Theory]
+        [InlineData((int)SchemaVersion.V7)]
+        [InlineData((int)SchemaVersion.V8)]
+        public void GivenLastUpdatedAndResourceTypeSortForSchemaOlderThanV9_WhenValidating_ThenReturnsFalse(int schemaVersion)
+        {
+            IReadOnlyList<(SearchParameterInfo, SortOrder)> searchList = new List<(SearchParameterInfo, SortOrder)>()
+            {
+                { (_resourceTypeParamInfo, SortOrder.Ascending) },
+                { (_lastUpdatedParamInfo, SortOrder.Ascending) },
+            };
+
+            _schemaInformation.Current = schemaVersion;
+            bool sortingValid = _sqlServerSortingValidator.ValidateSorting(searchList, out IReadOnlyList<string> errorMessage);
+            Assert.False(sortingValid);
+            Assert.NotEmpty(errorMessage);
+        }
+
+        [Theory]
+        [InlineData((int)SchemaVersion.V9)]
+        [InlineData((int)SchemaVersion.V10)]
+        public void GivenLastUpdatedAndResourceTypeSortForSchemaNewerThanV9_WhenValidating_ThenReturnsTrue(int schemaVersion)
+        {
+            IReadOnlyList<(SearchParameterInfo, SortOrder)> searchList = new List<(SearchParameterInfo, SortOrder)>()
+            {
+                { (_resourceTypeParamInfo, SortOrder.Ascending) },
+                { (_lastUpdatedParamInfo, SortOrder.Ascending) },
+            };
+
+            _schemaInformation.Current = schemaVersion;
+            bool sortingValid = _sqlServerSortingValidator.ValidateSorting(searchList, out IReadOnlyList<string> errorMessage);
+            Assert.True(sortingValid);
+            Assert.Empty(errorMessage);
+        }
+
+        [Theory]
+        [InlineData(SortOrder.Ascending, SortOrder.Ascending, true)]
+        [InlineData(SortOrder.Ascending, SortOrder.Descending, false)]
+        [InlineData(SortOrder.Descending, SortOrder.Ascending, false)]
+        [InlineData(SortOrder.Descending, SortOrder.Descending, true)]
+        public void GivenLastUpdatedAndResourceTypeDifferentSortingOrder_WhenValidating_ThenReturnsExpectedResult(SortOrder sortOrder1, SortOrder sortOrder2, bool expectedResult)
+        {
+            IReadOnlyList<(SearchParameterInfo, SortOrder)> searchList = new List<(SearchParameterInfo, SortOrder)>()
+            {
+                { (_resourceTypeParamInfo, sortOrder1) },
+                { (_lastUpdatedParamInfo, sortOrder2) },
+            };
+
+            bool sortingValid = _sqlServerSortingValidator.ValidateSorting(searchList, out IReadOnlyList<string> errorMessage);
+            Assert.Equal(expectedResult, sortingValid);
         }
 
         public static IEnumerable<object[]> GetSupportedSearchParamTypes()

@@ -70,34 +70,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation)
         {
-            EnsureArg.IsNotNull(model, nameof(model));
-            EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV6, nameof(upsertResourceTvpGeneratorV6));
-            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV7, nameof(upsertResourceTvpGeneratorV7));
-            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV13, nameof(upsertResourceTvpGeneratorV13));
-            EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
-            EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
-            EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
-            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
-            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
-            EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            _model = EnsureArg.IsNotNull(model, nameof(model));
+            _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
+            _upsertResourceTvpGeneratorV6 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV6, nameof(upsertResourceTvpGeneratorV6));
+            _upsertResourceTvpGeneratorV7 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV7, nameof(upsertResourceTvpGeneratorV7));
+            _upsertResourceTvpGeneratorV13 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV13, nameof(upsertResourceTvpGeneratorV13));
             _upsertResourceTvpGeneratorV16 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV16, nameof(upsertResourceTvpGeneratorV16));
+            _upsertResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             _reindexResourceTvpGeneratorV16 = EnsureArg.IsNotNull(reindexResourceTvpGeneratorV16, nameof(reindexResourceTvpGeneratorV16));
+            _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
             _bulkReindexResourcesTvpGeneratorV16 = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorV16, nameof(bulkReindexResourcesTvpGeneratorV16));
-
-            _model = model;
-            _searchParameterTypeMap = searchParameterTypeMap;
-            _upsertResourceTvpGeneratorV6 = upsertResourceTvpGeneratorV6;
-            _upsertResourceTvpGeneratorV7 = upsertResourceTvpGeneratorV7;
-            _upsertResourceTvpGeneratorV13 = upsertResourceTvpGeneratorV13;
-            _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
-            _reindexResourceTvpGeneratorVLatest = reindexResourceTvpGeneratorVLatest;
-            _bulkReindexResourcesTvpGeneratorVLatest = bulkReindexResourcesTvpGeneratorVLatest;
-            _coreFeatures = coreFeatures.Value;
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _logger = logger;
-            _schemaInformation = schemaInformation;
+            _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
+            _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
+            _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _logger = EnsureArg.IsNotNull(logger, nameof(logger));
+            _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
