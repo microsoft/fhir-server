@@ -39,7 +39,14 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse> PatchAsync(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default);
+        Task<FhirResponse<T>> PatchAsync<T>(T resource, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+            where T : Resource;
+
+        Task<FhirResponse<T>> PatchAsync<T>(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+           where T : Resource;
+
+        Task<FhirResponse<T>> ConditionalPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+            where T : Resource;
 
         Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default);
 

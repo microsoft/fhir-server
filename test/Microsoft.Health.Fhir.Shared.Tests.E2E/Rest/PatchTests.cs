@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAnInvalidEtag_WhenPatching_ThenAnErrorShouldBeReturned()
+        public async Task GivenAnWrongVersionInETag_WhenPatching_ThenAnErrorShouldBeReturned()
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
 
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 patchDocument,
                 "5"));
 
-            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
         [Fact]
