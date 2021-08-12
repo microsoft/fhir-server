@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
             }
 
-            return resource.ToResourceElement();
+            return patchedResource.ToResourceElement();
         }
 
         private static void Validate(ResourceWrapper currentDoc, WeakETag eTag)

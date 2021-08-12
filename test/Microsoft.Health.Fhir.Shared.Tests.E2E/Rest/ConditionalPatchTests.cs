@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalPatchAsync<Patient>("Patient", string.Empty, patchDocument));
 
-            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
         [Fact]
@@ -70,7 +70,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "Patient",
                 $"identifier={identifier}",
                 patchDocument);
-
+            Assert.Equal(AdministrativeGender.Female, patchResponse.Resource.Gender);
+            Assert.Empty(patchResponse.Resource.Address);
             Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
         }
 
