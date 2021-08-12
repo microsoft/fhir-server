@@ -157,6 +157,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnPatchWhichWouldMakeResourceInvalid_WhenPatching_ThenAnErrorShouldBeReturned()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/deceasedDateTime\",\"value\":\"2015-02-14T13:42:00+10:00\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+                response.Resource,
+                patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnWrongVersionInETag_WhenPatching_ThenAnErrorShouldBeReturned()
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
