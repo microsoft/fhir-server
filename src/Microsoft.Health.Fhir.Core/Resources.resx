@@ -593,4 +593,8 @@
   <data name="ReindexingResourceVersionConflict" xml:space="preserve">
     <value>One or more resources failed to reindex due to a non-matching version.</value>
   </data>
+  <data name="CantResolveExpressionForAType" xml:space="preserve">
+    <value>Can't find '{0}' in type '{1}'</value>
+    <comment>{0}: expression we trying to resolve, {1}: FHIR type</comment>
+  </data>
 </root>
