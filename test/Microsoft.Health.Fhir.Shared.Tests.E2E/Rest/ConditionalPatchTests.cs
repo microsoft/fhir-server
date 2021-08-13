@@ -18,7 +18,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     [Trait(Traits.Category, Categories.ConditionalUpdate)]
     public class ConditionalPatchTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
     {
@@ -114,8 +114,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Patient> response = await _client.CreateAsync(patient);
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-            patient.BirthDate = "2020-01-01";
-            using FhirResponse<Patient> secondVersion = await _client.UpdateAsync(patient);
+            response.Resource.BirthDate = "2020-01-01";
+            using FhirResponse<Patient> secondVersion = await _client.UpdateAsync(response.Resource);
 
             string patchDocument =
            "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
@@ -141,8 +141,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Patient> response = await _client.CreateAsync(patient);
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-            patient.BirthDate = "2020-01-01";
-            using FhirResponse<Patient> secondVersion = await _client.UpdateAsync(patient);
+            response.Resource.BirthDate = "2020-01-01";
+            using FhirResponse<Patient> secondVersion = await _client.UpdateAsync(response.Resource);
 
             string patchDocument =
            "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
