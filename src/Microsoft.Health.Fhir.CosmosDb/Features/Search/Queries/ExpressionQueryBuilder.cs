@@ -46,6 +46,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             { FieldName.TokenSystem, SearchValueConstants.SystemName },
             { FieldName.TokenText, SearchValueConstants.TextName },
             { FieldName.Uri, SearchValueConstants.UriName },
+            { FieldName.IdentifierValue, SearchValueConstants.IdentifierValue },
+            { FieldName.IdentifierSystem, SearchValueConstants.IdentifierSystem },
+            { FieldName.IdentifierCode, SearchValueConstants.IdentifierCode },
         };
 
         private static readonly Dictionary<StringOperator, string> StringOperatorMapping = new Dictionary<StringOperator, string>()
@@ -187,9 +190,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return null;
         }
 
-        /// <summary>
-        /// Implemented in <see cref="FhirCosmosSearchService"/>
-        /// </summary>
         public object VisitChained(ChainedExpression expression, Context context)
         {
             // Chained expressions require additional queries and are handled in the FhirCosmosSearchService.

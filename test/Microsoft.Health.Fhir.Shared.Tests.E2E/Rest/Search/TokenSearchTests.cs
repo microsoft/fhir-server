@@ -28,6 +28,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             new object[] { "code1,system2|code2", 0, 1, 5, 6 },
         };
 
+        public static readonly object[][] IdentiferSearchParameterData = new[]
+        {
+            new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|RRI|1234", ":ofType", 1 },
+            new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|PN|744-744-6141", ":ofType", 2 },
+            new object[] { "http://terminology.hl7.org/CodeSystem/v3-GenderStatus|I|744-744-6141", ":ofType", 2 },
+            new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|744-744-6141", string.Empty, 3 },
+            new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|", string.Empty, 3, 4 },
+            new object[] { "|744-744-6141", string.Empty, 2, 5 },
+            new object[] { "744-744-6141", string.Empty, 2, 3, 5 },
+        };
+
         public TokenSearchTests(TokenSearchTestFixture fixture)
             : base(fixture)
         {
@@ -118,6 +129,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundle = await Client.SearchAsync($"?_tag={Fixture.Tag}&_type={ResourceType.Observation}&value-concept:not={queryValue}");
 
             Observation[] expected = Fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
+
+            ValidateBundle(bundle, expected);
+        }
+
+        [Theory]
+        [MemberData(nameof(IdentiferSearchParameterData))]
+        public async Task GivenAIdentiferSearch_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, string modifier, params int[] includeIndices)
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&identifier{modifier}={queryValue}");
+
+            Patient[] expected = Fixture.Patients.Where((_, i) => includeIndices.Contains(i)).ToArray();
 
             ValidateBundle(bundle, expected);
         }

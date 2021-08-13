@@ -14,9 +14,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
     public class IdentifierToTokenSearchValueConverterTests : FhirTypedElementToSearchValueConverterTests<IdentifierToTokenSearchValueConverter, Identifier>
     {
         [Fact]
-        public async Task GivenAnIdentifierWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenAnIdentifierWithNoValue_WhenConverted_ThenSearchValueShouldBeCreated()
         {
-            await Test(id => id.Value = null);
+            await Test(
+                id =>
+                {
+                    id.Value = null;
+                    id.System = "something";
+                },
+                ValidateToken,
+                new Token("something"));
         }
 
         [Theory]

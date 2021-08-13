@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             .Select(e => Tuple.Create(e.GetLiteral(), e)).ToArray();
 
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
+        private readonly Func<string, ISearchValue> _identifierOfTypeParser;
 
         public SearchParameterExpressionParser(IReferenceSearchValueParser referenceSearchValueParser)
         {
@@ -42,6 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     (SearchParamType.Uri, str => UriSearchValue.Parse(str, false, ModelInfoProvider.Instance)),
                 }
                 .ToDictionary(entry => entry.type, entry => CreateParserWithErrorHandling(entry.parser));
+            _identifierOfTypeParser = CreateParserWithErrorHandling(IdentifierOfTypeSearchValue.Parse);
         }
 
         public Expression Parse(
@@ -164,8 +166,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
             }
 
-            // Parse the value.
-            Func<string, ISearchValue> parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type.ToString())];
+            Func<string, ISearchValue> parser;
+            if (searchParameter.Type == SearchParamType.Token && modifier?.SearchModifierCode == SearchModifierCode.OfType)
+            {
+                parser = _identifierOfTypeParser;
+            }
+            else
+            {
+                parser = _parserDictionary[Enum.Parse<SearchParamType>(searchParameter.Type.ToString())];
+            }
 
             // Build the expression.
             var helper = new SearchValueExpressionBuilderHelper();

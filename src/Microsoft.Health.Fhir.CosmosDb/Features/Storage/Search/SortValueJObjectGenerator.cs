@@ -4,10 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Text;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -98,6 +95,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         }
 
         public void Visit(TokenSearchValue token)
+        {
+        }
+
+        public void Visit(IdentifierOfTypeSearchValue identifier)
         {
         }
 
