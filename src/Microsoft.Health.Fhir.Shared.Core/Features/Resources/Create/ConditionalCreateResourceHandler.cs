@@ -19,7 +19,7 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
-    public class ConditionalCreateResourceHandler : ConditionalResourceHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
+    public sealed class ConditionalCreateResourceHandler : ConditionalResourceHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
     {
         private readonly IMediator _mediator;
 

@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
-    public class ConditionalUpsertResourceRequest : ConditionalResourceRequest<UpsertResourceResponse>
+    public sealed class ConditionalUpsertResourceRequest : ConditionalResourceRequest<UpsertResourceResponse>
     {
         private static readonly string[] Capabilities = new string[1] { "conditionalUpdate = true" };
 

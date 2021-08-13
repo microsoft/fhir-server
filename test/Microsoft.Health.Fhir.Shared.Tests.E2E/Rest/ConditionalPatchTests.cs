@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenPatchingConditionallyWithNoIdAndNoExisting_TheServerShouldReturnNoFound()
+        public async Task GivenConditionWithNoExistingResources_WhenPatching_TheServerShouldReturnNoFound()
         {
             string patchDocument =
              "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenPatchingConditionallyWithNoSearchCriteria_ThenAnErrorShouldBeReturned()
+        public async Task GivenNoCondition_WhenPatching_ThenAnErrorShouldBeReturned()
         {
             string patchDocument =
             "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
@@ -100,6 +100,58 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}",
                 patchDocument));
 
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenSecondVersionOfResource_WhenPatchingConditionallyWithOneMatchAndExactVersion_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        {
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var identifier = Guid.NewGuid().ToString();
+
+            patient.Identifier.Add(new Identifier("http://e2etests", identifier));
+            using FhirResponse<Patient> response = await _client.CreateAsync(patient);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            patient.BirthDate = "2020-01-01";
+            using FhirResponse<Patient> secondVersion = await _client.UpdateAsync(patient);
+
+            string patchDocument =
+           "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
+
+            using FhirResponse<Patient> patchResponse = await _client.ConditionalPatchAsync<Patient>(
+                "Patient",
+                $"identifier={identifier}",
+                patchDocument,
+                "2");
+            Assert.Equal(AdministrativeGender.Female, patchResponse.Resource.Gender);
+            Assert.Empty(patchResponse.Resource.Address);
+            Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenSecondVersionOfResource_WhenPatchingConditionallyWithOneMatchAndWrongVersion_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        {
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var identifier = Guid.NewGuid().ToString();
+
+            patient.Identifier.Add(new Identifier("http://e2etests", identifier));
+            using FhirResponse<Patient> response = await _client.CreateAsync(patient);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            patient.BirthDate = "2020-01-01";
+            using FhirResponse<Patient> secondVersion = await _client.UpdateAsync(patient);
+
+            string patchDocument =
+           "[{\"op\":\"replace\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalPatchAsync<Patient>(
+                "Patient",
+                $"identifier={identifier}",
+                patchDocument,
+                "3"));
             Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
     }

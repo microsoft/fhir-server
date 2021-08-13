@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     /// <summary>
     /// Handles Conditional Update logic as defined in the spec https://www.hl7.org/fhir/http.html#cond-update
     /// </summary>
-    public class ConditionalUpsertResourceHandler : ConditionalResourceHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
+    public sealed class ConditionalUpsertResourceHandler : ConditionalResourceHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
     {
         private readonly IMediator _mediator;
 
