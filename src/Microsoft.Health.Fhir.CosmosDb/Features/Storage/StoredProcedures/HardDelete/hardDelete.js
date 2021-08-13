@@ -24,7 +24,6 @@ function hardDelete(resourceTypeName, resourceId, keepCurrentVersion) {
 
     let deletedResourceIdList = new Array();
 
-    throwTooManyRequestsError();
     tryQueryAndHardDelete();
 
     function tryQueryAndHardDelete() {
