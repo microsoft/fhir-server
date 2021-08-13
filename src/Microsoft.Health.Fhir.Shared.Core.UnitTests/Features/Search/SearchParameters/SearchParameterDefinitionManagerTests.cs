@@ -423,26 +423,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var searchService = Substitute.For<ISearchService>();
 
-            searchService.SearchAsync("SearchParameter", Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => !l.Any()), Arg.Any<CancellationToken>())
+            searchService.SearchAsync(Arg.Is<SearchOptions>(options => options.ContinuationToken == null), Arg.Any<CancellationToken>())
                 .Returns(result);
             searchService.SearchAsync(
-                "SearchParameter",
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(
-                    l => l.FirstOrDefault().Item2 == ContinuationTokenConverter.Encode("token")),
+                Arg.Is<SearchOptions>(
+                    options => options.ContinuationToken == "token"),
                 Arg.Any<CancellationToken>())
                 .Returns(result2);
             searchService.SearchAsync(
-                "SearchParameter",
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(
-                    l => l.FirstOrDefault().Item2 == ContinuationTokenConverter.Encode("token2")),
-                Arg.Any<CancellationToken>())
-                .Returns(result3);
+               Arg.Is<SearchOptions>(
+                   options => options.ContinuationToken == "token2"),
+               Arg.Any<CancellationToken>())
+               .Returns(result3);
             searchService.SearchAsync(
-                "SearchParameter",
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(
-                    l => l.FirstOrDefault().Item2 == ContinuationTokenConverter.Encode("token3")),
-                Arg.Any<CancellationToken>())
-                .Returns(result4);
+               Arg.Is<SearchOptions>(
+                   options => options.ContinuationToken == "token3"),
+               Arg.Any<CancellationToken>())
+               .Returns(result4);
 
             var dataStoreSearchParamValidator = Substitute.For<IDataStoreSearchParameterValidator>();
             dataStoreSearchParamValidator.ValidateSearchParameter(Arg.Any<SearchParameterInfo>(), out Arg.Any<string>()).Returns(true);

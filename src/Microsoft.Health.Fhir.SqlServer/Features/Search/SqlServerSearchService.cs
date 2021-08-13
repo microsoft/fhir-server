@@ -20,7 +20,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -56,9 +55,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private readonly ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver _searchParameterDefinitionManagerResolver;
         private const int _defaultResourceTableFinalSelectColumnCount = 11;
         private bool? _didWeSearchForSortValue;
+        private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -71,7 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
-            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -81,7 +79,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(partitionEliminationRewriter, nameof(partitionEliminationRewriter));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
-            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
@@ -94,7 +91,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             _schemaInformation = schemaInformation;
             _requestContextAccessor = requestContextAccessor;
-            _searchParameterDefinitionManagerResolver = searchParameterDefinitionManagerResolver;
         }
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -470,11 +466,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // history is always sorted by _lastUpdated.
                 newSearchOptions = searchOptions.Clone();
 
-                ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
-
                 newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                 {
-                    (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+                    (_fakeLastUpdate, SortOrder.Ascending),
                 };
 
                 return newSearchOptions;
@@ -484,21 +478,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 newSearchOptions = searchOptions.Clone();
 
-                ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
-
                 if (_schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
                 {
                     newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                     {
-                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+                        (_fakeLastUpdate, SortOrder.Ascending),
                     };
                 }
                 else
                 {
                     newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                     {
-                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType), SortOrder.Ascending),
-                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+                        (SearchParameterInfo.ResourceTypeSearchParameter, SortOrder.Ascending),
+                        (_fakeLastUpdate, SortOrder.Ascending),
                     };
                 }
 
@@ -513,12 +505,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 newSearchOptions = searchOptions.Clone();
 
-                ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
-
                 newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                 {
-                    (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType), searchOptions.Sort[0].sortOrder),
-                    (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), searchOptions.Sort[0].sortOrder),
+                    (SearchParameterInfo.ResourceTypeSearchParameter, searchOptions.Sort[0].sortOrder),
+                    (_fakeLastUpdate, searchOptions.Sort[0].sortOrder),
                 };
 
                 return newSearchOptions;
@@ -533,12 +523,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // this means that this search is over a single type.
                     newSearchOptions = searchOptions.Clone();
 
-                    ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
-
                     newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                     {
-                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType), searchOptions.Sort[0].sortOrder),
-                        (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), searchOptions.Sort[0].sortOrder),
+                        (SearchParameterInfo.ResourceTypeSearchParameter, searchOptions.Sort[0].sortOrder),
+                        (_fakeLastUpdate, searchOptions.Sort[0].sortOrder),
                     };
                 }
 
@@ -551,11 +539,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 newSearchOptions = searchOptions.Clone();
 
-                ISearchParameterDefinitionManager searchParameterDefinitionManager = _searchParameterDefinitionManagerResolver.Invoke();
-
                 newSearchOptions.Sort = new List<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(searchOptions.Sort)
                 {
-                    (searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.LastUpdated), SortOrder.Ascending),
+                    (_fakeLastUpdate, SortOrder.Ascending),
                 };
 
                 return newSearchOptions;

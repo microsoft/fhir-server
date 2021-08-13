@@ -203,14 +203,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             else
             {
-                var pathBuilder = new StringBuilder(ctx.Path.First().propertyName);
+                var fhirType = ctx.Path.First().propertyName;
+                var pathBuilder = new StringBuilder(fhirType);
 
                 var skipResourceElement = true;
                 ClassMapping mapping = ctx.Path.First().knownMapping;
 
-                if (mapping == null && ModelInfoProvider.Instance.GetTypeForFhirType(ctx.Path.First().propertyName) != null)
+                if (mapping == null && ModelInfoProvider.Instance.GetTypeForFhirType(fhirType) != null)
                 {
-                    mapping = GetMapping(ctx.Path.First().propertyName);
+                    mapping = GetMapping(fhirType);
                 }
 
                 // Default to parent resource
@@ -250,9 +251,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                             }
                             else
                             {
-                                foreach (Type fhirType in prop.FhirType)
+                                foreach (Type childFhirType in prop.FhirType)
                                 {
-                                    yield return new SearchParameterTypeResult(GetMapping(fhirType), ctx.SearchParamType, path, ctx.Definition);
+                                    yield return new SearchParameterTypeResult(GetMapping(childFhirType), ctx.SearchParamType, path, ctx.Definition);
                                 }
                             }
 
@@ -265,7 +266,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     }
                     else
                     {
-                        break;
+                        throw new NotSupportedException(string.Format(Core.Resources.CantResolveExpressionForAType, pathBuilder, fhirType));
                     }
                 }
 

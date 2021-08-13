@@ -8,6 +8,7 @@ using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -44,6 +45,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
             Assert.Equal(AdministrativeGender.Female, patch.Resource.Gender);
             Assert.Empty(patch.Resource.Address);
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatchDocument_WhenSubmittingABundleWithBinaryPatch_ThenServerShouldPatchCorrectly()
+        {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+
+            var bundleWithPatch = Samples.GetJsonSample("Bundle-BinaryPatch").ToPoco<Bundle>();
+
+            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch);
+
+            Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
+            Assert.Equal(AdministrativeGender.Female, ((Patient)patched.Resource.Entry[1].Resource).Gender);
         }
 
         [Fact]

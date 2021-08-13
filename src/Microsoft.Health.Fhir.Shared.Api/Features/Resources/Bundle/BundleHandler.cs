@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -32,6 +34,7 @@ using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
+using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -313,8 +316,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             AddHeaderIfNeeded(HeaderNames.IfNoneMatch, entry.Request.IfNoneMatch, httpContext);
             AddHeaderIfNeeded(KnownHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
-            if (requestMethod == HTTPVerb.POST ||
-                requestMethod == HTTPVerb.PUT)
+            if (requestMethod == HTTPVerb.POST
+                || requestMethod == HTTPVerb.PUT)
             {
                 httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
 
@@ -322,6 +325,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 httpContext.Request.Body = memoryStream;
             }
+#if !STU3
+            // Allow JSON Patch to be an encoded Binary in a Bundle (See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request)
+            else if (
+                requestMethod == HTTPVerb.PATCH &&
+                string.Equals(KnownResourceTypes.Binary, entry.Resource?.TypeName, StringComparison.Ordinal) &&
+                entry.Resource is Binary binaryResource && string.Equals(KnownMediaTypeHeaderValues.ApplicationJsonPatch.ToString(), binaryResource.ContentType, StringComparison.OrdinalIgnoreCase))
+            {
+                httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(binaryResource.ContentType));
+                var memoryStream = new MemoryStream(binaryResource.Data);
+                memoryStream.Seek(0, SeekOrigin.Begin);
+                httpContext.Request.Body = memoryStream;
+            }
+#endif
 
             var routeContext = new RouteContext(httpContext);
 
