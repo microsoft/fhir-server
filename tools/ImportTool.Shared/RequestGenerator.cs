@@ -57,10 +57,15 @@ namespace ImportTool
                     _logger.LogDebug("Successfully Create blob client.");
 
                     await AddInputPartsFromBlobs(cloudBlobClient, prefix, parameters);
-                }
 
-                string request = new FhirJsonSerializer().SerializeToString(parameters);
-                File.WriteAllText(@"request.json", request);
+                    string request = new FhirJsonSerializer().SerializeToString(parameters);
+                    File.WriteAllText(@"request.json", request);
+                }
+                else
+                {
+                    throw new StorageException(
+                        "An invalid connection string.");
+                }
             }
             catch (Exception ex)
             {
