@@ -86,6 +86,7 @@ namespace ImportTool
                     currentToken: continuationToken,
                     options: null,
                     operationContext: null);
+                continuationToken = segments.ContinuationToken;
 
                 foreach (var segment in segments.Results.Cast<CloudBlockBlob>())
                 {

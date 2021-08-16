@@ -11,5 +11,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)RequestGenerator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SingleFileSpliter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Spliter.cs" />
   </ItemGroup>
 </Project>

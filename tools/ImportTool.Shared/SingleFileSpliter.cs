@@ -24,6 +24,7 @@ namespace ImportTool
             ICloudBlob sourceBlob,
             Uri sourceUri,
             long splitSizeInBytes,
+            long blockSizeInBytes,
             int maxSpliterCountPerFile,
             int maxUploaderCountPerSplitedFile)
         {
@@ -32,6 +33,7 @@ namespace ImportTool
             SplitSizeInBytes = splitSizeInBytes;
             MaxSpliterCountPerFile = maxSpliterCountPerFile;
             MaxUploaderCountPerSplitedFile = maxUploaderCountPerSplitedFile;
+            BlockSizeInBytes = blockSizeInBytes;
         }
 
         public long SplitSizeInBytes { get; set; }
@@ -40,7 +42,7 @@ namespace ImportTool
 
         public int MaxUploaderCountPerSplitedFile { get; set; }
 
-        public long BlockSize { get; set; }
+        public long BlockSizeInBytes { get; set; }
 
         public async Task Split()
         {
@@ -76,7 +78,9 @@ namespace ImportTool
 
                 while (true)
                 {
-                    CloudBlockBlob cloudBlockBlob = _sourceBlob.Container.GetBlockBlobReference($"splited/{_sourceBlob.Name}_{SplitSizeInBytes}_{index}");
+                    // put all splited files in one hierarchy
+                    string splitedFileName = _sourceBlob.Name.Split('/').Last();
+                    CloudBlockBlob cloudBlockBlob = _sourceBlob.Container.GetBlockBlobReference($"splited/{splitedFileName}_{SplitSizeInBytes}_{index}");
                     IEnumerable<BlockMeta> blockMetas;
 
                     length = SplitSizeInBytes;
@@ -125,22 +129,22 @@ namespace ImportTool
         private IEnumerable<BlockMeta> SplitFileToBlocks(long offset, long length)
         {
             List<BlockMeta> blockMetas = new List<BlockMeta>();
-            while (length > BlockSize)
+            while (length > BlockSizeInBytes)
             {
                 blockMetas.Add(new BlockMeta
                 {
-                    Id = Base64UrlEncoder.Encode(Guid.NewGuid().ToString("N")),
+                    Id = Base64UrlEncoder.Encode(Guid.NewGuid().ToString()),
                     Offset = offset,
-                    Length = BlockSize,
+                    Length = BlockSizeInBytes,
                 });
 
-                length -= BlockSize;
-                offset += BlockSize;
+                length -= BlockSizeInBytes;
+                offset += BlockSizeInBytes;
             }
 
             blockMetas.Add(new BlockMeta
             {
-                Id = Base64UrlEncoder.Encode(Guid.NewGuid().ToString("N")),
+                Id = Base64UrlEncoder.Encode(Guid.NewGuid().ToString()),
                 Offset = offset,
                 Length = length,
             });
@@ -162,7 +166,7 @@ namespace ImportTool
                     runningTasks.Remove(task);
                 }
 
-                var putBlockTask = Policy.Handle<StorageException>()
+                Task putBlockTask = Policy.Handle<StorageException>()
                     .WaitAndRetryAsync(
                         retryCount: 3,
                         sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))

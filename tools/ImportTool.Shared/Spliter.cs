@@ -29,10 +29,11 @@ namespace ImportTool.Shared
             string account,
             string key,
             string prefix,
-            long sizeInBytes,
-            int maxConcurrentSplitCount,
-            int maxConcurrentCountPerFile,
-            int maxConcurrentCountPerBlock)
+            long size,
+            long blockSize,
+            int maxConcurrentFile,
+            int maxSpliterPerBlob,
+            int maxUploaderPerBlob)
         {
             string storageConnectionString = "UseDevelopmentStorage=true;";
             if (!(string.IsNullOrEmpty(account) || string.IsNullOrEmpty(key)))
@@ -52,10 +53,11 @@ namespace ImportTool.Shared
                     int count = await SplitBlob(
                         cloudBlobClient,
                         prefix,
-                        sizeInBytes,
-                        maxConcurrentSplitCount,
-                        maxConcurrentCountPerFile,
-                        maxConcurrentCountPerBlock);
+                        size,
+                        blockSize,
+                        maxConcurrentFile,
+                        maxSpliterPerBlob,
+                        maxUploaderPerBlob);
 
                     _logger.LogInformation("Split {0} files in total", count);
                 }
@@ -67,7 +69,7 @@ namespace ImportTool.Shared
             }
             catch (Exception ex)
             {
-                _logger.LogError("Failed to split due to", ex.Message);
+                _logger.LogError("Failed to split due to {0}", ex.Message);
             }
         }
 
@@ -75,9 +77,10 @@ namespace ImportTool.Shared
             CloudBlobClient cloudBlobClient,
             string prefix,
             long sizeInBytes,
-            int maxConcurrentSplitCount,
-            int maxConcurrentCountPerFile,
-            int maxConcurrentCountPerBlock)
+            long blockSizeInBytes,
+            int maxConcurrentSplitFile,
+            int maxSpliterCountPerFile,
+            int maxUploaderCountPerSplitedFile)
         {
             int count = 0;
             List<Task> runningTasks = new List<Task>();
@@ -92,31 +95,39 @@ namespace ImportTool.Shared
                       currentToken: continuationToken,
                       options: null,
                       operationContext: null);
+                continuationToken = segments.ContinuationToken;
 
                 foreach (var segment in segments.Results.Cast<CloudBlockBlob>())
                 {
-                    _logger.LogDebug("Start to split files {0}", segment.Uri);
-
-                    if (runningTasks.Count >= maxConcurrentSplitCount)
+                    if (!segment.Name.StartsWith("splited/", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        _ = await Task.WhenAny(runningTasks.ToArray());
-                        runningTasks.RemoveAll(t => t.IsCompleted);
+                        _logger.LogDebug("Start to split files {0}", segment.Uri);
+
+                        if (runningTasks.Count >= maxConcurrentSplitFile)
+                        {
+                            Task task = await Task.WhenAny(runningTasks.ToArray());
+                            await task;
+
+                            runningTasks.Remove(task);
+                        }
+
+                        // Create sas token of source file
+                        SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
+                        sasPolicy.SharedAccessExpiryTime = DateTime.UtcNow.AddMinutes(30);
+                        sasPolicy.Permissions = SharedAccessBlobPermissions.Read;
+                        string sasToken = segment.GetSharedAccessSignature(sasPolicy);
+
+                        SingleFileSpliter spliter = new SingleFileSpliter(
+                            segment,
+                            new Uri($"{segment.Uri}{sasToken}"),
+                            sizeInBytes,
+                            blockSizeInBytes,
+                            maxSpliterCountPerFile,
+                            maxUploaderCountPerSplitedFile);
+
+                        runningTasks.Add(spliter.Split());
+                        count++;
                     }
-
-                    // Create sas token of source file
-                    SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
-                    sasPolicy.SharedAccessExpiryTime = DateTime.UtcNow.AddHours(1);
-                    sasPolicy.Permissions = SharedAccessBlobPermissions.Read;
-                    string sasToken = segment.GetSharedAccessSignature(sasPolicy);
-
-                    SingleFileSpliter spliter = new SingleFileSpliter(
-                        segment,
-                        new Uri($"{segment.Uri}?{sasToken}"),
-                        sizeInBytes,
-                        maxConcurrentCountPerFile,
-                        maxConcurrentCountPerBlock);
-
-                    runningTasks.Add(spliter.Split());
                 }
             }
             while (continuationToken != null);
