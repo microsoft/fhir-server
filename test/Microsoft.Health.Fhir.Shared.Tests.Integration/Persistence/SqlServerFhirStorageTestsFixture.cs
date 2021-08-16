@@ -139,6 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => _filebasedSearchParameterStatusDataStore,
                 schemaInformation,
                 sqlServerFhirModel,
+                new SqlServerSortingValidator(schemaInformation),
                 _searchParameterDefinitionManager);
 
             IOptions<CoreFeatureConfiguration> options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());

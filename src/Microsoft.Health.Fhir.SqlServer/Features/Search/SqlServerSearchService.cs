@@ -235,12 +235,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             }
                         }
 
-                        /*
-                        Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending
-                            ? Expression.GreaterThan(fieldName, null, keyValue)
-                            : Expression.LessThan(fieldName, null, keyValue);
-                        */
-
                         var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
                         searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
                     }

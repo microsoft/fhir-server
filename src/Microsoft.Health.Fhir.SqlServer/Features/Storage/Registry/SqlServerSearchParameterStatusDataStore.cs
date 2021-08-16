@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SchemaInformation _schemaInformation;
         private readonly SqlServerFhirModel _fhirModel;
+        private readonly SqlServerSortingValidator _sortingValidator;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public SqlServerSearchParameterStatusDataStore(
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             SchemaInformation schemaInformation,
             SqlServerFhirModel fhirModel,
+            SqlServerSortingValidator sortingValidator,
             ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
@@ -48,6 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
+            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
@@ -55,6 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
             _fhirModel = fhirModel;
+            _sortingValidator = sortingValidator;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
@@ -141,22 +145,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             };
                         }
 
-                        SearchParameterInfo paramInfo = null;
-                        try
+                        if (_schemaInformation.Current > SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
                         {
-                            paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri);
-                        }
-                        catch (SearchParameterNotSupportedException)
-                        {
-                        }
+                            // For schema versions starting from AddMinMaxForDateAndStringSearchParamVersion we will check
+                            // whether the corresponding type of the search parameter is supported.
+                            SearchParameterInfo paramInfo = null;
+                            try
+                            {
+                                paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri);
+                            }
+                            catch (SearchParameterNotSupportedException)
+                            {
+                            }
 
-                        if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
-                        {
-                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
+                            if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
+                            {
+                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
+                            }
+                            else
+                            {
+                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
+                            }
                         }
                         else
                         {
-                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
+                            if (_sortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
+                            {
+                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
+                            }
+                            else
+                            {
+                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
+                            }
                         }
 
                         parameterStatuses.Add(resourceSearchParameterStatus);
