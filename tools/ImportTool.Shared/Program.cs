@@ -6,9 +6,8 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Threading.Tasks;
-using ImportTool.Shared;
 
-namespace ImportTool
+namespace ImportTool.Shared
 {
     public static class Program
     {

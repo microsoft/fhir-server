@@ -13,7 +13,7 @@ using Microsoft.Azure.Storage.Blob;
 using Microsoft.IdentityModel.Tokens;
 using Polly;
 
-namespace ImportTool
+namespace ImportTool.Shared
 {
     public class SingleFileSpliter
     {
