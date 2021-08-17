@@ -71,7 +71,6 @@ namespace ImportTool.Shared
             using (var stream = _sourceBlob.OpenRead())
             {
                 long totalLength = _sourceBlob.Properties.Length;
-                IList<Tuple<long, long>> points = new List<Tuple<long, long>>();
                 long offset = 0;
                 long length = 0;
                 int index = 0;
@@ -173,7 +172,7 @@ namespace ImportTool.Shared
                 Task putBlockTask = Policy.Handle<StorageException>()
                     .WaitAndRetryAsync(
                         retryCount: 3,
-                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
+                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(10))
                     .ExecuteAsync(() => cloudBlockBlob.PutBlockAsync(blockMeta.Id, _sourceUri, blockMeta.Offset, blockMeta.Length, null));
 
                 runningTasks.Add(putBlockTask);
@@ -185,7 +184,7 @@ namespace ImportTool.Shared
             await Policy.Handle<StorageException>()
                     .WaitAndRetryAsync(
                         retryCount: 3,
-                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(5 * (retryCount - 1)))
+                        sleepDurationProvider: (retryCount) => TimeSpan.FromSeconds(10))
                     .ExecuteAsync(() => cloudBlockBlob.PutBlockListAsync(blockIds));
         }
 
