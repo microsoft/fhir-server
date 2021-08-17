@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ImportTool.Shared
 {
-    public static class Spliter
+    public static class SplitBlobsCommand
     {
         private static ILogger _logger = GetLogger();
 
@@ -35,11 +35,7 @@ namespace ImportTool.Shared
             int maxSpliterPerBlob,
             int maxUploaderPerBlob)
         {
-            string storageConnectionString = "UseDevelopmentStorage=true;";
-            if (!(string.IsNullOrEmpty(account) || string.IsNullOrEmpty(key)))
-            {
-                storageConnectionString = $"DefaultEndpointsProtocol=https;AccountName={account};AccountKey={key}";
-            }
+            string storageConnectionString = GetConnectionStringFromAccountAndKey(account, key);
 
             CloudStorageAccount storageAccount;
             try
@@ -71,6 +67,17 @@ namespace ImportTool.Shared
             {
                 _logger.LogError("Failed to split due to {0}", ex.Message);
             }
+        }
+
+        public static string GetConnectionStringFromAccountAndKey(string account, string key)
+        {
+            string storageConnectionString = "UseDevelopmentStorage=true;";
+            if (!(string.IsNullOrEmpty(account) || string.IsNullOrEmpty(key)))
+            {
+                storageConnectionString = $"DefaultEndpointsProtocol=https;AccountName={account};AccountKey={key}";
+            }
+
+            return storageConnectionString;
         }
 
         private static async Task<int> SplitBlob(
@@ -111,12 +118,7 @@ namespace ImportTool.Shared
                             runningTasks.Remove(task);
                         }
 
-                        // Create sas token of source file
-                        SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
-                        sasPolicy.SharedAccessExpiryTime = DateTime.UtcNow.AddMinutes(30);
-                        sasPolicy.Permissions = SharedAccessBlobPermissions.Read;
-                        string sasToken = segment.GetSharedAccessSignature(sasPolicy);
-
+                        string sasToken = GetSasToken(segment);
                         SingleFileSpliter spliter = new SingleFileSpliter(
                             segment,
                             new Uri($"{segment.Uri}{sasToken}"),
@@ -135,5 +137,15 @@ namespace ImportTool.Shared
             await Task.WhenAll(runningTasks.ToArray());
             return count;
        }
+
+        private static string GetSasToken(ICloudBlob cloudBlob)
+        {
+            // Create sas token of source file
+            SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
+            sasPolicy.SharedAccessExpiryTime = DateTime.UtcNow.AddMinutes(30);
+            sasPolicy.Permissions = SharedAccessBlobPermissions.Read;
+            string sasToken = cloudBlob.GetSharedAccessSignature(sasPolicy);
+            return sasToken;
+        }
     }
 }

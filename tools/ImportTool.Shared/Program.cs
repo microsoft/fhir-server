@@ -82,10 +82,10 @@ namespace ImportTool
             splitBlobsCommand.AddOption(maxUploaderCountPerSplitedBlobOption);
 
             generateRequestCommand.Handler =
-                CommandHandler.Create<string, string, string>(RequestGenerator.GenerateImportRequest);
+                CommandHandler.Create<string, string, string>(GeneratRequestCommand.GenerateImportRequest);
 
             splitBlobsCommand.Handler =
-                CommandHandler.Create<string, string, string, long, long, int, int, int>(Spliter.Split);
+                CommandHandler.Create<string, string, string, long, long, int, int, int>(SplitBlobsCommand.Split);
 
             rootCommand.AddCommand(generateRequestCommand);
             rootCommand.AddCommand(splitBlobsCommand);

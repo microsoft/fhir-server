@@ -60,7 +60,7 @@ namespace ImportTool
                     runningTasks.Remove(task);
                 }
 
-                runningTasks.Add(PutNewSplitedFile(blockMetas, targetCloudBlockBlob));
+                runningTasks.Add(UploadBlob(blockMetas, targetCloudBlockBlob));
             }
 
             await Task.WhenAll(runningTasks);
@@ -78,14 +78,12 @@ namespace ImportTool
 
                 while (true)
                 {
-                    // put all splited files in one hierarchy
-                    string splitedFileName = _sourceBlob.Name.Split('/').Last();
-                    CloudBlockBlob cloudBlockBlob = _sourceBlob.Container.GetBlockBlobReference($"splited/{splitedFileName}_{SplitSizeInBytes}_{index}");
+                    CloudBlockBlob cloudBlockBlob = _sourceBlob.Container.GetBlockBlobReference($"splited/{_sourceBlob.Name}_{SplitSizeInBytes}_{index}");
                     IEnumerable<BlockMeta> blockMetas;
 
                     length = SplitSizeInBytes;
 
-                    if (stream.Position + length >= totalLength)
+                    if (offset + length >= totalLength)
                     {
                         blockMetas = SplitFileToBlocks(offset, totalLength - offset);
                         yield return new Tuple<IEnumerable<BlockMeta>, CloudBlockBlob>(blockMetas, cloudBlockBlob);
@@ -102,10 +100,16 @@ namespace ImportTool
                     {
                         int c = stream.ReadByte();
 
-                        // \n - UNIX   \r\n - DOS   \r - Mac
-                        if (c == -1 || (c == 10 || c == 13))
+                        // read to end, EOF shouldn't be contained
+                        if (c < 0)
                         {
-                            if (c == 13 && stream.ReadByte() == 10)
+                            count--;
+                        }
+
+                        // \n - UNIX   \r\n - DOS   \r - Mac, -1 is END
+                        if (c == '\n' || c == '\r')
+                        {
+                            if (c == '\r' && stream.ReadByte() == '\n')
                             {
                                 count++;
                             }
@@ -152,7 +156,7 @@ namespace ImportTool
             return blockMetas;
         }
 
-        private async Task PutNewSplitedFile(IEnumerable<BlockMeta> blockMetas, CloudBlockBlob cloudBlockBlob)
+        private async Task UploadBlob(IEnumerable<BlockMeta> blockMetas, CloudBlockBlob cloudBlockBlob)
         {
             List<Task> runningTasks = new List<Task>();
 
