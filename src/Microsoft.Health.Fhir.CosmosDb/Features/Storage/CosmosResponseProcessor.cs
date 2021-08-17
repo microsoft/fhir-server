@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public void ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage)
         {
             // Stored procedure statuses will be in the substatuscode
-            if (statusCode == HttpStatusCode.TooManyRequests || string.Equals(headers["x-ms-substatus"], ((int)HttpStatusCode.TooManyRequests).ToString(), StringComparison.Ordinal))
+            if (statusCode == HttpStatusCode.TooManyRequests || headers.GetSubStatusValue() == (int)HttpStatusCode.TooManyRequests)
             {
                 string retryHeader = headers["x-ms-retry-after-ms"];
                 throw new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
