@@ -60,7 +60,7 @@
   <Choose>
     <When Condition="$(MSBuildProjectName)!='SmartLauncher' and $(MSBuildProjectName)!='FhirAnalyzer'  AND !$(MSBuildProjectName.Contains('Test'))">
       <ItemGroup>
-        <ProjectReference Include="..\..\tools\FhirAnalyzer\FhirAnalyzer.csproj" SetTargetFramework="TargetFramework=netstandard2.0" >
+        <ProjectReference Include="..\..\tools\FhirAnalyzer\FhirAnalyzer.csproj">
           <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
           <OutputItemType>Analyzer</OutputItemType>
         </ProjectReference>
