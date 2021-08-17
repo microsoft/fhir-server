@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     public class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
-        private const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
+        private const string CustomAuditHeaderPrefix = SpecialValues.CustomAuditHeaderPrefix;
         private const string ExpectedClaimKey = "client_id";
 
         private readonly AuditTestFixture _fixture;

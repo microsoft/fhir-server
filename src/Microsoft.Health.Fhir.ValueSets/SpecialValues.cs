@@ -8,5 +8,7 @@ namespace Microsoft.Health.Fhir.ValueSets
     public static class SpecialValues
     {
         public const string System = "http://hl7.org/fhir/special-values";
+
+        public const string CustomAuditHeaderPrefix = "http://hl7.org/fhir/special-values";
     }
 }
