@@ -36,12 +36,24 @@ namespace ImportTool.Shared
             BlockSizeInBytes = blockSizeInBytes;
         }
 
+        /// <summary>
+        /// Determines the size of splited blobs.
+        /// </summary>
         public long SplitSizeInBytes { get; set; }
 
+        /// <summary>
+        /// Determines the max concurrent tasks used to split one source file.
+        /// </summary>
         public int MaxSpliterCountPerFile { get; set; }
 
+        /// <summary>
+        /// Determines the max concurrent tasks used to upload one splited file.
+        /// </summary>
         public int MaxUploaderCountPerSplitedFile { get; set; }
 
+        /// <summary>
+        /// Determines the size of a unit for uploading.
+        /// </summary>
         public long BlockSizeInBytes { get; set; }
 
         public async Task Split()
@@ -77,7 +89,7 @@ namespace ImportTool.Shared
 
                 while (true)
                 {
-                    CloudBlockBlob cloudBlockBlob = _sourceBlob.Container.GetBlockBlobReference($"splited/{_sourceBlob.Name}_{SplitSizeInBytes}_{index}");
+                    CloudBlockBlob cloudBlockBlob = _sourceBlob.Container.GetBlockBlobReference($"splited/{SplitSizeInBytes}/{blobName}_{index}");
                     IEnumerable<BlockMeta> blockMetas;
 
                     length = SplitSizeInBytes;
@@ -103,6 +115,7 @@ namespace ImportTool.Shared
                         if (c < 0)
                         {
                             count--;
+                            break;
                         }
 
                         // \n - UNIX   \r\n - DOS   \r - Mac, -1 is END

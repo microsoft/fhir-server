@@ -15,6 +15,8 @@ namespace ImportTool.Shared
 {
     public static class SplitBlobsCommand
     {
+        private static int maxConcurrentFileLimit = 64;
+
         private static ILogger _logger = GetLogger();
 
         private static ILogger GetLogger()
@@ -35,8 +37,9 @@ namespace ImportTool.Shared
             int maxSpliterPerBlob,
             int maxUploaderPerBlob)
         {
-            string storageConnectionString = GetConnectionStringFromAccountAndKey(account, key);
+            maxConcurrentFile = Math.Min(maxConcurrentFile, maxConcurrentFileLimit);
 
+            string storageConnectionString = GetConnectionStringFromAccountAndKey(account, key);
             CloudStorageAccount storageAccount;
             try
             {
@@ -112,7 +115,7 @@ namespace ImportTool.Shared
 
                         if (runningTasks.Count >= maxConcurrentSplitFile)
                         {
-                            Task task = await Task.WhenAny(runningTasks.ToArray());
+                            Task task = await Task.WhenAny(runningTasks);
                             await task;
 
                             runningTasks.Remove(task);
@@ -134,18 +137,20 @@ namespace ImportTool.Shared
             }
             while (continuationToken != null);
 
-            await Task.WhenAll(runningTasks.ToArray());
+            await Task.WhenAll(runningTasks);
             return count;
        }
 
         private static string GetSasToken(ICloudBlob cloudBlob)
         {
-            // Create sas token of source file
-            SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy();
-            sasPolicy.SharedAccessExpiryTime = DateTime.UtcNow.AddMinutes(30);
-            sasPolicy.Permissions = SharedAccessBlobPermissions.Read;
-            string sasToken = cloudBlob.GetSharedAccessSignature(sasPolicy);
-            return sasToken;
+            // Create sas token of source blob
+            SharedAccessBlobPolicy sasPolicy = new SharedAccessBlobPolicy
+            {
+                SharedAccessExpiryTime = DateTime.UtcNow.AddMinutes(30),
+                Permissions = SharedAccessBlobPermissions.Read,
+            }
+
+            return cloudBlob.GetSharedAccessSignature(sasPolicy);;
         }
     }
 }
