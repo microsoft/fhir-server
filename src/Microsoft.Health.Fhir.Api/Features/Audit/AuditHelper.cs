@@ -68,7 +68,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             var responseStatusCode = (HttpStatusCode)httpContext.Response.StatusCode;
             if (!shouldCheckForAuthXFailure || responseStatusCode == HttpStatusCode.Unauthorized)
             {
-                CheckForCustomAuditHeadersInResponse(httpContext);
                 Log(AuditAction.Executed, responseStatusCode, httpContext, claimsExtractor);
             }
         }
@@ -78,6 +77,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             string auditEventType = fhirRequestContext.AuditEventType;
+            var customHeaders = _auditHeaderReader.Read(httpContext) as Dictionary<string, string>;
+
+            // check for custom audit headers in context-response
+            if (auditAction == AuditAction.Executed)
+            {
+                CheckForCustomAuditHeadersInResponse(httpContext, customHeaders);
+            }
 
             // Audit the call if an audit event type is associated with the action.
             if (!string.IsNullOrEmpty(auditEventType))
@@ -91,11 +97,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     correlationId: fhirRequestContext.CorrelationId,
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
-                    customHeaders: _auditHeaderReader.Read(httpContext));
+                    customHeaders: customHeaders);
             }
         }
 
-        private void CheckForCustomAuditHeadersInResponse(HttpContext httpContext)
+        private void CheckForCustomAuditHeadersInResponse(HttpContext httpContext, Dictionary<string, string> customHeaders)
         {
             var responseCustomHeaders = httpContext.Response.Headers.Where(x => x.Key.StartsWith(_auditConfiguration.Value.CustomAuditHeaderPrefix, StringComparison.OrdinalIgnoreCase)).ToDictionary(a => a.Key, a => a.Value.ToString());
             if (responseCustomHeaders.Any())
@@ -106,23 +112,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     throw new AuditHeaderTooLargeException(largeHeaders.First().Key, largeHeaders.First().Value.Length);
                 }
 
-                object cachedCustomHeaders;
-                var customHeaders = new Dictionary<string, string>();
-                if (httpContext.Items.TryGetValue(AuditConstants.CustomAuditHeaderKeyValue, out cachedCustomHeaders))
+                foreach (var header in responseCustomHeaders)
                 {
-                    customHeaders = cachedCustomHeaders as Dictionary<string, string>;
-                    foreach (var header in responseCustomHeaders)
+                    var headerValue = header.Value.ToString();
+                    if (headerValue.Length > AuditConstants.MaximumLengthOfCustomHeader)
                     {
-                        var headerValue = header.Value.ToString();
-                        if (headerValue.Length > AuditConstants.MaximumLengthOfCustomHeader)
-                        {
-                            throw new AuditHeaderTooLargeException(header.Key, headerValue.Length);
-                        }
+                        throw new AuditHeaderTooLargeException(header.Key, headerValue.Length);
+                    }
 
-                        if (!customHeaders.ContainsKey(header.Key))
-                        {
-                            customHeaders.Add(header.Key, headerValue);
-                        }
+                    if (!customHeaders.ContainsKey(header.Key))
+                    {
+                        customHeaders.Add(header.Key, headerValue);
                     }
                 }
 
@@ -130,8 +130,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 {
                     throw new AuditHeaderCountExceededException(customHeaders.Count);
                 }
-
-                httpContext.Items[AuditConstants.CustomAuditHeaderKeyValue] = customHeaders;
             }
         }
     }
