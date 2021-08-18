@@ -28,7 +28,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private static readonly IReadOnlyCollection<KeyValuePair<string, string>> Claims = new List<KeyValuePair<string, string>>();
         private static readonly IPAddress CallerIpAddress = new IPAddress(new byte[] { 0xA, 0x0, 0x0, 0x0 }); // 10.0.0.0
         private const string CallerIpAddressInString = "10.0.0.0";
-        private static readonly string _customAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix;
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
@@ -56,7 +55,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             var auditConfiguration = new AuditConfiguration()
             {
-                CustomAuditHeaderPrefix = _customAuditHeaderPrefix,
+                CustomAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix,
             };
 
             _optionsAuditConfiguration = Substitute.For<IOptions<AuditConfiguration>>();

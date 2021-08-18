@@ -29,8 +29,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 {
     public class CosmosResponseProcessorTests
     {
-        private static readonly string _customAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix;
-
         private readonly Dictionary<string, StringValues> _requestHeaders = new Dictionary<string, StringValues>();
         private readonly Dictionary<string, StringValues> _responseHeaders = new Dictionary<string, StringValues>();
         private readonly CosmosResponseProcessor _cosmosResponseProcessor;
@@ -50,7 +48,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;
             var auditConfiguration = new AuditConfiguration()
             {
-                CustomAuditHeaderPrefix = _customAuditHeaderPrefix,
+                CustomAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix,
             };
 
             _optionsAuditConfiguration = Substitute.For<IOptions<AuditConfiguration>>();
