@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -86,10 +87,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             Assert.Equal(_failureStatusCode, ofe.ResponseStatusCode);
         }
 
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithRunningStatus_ThenHttpResponseCodeShouldBeAccepted()
+        {
+            string context = JsonConvert.SerializeObject(new ImportOrchestratorTaskContext());
+
+            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Running, false, null, context);
+
+            Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
+            Assert.NotNull(result.TaskResult);
+        }
+
         [Theory]
-        [InlineData(TaskStatus.Running)]
+        [InlineData(TaskStatus.Created)]
         [InlineData(TaskStatus.Queued)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
+        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithCreatedOrQueuedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
         {
             GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(taskStatus);
 
@@ -104,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(TaskId, CancellationToken.None));
         }
 
-        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false, TaskResultData resultData = null)
+        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false, TaskResultData resultData = null, string context = null)
         {
             // Result may be changed to real style result later
             var taskInfo = new TaskInfo
@@ -112,9 +124,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
                 TaskId = TaskId,
                 QueueId = "0",
                 Status = taskStatus,
-                TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
+                TaskTypeId = ImportOrchestratorTask.ImportOrchestratorTaskId,
                 InputData = string.Empty,
                 IsCanceled = isCanceled,
+                Context = context,
                 Result = resultData != null ? JsonConvert.SerializeObject(resultData) : string.Empty,
             };
 

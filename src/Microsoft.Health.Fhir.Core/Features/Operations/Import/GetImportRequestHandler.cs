@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,7 +56,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationFailedException(Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
 
-                return new GetImportResponse(HttpStatusCode.Accepted);
+                if (taskInfo.Status == TaskManagement.TaskStatus.Running)
+                {
+                    ImportTaskResult intermediateResult = ExtractImportState(JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(taskInfo.Context));
+                    return new GetImportResponse(HttpStatusCode.Accepted, intermediateResult);
+                }
+                else
+                {
+                    return new GetImportResponse(HttpStatusCode.Accepted);
+                }
             }
             else
             {
@@ -79,6 +89,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationFailedException(Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
             }
+        }
+
+        private static ImportTaskResult ExtractImportState(ImportOrchestratorTaskContext context)
+        {
+            List<ImportOperationOutcome> completedOperationOutcome = new List<ImportOperationOutcome>();
+            List<ImportFailedOperationOutcome> failedOperationOutcome = new List<ImportFailedOperationOutcome>();
+
+            foreach ((Uri resourceUri, TaskInfo taskInfo) in context.DataProcessingTasks)
+            {
+                if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
+                {
+                    TaskResultData taskResultData = JsonConvert.DeserializeObject<TaskResultData>(taskInfo.Result);
+                    if (taskResultData.Result == TaskResult.Success)
+                    {
+                        ImportProcessingTaskResult processingTaskResult = JsonConvert.DeserializeObject<ImportProcessingTaskResult>(taskResultData.ResultData);
+                        completedOperationOutcome.Add(
+                            new ImportOperationOutcome()
+                            {
+                                Type = processingTaskResult.ResourceType,
+                                Count = processingTaskResult.SucceedCount,
+                                InputUrl = resourceUri,
+                            });
+
+                        if (processingTaskResult.FailedCount > 0)
+                        {
+                            failedOperationOutcome.Add(
+                                new ImportFailedOperationOutcome()
+                                {
+                                    Type = processingTaskResult.ResourceType,
+                                    Count = processingTaskResult.FailedCount,
+                                    InputUrl = resourceUri,
+                                    Url = processingTaskResult.ErrorLogLocation,
+                                });
+                        }
+                    }
+                }
+            }
+
+            return new ImportTaskResult()
+            {
+                Output = completedOperationOutcome,
+                Error = failedOperationOutcome,
+            };
         }
     }
 }

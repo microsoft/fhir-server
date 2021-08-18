@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 HttpContext.RequestAborted);
 
             // If the job is complete, we need to return 200 along with the completed data to the client.
-            // Else we need to return 202 - Accepted.
+            // Else we need to return 202 - Accepted and the intermediate completed data if have.
             ImportResult bulkImportActionResult;
             if (getBulkImportResult.StatusCode == HttpStatusCode.OK)
             {
@@ -146,7 +146,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
-                bulkImportActionResult = ImportResult.Accepted();
+                if (getBulkImportResult.TaskResult == null)
+                {
+                    bulkImportActionResult = ImportResult.Accepted();
+                }
+                else
+                {
+                    bulkImportActionResult = ImportResult.Accepted(getBulkImportResult.TaskResult);
+                    bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
+                }
             }
 
             return bulkImportActionResult;
