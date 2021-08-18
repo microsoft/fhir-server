@@ -13,13 +13,14 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -28,18 +29,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IMediator _mediator;
         private readonly ICosmosQueryLogger _queryLogger;
+        private readonly IOptions<AuditConfiguration> _auditConfiguration;
         private readonly ILogger<CosmosResponseProcessor> _logger;
 
-        public CosmosResponseProcessor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IMediator mediator, ICosmosQueryLogger queryLogger, ILogger<CosmosResponseProcessor> logger)
+        public CosmosResponseProcessor(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, IMediator mediator, ICosmosQueryLogger queryLogger, IOptions<AuditConfiguration> auditConfiguration, ILogger<CosmosResponseProcessor> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(queryLogger, nameof(queryLogger));
             EnsureArg.IsNotNull(queryLogger, nameof(queryLogger));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _mediator = mediator;
             _queryLogger = queryLogger;
+            _auditConfiguration = auditConfiguration;
             _logger = logger;
         }
 
@@ -146,7 +150,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
 
                 requestContext.ResponseHeaders[CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
-                requestContext.RequestHeaders[SpecialValues.CustomAuditHeaderPrefix + CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
+                requestContext.ResponseHeaders[_auditConfiguration.Value.CustomAuditHeaderPrefix + CosmosDbHeaders.RequestCharge] = responseRequestCharge.ToString(CultureInfo.InvariantCulture);
             }
 
             var cosmosMetrics = new CosmosStorageRequestMetricsNotification(requestContext.AuditEventType, requestContext.ResourceType)

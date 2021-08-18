@@ -3,10 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -21,19 +26,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly IAuditHeaderReader _auditHeaderReader;
+        private readonly IOptions<AuditConfiguration> _auditConfiguration;
 
         public AuditHelper(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IAuditLogger auditLogger,
-            IAuditHeaderReader auditHeaderReader)
+            IAuditHeaderReader auditHeaderReader,
+            IOptions<AuditConfiguration> auditConfiguration)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             EnsureArg.IsNotNull(auditHeaderReader, nameof(auditHeaderReader));
+            EnsureArg.IsNotNull(auditConfiguration, nameof(auditConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _auditLogger = auditLogger;
             _auditHeaderReader = auditHeaderReader;
+            _auditConfiguration = auditConfiguration;
         }
 
         /// <inheritdoc />
@@ -59,6 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             var responseStatusCode = (HttpStatusCode)httpContext.Response.StatusCode;
             if (!shouldCheckForAuthXFailure || responseStatusCode == HttpStatusCode.Unauthorized)
             {
+                CheckForCustomAuditHeadersInResponse(httpContext);
                 Log(AuditAction.Executed, responseStatusCode, httpContext, claimsExtractor);
             }
         }
@@ -82,6 +92,46 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext));
+            }
+        }
+
+        private void CheckForCustomAuditHeadersInResponse(HttpContext httpContext)
+        {
+            var responseCustomHeaders = httpContext.Response.Headers.Where(x => x.Key.StartsWith(_auditConfiguration.Value.CustomAuditHeaderPrefix, StringComparison.OrdinalIgnoreCase)).ToDictionary(a => a.Key, a => a.Value.ToString());
+            if (responseCustomHeaders.Any())
+            {
+                var largeHeaders = responseCustomHeaders.Where(x => x.Value.Length > AuditConstants.MaximumLengthOfCustomHeader).ToDictionary(a => a.Key, a => a.Value.ToString());
+                if (largeHeaders.Any())
+                {
+                    throw new AuditHeaderTooLargeException(largeHeaders.First().Key, largeHeaders.First().Value.Length);
+                }
+
+                object cachedCustomHeaders;
+                var customHeaders = new Dictionary<string, string>();
+                if (httpContext.Items.TryGetValue(AuditConstants.CustomAuditHeaderKeyValue, out cachedCustomHeaders))
+                {
+                    customHeaders = cachedCustomHeaders as Dictionary<string, string>;
+                    foreach (var header in responseCustomHeaders)
+                    {
+                        var headerValue = header.Value.ToString();
+                        if (headerValue.Length > AuditConstants.MaximumLengthOfCustomHeader)
+                        {
+                            throw new AuditHeaderTooLargeException(header.Key, headerValue.Length);
+                        }
+
+                        if (!customHeaders.ContainsKey(header.Key))
+                        {
+                            customHeaders.Add(header.Key, headerValue);
+                        }
+                    }
+                }
+
+                if (customHeaders.Count > AuditConstants.MaximumNumberOfCustomHeaders)
+                {
+                    throw new AuditHeaderCountExceededException(customHeaders.Count);
+                }
+
+                httpContext.Items[AuditConstants.CustomAuditHeaderKeyValue] = customHeaders;
             }
         }
     }

@@ -14,10 +14,10 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     public class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
-        private const string CustomAuditHeaderPrefix = SpecialValues.CustomAuditHeaderPrefix;
+        private const string CustomAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix;
         private const string ExpectedClaimKey = "client_id";
 
         private readonly AuditTestFixture _fixture;

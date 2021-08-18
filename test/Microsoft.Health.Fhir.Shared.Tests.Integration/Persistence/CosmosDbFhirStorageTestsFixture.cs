@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CosmosDbSearchParameterStatusInitializer(
                     () => _filebasedSearchParameterStatusDataStore,
                     new CosmosQueryFactory(
-                        new CosmosResponseProcessor(fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
+                        new CosmosResponseProcessor(fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), Substitute.For<AuditConfiguration>(), NullLogger<CosmosResponseProcessor>.Instance),
                         NullFhirCosmosQueryLogger.Instance),
                     _cosmosDataStoreConfiguration),
             };
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
-            var responseProcessor = new CosmosResponseProcessor(fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
+            var responseProcessor = new CosmosResponseProcessor(fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), Substitute.For<AuditConfiguration>(), NullLogger<CosmosResponseProcessor>.Instance);
             var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, fhirRequestContextAccessor, responseProcessor);
             var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, fhirRequestContextAccessor);
             var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, () => new[] { handler }, retryExceptionPolicyFactory, NullLogger<FhirCosmosClientInitializer>.Instance);

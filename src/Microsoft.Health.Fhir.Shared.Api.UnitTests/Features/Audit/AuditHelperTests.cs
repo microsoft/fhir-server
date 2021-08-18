@@ -7,10 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -25,10 +28,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private static readonly IReadOnlyCollection<KeyValuePair<string, string>> Claims = new List<KeyValuePair<string, string>>();
         private static readonly IPAddress CallerIpAddress = new IPAddress(new byte[] { 0xA, 0x0, 0x0, 0x0 }); // 10.0.0.0
         private const string CallerIpAddressInString = "10.0.0.0";
+        private static readonly string _customAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix;
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
         private readonly IAuditHeaderReader _auditHeaderReader = Substitute.For<IAuditHeaderReader>();
+        private readonly IOptions<AuditConfiguration> _optionsAuditConfiguration;
 
         private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
@@ -49,7 +54,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _claimsExtractor.Extract().Returns(Claims);
 
-            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditLogger, _auditHeaderReader);
+            var auditConfiguration = new AuditConfiguration()
+            {
+                CustomAuditHeaderPrefix = _customAuditHeaderPrefix,
+            };
+
+            _optionsAuditConfiguration = Substitute.For<IOptions<AuditConfiguration>>();
+            _optionsAuditConfiguration.Value.Returns(auditConfiguration);
+            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditLogger, _auditHeaderReader, _optionsAuditConfiguration);
         }
 
         [Fact]
