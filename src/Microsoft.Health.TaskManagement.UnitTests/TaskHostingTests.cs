@@ -211,6 +211,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
             TestTaskConsumer consumer = new TestTaskConsumer(taskInfos.ToArray());
             bool isCancelled = false;
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
             TestTaskFactory factory = new TestTaskFactory(t =>
             {
                 return new TestTask(
@@ -223,6 +224,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                     {
                         await Task.Delay(TimeSpan.FromMilliseconds(20));
                         isCancelled = true;
+                        tokenSource.Cancel();
                     })
                 {
                     RunId = Guid.NewGuid().ToString(),
@@ -231,8 +233,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
             TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
-
-            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 0;
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
             await taskHosting.StartAsync(tokenSource);
@@ -375,6 +376,49 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             // If task failcount < MaxRetryCount + 1, the Task should success.
             TaskResultData taskResult1 = JsonConvert.DeserializeObject<TaskResultData>(taskInfo1.Result);
             Assert.Equal(TaskResult.Success, taskResult1.Result);
+        }
+
+        [Fact]
+        public async Task GivenTaskRunning_WhenCancel_ThenTaskShouldBeCompleteWithCancelledStatus()
+        {
+            TaskInfo taskInfo0 = new TaskInfo();
+            taskInfo0.TaskId = Guid.NewGuid().ToString();
+            taskInfo0.TaskTypeId = 0;
+
+            TestTaskConsumer consumer = new TestTaskConsumer(new TaskInfo[] { taskInfo0 });
+            CancellationTokenSource tokenSource = new CancellationTokenSource();
+            AutoResetEvent autoResetEvent1 = new AutoResetEvent(false);
+            AutoResetEvent autoResetEvent2 = new AutoResetEvent(false);
+            TestTaskFactory factory = new TestTaskFactory(t =>
+            {
+                return new TestTask(
+                        () =>
+                        {
+                            autoResetEvent2.Set();
+                            autoResetEvent1.WaitOne();
+
+                            tokenSource.Cancel();
+
+                            return Task.FromResult(new TaskResultData(TaskResult.Canceled, string.Empty));
+                        },
+                        () =>
+                        {
+                            autoResetEvent1.Set();
+                        });
+            });
+
+            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            taskHosting.PollingFrequencyInSeconds = 0;
+            taskHosting.MaxRunningTaskCount = 1;
+
+            Task hostingTask = taskHosting.StartAsync(tokenSource);
+            autoResetEvent2.WaitOne();
+            taskInfo0.IsCanceled = true;
+
+            await hostingTask;
+
+            TaskResultData taskResult = JsonConvert.DeserializeObject<TaskResultData>(taskInfo0.Result);
+            Assert.Equal(TaskResult.Canceled, taskResult.Result);
         }
 
         [Fact(Skip = "Fault injection test require local environment.")]

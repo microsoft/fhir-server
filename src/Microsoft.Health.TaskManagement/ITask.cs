@@ -28,11 +28,5 @@ namespace Microsoft.Health.TaskManagement
         /// Cancel the task execution.
         /// </summary>
         public void Cancel();
-
-        /// <summary>
-        /// Check if the task is in cancelling status.
-        /// </summary>
-        /// <returns>return true if cancel operation triggered.</returns>
-        public bool IsCancelling();
     }
 }

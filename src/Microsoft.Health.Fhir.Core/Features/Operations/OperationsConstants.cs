@@ -34,5 +34,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string PatientEverythingUri = "https://www.hl7.org/fhir/patient-operation-everything.html";
 
         public const string PurgeHistory = "purge-history";
+
+        public const string Import = "import";
+
+        public const string BulkImportContentTypeHeaderValue = "application/json";
     }
 }
