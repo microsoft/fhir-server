@@ -17,6 +17,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -28,11 +29,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 {
     public class CosmosResponseProcessorTests
     {
+        private static readonly string _customAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix;
+
         private readonly Dictionary<string, StringValues> _requestHeaders = new Dictionary<string, StringValues>();
         private readonly Dictionary<string, StringValues> _responseHeaders = new Dictionary<string, StringValues>();
         private readonly CosmosResponseProcessor _cosmosResponseProcessor;
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly IOptions<AuditConfiguration> _optionsAuditConfiguration;
 
         public CosmosResponseProcessorTests()
         {
@@ -44,8 +48,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             _mediator = Substitute.For<IMediator>();
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;
+            var auditConfiguration = new AuditConfiguration()
+            {
+                CustomAuditHeaderPrefix = _customAuditHeaderPrefix,
+            };
 
-            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), Substitute.For<IOptions<AuditConfiguration>>(), nullLogger);
+            _optionsAuditConfiguration = Substitute.For<IOptions<AuditConfiguration>>();
+            _optionsAuditConfiguration.Value.Returns(auditConfiguration);
+            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), _optionsAuditConfiguration, nullLogger);
         }
 
         [Fact]
