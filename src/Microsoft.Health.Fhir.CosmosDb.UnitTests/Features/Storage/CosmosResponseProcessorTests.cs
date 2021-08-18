@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Configs;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             _mediator = Substitute.For<IMediator>();
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;
 
-            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), Substitute.For<AuditConfiguration>(), nullLogger);
+            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), Substitute.For<IOptions<AuditConfiguration>>(), nullLogger);
         }
 
         [Fact]
