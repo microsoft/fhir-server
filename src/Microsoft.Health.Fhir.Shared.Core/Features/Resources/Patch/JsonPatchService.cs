@@ -20,7 +20,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public sealed class JsonPatchService
+    internal sealed class JsonPatchService
     {
         private readonly IModelInfoProvider _modelInfoProvider;
 
@@ -80,7 +80,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         {
             try
             {
-                // Use low-level JSON parser
                 operations.ApplyTo(node.JsonObject);
             }
             catch (JsonPatchException e)

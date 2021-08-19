@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAnWrongVersionInETag_WhenPatching_ThenAnErrorShouldBeReturned()
+        public async Task GivenAWrongVersionInETag_WhenPatching_ThenAnErrorShouldBeReturned()
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
 

@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Client
             return await PatchAsync<T>($"{resourceType}?{searchCriteria}", content, ifMatchVersion, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> PatchAsync<T>(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        private async Task<FhirResponse<T>> PatchAsync<T>(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
            where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
