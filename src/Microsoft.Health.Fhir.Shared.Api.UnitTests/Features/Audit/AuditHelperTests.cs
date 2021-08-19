@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         public void GivenAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
         {
             _fhirRequestContext.AuditEventType.Returns(AuditEventType);
-
+            _auditHeaderReader.Read(_httpContext).Returns(new Dictionary<string, string>());
             _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
 
             _auditLogger.Received(1).LogAudit(
@@ -122,6 +122,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _fhirRequestContext.AuditEventType.Returns(AuditEventType);
             _fhirRequestContext.ResourceType.Returns(expectedResourceType);
+            _auditHeaderReader.Read(_httpContext).Returns(new Dictionary<string, string>());
 
             _httpContext.Response.StatusCode = (int)expectedStatusCode;
 
