@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
@@ -19,6 +20,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly HashSet<Uri> _supportedParameterUrisBeforeTablePartitioning;
         private readonly HashSet<Uri> _supportedParameterUrisAfterTablePartitioning;
+
+        internal static readonly HashSet<SearchParamType> SupportedSortParamTypes = new HashSet<SearchParamType>()
+        {
+            SearchParamType.Date,
+            SearchParamType.String,
+        };
 
         public SqlServerSortingValidator(SchemaInformation schemaInformation)
         {
@@ -59,7 +66,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
-                case { Count: 1 } when SupportedParameterUris.Contains(sorting[0].searchParameter.Url):
+                case { Count: 1 } when _schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion &&
+                                        SupportedSortParamTypes.Contains(sorting[0].searchParameter.Type):
+                    errorMessages = Array.Empty<string>();
+                    return true;
+                case { Count: 1 } when _schemaInformation.Current < SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion &&
+                                        SupportedParameterUris.Contains(sorting[0].searchParameter.Url):
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:

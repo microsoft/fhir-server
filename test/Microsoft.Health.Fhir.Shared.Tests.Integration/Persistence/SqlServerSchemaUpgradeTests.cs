@@ -199,6 +199,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
+                ("Procedure", "[dbo].[UpsertResource_4]"),
+                ("Procedure", "[dbo].[ReindexResource]"),
+                ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[HardDeleteResource]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
@@ -218,6 +221,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
@@ -227,7 +232,51 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            return remainingDifferences.Count == 0;
+            // Some of the schema changes we are making to tables include addition of columns. In order to support
+            // upgrading older schemas to the newer ones we have to add default constraints to the upgrade script.
+            // These constraints will not be present in databases that were directly initialized with the latest schema.
+            // We need to exclude these constraints from the schema difference comparison.
+            bool unexpectedDifference = false;
+            HashSet<string> constraintNames = new HashSet<string>()
+            {
+                "[dbo].[date_IsMin_Constraint]",
+                "[dbo].[date_IsMax_Constraint]",
+                "[dbo].[string_IsMin_Constraint]",
+                "[dbo].[string_IsMax_Constraint]",
+            };
+
+            foreach (SchemaDifference schemaDifference in remainingDifferences)
+            {
+                if (schemaDifference.Name == "SqlTable" &&
+                    (schemaDifference.SourceObject.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
+                    schemaDifference.SourceObject.Name.ToString() == "[dbo].[StringSearchParam]"))
+                {
+                    foreach (SchemaDifference child in schemaDifference.Children)
+                    {
+                        if (child.TargetObject == null && child.SourceObject == null && (child.Name == "PartitionColumn" || child.Name == "PartitionScheme"))
+                        {
+                            // The ParitionColumn and the PartitionScheme come up in the differences list even though
+                            // when digging into the "difference" object the values being compared are equal.
+                            continue;
+                        }
+                        else if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
+                        {
+                            // Expected
+                            continue;
+                        }
+                        else
+                        {
+                            unexpectedDifference = true;
+                        }
+                    }
+                }
+                else
+                {
+                    unexpectedDifference = true;
+                }
+            }
+
+            return !unexpectedDifference;
         }
     }
 }

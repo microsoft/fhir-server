@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -31,30 +32,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SchemaInformation _schemaInformation;
-        private readonly SqlServerSortingValidator _sortingValidator;
-        private readonly ISqlServerFhirModel _fhirModel;
+        private readonly SqlServerFhirModel _fhirModel;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public SqlServerSearchParameterStatusDataStore(
             Func<IScoped<SqlConnectionWrapperFactory>> scopedSqlConnectionWrapperFactory,
             VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             SchemaInformation schemaInformation,
-            SqlServerSortingValidator sortingValidator,
-            ISqlServerFhirModel fhirModel)
+            SqlServerFhirModel fhirModel,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _schemaInformation = schemaInformation;
-            _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
         // TODO: Make cancellation token an input.
@@ -140,7 +141,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             };
                         }
 
-                        if (_sortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
+                        SearchParameterInfo paramInfo = null;
+                        try
+                        {
+                            paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri);
+                        }
+                        catch (SearchParameterNotSupportedException)
+                        {
+                        }
+
+                        if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
                         {
                             resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
                         }
