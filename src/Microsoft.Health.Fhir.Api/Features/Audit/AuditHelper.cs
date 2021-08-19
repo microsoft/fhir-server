@@ -77,17 +77,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             string auditEventType = fhirRequestContext.AuditEventType;
-            var customHeaders = _auditHeaderReader.Read(httpContext) as Dictionary<string, string>;
-
-            // check for custom audit headers in context-response
-            if (auditAction == AuditAction.Executed)
-            {
-                CheckForCustomAuditHeadersInResponse(httpContext, customHeaders);
-            }
 
             // Audit the call if an audit event type is associated with the action.
             if (!string.IsNullOrEmpty(auditEventType))
             {
+                var customHeaders = (Dictionary<string, string>)_auditHeaderReader.Read(httpContext);
+
+                // check for custom audit headers in context-response
+                if (auditAction == AuditAction.Executed)
+                {
+                    CheckForCustomAuditHeadersInResponse(httpContext, customHeaders);
+                }
+
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
