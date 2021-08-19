@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (CosmosException exception)
             {
-                if (exception.IsRequestEntityTooLarge())
+                if (exception.IsRequestRateExceeded())
                 {
                     throw;
                 }
