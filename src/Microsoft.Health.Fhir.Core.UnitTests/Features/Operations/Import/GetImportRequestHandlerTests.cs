@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             };
             orchestratorTaskContext.DataProcessingTasks.Add(createdTaskUri, createdProcessingTask);
 
-            Uri queuedTaskUri = new Uri("https://created.ndjson/");
+            Uri queuedTaskUri = new Uri("https://queued.ndjson/");
             TaskInfo queuedProcessingTask = new TaskInfo
             {
                 Status = TaskStatus.Queued,
