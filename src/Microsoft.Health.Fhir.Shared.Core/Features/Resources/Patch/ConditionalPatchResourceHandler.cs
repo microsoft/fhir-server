@@ -9,43 +9,50 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-
-using Microsoft.Health.Fhir.Core.Messages.Create;
+using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public sealed class ConditionalCreateResourceHandler : ConditionalResourceHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
+    public sealed class ConditionalPatchResourceHandler : ConditionalResourceHandler<ConditionalPatchResourceRequest, UpsertResourceResponse>
     {
+        private readonly JsonPatchService _patchService;
         private readonly IMediator _mediator;
 
-        public ConditionalCreateResourceHandler(
+        public ConditionalPatchResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            IModelInfoProvider modelInfoProvider)
             : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
+            _patchService = new JsonPatchService(modelInfoProvider);
             _mediator = mediator;
         }
 
-        public override async Task<UpsertResourceResponse> HandleNoMatch(ConditionalCreateResourceRequest request, CancellationToken cancellationToken)
+        public override Task<UpsertResourceResponse> HandleNoMatch(ConditionalPatchResourceRequest request, CancellationToken cancellationToken)
         {
-            return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource), cancellationToken);
+            throw new ResourceNotFoundException("Resource not found");
         }
 
-        public override Task<UpsertResourceResponse> HandleSingleMatch(ConditionalCreateResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
+        public override async Task<UpsertResourceResponse> HandleSingleMatch(ConditionalPatchResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
         {
-            return Task.FromResult<UpsertResourceResponse>(null);
+            var patchedResource = _patchService.Patch(match.Resource, request.PatchDocument, request.WeakETag);
+
+            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
         }
     }
 }

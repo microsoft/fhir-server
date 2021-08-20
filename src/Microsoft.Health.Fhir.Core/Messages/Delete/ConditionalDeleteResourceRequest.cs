@@ -6,36 +6,31 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Delete
 {
-    public class ConditionalDeleteResourceRequest : IRequest<DeleteResourceResponse>, IRequireCapability
+    public sealed class ConditionalDeleteResourceRequest : ConditionalResourceRequest<DeleteResourceResponse>, IRequireCapability
     {
-        public ConditionalDeleteResourceRequest(string resourceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, DeleteOperation deleteOperation, int maxDeleteCount)
+        private static readonly string[] Capabilities = new string[2] { "conditionalDelete.exists()", "conditionalDelete != 'not-supported'" };
+
+        public ConditionalDeleteResourceRequest(
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> conditionalParameters,
+            DeleteOperation deleteOperation,
+            int maxDeleteCount)
+            : base(resourceType, conditionalParameters)
         {
-            EnsureArg.IsNotNullOrEmpty(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 
-            ResourceType = resourceType;
-            ConditionalParameters = conditionalParameters;
             DeleteOperation = deleteOperation;
             MaxDeleteCount = maxDeleteCount;
         }
-
-        public string ResourceType { get; }
-
-        public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; }
 
         public DeleteOperation DeleteOperation { get; }
 
         public int MaxDeleteCount { get; }
 
-        public IEnumerable<CapabilityQuery> RequiredCapabilities()
-        {
-            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{ResourceType}').conditionalDelete.exists()");
-            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{ResourceType}').conditionalDelete != 'not-supported'");
-        }
+        protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }
 }
