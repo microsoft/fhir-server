@@ -3,17 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using EnsureThat;
+using Microsoft.Health.SqlServer.Features.Client;
+using Polly;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import
 {
-    public class AccessTokenProviderException : Exception
+    public class TestSqlServerTransientFaultRetryPolicyFactory : ISqlServerTransientFaultRetryPolicyFactory
     {
-        public AccessTokenProviderException(string message)
-            : base(message)
+        public IAsyncPolicy Create()
         {
-            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+            return Policy.TimeoutAsync(60);
         }
     }
 }

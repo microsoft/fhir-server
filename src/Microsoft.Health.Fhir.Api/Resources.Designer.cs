@@ -214,6 +214,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import request must be specified as a Paramters.  The body provided in this request is not valid. .
+        /// </summary>
+        public static string ImportRequestNotValid {
+            get {
+                return ResourceManager.GetString("ImportRequestNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value of the following parameter {0} is invalid..
+        /// </summary>
+        public static string ImportRequestValueNotValid {
+            get {
+                return ResourceManager.GetString("ImportRequestValueNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Initial import mode is not enabled. Please update service configuration to enable initial import mode..
+        /// </summary>
+        public static string InitialImportModeNotEnabled {
+            get {
+                return ResourceManager.GetString("InitialImportModeNotEnabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The input data type &apos;{0}&apos; and default template collection &apos;{1}&apos; are inconsistent..
         /// </summary>
         public static string InputDataTypeAndDefaultTemplateCollectionInconsistent {
@@ -331,6 +358,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Service is locked for initial import mode..
+        /// </summary>
+        public static string LockedForInitialImportMode {
+            get {
+                return ResourceManager.GetString("LockedForInitialImportMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to $member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid..
         /// </summary>
         public static string MemberMatchInvalidParameter {
@@ -399,6 +435,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string NotFoundException {
             get {
                 return ResourceManager.GetString("NotFoundException", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Only initial load import is supported. Please add &quot;InitialLoad&quot; mode to parameters..
+        /// </summary>
+        public static string OnlyInitialImportOperationSupported {
+            get {
+                return ResourceManager.GetString("OnlyInitialImportOperationSupported", resourceCulture);
             }
         }
         

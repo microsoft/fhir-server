@@ -20,6 +20,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
         internal override bool TryGenerateRow(int offset, short searchParamId, TokenSearchValue searchValue, out BulkTokenSearchParamTableTypeV1Row row)
         {
+            // For composite generator contains BulkTokenSearchParameterV1RowGenerator, it is possible to call TryGenerateRow before GenerateRow on this Generator.
+            EnsureInitialized();
+
             // don't store if the code is empty or if this is the Resource _id parameter. The id is already maintained on the Resource table.
             if (string.IsNullOrWhiteSpace(searchValue.Code) ||
                 searchParamId == _resourceIdSearchParamId)

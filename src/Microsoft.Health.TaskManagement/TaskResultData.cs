@@ -9,6 +9,10 @@ namespace Microsoft.Health.TaskManagement
 {
     public class TaskResultData
     {
+        public TaskResultData()
+        {
+        }
+
         public TaskResultData(TaskResult result, string resultData)
         {
             EnsureArg.IsNotNull(resultData, nameof(resultData));

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.TaskManagement
@@ -15,9 +16,8 @@ namespace Microsoft.Health.TaskManagement
         /// <summary>
         /// Update context for the task.
         /// </summary>
-        /// <param name="taskId">Id for the task</param>
         /// <param name="context">Task context in string format</param>
-        /// <returns>Task infomation after context updated.</returns>
-        public Task<TaskInfo> UpdateContextAsync(string taskId, string context);
+        /// <param name="cancellationToken">Cancellation Token</param>
+        public Task UpdateContextAsync(string context, CancellationToken cancellationToken);
     }
 }
