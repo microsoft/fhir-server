@@ -6,31 +6,24 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Create
 {
-    public class ConditionalCreateResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
+    public sealed class ConditionalCreateResourceRequest : ConditionalResourceRequest<UpsertResourceResponse>
     {
+        private static readonly string[] Capabilities = new string[1] { "conditionalCreate = true" };
+
         public ConditionalCreateResourceRequest(ResourceElement resource, IReadOnlyList<Tuple<string, string>> conditionalParameters)
+            : base(resource.InstanceType, conditionalParameters)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
-            EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
-
             Resource = resource;
-            ConditionalParameters = conditionalParameters;
         }
 
         public ResourceElement Resource { get; }
 
-        public IReadOnlyList<Tuple<string, string>> ConditionalParameters { get; }
-
-        public IEnumerable<CapabilityQuery> RequiredCapabilities()
-        {
-            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{Resource.InstanceType}').conditionalCreate = true");
-        }
+        protected override IEnumerable<string> GetCapabilities() => Capabilities;
     }
 }
