@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _httpContext.Connection.RemoteIpAddress = CallerIpAddress;
 
             _claimsExtractor.Extract().Returns(Claims);
+
             _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditLogger, _auditHeaderReader);
         }
 
@@ -71,6 +72,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         public void GivenAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
         {
             _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+
             _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
 
             _auditLogger.Received(1).LogAudit(

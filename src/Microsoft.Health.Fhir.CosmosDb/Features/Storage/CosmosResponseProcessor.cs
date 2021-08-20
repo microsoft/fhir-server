@@ -13,10 +13,8 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
@@ -35,7 +33,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(queryLogger, nameof(queryLogger));
             EnsureArg.IsNotNull(queryLogger, nameof(queryLogger));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
