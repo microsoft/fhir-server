@@ -1,6 +1,6 @@
 ﻿/**
-* This stored procedure acquires list of available reindex jobs. 
-* 
+* This stored procedure acquires list of available reindex jobs.
+*
 * @constructor
 * @param {string} maximumNumberOfConcurrentJobsAllowedInString - The maximum number of concurrent jobs allowed in string.
 * @param {string} jobHeartbeatTimeoutThresholdInSecondsInString - The number of seconds allowed before the job is considered to be stale in string.
@@ -145,6 +145,6 @@ function acquireReindexJobs(maximumNumberOfConcurrentJobsAllowedInString, jobHea
     }
 
     function throwTooManyRequestsError() {
-        throw new Error(ErrorCodes.RequestEntityTooLarge, `The request could not be completed.`);
+        throw new Error(429, `The request could not be completed.`);
     }
 }

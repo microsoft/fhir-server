@@ -313,6 +313,13 @@
   <data name="ConvertDataParametersNotValid" xml:space="preserve">
     <value>Convert data operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid.</value>
   </data>
+  <data name="ImportRequestValueNotValid" xml:space="preserve">
+    <value>Value of the following parameter {0} is invalid.</value>
+    <comment>{0} = the configuration name which was invalid</comment>
+  </data>
+  <data name="ImportRequestNotValid" xml:space="preserve">
+    <value>Import request must be specified as a Paramters.  The body provided in this request is not valid. </value>
+  </data>
   <data name="InvalidTemplateCollectionReference" xml:space="preserve">
     <value>The template collection reference '{0}' is invalid.</value>
     <comment>{0}: template collection reference</comment>
@@ -356,5 +363,14 @@
   </data>
   <data name="MemberMatchInvalidParameter" xml:space="preserve">
     <value>$member-match operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
+  </data>
+  <data name="OnlyInitialImportOperationSupported" xml:space="preserve">
+    <value>Only initial load import is supported. Please add "InitialLoad" mode to parameters.</value>
+  </data>
+  <data name="InitialImportModeNotEnabled" xml:space="preserve">
+    <value>Initial import mode is not enabled. Please update service configuration to enable initial import mode.</value>
+  </data>
+  <data name="LockedForInitialImportMode" xml:space="preserve">
+    <value>Service is locked for initial import mode.</value>
   </data>
 </root>

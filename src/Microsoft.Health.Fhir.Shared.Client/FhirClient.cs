@@ -397,6 +397,43 @@ namespace Microsoft.Health.Fhir.Client
             return await response.Content.ReadAsStringAsync(cancellationToken);
         }
 
+        public async Task<Uri> ImportAsync(Parameters parameters, CancellationToken cancellationToken = default)
+        {
+            string requestPath = "$import";
+            using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
+            {
+                Content = CreateStringContent(parameters),
+            };
+
+            message.Headers.Add("Prefer", "respond-async");
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return response.Content.Headers.ContentLocation;
+        }
+
+        public async Task CancelImport(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            message.Headers.Add("Prefer", "respond-async");
+
+            await HttpClient.SendAsync(message, cancellationToken);
+        }
+
+        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            message.Headers.Add("Prefer", "respond-async");
+
+            var response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return response;
+        }
+
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)

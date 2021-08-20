@@ -12,7 +12,6 @@ namespace Microsoft.Health.TaskManagement.UnitTests
     {
         private Func<Task<TaskResultData>> _executeFunc;
         private Action _cancelAction;
-        private bool _isCancelling = false;
 
         public TestTask(Func<Task<TaskResultData>> executeFunc, Action cancelAction)
         {
@@ -30,13 +29,6 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         public void Cancel()
         {
             _cancelAction?.Invoke();
-
-            _isCancelling = true;
-        }
-
-        public bool IsCancelling()
-        {
-            return _isCancelling;
         }
 
         public void Dispose()

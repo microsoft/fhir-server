@@ -1,4 +1,4 @@
---
+﻿--
 -- STORED PROCEDURE
 --     ReindexResource
 --
