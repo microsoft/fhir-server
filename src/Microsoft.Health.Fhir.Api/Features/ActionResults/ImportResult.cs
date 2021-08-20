@@ -28,9 +28,12 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Creates an ImportResult with HttpStatusCode Accepted.
         /// </summary>
-        public static ImportResult Accepted()
+        /// <param name="taskResult">The job payload that must be returned as part of the ImportResult.</param>
+        public static ImportResult Accepted(ImportTaskResult taskResult)
         {
-            return new ImportResult(HttpStatusCode.Accepted);
+            EnsureArg.IsNotNull(taskResult, nameof(taskResult));
+
+            return new ImportResult(taskResult, HttpStatusCode.Accepted);
         }
 
         /// <summary>
