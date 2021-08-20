@@ -34,7 +34,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         private readonly CosmosResponseProcessor _cosmosResponseProcessor;
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
-        private readonly IOptions<AuditConfiguration> _optionsAuditConfiguration;
 
         public CosmosResponseProcessorTests()
         {
@@ -46,14 +45,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             _mediator = Substitute.For<IMediator>();
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;
-            var auditConfiguration = new AuditConfiguration()
-            {
-                CustomAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix,
-            };
-
-            _optionsAuditConfiguration = Substitute.For<IOptions<AuditConfiguration>>();
-            _optionsAuditConfiguration.Value.Returns(auditConfiguration);
-            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), _optionsAuditConfiguration, nullLogger);
+            _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), nullLogger);
         }
 
         [Fact]

@@ -3,15 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -26,23 +21,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly IAuditHeaderReader _auditHeaderReader;
-        private readonly IOptions<AuditConfiguration> _auditConfiguration;
 
         public AuditHelper(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IAuditLogger auditLogger,
-            IAuditHeaderReader auditHeaderReader,
-            IOptions<AuditConfiguration> auditConfiguration)
+            IAuditHeaderReader auditHeaderReader)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
             EnsureArg.IsNotNull(auditHeaderReader, nameof(auditHeaderReader));
-            EnsureArg.IsNotNull(auditConfiguration, nameof(auditConfiguration));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _auditLogger = auditLogger;
             _auditHeaderReader = auditHeaderReader;
-            _auditConfiguration = auditConfiguration;
         }
 
         /// <inheritdoc />
@@ -81,14 +72,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             // Audit the call if an audit event type is associated with the action.
             if (!string.IsNullOrEmpty(auditEventType))
             {
-                var customHeaders = (Dictionary<string, string>)_auditHeaderReader.Read(httpContext);
-
-                // check for custom audit headers in context-response
-                if (auditAction == AuditAction.Executed)
-                {
-                    CheckForCustomAuditHeadersInResponse(httpContext, customHeaders);
-                }
-
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
@@ -98,39 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     correlationId: fhirRequestContext.CorrelationId,
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
                     callerClaims: claimsExtractor.Extract(),
-                    customHeaders: customHeaders);
-            }
-        }
-
-        private void CheckForCustomAuditHeadersInResponse(HttpContext httpContext, Dictionary<string, string> customHeaders)
-        {
-            var responseCustomHeaders = httpContext.Response.Headers.Where(x => x.Key.StartsWith(_auditConfiguration.Value.CustomAuditHeaderPrefix, StringComparison.OrdinalIgnoreCase)).ToDictionary(a => a.Key, a => a.Value.ToString());
-            if (responseCustomHeaders.Any())
-            {
-                var largeHeaders = responseCustomHeaders.Where(x => x.Value.Length > AuditConstants.MaximumLengthOfCustomHeader).ToDictionary(a => a.Key, a => a.Value.ToString());
-                if (largeHeaders.Any())
-                {
-                    throw new AuditHeaderTooLargeException(largeHeaders.First().Key, largeHeaders.First().Value.Length);
-                }
-
-                foreach (var header in responseCustomHeaders)
-                {
-                    var headerValue = header.Value.ToString();
-                    if (headerValue.Length > AuditConstants.MaximumLengthOfCustomHeader)
-                    {
-                        throw new AuditHeaderTooLargeException(header.Key, headerValue.Length);
-                    }
-
-                    if (!customHeaders.ContainsKey(header.Key))
-                    {
-                        customHeaders.Add(header.Key, headerValue);
-                    }
-                }
-
-                if (customHeaders.Count > AuditConstants.MaximumNumberOfCustomHeaders)
-                {
-                    throw new AuditHeaderCountExceededException(customHeaders.Count);
-                }
+                    customHeaders: _auditHeaderReader.Read(httpContext));
             }
         }
     }

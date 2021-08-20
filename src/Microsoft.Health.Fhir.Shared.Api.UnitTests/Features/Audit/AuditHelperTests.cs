@@ -7,13 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Audit;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;
 using Xunit;
@@ -32,7 +29,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
         private readonly IAuditHeaderReader _auditHeaderReader = Substitute.For<IAuditHeaderReader>();
-        private readonly IOptions<AuditConfiguration> _optionsAuditConfiguration;
 
         private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
@@ -52,15 +48,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _httpContext.Connection.RemoteIpAddress = CallerIpAddress;
 
             _claimsExtractor.Extract().Returns(Claims);
-
-            var auditConfiguration = new AuditConfiguration()
-            {
-                CustomAuditHeaderPrefix = KnownHeaders.CustomAuditHeaderPrefix,
-            };
-
-            _optionsAuditConfiguration = Substitute.For<IOptions<AuditConfiguration>>();
-            _optionsAuditConfiguration.Value.Returns(auditConfiguration);
-            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditLogger, _auditHeaderReader, _optionsAuditConfiguration);
+            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditLogger, _auditHeaderReader);
         }
 
         [Fact]
@@ -83,7 +71,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         public void GivenAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
         {
             _fhirRequestContext.AuditEventType.Returns(AuditEventType);
-            _auditHeaderReader.Read(_httpContext).Returns(new Dictionary<string, string>());
             _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
 
             _auditLogger.Received(1).LogAudit(
@@ -122,7 +109,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _fhirRequestContext.AuditEventType.Returns(AuditEventType);
             _fhirRequestContext.ResourceType.Returns(expectedResourceType);
-            _auditHeaderReader.Read(_httpContext).Returns(new Dictionary<string, string>());
 
             _httpContext.Response.StatusCode = (int)expectedStatusCode;
 
