@@ -136,13 +136,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             List<ImportFailedOperationOutcome> error = new List<ImportFailedOperationOutcome>();
             ImportOrchestratorTaskContext orchestratorTaskContext = new ImportOrchestratorTaskContext();
 
-            Uri completedTaskUri = new Uri("https://completed.ndjson");
+            Uri completedTaskUri = new Uri("https://completed.ndjson/");
             ImportProcessingTaskResult processingTaskResult = new ImportProcessingTaskResult
             {
                 ResourceType = "Patient",
                 SucceedCount = 5000,
                 FailedCount = 50,
-                ErrorLogLocation = "https://PatientCompleted.ndjson",
+                ErrorLogLocation = "https://PatientCompleted.ndjson/",
             };
             output.Add(new ImportOperationOutcome
             {
@@ -164,26 +164,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
             };
             TaskInfo completedProcessingTask = new TaskInfo
             {
-                Status = TaskStatus.Running,
+                Status = TaskStatus.Completed,
                 Result = JsonConvert.SerializeObject(resultData),
             };
             orchestratorTaskContext.DataProcessingTasks.Add(completedTaskUri, completedProcessingTask);
 
-            Uri createdTaskUri = new Uri("https://created.ndjson");
+            Uri createdTaskUri = new Uri("https://created.ndjson/");
             TaskInfo createdProcessingTask = new TaskInfo
             {
                 Status = TaskStatus.Created,
             };
             orchestratorTaskContext.DataProcessingTasks.Add(createdTaskUri, createdProcessingTask);
 
-            Uri queuedTaskUri = new Uri("https://created.ndjson");
+            Uri queuedTaskUri = new Uri("https://queued.ndjson/");
             TaskInfo queuedProcessingTask = new TaskInfo
             {
                 Status = TaskStatus.Queued,
             };
             orchestratorTaskContext.DataProcessingTasks.Add(queuedTaskUri, queuedProcessingTask);
 
-            Uri runningProcessingTaskUri = new Uri("https://running.ndjson");
+            Uri runningProcessingTaskUri = new Uri("https://running.ndjson/");
             TaskInfo runningProcessingTask = new TaskInfo
             {
                 Status = TaskStatus.Running,
