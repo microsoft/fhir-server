@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             using (Mock.Property(() => ClockResolver.UtcNowFunc, () => _dateTime))
             {
-                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0],  null, null, _unsupportedSearchParameters));
+                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0], null, null, _unsupportedSearchParameters));
             }
 
             Assert.NotNull(actual);
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new SearchResultEntry(CreateResourceWrapper(observation2, HttpMethod.Post)),
             };
 
-            var searchResult = new SearchResult(resourceWrappers,  continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
+            var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
 
             ResourceElement actual = null;
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, null, encodedContinuationToken, true).Returns(_nextUrl);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
-            var searchResult = new SearchResult(new SearchResultEntry[0],  _continuationToken, null, _unsupportedSearchParameters);
+            var searchResult = new SearchResult(new SearchResultEntry[0], _continuationToken, null, _unsupportedSearchParameters);
 
             ResourceElement actual = _bundleFactory.CreateSearchBundle(searchResult);
 
@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData("123", "2", "PUT", "200 OK")]
         [InlineData("123", "2", "PATCH", "200 OK")]
         [InlineData("123", "2", "DELETE", "204 NoContent")]
-        public void GivenAHistoryResultWithDifferentStatuses_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned(string id, string version, string method, string statusString)
+        public void GivenAHistoryResultWithDifferentStatuses_WhenCreateHistoryBundle_ThenCorrectBundleShouldBeReturned(string id, string version, string method, string statusString)
         {
             _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
@@ -183,11 +183,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var actual = _bundleFactory.CreateHistoryBundle(searchResult);
 
+            Assert.NotNull(actual.ToPoco<Bundle>().Entry[0].Request.Method);
+            Assert.NotNull(actual.ToPoco<Bundle>().Entry[0].Request.Url);
             Assert.Equal(statusString, actual.ToPoco<Bundle>().Entry[0].Response.Status);
         }
 
         [Fact]
-        public void GivenAHistoryResultWithAllHttpVerbs_WhenCreateSearchBundle_ThenBundleShouldNotCrash()
+        public void GivenAHistoryResultWithAllHttpVerbs_WhenCreateHistoryBundle_ThenBundleShouldNotCrash()
         {
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
             _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>(), Arg.Any<bool>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
@@ -204,7 +206,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
 
                 var actual = _bundleFactory.CreateHistoryBundle(searchResult);
-
                 Assert.NotNull(actual.ToPoco<Bundle>().Entry[0].Response.Status);
             }
         }

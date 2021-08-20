@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using EnsureThat;
@@ -61,14 +60,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return CreateBundle(result, Bundle.BundleType.History, r =>
             {
                 var resource = new RawBundleEntryComponent(r.Resource);
-                var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 
-                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
-                resource.Request = new Bundle.RequestComponent
+                var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
+#if Stu3
+                // STU3 doesn't have PATCH verb, so let's map it PUT.
+                if (!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
                 {
-                    Method = hasVerb ? httpVerb : null,
-                    Url = hasVerb ? $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}" : null,
-                };
+                    hasVerb = true;
+                    httpVerb = Bundle.HTTPVerb.PUT;
+                }
+#endif
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
+                if (hasVerb)
+                {
+                    resource.Request = new Bundle.RequestComponent
+                    {
+                        Method = httpVerb,
+                        Url = $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}",
+                    };
+                }
 
                 string statusString = null;
 
