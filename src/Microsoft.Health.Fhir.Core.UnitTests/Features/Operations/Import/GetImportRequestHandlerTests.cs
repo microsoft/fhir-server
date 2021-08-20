@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -87,40 +88,116 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.BulkImport
         }
 
         [Theory]
-        [InlineData(TaskStatus.Running)]
         [InlineData(TaskStatus.Queued)]
-        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotCompletedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
+        [InlineData(TaskStatus.Created)]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithNotQueuedOrCreatedStatus_ThenHttpResponseCodeShouldBeAccepted(TaskStatus taskStatus)
         {
             GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(taskStatus);
 
             Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
-            Assert.Null(result.TaskResult);
+            Assert.NotNull(result.TaskResult);
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenGettingWithNotExistTask_ThenNotFoundShouldBeReturned()
+        public async Task GivenAFhirMediator_WhenGettingAnExistingBulkImportTaskWithRunningStatus_ThenHttpResponseCodeShouldBeAccepted()
         {
-            _taskManager.GetTaskAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<TaskInfo>(null));
-            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.GetImportStatusAsync(TaskId, CancellationToken.None));
+            (string context, string expectedResult) = SetupContext();
+            GetImportResponse result = await SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus.Running, false, null, context);
+            ImportTaskResult actualResult = result.TaskResult;
+
+            Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
+            Assert.NotNull(actualResult);
+            Assert.Equal(expectedResult, JsonConvert.SerializeObject(actualResult));
         }
 
-        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false, TaskResultData resultData = null)
+        private async Task<GetImportResponse> SetupAndExecuteGetBulkImportTaskByIdAsync(TaskStatus taskStatus, bool isCanceled = false, TaskResultData resultData = null, string context = null)
         {
             // Result may be changed to real style result later
+            ImportOrchestratorTaskInputData inputData = new ImportOrchestratorTaskInputData();
             var taskInfo = new TaskInfo
             {
                 TaskId = TaskId,
                 QueueId = "0",
                 Status = taskStatus,
-                TaskTypeId = ImportProcessingTask.ImportProcessingTaskId,
-                InputData = string.Empty,
+                TaskTypeId = ImportOrchestratorTask.ImportOrchestratorTaskId,
+                InputData = JsonConvert.SerializeObject(inputData),
                 IsCanceled = isCanceled,
+                Context = context,
                 Result = resultData != null ? JsonConvert.SerializeObject(resultData) : string.Empty,
             };
 
             _taskManager.GetTaskAsync(taskInfo.TaskId, Arg.Any<CancellationToken>()).Returns(taskInfo);
-
             return await _mediator.GetImportStatusAsync(taskInfo.TaskId, CancellationToken.None);
+        }
+
+        private (string context, string expectedResult) SetupContext()
+        {
+            List<ImportOperationOutcome> output = new List<ImportOperationOutcome>();
+            List<ImportFailedOperationOutcome> error = new List<ImportFailedOperationOutcome>();
+            ImportOrchestratorTaskContext orchestratorTaskContext = new ImportOrchestratorTaskContext();
+
+            Uri completedTaskUri = new Uri("https://completed.ndjson");
+            ImportProcessingTaskResult processingTaskResult = new ImportProcessingTaskResult
+            {
+                ResourceType = "Patient",
+                SucceedCount = 5000,
+                FailedCount = 50,
+                ErrorLogLocation = "https://PatientCompleted.ndjson",
+            };
+            output.Add(new ImportOperationOutcome
+            {
+                Type = "Patient",
+                Count = 5000,
+                InputUrl = completedTaskUri,
+            });
+            error.Add(new ImportFailedOperationOutcome
+            {
+                Type = "Patient",
+                Count = 50,
+                InputUrl = completedTaskUri,
+                Url = processingTaskResult.ErrorLogLocation,
+            });
+            TaskResultData resultData = new TaskResultData
+            {
+                Result = TaskResult.Success,
+                ResultData = JsonConvert.SerializeObject(processingTaskResult),
+            };
+            TaskInfo completedProcessingTask = new TaskInfo
+            {
+                Status = TaskStatus.Running,
+                Result = JsonConvert.SerializeObject(resultData),
+            };
+            orchestratorTaskContext.DataProcessingTasks.Add(completedTaskUri, completedProcessingTask);
+
+            Uri createdTaskUri = new Uri("https://created.ndjson");
+            TaskInfo createdProcessingTask = new TaskInfo
+            {
+                Status = TaskStatus.Created,
+            };
+            orchestratorTaskContext.DataProcessingTasks.Add(createdTaskUri, createdProcessingTask);
+
+            Uri queuedTaskUri = new Uri("https://created.ndjson");
+            TaskInfo queuedProcessingTask = new TaskInfo
+            {
+                Status = TaskStatus.Queued,
+            };
+            orchestratorTaskContext.DataProcessingTasks.Add(queuedTaskUri, queuedProcessingTask);
+
+            Uri runningProcessingTaskUri = new Uri("https://running.ndjson");
+            TaskInfo runningProcessingTask = new TaskInfo
+            {
+                Status = TaskStatus.Running,
+            };
+            orchestratorTaskContext.DataProcessingTasks.Add(runningProcessingTaskUri, runningProcessingTask);
+
+            ImportTaskResult result = new ImportTaskResult
+            {
+                Output = output,
+                Error = error,
+            };
+            string context = JsonConvert.SerializeObject(orchestratorTaskContext);
+            string expectedResult = JsonConvert.SerializeObject(result);
+            return (context, expectedResult);
         }
     }
 }

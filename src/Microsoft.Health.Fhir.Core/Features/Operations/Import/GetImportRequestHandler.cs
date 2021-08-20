@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,7 +56,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationFailedException(Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
 
-                return new GetImportResponse(HttpStatusCode.Accepted);
+                ImportOrchestratorTaskInputData inputData = JsonConvert.DeserializeObject<ImportOrchestratorTaskInputData>(taskInfo.InputData);
+                ImportTaskResult intermediateResult = ExtractImportState(taskInfo.Context);
+                intermediateResult.TransactionTime = inputData.TaskCreateTime;
+                return new GetImportResponse(HttpStatusCode.Accepted, intermediateResult);
             }
             else
             {
@@ -79,6 +84,55 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     throw new OperationFailedException(Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
             }
+        }
+
+        private static ImportTaskResult ExtractImportState(string contextInString)
+        {
+            if (string.IsNullOrEmpty(contextInString))
+            {
+                return new ImportTaskResult();
+            }
+
+            ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(contextInString);
+            List<ImportOperationOutcome> completedOperationOutcome = new List<ImportOperationOutcome>();
+            List<ImportFailedOperationOutcome> failedOperationOutcome = new List<ImportFailedOperationOutcome>();
+
+            foreach ((Uri resourceUri, TaskInfo taskInfo) in context.DataProcessingTasks)
+            {
+                if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
+                {
+                    TaskResultData taskResultData = JsonConvert.DeserializeObject<TaskResultData>(taskInfo.Result);
+                    if (taskResultData.Result == TaskResult.Success)
+                    {
+                        ImportProcessingTaskResult processingTaskResult = JsonConvert.DeserializeObject<ImportProcessingTaskResult>(taskResultData.ResultData);
+                        completedOperationOutcome.Add(
+                            new ImportOperationOutcome()
+                            {
+                                Type = processingTaskResult.ResourceType,
+                                Count = processingTaskResult.SucceedCount,
+                                InputUrl = resourceUri,
+                            });
+
+                        if (processingTaskResult.FailedCount > 0)
+                        {
+                            failedOperationOutcome.Add(
+                                new ImportFailedOperationOutcome()
+                                {
+                                    Type = processingTaskResult.ResourceType,
+                                    Count = processingTaskResult.FailedCount,
+                                    InputUrl = resourceUri,
+                                    Url = processingTaskResult.ErrorLogLocation,
+                                });
+                        }
+                    }
+                }
+            }
+
+            return new ImportTaskResult()
+            {
+                Output = completedOperationOutcome,
+                Error = failedOperationOutcome,
+            };
         }
     }
 }
