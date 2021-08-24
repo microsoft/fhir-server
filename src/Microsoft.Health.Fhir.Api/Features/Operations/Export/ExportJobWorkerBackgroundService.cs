@@ -10,7 +10,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations.Export
 {
@@ -21,24 +20,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Export
     {
         private readonly ExportJobWorker _exportJobWorker;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly SchemaInformation _schemaInformation;
 
-        public ExportJobWorkerBackgroundService(ExportJobWorker exportJobWorker, IOptions<ExportJobConfiguration> exportJobConfiguration, SchemaInformation schemaInformation)
+        public ExportJobWorkerBackgroundService(ExportJobWorker exportJobWorker, IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(exportJobWorker, nameof(exportJobWorker));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
-            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             _exportJobWorker = exportJobWorker;
             _exportJobConfiguration = exportJobConfiguration.Value;
-            _schemaInformation = schemaInformation;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             if (_exportJobConfiguration.Enabled)
             {
-                await _exportJobWorker.ExecuteAsync(_schemaInformation, stoppingToken);
+                await _exportJobWorker.ExecuteAsync(stoppingToken);
             }
         }
     }

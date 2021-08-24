@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
         }
 
-        public async Task ExecuteAsync(SchemaInformation schemaInformation, CancellationToken cancellationToken)
+        public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             var runningTasks = new List<Task>();
             TimeSpan delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (Exception ex)
                 {
-                    if (schemaInformation.Current is null && string.Equals(ex.Message, string.Format(Resources.CurrentSchemaVersionStoredProcedureNotFound, "dbo.AcquireExportJobs"), StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(ex.Message, string.Format(Resources.CurrentSchemaVersionStoredProcedureNotFound, "dbo.AcquireExportJobs"), StringComparison.OrdinalIgnoreCase))
                     {
                         _logger.LogWarning(ex, "Schema is not initialized.");
                     }
