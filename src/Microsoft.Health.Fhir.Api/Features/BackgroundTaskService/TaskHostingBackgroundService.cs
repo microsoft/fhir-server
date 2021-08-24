@@ -46,39 +46,32 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            if (_schemaInformation.Current.HasValue)
+            _logger.LogInformation("TaskHostingBackgroundService begin.");
+
+            try
             {
-                _logger.LogInformation("TaskHostingBackgroundService begin.");
-
-                try
+                using (IScoped<TaskHosting> taskHosting = _taskHostingFactory())
                 {
-                    using (IScoped<TaskHosting> taskHosting = _taskHostingFactory())
+                    var taskHostingValue = taskHosting.Value;
+                    if (_taskHostingConfiguration != null)
                     {
-                        var taskHostingValue = taskHosting.Value;
-                        if (_taskHostingConfiguration != null)
-                        {
-                            taskHostingValue.PollingFrequencyInSeconds = _taskHostingConfiguration.PollingFrequencyInSeconds ?? taskHostingValue.PollingFrequencyInSeconds;
-                            taskHostingValue.MaxRunningTaskCount = _taskHostingConfiguration.MaxRunningTaskCount ?? taskHostingValue.MaxRunningTaskCount;
-                            taskHostingValue.TaskHeartbeatIntervalInSeconds = _taskHostingConfiguration.TaskHeartbeatIntervalInSeconds ?? taskHostingValue.TaskHeartbeatIntervalInSeconds;
-                            taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds = _taskHostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds;
-                        }
-
-                        using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                        await taskHostingValue.StartAsync(cancellationTokenSource);
+                        taskHostingValue.PollingFrequencyInSeconds = _taskHostingConfiguration.PollingFrequencyInSeconds ?? taskHostingValue.PollingFrequencyInSeconds;
+                        taskHostingValue.MaxRunningTaskCount = _taskHostingConfiguration.MaxRunningTaskCount ?? taskHostingValue.MaxRunningTaskCount;
+                        taskHostingValue.TaskHeartbeatIntervalInSeconds = _taskHostingConfiguration.TaskHeartbeatIntervalInSeconds ?? taskHostingValue.TaskHeartbeatIntervalInSeconds;
+                        taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds = _taskHostingConfiguration.TaskHeartbeatTimeoutThresholdInSeconds ?? taskHostingValue.TaskHeartbeatTimeoutThresholdInSeconds;
                     }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "TaskHostingBackgroundService crash.");
-                }
-                finally
-                {
-                    _logger.LogInformation("TaskHostingBackgroundService end.");
+
+                    using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    await taskHostingValue.StartAsync(_schemaInformation, cancellationTokenSource);
                 }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogInformation("Schema is not initialized - TaskHostingBackgroundService can not be started.");
+                _logger.LogError(ex, "TaskHostingBackgroundService crash.");
+            }
+            finally
+            {
+                _logger.LogInformation("TaskHostingBackgroundService end.");
             }
         }
     }

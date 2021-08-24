@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.TaskManagement
 {
@@ -39,18 +40,18 @@ namespace Microsoft.Health.TaskManagement
 
         public int TaskHeartbeatIntervalInSeconds { get; set; } = Constants.DefaultTaskHeartbeatIntervalInSeconds;
 
-        public async Task StartAsync(CancellationTokenSource cancellationToken)
+        public async Task StartAsync(SchemaInformation schemaInformation, CancellationTokenSource cancellationToken)
         {
             using CancellationTokenSource keepAliveCancellationToken = new CancellationTokenSource();
             Task keepAliveTask = KeepAliveTasksAsync(keepAliveCancellationToken.Token);
 
-            await PullAndProcessTasksAsync(cancellationToken.Token);
+            await PullAndProcessTasksAsync(schemaInformation, cancellationToken.Token);
 
             keepAliveCancellationToken.Cancel();
             await keepAliveTask;
         }
 
-        private async Task PullAndProcessTasksAsync(CancellationToken cancellationToken)
+        private async Task PullAndProcessTasksAsync(SchemaInformation schemaInformation, CancellationToken cancellationToken)
         {
             List<Task> runningTasks = new List<Task>();
 
@@ -71,7 +72,14 @@ namespace Microsoft.Health.TaskManagement
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to pull new tasks.");
+                    if (schemaInformation.Current is null && ex.Message.StartsWith("Could not find stored procedure", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning(ex, "Schema is not initialized.");
+                    }
+                    else
+                    {
+                        _logger.LogError(ex, "Failed to pull new tasks.");
+                    }
                 }
 
                 if (nextTasks != null && nextTasks.Count > 0)

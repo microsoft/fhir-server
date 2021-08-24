@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -41,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
         }
 
-        public async Task ExecuteAsync(CancellationToken cancellationToken)
+        public async Task ExecuteAsync(SchemaInformation schemaInformation, CancellationToken cancellationToken)
         {
             var runningTasks = new List<Task>();
             TimeSpan delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
@@ -77,8 +78,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (Exception ex)
                 {
-                    // The job failed.
-                    _logger.LogError(ex, "Unhandled exception in the worker.");
+                    if (schemaInformation.Current is null && string.Equals(ex.Message, string.Format(Resources.CurrentSchemaVersionStoredProcedureNotFound, "dbo.AcquireExportJobs"), StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogWarning(ex, "Schema is not initialized.");
+                    }
+                    else
+                    {
+                        // The job failed.
+                        _logger.LogError(ex, "Unhandled exception in the worker.");
+                    }
 
                     // Since acquiring jobs failed let us introduce a delay before we retry. We don't want to increase the delay between polls to more than an hour.
                     delayBeforeNextPoll *= 2;

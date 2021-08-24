@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Newtonsoft.Json;
 using NSubstitute;
 using NSubstitute.Core;
@@ -19,10 +20,12 @@ namespace Microsoft.Health.TaskManagement.UnitTests
     public class TaskHostingTests
     {
         private ILogger<TaskHosting> _logger;
+        private readonly SchemaInformation _schemaInformation;
 
         public TaskHostingTests()
         {
             _logger = Substitute.For<ILogger<TaskHosting>>();
+            _schemaInformation = new SchemaInformation(1, 15);
         }
 
         [Fact]
@@ -62,7 +65,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(_schemaInformation, tokenSource);
 
             Assert.True(taskCount <= executedTaskCount);
             foreach (string resultString in taskInfos.Select(t => t.Result))
@@ -103,7 +106,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(1));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(_schemaInformation, tokenSource);
 
             Assert.Equal(1, executeCount0);
 
@@ -143,7 +146,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(_schemaInformation, tokenSource);
 
             Assert.Equal(1, executeCount0);
 
@@ -185,7 +188,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
 
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-            Task hostingTask = taskHosting.StartAsync(tokenSource);
+            Task hostingTask = taskHosting.StartAsync(_schemaInformation, tokenSource);
             autoResetEvent.WaitOne();
             tokenSource.Cancel();
 
@@ -236,7 +239,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 0;
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(_schemaInformation, tokenSource);
 
             Assert.True(isCancelled);
         }
@@ -292,7 +295,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(10));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(_schemaInformation, tokenSource);
 
             Assert.False(runningTaskCountLargeThanLimit);
             Assert.Equal(2, maxRunningTaskCount);
@@ -363,7 +366,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(5));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(_schemaInformation, tokenSource);
 
             Assert.Equal(maxRetryCount + 1, executeCount0);
             Assert.Equal(maxRetryCount + 1, executeCount1);
@@ -411,7 +414,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
-            Task hostingTask = taskHosting.StartAsync(tokenSource);
+            Task hostingTask = taskHosting.StartAsync(_schemaInformation, tokenSource);
             autoResetEvent2.WaitOne();
             taskInfo0.IsCanceled = true;
 
@@ -472,7 +475,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(20));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(_schemaInformation, tokenSource);
 
             Assert.Equal(900, executedTaskCount);
             Assert.Equal(100, failedTaskCount);
@@ -551,7 +554,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
             CancellationTokenSource tokenSource = new CancellationTokenSource();
 
             tokenSource.CancelAfter(TimeSpan.FromSeconds(20));
-            await taskHosting.StartAsync(tokenSource);
+            await taskHosting.StartAsync(_schemaInformation, tokenSource);
 
             foreach (TaskInfo taskInfo in taskInfos)
             {

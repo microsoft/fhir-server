@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly CancellationToken _cancellationToken;
+        private readonly SchemaInformation _schemaInformation;
 
         public ExportJobWorkerTests()
         {
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 NullLogger<ExportJobWorker>.Instance);
 
             _cancellationToken = _cancellationTokenSource.Token;
+            _schemaInformation = new SchemaInformation(1, 15);
         }
 
         [Fact]
@@ -65,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency);
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _exportJobWorker.ExecuteAsync(_schemaInformation, _cancellationToken);
 
             _exportJobTaskFactory().Received(1);
         }
@@ -81,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 2);
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _exportJobWorker.ExecuteAsync(_schemaInformation, _cancellationToken);
 
             _exportJobTaskFactory.Received(1);
         }
@@ -125,7 +128,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // In case the task was not called, cancel the worker after certain period of time.
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 3);
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _exportJobWorker.ExecuteAsync(_schemaInformation, _cancellationToken);
 
             Assert.True(isSecondJobCalled);
         }
@@ -141,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 1.25);
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _exportJobWorker.ExecuteAsync(_schemaInformation, _cancellationToken);
 
             // Assert that we received only one call to AcquireExportJobsAsync
             await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
@@ -161,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         return new[] { job };
                     });
 
-            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+            await _exportJobWorker.ExecuteAsync(_schemaInformation, _cancellationToken);
 
             // Assert that we received only one call to AcquireExportJobsAsync
             await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
