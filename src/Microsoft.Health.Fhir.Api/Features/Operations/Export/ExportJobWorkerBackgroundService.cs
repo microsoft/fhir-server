@@ -36,7 +36,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Export
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await _exportJobWorker.ExecuteAsync(_schemaInformation, stoppingToken);
+            if (_exportJobConfiguration.Enabled)
+            {
+                await _exportJobWorker.ExecuteAsync(_schemaInformation, stoppingToken);
+            }
         }
     }
 }
