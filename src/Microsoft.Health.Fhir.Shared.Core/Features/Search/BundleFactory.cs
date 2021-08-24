@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 #if Stu3
-                // STU3 doesn't have PATCH verb, so let's map it PUT.
+                // STU3 doesn't have PATCH verb, so let's map it to PUT.
                 if (!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
                 {
                     hasVerb = true;
@@ -78,51 +78,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         Method = httpVerb,
                         Url = $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}",
                     };
-                }
 
-                string statusString = null;
+                    string ToStatusString(HttpStatusCode statusCode)
+                    {
+                        return $"{(int)statusCode} {statusCode}";
+                    }
 
-                string ToStatusString(HttpStatusCode statusCode)
-                {
-                    return $"{(int)statusCode} {statusCode}";
-                }
-
-                switch (httpVerb)
-                {
-                    case Bundle.HTTPVerb.POST:
-                        statusString = ToStatusString(HttpStatusCode.Created);
-                        break;
-                    case Bundle.HTTPVerb.PUT:
-
-                        if (string.Equals(r.Resource.Version, "1", StringComparison.Ordinal))
+                    resource.Response = new Bundle.ResponseComponent
+                    {
+                        Status = ToStatusString(httpVerb switch
                         {
-                            statusString = ToStatusString(HttpStatusCode.Created);
-                            break;
-                        }
-
-                        statusString = ToStatusString(HttpStatusCode.OK);
-                        break;
-
-                    case Bundle.HTTPVerb.GET:
+                            Bundle.HTTPVerb.POST => HttpStatusCode.Created,
+                            Bundle.HTTPVerb.PUT when string.Equals(r.Resource.Version, "1", StringComparison.Ordinal) => HttpStatusCode.Created,
+                            Bundle.HTTPVerb.PUT => HttpStatusCode.OK,
+                            Bundle.HTTPVerb.GET => HttpStatusCode.OK,
 #if !Stu3
-                    case Bundle.HTTPVerb.PATCH:
-                    case Bundle.HTTPVerb.HEAD:
+                            Bundle.HTTPVerb.PATCH => HttpStatusCode.OK,
+                            Bundle.HTTPVerb.HEAD => HttpStatusCode.OK,
 #endif
-                        statusString = ToStatusString(HttpStatusCode.OK);
-                        break;
-                    case Bundle.HTTPVerb.DELETE:
-                        statusString = ToStatusString(HttpStatusCode.NoContent);
-                        break;
-                    default:
-                        throw new NotImplementedException($"{httpVerb} was not defined.");
+                            Bundle.HTTPVerb.DELETE => HttpStatusCode.NoContent,
+                            _ => throw new NotImplementedException($"{httpVerb} was not defined."),
+                        }),
+                        LastModified = r.Resource.LastModified,
+                        Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
+                    };
                 }
-
-                resource.Response = new Bundle.ResponseComponent
-                {
-                    Status = statusString,
-                    LastModified = r.Resource.LastModified,
-                    Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
-                };
 
                 return resource;
             });
