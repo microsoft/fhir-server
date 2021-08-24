@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
         public TaskHostingTests()
         {
             _logger = Substitute.For<ILogger<TaskHosting>>();
-            _schemaInformation = new SchemaInformation(1, 15);
+            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
         }
 
         [Fact]

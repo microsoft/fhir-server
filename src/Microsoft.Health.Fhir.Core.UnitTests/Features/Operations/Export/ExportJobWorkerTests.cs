@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 NullLogger<ExportJobWorker>.Instance);
 
             _cancellationToken = _cancellationTokenSource.Token;
-            _schemaInformation = new SchemaInformation(1, 15);
+            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
         }
 
         [Fact]
