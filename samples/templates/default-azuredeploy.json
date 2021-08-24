@@ -292,6 +292,13 @@
                 "type": "SystemAssigned"
             },
             "properties": {
+                "applicationLogs": {
+                    "fileSystem":  {
+                        "retentionInMb": 35,
+                        "retentionInDays": 2,
+                        "enabled": true,
+                        "level": "Information"
+                },
                 "clientAffinityEnabled": false,
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
                 "siteConfig": {
