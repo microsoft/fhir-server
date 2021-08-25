@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using EnsureThat;
@@ -61,58 +60,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return CreateBundle(result, Bundle.BundleType.History, r =>
             {
                 var resource = new RawBundleEntryComponent(r.Resource);
+
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
-
-                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
-                resource.Request = new Bundle.RequestComponent
+#if Stu3
+                // STU3 doesn't have PATCH verb, so let's map it to PUT.
+                if (!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
                 {
-                    Method = hasVerb ? httpVerb : null,
-                    Url = hasVerb ? $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}" : null,
-                };
-
-                string statusString = null;
-
-                string ToStatusString(HttpStatusCode statusCode)
-                {
-                    return $"{(int)statusCode} {statusCode}";
+                    hasVerb = true;
+                    httpVerb = Bundle.HTTPVerb.PUT;
                 }
-
-                switch (httpVerb)
-                {
-                    case Bundle.HTTPVerb.POST:
-                        statusString = ToStatusString(HttpStatusCode.Created);
-                        break;
-                    case Bundle.HTTPVerb.PUT:
-
-                        if (string.Equals(r.Resource.Version, "1", StringComparison.Ordinal))
-                        {
-                            statusString = ToStatusString(HttpStatusCode.Created);
-                            break;
-                        }
-
-                        statusString = ToStatusString(HttpStatusCode.OK);
-                        break;
-
-                    case Bundle.HTTPVerb.GET:
-#if !Stu3
-                    case Bundle.HTTPVerb.PATCH:
-                    case Bundle.HTTPVerb.HEAD:
 #endif
-                        statusString = ToStatusString(HttpStatusCode.OK);
-                        break;
-                    case Bundle.HTTPVerb.DELETE:
-                        statusString = ToStatusString(HttpStatusCode.NoContent);
-                        break;
-                    default:
-                        throw new NotImplementedException($"{httpVerb} was not defined.");
-                }
-
-                resource.Response = new Bundle.ResponseComponent
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
+                if (hasVerb)
                 {
-                    Status = statusString,
-                    LastModified = r.Resource.LastModified,
-                    Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
-                };
+                    resource.Request = new Bundle.RequestComponent
+                    {
+                        Method = httpVerb,
+                        Url = $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}",
+                    };
+
+                    string ToStatusString(HttpStatusCode statusCode)
+                    {
+                        return $"{(int)statusCode} {statusCode}";
+                    }
+
+                    resource.Response = new Bundle.ResponseComponent
+                    {
+                        Status = ToStatusString(httpVerb switch
+                        {
+                            Bundle.HTTPVerb.POST => HttpStatusCode.Created,
+                            Bundle.HTTPVerb.PUT when string.Equals(r.Resource.Version, "1", StringComparison.Ordinal) => HttpStatusCode.Created,
+                            Bundle.HTTPVerb.PUT => HttpStatusCode.OK,
+                            Bundle.HTTPVerb.GET => HttpStatusCode.OK,
+#if !Stu3
+                            Bundle.HTTPVerb.PATCH => HttpStatusCode.OK,
+                            Bundle.HTTPVerb.HEAD => HttpStatusCode.OK,
+#endif
+                            Bundle.HTTPVerb.DELETE => HttpStatusCode.NoContent,
+                            _ => throw new NotImplementedException($"{httpVerb} was not defined."),
+                        }),
+                        LastModified = r.Resource.LastModified,
+                        Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
+                    };
+                }
 
                 return resource;
             });
