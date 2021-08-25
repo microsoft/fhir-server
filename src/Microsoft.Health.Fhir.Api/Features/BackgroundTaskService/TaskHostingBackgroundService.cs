@@ -12,7 +12,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.TaskManagement;
 
 namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
@@ -25,22 +24,18 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private readonly Func<IScoped<TaskHosting>> _taskHostingFactory;
         private readonly TaskHostingConfiguration _taskHostingConfiguration;
         private readonly ILogger<TaskHostingBackgroundService> _logger;
-        private readonly SchemaInformation _schemaInformation;
 
         public TaskHostingBackgroundService(
             Func<IScoped<TaskHosting>> taskHostingFactory,
             IOptions<TaskHostingConfiguration> taskHostingConfiguration,
-            SchemaInformation schemaInformation,
             ILogger<TaskHostingBackgroundService> logger)
         {
             EnsureArg.IsNotNull(taskHostingFactory, nameof(taskHostingFactory));
             EnsureArg.IsNotNull(taskHostingConfiguration?.Value, nameof(taskHostingConfiguration));
-            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _taskHostingFactory = taskHostingFactory;
             _taskHostingConfiguration = taskHostingConfiguration.Value;
-            _schemaInformation = schemaInformation;
             _logger = logger;
         }
 
@@ -62,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                     }
 
                     using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                    await taskHostingValue.StartAsync(_schemaInformation, cancellationTokenSource);
+                    await taskHostingValue.StartAsync(cancellationTokenSource);
                 }
             }
             catch (Exception ex)

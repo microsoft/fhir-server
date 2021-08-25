@@ -13,7 +13,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -80,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     if (string.Equals(ex.Message, string.Format(Resources.CurrentSchemaVersionStoredProcedureNotFound, "dbo.AcquireExportJobs"), StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogWarning(ex, "Schema is not initialized.");
+                        _logger.LogWarning("Schema is not initialized - {ex.Message}", ex.Message);
                     }
                     else
                     {
