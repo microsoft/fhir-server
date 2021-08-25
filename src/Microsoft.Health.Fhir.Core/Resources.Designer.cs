@@ -285,6 +285,16 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
 
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could not find stored procedure &apos;{0}&apos;..
+        /// </summary>
+        internal static string CurrentSchemaVersionStoredProcedureNotFound {
+            get {
+                return ResourceManager.GetString("CurrentSchemaVersionStoredProcedureNotFound", resourceCulture);
+            }
+        }
+        
         /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
         /// </summary>

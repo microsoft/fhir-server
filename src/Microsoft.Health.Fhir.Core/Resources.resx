@@ -120,6 +120,9 @@
   <data name="AtCannotBeSpecifiedWithBeforeOrSince" xml:space="preserve">
     <value>{0} and {1} cannot both be specified.</value>
   </data>
+  <data name="CurrentSchemaVersionStoredProcedureNotFound" xml:space="preserve">
+    <value>Could not find stored procedure '{0}'.</value>
+  </data>
   <data name="BundleRequiredForBatchOrTransaction" xml:space="preserve">
     <value>Only a bundle can be submitted for batch or transaction processing.</value>
     <comment>Bundle is a FHIR resource type.</comment>
