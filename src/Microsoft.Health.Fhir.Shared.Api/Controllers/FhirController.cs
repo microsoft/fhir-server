@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [ConditionalConstraint]
         [Route(KnownRoutes.ResourceType)]
-        [AuditEventType(AuditEventSubType.Create)]
+        [AuditEventType(AuditEventSubType.ConditionalCreate)]
         public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="resource">The resource.</param>
         [HttpPut]
         [Route(KnownRoutes.ResourceType)]
-        [AuditEventType(AuditEventSubType.Update)]
+        [AuditEventType(AuditEventSubType.ConditionalUpdate)]
         public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
@@ -373,7 +373,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="idParameter">The identifier.</param>
         [HttpDelete]
         [Route(KnownRoutes.PurgeHistoryResourceTypeById)]
-        [AuditEventType(AuditEventSubType.Delete)]
+        [AuditEventType(AuditEventSubType.PurgeHistory)]
         public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), DeleteOperation.PurgeHistory, HttpContext.RequestAborted);
@@ -389,7 +389,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="maxDeleteCount">Specifies the maximum number of resources that can be deleted.</param>
         [HttpDelete]
         [Route(KnownRoutes.ResourceType)]
-        [AuditEventType(AuditEventSubType.Delete)]
+        [AuditEventType(AuditEventSubType.ConditionalDelete)]
         public async Task<IActionResult> ConditionalDelete(string typeParameter, [FromQuery] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
