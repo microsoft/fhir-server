@@ -77,15 +77,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (Exception ex)
                 {
-                    if (string.Equals(ex.Message, string.Format(Resources.CurrentSchemaVersionStoredProcedureNotFound, "dbo.AcquireExportJobs"), StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogWarning("Schema is not initialized - {ex.Message}", ex.Message);
-                    }
-                    else
-                    {
-                        // The job failed.
-                        _logger.LogError(ex, "Unhandled exception in the worker.");
-                    }
+                    // The job failed.
+                    _logger.LogError(ex, "Unhandled exception in the worker.");
 
                     // Since acquiring jobs failed let us introduce a delay before we retry. We don't want to increase the delay between polls to more than an hour.
                     delayBeforeNextPoll *= 2;

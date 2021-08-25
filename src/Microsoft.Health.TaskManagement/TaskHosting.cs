@@ -71,14 +71,7 @@ namespace Microsoft.Health.TaskManagement
                 }
                 catch (Exception ex)
                 {
-                    if (ex.Message.StartsWith("Could not find stored procedure", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogWarning("Schema is not initialized - {ex.Message}", ex.Message);
-                    }
-                    else
-                    {
-                        _logger.LogError(ex, "Failed to pull new tasks.");
-                    }
+                    _logger.LogError(ex, "Failed to pull new tasks.");
                 }
 
                 if (nextTasks != null && nextTasks.Count > 0)

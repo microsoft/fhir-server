@@ -168,30 +168,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            var acquiredJobs = new List<ExportJobOutcome>();
+            try
             {
-                var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt64(jobHeartbeatTimeoutThreshold.TotalSeconds);
-
-                VLatest.AcquireExportJobs.PopulateCommand(
-                    sqlCommandWrapper,
-                    jobHeartbeatTimeoutThresholdInSeconds,
-                    maximumNumberOfConcurrentJobsAllowed);
-
-                var acquiredJobs = new List<ExportJobOutcome>();
-
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+                using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    while (await sqlDataReader.ReadAsync(cancellationToken))
-                    {
-                        (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
+                    var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt64(jobHeartbeatTimeoutThreshold.TotalSeconds);
 
-                        acquiredJobs.Add(CreateExportJobOutcome(rawJobRecord, rowVersion));
+                    VLatest.AcquireExportJobs.PopulateCommand(
+                        sqlCommandWrapper,
+                        jobHeartbeatTimeoutThresholdInSeconds,
+                        maximumNumberOfConcurrentJobsAllowed);
+
+                    using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                    {
+                        while (await sqlDataReader.ReadAsync(cancellationToken))
+                        {
+                            (string rawJobRecord, byte[] rowVersion) = sqlDataReader.ReadRow(VLatest.ExportJob.RawJobRecord, VLatest.ExportJob.JobVersion);
+
+                            acquiredJobs.Add(CreateExportJobOutcome(rawJobRecord, rowVersion));
+                        }
                     }
                 }
-
-                return acquiredJobs;
             }
+            catch (Exception ex)
+            {
+                if (string.Equals(ex.Message, string.Format(Core.Resources.CurrentSchemaVersionStoredProcedureNotFound, "dbo.AcquireExportJobs"), StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("Schema is not initialized - {ex.Message}", ex.Message);
+                }
+            }
+
+            return acquiredJobs;
         }
 
         public async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)
