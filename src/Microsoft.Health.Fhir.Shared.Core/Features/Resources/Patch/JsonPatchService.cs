@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             {
                 operations.ApplyTo(node.JsonObject);
             }
-            catch (JsonPatchException e)
+            catch (Exception e)
             {
                 throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
             }
