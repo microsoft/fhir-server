@@ -47,6 +47,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(patch.Resource.Address);
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAServerThatSupportsIt_WhenSubmittingIncorrectJsonPropertyPatch_ThenServerShouldBadRequest()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+            Assert.Equal(AdministrativeGender.Male, response.Resource.Gender);
+            Assert.NotNull(response.Resource.Address);
+
+            string patchDocument =
+                "[{\"op\":\"replace\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(response.Resource, patchDocument));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
         [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAPatchDocument_WhenSubmittingABundleWithBinaryPatch_ThenServerShouldPatchCorrectly()
