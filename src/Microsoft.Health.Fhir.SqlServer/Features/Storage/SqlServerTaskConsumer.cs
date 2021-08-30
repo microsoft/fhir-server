@@ -105,14 +105,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.GetNextTask.PopulateCommand(sqlCommandWrapper, _taskHostingConfiguration.QueueId, count, taskHeartbeatTimeoutThresholdInSeconds);
+                string queueId = _taskHostingConfiguration.QueueId;
+                VLatest.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, count, taskHeartbeatTimeoutThresholdInSeconds);
                 SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                 var taskInfoTable = VLatest.TaskInfo;
                 while (sqlDataReader.Read())
                 {
                     string id = sqlDataReader.Read(taskInfoTable.TaskId, 0);
-                    string queueId = sqlDataReader.Read(taskInfoTable.QueueId, 1);
+                    _ = sqlDataReader.Read(taskInfoTable.QueueId, 1);
                     short status = sqlDataReader.Read(taskInfoTable.Status, 2);
                     short taskTypeId = sqlDataReader.Read(taskInfoTable.TaskTypeId, 3);
                     string taskRunId = sqlDataReader.Read(taskInfoTable.RunId, 4);

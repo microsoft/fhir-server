@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -47,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
 
@@ -61,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation)
         {
@@ -74,6 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
@@ -87,6 +91,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _bulkReindexResourcesTvpGeneratorVLatest = bulkReindexResourcesTvpGeneratorVLatest;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _compressedRawResourceConverter = compressedRawResourceConverter;
             _logger = logger;
             _schemaInformation = schemaInformation;
 
@@ -108,7 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
             {
-                CompressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
+                _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
 
                 stream.Seek(0, 0);
 
@@ -273,7 +278,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
@@ -336,22 +341,51 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommandWrapper,
                     _bulkReindexResourcesTvpGeneratorVLatest.Generate(resources.ToList()));
 
-                try
+                if (_schemaInformation.Current >= SchemaVersionConstants.BulkReindexReturnsFailuresVersion)
                 {
-                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (SqlException e)
-                {
-                    switch (e.Number)
+                    // We will reindex the rest of the batch if one resource has a versioning conflict
+                    int? failedResourceCount;
+                    try
                     {
-                        // TODO: we should attempt to reindex resources that failed to be reindexed
-                        case SqlErrorCodes.PreconditionFailed:
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflict));
-                        case SqlErrorCodes.NotFound:
-                            throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
-                        default:
-                            _logger.LogError(e, "Error from SQL database on reindex");
-                            throw;
+                        failedResourceCount = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
+                    }
+                    catch (SqlException e)
+                    {
+                        _logger.LogError(e, "Error from SQL database on reindex.");
+                        throw;
+                    }
+
+                    if (failedResourceCount != 0)
+                    {
+                        string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
+                        string userAction = Core.Resources.ReindexingUserAction;
+
+                        _logger.LogError(message);
+                        throw new PreconditionFailedException(message + " " + userAction);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        // We are running an earlier schema version where we will fail the whole batch if there is a conflict
+                        await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                    }
+                    catch (SqlException e)
+                    {
+                        switch (e.Number)
+                        {
+                            case SqlErrorCodes.PreconditionFailed:
+                                string message = Core.Resources.ReindexingResourceVersionConflict;
+                                string userAction = Core.Resources.ReindexingUserAction;
+
+                                _logger.LogError(message);
+                                throw new PreconditionFailedException(message + " " + userAction);
+
+                            default:
+                                _logger.LogError(e, "Error from SQL database on reindex.");
+                                throw;
+                        }
                     }
                 }
             }
@@ -407,12 +441,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
-                            // TODO: we should attempt to reindex the resource
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ReindexingResourceVersionConflict));
-                        case SqlErrorCodes.NotFound:
-                            throw new ResourceNotFoundException(string.Format(Core.Resources.ReindexingResourceNotFound));
+                            _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
+
                         default:
-                            _logger.LogError(e, "Error from SQL database on reindex");
+                            _logger.LogError(e, "Error from SQL database on reindex.");
                             throw;
                     }
                 }

@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -25,14 +26,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly IUrlResolver _urlResolver;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly ILogger<BundleFactory> _logger;
 
-        public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        public BundleFactory(IUrlResolver urlResolver, RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, ILogger<BundleFactory> logger)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _urlResolver = urlResolver;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _logger = logger;
         }
 
         public ResourceElement CreateSearchBundle(SearchResult result)
@@ -56,38 +60,49 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return CreateBundle(result, Bundle.BundleType.History, r =>
             {
                 var resource = new RawBundleEntryComponent(r.Resource);
+
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
-
-                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
-                resource.Request = new Bundle.RequestComponent
+#if Stu3
+                // STU3 doesn't have PATCH verb, so let's map it to PUT.
+                if (!hasVerb && string.Equals("PATCH", r.Resource.Request?.Method, StringComparison.OrdinalIgnoreCase))
                 {
-                    Method = hasVerb ? httpVerb : null,
-                    Url = hasVerb ? $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}" : null,
-                };
-
-                string statusString;
-                switch (httpVerb)
-                {
-                    case Bundle.HTTPVerb.POST:
-                        statusString = ((int)HttpStatusCode.Created).ToString() + " " + HttpStatusCode.Created;
-                        break;
-                    case Bundle.HTTPVerb.PUT:
-                    case Bundle.HTTPVerb.GET:
-                        statusString = ((int)HttpStatusCode.OK).ToString() + " " + HttpStatusCode.OK;
-                        break;
-                    case Bundle.HTTPVerb.DELETE:
-                        statusString = ((int)HttpStatusCode.NoContent).ToString() + " " + HttpStatusCode.NoContent;
-                        break;
-                    default:
-                        throw new NotImplementedException();
+                    hasVerb = true;
+                    httpVerb = Bundle.HTTPVerb.PUT;
                 }
-
-                resource.Response = new Bundle.ResponseComponent
+#endif
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
+                if (hasVerb)
                 {
-                    Status = statusString,
-                    LastModified = r.Resource.LastModified,
-                    Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
-                };
+                    resource.Request = new Bundle.RequestComponent
+                    {
+                        Method = httpVerb,
+                        Url = $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}",
+                    };
+
+                    string ToStatusString(HttpStatusCode statusCode)
+                    {
+                        return $"{(int)statusCode} {statusCode}";
+                    }
+
+                    resource.Response = new Bundle.ResponseComponent
+                    {
+                        Status = ToStatusString(httpVerb switch
+                        {
+                            Bundle.HTTPVerb.POST => HttpStatusCode.Created,
+                            Bundle.HTTPVerb.PUT when string.Equals(r.Resource.Version, "1", StringComparison.Ordinal) => HttpStatusCode.Created,
+                            Bundle.HTTPVerb.PUT => HttpStatusCode.OK,
+                            Bundle.HTTPVerb.GET => HttpStatusCode.OK,
+#if !Stu3
+                            Bundle.HTTPVerb.PATCH => HttpStatusCode.OK,
+                            Bundle.HTTPVerb.HEAD => HttpStatusCode.OK,
+#endif
+                            Bundle.HTTPVerb.DELETE => HttpStatusCode.NoContent,
+                            _ => throw new NotImplementedException($"{httpVerb} was not defined."),
+                        }),
+                        LastModified = r.Resource.LastModified,
+                        Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
+                    };
+                }
 
                 return resource;
             });

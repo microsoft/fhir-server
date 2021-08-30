@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private const string _resourceType = KnownResourceTypes.Encounter;
         private readonly TestFhirClient _client;
+        private SemaphoreSlim _createSemaphore = new(5, 5);
 
         public ConditionalDeleteTests(HttpIntegrationTestFixture<Startup> fixture)
         {
@@ -114,30 +116,46 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var identifier = Guid.NewGuid().ToString();
 
             await Task.WhenAll(Enumerable.Range(1, 50).Select(_ => CreateWithIdentifier(identifier)));
-            await ValidateResults(identifier, 50);
+
+            var countOfCreated = await GetResourceCount(identifier);
 
             FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Equal(50, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
+            Assert.Equal(countOfCreated, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
 
             await ValidateResults(identifier, 0);
         }
 
         private async Task CreateWithIdentifier(string identifier)
         {
-            Encounter observation = Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco<Encounter>();
+            await _createSemaphore.WaitAsync();
 
-            observation.Identifier.Add(new Identifier("http://e2etests", identifier));
-            using FhirResponse<Encounter> response = await _client.CreateAsync(observation);
+            try
+            {
+                Encounter encounter = Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco<Encounter>();
 
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+                encounter.Identifier.Add(new Identifier("http://e2etests", identifier));
+                using FhirResponse<Encounter> response = await _client.CreateAsync(encounter);
+
+                Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            }
+            finally
+            {
+                _createSemaphore.Release();
+            }
         }
 
         private async Task ValidateResults(string identifier, int expected)
         {
-            FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_total=accurate");
-            Assert.Equal(expected, result.Resource.Total);
+            var result = await GetResourceCount(identifier);
+            Assert.Equal(expected, result);
+        }
+
+        private async Task<int?> GetResourceCount(string identifier)
+        {
+            FhirResponse<Bundle> result = await _client.SearchAsync(ResourceType.Encounter, $"identifier={identifier}&_summary=count");
+            return result.Resource.Total;
         }
     }
 }

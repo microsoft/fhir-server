@@ -62,6 +62,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string PurgeHistoryResourceTypeById = ResourceTypeById + "/" + PurgeHistory;
         public const string PurgeHistoryOperationDefinition = OperationDefinition + "/" + OperationsConstants.PurgeHistory;
 
+        public const string Import = "$import";
+        public const string ImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Import;
+        public const string ImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment;
+
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";

@@ -183,7 +183,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchOptionsFactory,
                 _fhirDataStore,
                 new QueryBuilder(),
-                _searchParameterDefinitionManager,
                 fhirRequestContextAccessor,
                 _cosmosDataStoreConfiguration,
                 cosmosDbPhysicalPartitionInfo,

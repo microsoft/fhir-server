@@ -8,6 +8,7 @@ using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -44,6 +45,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, patch.Response.StatusCode);
             Assert.Equal(AdministrativeGender.Female, patch.Resource.Gender);
             Assert.Empty(patch.Resource.Address);
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAPatchDocument_WhenSubmittingABundleWithBinaryPatch_ThenServerShouldPatchCorrectly()
+        {
+            Skip.If(ModelInfoProvider.Version == FhirSpecification.Stu3, "Patch isn't supported in Bundles by STU3");
+
+            var bundleWithPatch = Samples.GetJsonSample("Bundle-BinaryPatch").ToPoco<Bundle>();
+
+            using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch);
+
+            Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
+            Assert.Equal(AdministrativeGender.Female, ((Patient)patched.Resource.Entry[1].Resource).Gender);
         }
 
         [Fact]
@@ -142,7 +157,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAnInvalidEtag_WhenPatching_ThenAnErrorShouldBeReturned()
+        public async Task GivenAnPatchWhichWouldMakeResourceInvalid_WhenPatching_ThenAnErrorShouldBeReturned()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            FhirResponse<Patient> response = await _client.CreateAsync(poco);
+
+            string patchDocument =
+                "[{\"op\":\"add\",\"path\":\"/deceasedDateTime\",\"value\":\"2015-02-14T13:42:00+10:00\"}]";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(
+                response.Resource,
+                patchDocument));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAWrongVersionInETag_WhenPatching_ThenAnErrorShouldBeReturned()
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
 
@@ -156,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 patchDocument,
                 "5"));
 
-            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
         [Fact]

@@ -18,11 +18,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             string data = "Hello 😊";
 
+            CompressedRawResourceConverter converter = new CompressedRawResourceConverter();
             using var stream = new MemoryStream();
-            CompressedRawResourceConverter.WriteCompressedRawResource(stream, data);
+            converter.WriteCompressedRawResource(stream, data);
 
             stream.Seek(0, 0);
-            string actual = await CompressedRawResourceConverter.ReadCompressedRawResource(stream);
+            string actual = await converter.ReadCompressedRawResource(stream);
             Assert.Equal(data, actual);
         }
 
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
         {
             string data = "Hello 😊";
 
+            CompressedRawResourceConverter converter = new CompressedRawResourceConverter();
             using var stream = new MemoryStream();
             using var gzipStream = new GZipStream(stream, CompressionMode.Compress);
             using var writer = new StreamWriter(gzipStream, CompressedRawResourceConverter.LegacyResourceEncoding);
@@ -39,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Storage
             writer.Flush();
 
             stream.Seek(0, 0);
-            string actual = await CompressedRawResourceConverter.ReadCompressedRawResource(stream);
+            string actual = await converter.ReadCompressedRawResource(stream);
             Assert.Equal(data, actual);
         }
     }

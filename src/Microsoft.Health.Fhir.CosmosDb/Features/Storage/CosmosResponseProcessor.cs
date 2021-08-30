@@ -61,7 +61,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             Exception exception = null;
 
-            if (statusCode == HttpStatusCode.TooManyRequests)
+            // Stored procedure statuses will be in the substatuscode
+            if (statusCode == HttpStatusCode.TooManyRequests || headers.GetSubStatusValue() == (int)HttpStatusCode.TooManyRequests)
             {
                 string retryHeader = headers["x-ms-retry-after-ms"];
                 exception = new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : null);
