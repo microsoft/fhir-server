@@ -14,13 +14,19 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string Create = "create";
 
+        public const string ConditionalCreate = "conditional-create";
+
         public const string Read = "read";
 
         public const string VRead = "vread";
 
         public const string Update = "update";
 
+        public const string ConditionalUpdate = "conditional-update";
+
         public const string Delete = "delete";
+
+        public const string ConditionalDelete = "conditional-delete";
 
         public const string History = "history";
 
@@ -63,8 +69,12 @@ namespace Microsoft.Health.Fhir.ValueSets
 
         public const string Validate = "validate";
 
+        public const string Import = "import";
+
         public const string MemberMatch = "member-match";
 
         public const string Everything = "everything";
+
+        public const string PurgeHistory = "purge-history";
     }
 }

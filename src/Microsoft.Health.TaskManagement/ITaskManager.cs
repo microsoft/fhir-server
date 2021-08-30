@@ -17,9 +17,10 @@ namespace Microsoft.Health.TaskManagement
         /// Create task for task information
         /// </summary>
         /// <param name="task">Task information.</param>
+        /// <param name="isUniqueTaskByType">Only create task only if there's no active task with same type.</param>
         /// <param name="cancellationToken">Cancellation Token</param>
         /// <returns>Task information after created.</returns>
-        public Task<TaskInfo> CreateTaskAsync(TaskInfo task, CancellationToken cancellationToken);
+        public Task<TaskInfo> CreateTaskAsync(TaskInfo task, bool isUniqueTaskByType, CancellationToken cancellationToken);
 
         /// <summary>
         /// Get task information by id.

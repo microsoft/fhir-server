@@ -4,8 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Xunit;

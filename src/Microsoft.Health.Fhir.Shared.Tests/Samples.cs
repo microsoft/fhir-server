@@ -157,5 +157,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
         {
             return EmbeddedResourceManager.GetStringContent(EmbeddedResourceSubNamespace, fileName, "xml");
         }
+
+        public static string GetNdJson(string fileName)
+        {
+            return EmbeddedResourceManager.GetStringContent(EmbeddedResourceSubNamespace, fileName, "ndjson");
+        }
     }
 }

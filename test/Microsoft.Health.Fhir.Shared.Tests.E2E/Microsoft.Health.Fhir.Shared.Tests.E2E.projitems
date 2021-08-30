@@ -11,6 +11,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalDeleteTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CustomHeadersTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HttpIntegrationFixtureArgumentSetsAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Audit\AuditEntry.cs" />
@@ -31,6 +32,28 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportLongRunningTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\StartupForImportTestProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTestHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportBasicSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportBasicSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportCompositeSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportCompositeSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportDateSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportDateSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportNumberSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportNumberSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportQuantitySearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportReferenceSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportStringSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTokenSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportUriSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportQuantitySearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportReferenceSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportStringSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportTokenSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Import\ImportUriSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\MemberMatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />

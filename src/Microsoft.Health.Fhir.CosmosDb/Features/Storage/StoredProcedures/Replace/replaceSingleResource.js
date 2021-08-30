@@ -1,6 +1,6 @@
 ﻿/**
 * This stored procedure can be used to replace an existing document
-* 
+*
 * @constructor
 * @param {any} doc - The CosmosResourceWrapper to save
 * @param {string} matchVersionId - required etag to match against when replacing an existing document
@@ -81,7 +81,7 @@ function replaceSingleResource(doc, matchVersionId) {
     }
 
     function throwRequestNotQueuedError() {
-        throw new Error(503, "Request could not be queued.");
+        throw new Error(429, "Request could not be queued.");
     }
 
     function throwPreconditionFailedError() {

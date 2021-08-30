@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -40,16 +41,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly V6.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV6;
         private readonly V7.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV7;
+        private readonly V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV17;
+        private readonly V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorV17;
+        private readonly V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorV17;
         private readonly V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV13;
-        private readonly V16.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV16;
-        private readonly V16.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorV16;
-        private readonly V16.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorV16;
         private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
         private readonly VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorVLatest;
         private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
 
@@ -59,14 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             V6.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV6,
             V7.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV7,
             V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV13,
-            V16.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV16,
-            V16.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorV16,
-            V16.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorV16,
+            V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV17,
+            V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorV17,
+            V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorV17,
             VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
             VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
             SchemaInformation schemaInformation)
         {
@@ -75,14 +78,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorV6, nameof(upsertResourceTvpGeneratorV6));
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorV7, nameof(upsertResourceTvpGeneratorV7));
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorV13, nameof(upsertResourceTvpGeneratorV13));
-            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV16, nameof(upsertResourceTvpGeneratorV16));
-            EnsureArg.IsNotNull(reindexResourceTvpGeneratorV16, nameof(reindexResourceTvpGeneratorV16));
-            EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorV16, nameof(bulkReindexResourcesTvpGeneratorV16));
+            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV17, nameof(upsertResourceTvpGeneratorV17));
+            EnsureArg.IsNotNull(reindexResourceTvpGeneratorV17, nameof(reindexResourceTvpGeneratorV17));
+            EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorV17, nameof(bulkReindexResourcesTvpGeneratorV17));
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
             EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
@@ -91,14 +95,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _upsertResourceTvpGeneratorV6 = upsertResourceTvpGeneratorV6;
             _upsertResourceTvpGeneratorV7 = upsertResourceTvpGeneratorV7;
             _upsertResourceTvpGeneratorV13 = upsertResourceTvpGeneratorV13;
-            _upsertResourceTvpGeneratorV16 = upsertResourceTvpGeneratorV16;
-            _reindexResourceTvpGeneratorV16 = reindexResourceTvpGeneratorV16;
-            _bulkReindexResourcesTvpGeneratorV16 = bulkReindexResourcesTvpGeneratorV16;
+            _upsertResourceTvpGeneratorV17 = upsertResourceTvpGeneratorV17;
+            _reindexResourceTvpGeneratorV17 = reindexResourceTvpGeneratorV17;
+            _bulkReindexResourcesTvpGeneratorV17 = bulkReindexResourcesTvpGeneratorV17;
             _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
             _reindexResourceTvpGeneratorVLatest = reindexResourceTvpGeneratorVLatest;
             _bulkReindexResourcesTvpGeneratorVLatest = bulkReindexResourcesTvpGeneratorVLatest;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _compressedRawResourceConverter = compressedRawResourceConverter;
             _logger = logger;
             _schemaInformation = schemaInformation;
 
@@ -120,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
             {
-                CompressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
+                _compressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
 
                 stream.Seek(0, 0);
 
@@ -177,7 +182,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
             short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
-
             if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTable)
             {
                 VLatest.UpsertResource.PopulateCommand(
@@ -197,7 +201,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsResourceChangeCaptureSchemaVersion)
             {
-                V16.UpsertResource.PopulateCommand(
+                V17.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
                     baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                     resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
@@ -209,7 +213,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestMethod: resource.Request.Method,
                     searchParamHash: resource.SearchParameterHash,
                     rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV16.Generate(new List<ResourceWrapper> { resource }),
+                    tableValuedParameters: _upsertResourceTvpGeneratorV17.Generate(new List<ResourceWrapper> { resource }),
                     isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled);
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
@@ -302,7 +306,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         string rawResource;
                         using (rawResourceStream)
                         {
-                            rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                            rawResource = await _compressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
@@ -369,7 +373,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else
                 {
-                    V16.BulkReindexResources.PopulateCommand(sqlCommandWrapper, _bulkReindexResourcesTvpGeneratorV16.Generate(resources.ToList()));
+                    V17.BulkReindexResources.PopulateCommand(sqlCommandWrapper, _bulkReindexResourcesTvpGeneratorV17.Generate(resources.ToList()));
                 }
 
                 if (_schemaInformation.Current >= SchemaVersionConstants.BulkReindexReturnsFailuresVersion)
@@ -465,13 +469,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
                 else
                 {
-                    V16.ReindexResource.PopulateCommand(
+                    V17.ReindexResource.PopulateCommand(
                         sqlCommandWrapper,
                         resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
                         resourceId: resource.ResourceId,
                         eTag,
                         searchParamHash: resource.SearchParameterHash,
-                        tableValuedParameters: _reindexResourceTvpGeneratorV16.Generate(new List<ResourceWrapper> { resource }));
+                        tableValuedParameters: _reindexResourceTvpGeneratorV17.Generate(new List<ResourceWrapper> { resource }));
                 }
 
                 try

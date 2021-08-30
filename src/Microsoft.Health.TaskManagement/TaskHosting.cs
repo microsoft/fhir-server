@@ -113,7 +113,13 @@ namespace Microsoft.Health.TaskManagement
             {
                 try
                 {
-                    Task<TaskResultData> runningTask = task.ExecuteAsync();
+                    if (taskInfo.IsCanceled)
+                    {
+                        // For cancelled task, try to execute it for potential cleanup.
+                        task.Cancel();
+                    }
+
+                    Task<TaskResultData> runningTask = Task.Run(() => task.ExecuteAsync());
                     _activeTaskRecordsForKeepAlive[taskInfo.TaskId] = task;
 
                     result = await runningTask;
@@ -162,18 +168,13 @@ namespace Microsoft.Health.TaskManagement
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                Task intervalDelayTask = Task.Delay(TaskHeartbeatIntervalInSeconds, CancellationToken.None);
+                Task intervalDelayTask = Task.Delay(TimeSpan.FromSeconds(TaskHeartbeatIntervalInSeconds), CancellationToken.None);
                 KeyValuePair<string, ITask>[] activeTaskRecords = _activeTaskRecordsForKeepAlive.ToArray();
 
                 foreach ((string taskId, ITask task) in activeTaskRecords)
                 {
                     try
                     {
-                        if (task.IsCancelling())
-                        {
-                            continue;
-                        }
-
                         bool shouldCancel = false;
                         try
                         {

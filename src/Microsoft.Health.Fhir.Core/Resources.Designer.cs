@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Can&apos;t find &apos;{0}&apos; in type &apos;{1}&apos;.
+        /// </summary>
+        internal static string CantResolveExpressionForAType {
+            get {
+                return ResourceManager.GetString("CantResolveExpressionForAType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The chained parameter must be a reference search parameter type..
         /// </summary>
         internal static string ChainedParameterMustBeReferenceSearchParamType {
@@ -490,6 +499,33 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string IllegalHtmlParsingError {
             get {
                 return ResourceManager.GetString("IllegalHtmlParsingError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Import operation has already completed.
+        /// </summary>
+        internal static string ImportOperationCompleted {
+            get {
+                return ResourceManager.GetString("ImportOperationCompleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There is already an import task running..
+        /// </summary>
+        internal static string ImportTaskIsRunning {
+            get {
+                return ResourceManager.GetString("ImportTaskIsRunning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested import task &quot;{0}&quot; was not found..
+        /// </summary>
+        internal static string ImportTaskNotFound {
+            get {
+                return ResourceManager.GetString("ImportTaskNotFound", resourceCulture);
             }
         }
         

@@ -25,6 +25,12 @@
             ]
         },
         {
+            "id": "globalImporterUser",
+            "roles": [
+                "globalImporter"
+            ]
+        },
+        {
             "id": "globalAdminUser",
             "roles": [
                 "globalAdmin"

@@ -4,15 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -26,10 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     /// <summary>
     /// Handles Conditional Update logic as defined in the spec https://www.hl7.org/fhir/http.html#cond-update
     /// </summary>
-    public class ConditionalUpsertResourceHandler
-        : BaseResourceHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
+    public sealed class ConditionalUpsertResourceHandler : ConditionalResourceHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
     {
-        private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
 
         public ConditionalUpsertResourceHandler(
@@ -40,63 +35,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
+            : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
 
-            _searchService = searchService;
             _mediator = mediator;
         }
 
-        public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, CancellationToken cancellationToken = default)
+        public override async Task<UpsertResourceResponse> HandleNoMatch(ConditionalUpsertResourceRequest request, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(request, nameof(request));
-
-            if (await AuthorizationService.CheckAccess(DataActions.Read | DataActions.Write, cancellationToken) != (DataActions.Read | DataActions.Write))
+            if (string.IsNullOrEmpty(request.Resource.Id))
             {
-                throw new UnauthorizedFhirActionException();
-            }
-
-            IReadOnlyCollection<SearchResultEntry> matchedResults = await _searchService.ConditionalSearchAsync(request.Resource.InstanceType, request.ConditionalParameters, cancellationToken);
-
-            int count = matchedResults.Count;
-            if (count == 0)
-            {
-                if (string.IsNullOrEmpty(request.Resource.Id))
-                {
-                    // No matches, no id provided: The server creates the resource
-                    // TODO: There is a potential contention issue here in that this could create another new resource with a different id
-                    return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource), cancellationToken);
-                }
-                else
-                {
-                    // No matches, id provided: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
-                    // TODO: There is a potential contention issue here that this could replace an existing resource
-                    return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource), cancellationToken);
-                }
-            }
-            else if (count == 1)
-            {
-                ResourceWrapper resourceWrapper = matchedResults.First().Resource;
-                Resource resource = request.Resource.ToPoco();
-                var version = WeakETag.FromVersionId(resourceWrapper.Version);
-
-                // One Match, no resource id provided OR (resource id provided and it matches the found resource): The server performs the update against the matching resource
-                if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
-                {
-                    resource.Id = resourceWrapper.ResourceId;
-                    return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), version), cancellationToken);
-                }
-                else
-                {
-                    throw new BadRequestException(string.Format(Core.Resources.ConditionalUpdateMismatchedIds, resourceWrapper.ResourceId, resource.Id));
-                }
+                // No matches, no id provided: The server creates the resource
+                // TODO: There is a potential contention issue here in that this could create another new resource with a different id
+                return await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Resource), cancellationToken);
             }
             else
             {
-                // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
-                throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
+                // No matches, id provided: The server treats the interaction as an Update as Create interaction (or rejects it, if it does not support Update as Create)
+                // TODO: There is a potential contention issue here that this could replace an existing resource
+                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Resource), cancellationToken);
+            }
+        }
+
+        public override async Task<UpsertResourceResponse> HandleSingleMatch(ConditionalUpsertResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
+        {
+            ResourceWrapper resourceWrapper = match.Resource;
+            Resource resource = request.Resource.ToPoco();
+            var version = WeakETag.FromVersionId(resourceWrapper.Version);
+
+            // One Match, no resource id provided OR (resource id provided and it matches the found resource): The server performs the update against the matching resource
+            if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
+            {
+                resource.Id = resourceWrapper.ResourceId;
+                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource.ToResourceElement(), version), cancellationToken);
+            }
+            else
+            {
+                throw new BadRequestException(string.Format(Core.Resources.ConditionalUpdateMismatchedIds, resourceWrapper.ResourceId, resource.Id));
             }
         }
     }

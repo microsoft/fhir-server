@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
