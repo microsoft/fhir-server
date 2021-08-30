@@ -61,6 +61,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(response.Resource, patchDocument));
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+
+            patchDocument =
+               "[{\"op\":\"coo\",\"path\":\"/gender\",\"value\":\"female\"}, {\"op\":\"remove\",\"path\":\"/address\"}]";
+
+            exception = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync(response.Resource, patchDocument));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
 
         [SkippableFact]

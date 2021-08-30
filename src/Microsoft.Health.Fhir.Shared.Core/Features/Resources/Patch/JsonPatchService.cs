@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
 
-            Validate(resourceToPatch, weakETag);
+            Validate(resourceToPatch, weakETag, patchDocument);
 
             var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
 
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             return patchedResource.ToResourceElement();
         }
 
-        private static void Validate(ResourceWrapper currentDoc, WeakETag eTag)
+        private static void Validate(ResourceWrapper currentDoc, WeakETag eTag, JsonPatchDocument patchDocument)
         {
             if (currentDoc.IsHistory)
             {
@@ -74,6 +74,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             {
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, eTag.VersionId));
             }
+
+            foreach (var operation in patchDocument.Operations)
+            {
+                if (operation.OperationType == AspNetCore.JsonPatch.Operations.OperationType.Invalid)
+                {
+                    throw new BadRequestException($"{operation.op} is invalid.");
+                }
+
+                if (operation.path == null)
+                {
+                    throw new BadRequestException($"{operation.op} has empty path");
+                }
+            }
         }
 
         private Resource GetPatchedJsonResource(FhirJsonNode node, JsonPatchDocument operations)
@@ -82,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             {
                 operations.ApplyTo(node.JsonObject);
             }
-            catch (Exception e)
+            catch (JsonPatchException e)
             {
                 throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
             }
