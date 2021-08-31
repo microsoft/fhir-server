@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             string stringValue = value.Scalar("value") as string;
             string system = value.Scalar("system") as string;
             string type = value.Scalar("type.text") as string;
-            if (!string.IsNullOrEmpty(system) && !string.IsNullOrEmpty(type) && !string.IsNullOrEmpty(stringValue))
+            if (!string.IsNullOrEmpty(system) || !string.IsNullOrEmpty(type) || !string.IsNullOrEmpty(stringValue))
             {
                 // Based on spec: http://hl7.org/fhir/search.html#token,
                 // the text for identifier is specified by Identifier.type.text.
