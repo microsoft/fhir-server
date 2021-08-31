@@ -1,0 +1,237 @@
+# This test flow confirms that the :of-type modifier and other token searches
+# are working as expected.
+
+@hostname = localhost:44348
+@contentType = application/json
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+PUT https://{{hostname}}/Patient/patient-id-with-system-and-value
+Content-Type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-id-with-system-and-value",
+  "identifier": [
+    {
+      "system": "https://testsystem.ca/test/1",
+      "value": "1234"
+    }
+  ]
+}
+
+###
+# Testing this line of the spec:
+# [parameter]=[code]: the value of [code] matches Identifier.value
+# irrespective of the value of the system property
+#
+# This should return patient-id-with-system-and-value
+GET https://{{hostname}}/Patient?identifier=1234
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Testing this line of the spec:
+# [parameter]=[system]|[code]: the value of [code] matches Identifier.value, 
+# and the value of [system] matches the system property of the Identifier
+#
+# This should also return patient-id-with-system-and-value
+GET https://{{hostname}}/Patient?identifier=https://testsystem.ca/test/1|1234
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+PUT https://{{hostname}}/Patient/patient-id-with-type
+Content-Type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-id-with-type",
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "https://testsystem.ca/test/2",
+            "code": "ABC",
+            "display": "RG"
+          },
+          {
+            "system": "https://testsystem.ca/test/3",
+            "code": "DEF",
+            "display": "RG"
+          },
+          {
+            "system": "https://testsystem.ca/test/4",
+            "code": "GHI",
+            "display": "RG"
+          }
+        ],
+        "text": "RG"
+      },
+      "value": "1234"
+    }
+  ]
+}
+
+###
+# Testing this line of the spec:
+# of-type modifier use: The search parameter has the format system|code|value, 
+# where the system and code refer to a Identifier.type.coding.system and .code, 
+# and match if any of the type codes match. All 3 parts must be present
+#
+# This should return patient-id-with-type
+GET https://{{hostname}}/Patient?identifier:ofType=https://testsystem.ca/test/2|ABC|1234
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+PUT https://{{hostname}}/Patient/patient-id-with-value-only
+Content-Type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-id-with-value-only",
+  "identifier": [
+    {
+      "value": "1234"
+    }
+  ]
+}
+
+###
+# Testing this line of the spec:
+# [parameter]=|[code]: the value of [code] matches Identifier.value,
+# and the Identifier has no system property
+#
+# This should return patient-id-with-value-only and patient-id-with-type
+GET https://{{hostname}}/Patient?identifier=|1234
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+PUT https://{{hostname}}/Patient/patient-id-with-system-only
+Content-Type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-id-with-system-only",
+  "identifier": [
+    {
+      "system": "https://testsystem.ca/test/1"
+    }
+  ]
+}
+
+###
+# Testing this line of the spec:
+# [parameter]=[system]|: any element where the value of [system] 
+# matches the system property of the Identifier
+#
+# This should return patient-id-with-system-and-value and patient-id-with-system-only
+GET https://{{hostname}}/Patient?identifier=https://testsystem.ca/test/1|
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+PUT https://{{hostname}}/Patient/patient-id-with-same-system-and-type
+Content-Type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-id-with-same-system-and-type",
+  "identifier": [
+    {
+      "system": "https://testsystem.ca/test/1000000",
+      "type": {
+        "coding": [
+          {
+            "system": "https://testsystem.ca/test/2",
+            "code": "ABC",
+            "display": "RG"
+          },
+          {
+            "system": "https://testsystem.ca/test/1000000",
+            "code": "DEF",
+            "display": "RG"
+          },
+          {
+            "system": "https://testsystem.ca/test/4",
+            "code": "GHI",
+            "display": "RG"
+          }
+        ],
+        "text": "RG"
+      },
+      "value": "1234"
+    }
+  ]
+}
+
+###
+# These following two calls should both return patient-id-with-same-system-and-type
+GET https://{{hostname}}/Patient?identifier:ofType=https://testsystem.ca/test/1000000|DEF|1234
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+GET https://{{hostname}}/Patient?identifier=https://testsystem.ca/test/1000000|1234
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+PUT https://{{hostname}}/Patient/patient-id-with-diff-system-and-type
+Content-Type: {{contentType}}
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-id-with-diff-system-and-type",
+  "identifier": [
+    {
+      "system": "https://testsystem.ca/test/1000001",
+      "type": {
+        "coding": [
+          {
+            "system": "https://testsystem.ca/test/2",
+            "code": "ABC",
+            "display": "RG"
+          },
+          {
+            "system": "https://testsystem.ca/test/1000002",
+            "code": "DEF",
+            "display": "RG"
+          },
+          {
+            "system": "https://testsystem.ca/test/4",
+            "code": "GHI",
+            "display": "RG"
+          }
+        ],
+        "text": "RG"
+      },
+      "value": "1234"
+    }
+  ]
+}
+
+###
+# These following two calls should both return patient-id-with-diff-system-and-type
+# Note this request specifies the system with 1000002
+GET https://{{hostname}}/Patient?identifier:ofType=https://testsystem.ca/test/1000002|DEF|1234
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# And this request specifies the system with 1000001
+GET https://{{hostname}}/Patient?identifier=https://testsystem.ca/test/1000001|1234
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+
