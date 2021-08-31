@@ -12,7 +12,11 @@ CREATE TABLE dbo.IdentifierOfTypeSearchParam
 )
 
 ALTER TABLE dbo.IdentifierOfTypeSearchParam SET ( LOCK_ESCALATION = AUTO )
+END
+GO
 
+IF NOT EXISTS (SELECT 'X' FROM SYS.INDEXES WHERE name = 'IXC_IdentifierOfTypeSearchParam' AND OBJECT_ID = OBJECT_ID('IdentifierOfTypeSearchParam'))
+BEGIN
 CREATE CLUSTERED INDEX IXC_IdentifierOfTypeSearchParam
 ON dbo.IdentifierOfTypeSearchParam
 (
@@ -22,7 +26,11 @@ ON dbo.IdentifierOfTypeSearchParam
 )
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END
+GO
 
+IF NOT EXISTS (SELECT 'X' FROM SYS.INDEXES WHERE name = 'IX_IdentifierOfTypeSearchParam_SearchParamId_Code_SystemId_Value' AND OBJECT_ID = OBJECT_ID('IdentifierOfTypeSearchParam'))
+BEGIN
 CREATE NONCLUSTERED INDEX IX_IdentifierOfTypeSearchParam_SearchParamId_Code_SystemId_Value
 ON dbo.IdentifierOfTypeSearchParam
 (
@@ -36,7 +44,10 @@ ON dbo.IdentifierOfTypeSearchParam
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
+END
+GO
+IF TYPE_ID(N'BulkIdentifierSearchParamTableType_1') IS NULL
+BEGIN
 CREATE TYPE dbo.BulkIdentifierSearchParamTableType_1 AS TABLE
 (
     Offset int NOT NULL,
@@ -45,11 +56,10 @@ CREATE TYPE dbo.BulkIdentifierSearchParamTableType_1 AS TABLE
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Value varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
-
 END
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TokenSeachParam_SearchParamId_SystemId')
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TokenSeachParam_SearchParamId_SystemId'AND OBJECT_ID = OBJECT_ID('TokenSearchParam'))
 BEGIN
 CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_SystemId
 ON dbo.TokenSearchParam
