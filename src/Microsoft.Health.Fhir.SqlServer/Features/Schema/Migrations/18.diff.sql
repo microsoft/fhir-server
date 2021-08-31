@@ -658,11 +658,6 @@ AS
         THROW 50412, 'Precondition failed', 1;
     END
 
-    IF (@resourceSurrogateId IS NULL) BEGIN
-        -- You can't reindex a resource if the resource does not exist
-        THROW 50404, 'Resource not found', 1;
-    END
-
     UPDATE dbo.Resource
     SET SearchParamHash = @searchParamHash
     WHERE ResourceTypeId = @resourceTypeId AND ResourceSurrogateId = @resourceSurrogateId
@@ -843,6 +838,9 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
+-- RETURN VALUE
+--     The number of resources that failed to reindex due to versioning conflicts.
+--
 CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_2
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
@@ -891,20 +889,13 @@ AS
             AND resourceInDB.ResourceId = resourceToReindex.ResourceId
             AND resourceInDB.IsHistory = 0
 
-    DECLARE @resourcesNotInDatabase int
-    SET @resourcesNotInDatabase = (SELECT COUNT(*) FROM @computedValues WHERE ResourceSurrogateId IS NULL)
-
-    IF (@resourcesNotInDatabase > 0) BEGIN
-        -- We can't reindex a resource if the resource does not exist
-        THROW 50404, 'One or more resources not found', 1;
-    END
-
     DECLARE @versionDiff int
     SET @versionDiff = (SELECT COUNT(*) FROM @computedValues WHERE VersionProvided IS NOT NULL AND VersionProvided <> VersionInDatabase)
 
     IF (@versionDiff > 0) BEGIN
-        -- The resource has been updated since the reindex job kicked off
-        THROW 50412, 'Precondition failed', 1;
+        -- Don't reindex resources that have outdated versions
+        DELETE FROM @computedValues
+        WHERE  VersionProvided IS NOT NULL AND VersionProvided <> VersionInDatabase
     END
 
     -- Update the search parameter hash value in the main resource table
@@ -1075,6 +1066,8 @@ AS
     SELECT DISTINCT resourceToReindex.ResourceTypeId, resourceToReindex.ResourceSurrogateId, searchIndex.SearchParamId, searchIndex.SystemId1, searchIndex.Code1, searchIndex.SingleValue2, searchIndex.LowValue2, searchIndex.HighValue2, searchIndex.SingleValue3, searchIndex.LowValue3, searchIndex.HighValue3, searchIndex.HasRange, 0
     FROM @tokenNumberNumberCompositeSearchParams searchIndex
     INNER JOIN @computedValues resourceToReindex ON searchIndex.Offset = resourceToReindex.Offset
+
+    SELECT @versionDiff
 
     COMMIT TRANSACTION
 GO
