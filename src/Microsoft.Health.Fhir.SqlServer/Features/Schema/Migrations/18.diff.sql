@@ -488,8 +488,6 @@ GO
 --         * Extracted token search params
 --     @tokenTextSearchParams
 --         * The text representation of extracted token search params
---     @tokenTextSearchParams
---         * The text representation of extracted token search params
 --     @identifierOfTypeSearchParams
 --         * Extracted identifier for of type modifier search params
 --     @stringSearchParams

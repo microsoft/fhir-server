@@ -196,13 +196,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
         public static DataTable GenerateIdentifierOfTypeSearchParamsTable(int count, long startSurrogatedId, short resoureType, string resourceId = null)
         {
-            var generator = new IdentifierOfTypeSearchParasTableBulkCopyDataGenerator();
+            var generator = new IdentifierOfTypeSearchParamsTableBulkCopyDataGenerator();
 
             DataTable result = generator.GenerateDataTable();
 
             for (int i = 0; i < count; ++i)
             {
-                IdentifierOfTypeSearchParasTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkIdentifierSearchParamTableTypeV1Row(0, 0, 0, string.Empty, string.Empty));
+                IdentifierOfTypeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkIdentifierSearchParamTableTypeV1Row(0, 0, 0, string.Empty, string.Empty));
             }
 
             return result;

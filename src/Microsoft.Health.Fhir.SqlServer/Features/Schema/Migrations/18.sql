@@ -1447,7 +1447,7 @@ GO
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
 
-CREATE OR ALTER PROCEDURE dbo.UpsertResource_5
+CREATE PROCEDURE dbo.UpsertResource_5
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -2467,8 +2467,6 @@ GO
 --         * Extracted token search params
 --     @tokenTextSearchParams
 --         * The text representation of extracted token search params
---     @tokenTextSearchParams
---         * The text representation of extracted token search params
 --     @identifierOfTypeSearchParams
 --         * Extracted identifier for of type modifier search params
 --     @stringSearchParams
@@ -2494,7 +2492,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE OR ALTER PROCEDURE dbo.ReindexResource_2
+CREATE PROCEDURE dbo.ReindexResource_2
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
@@ -2727,7 +2725,7 @@ GO
 -- RETURN VALUE
 --     The number of resources that failed to reindex due to versioning conflicts.
 --
-CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_2
+CREATE PROCEDURE dbo.BulkReindexResources_2
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
@@ -3600,7 +3598,7 @@ GO
 -- RETURN VALUE
 --     It does not return a value.
 --
-CREATE OR ALTER PROCEDURE dbo.UpdateEventAgentCheckpoint
+CREATE PROCEDURE dbo.UpdateEventAgentCheckpoint
     @CheckpointId varchar(64),
     @LastProcessedDateTime datetimeoffset(7) = NULL,
     @LastProcessedIdentifier varchar(64) = NULL
@@ -3631,7 +3629,7 @@ GO
 -- RETURN VALUE
 --     A checkpoint for the given checkpoint id, if one exists.
 --
-CREATE OR ALTER PROCEDURE dbo.FetchEventAgentCheckpoint
+CREATE PROCEDURE dbo.FetchEventAgentCheckpoint
     @CheckpointId varchar(64)
 AS
 BEGIN

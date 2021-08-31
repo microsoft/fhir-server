@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenSearchParamsTableBulkCopyDataGenerator tokenSearchParamsTableBulkCopyDataGenerator,
             TokenStringCompositeSearchParamsTableBulkCopyDataGenerator tokenStringCompositeSearchParamsTableBulkCopyDataGenerator,
             TokenTextSearchParamsTableBulkCopyDataGenerator tokenTextSearchParamsTableBulkCopyDataGenerator,
-            IdentifierOfTypeSearchParasTableBulkCopyDataGenerator identifierOfTypeSearchParasTableBulkCopyDataGenerator,
+            IdentifierOfTypeSearchParamsTableBulkCopyDataGenerator identifierOfTypeSearchParasTableBulkCopyDataGenerator,
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator,
             IOptions<OperationsConfiguration> operationsConfig,

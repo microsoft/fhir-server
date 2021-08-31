@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
             short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
-            if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTable)
+            if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTableVersion)
             {
                 VLatest.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
@@ -365,7 +365,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTable)
+                if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTableVersion)
                 {
                     VLatest.BulkReindexResources.PopulateCommand(
                     sqlCommandWrapper,
@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTable)
+                if (_schemaInformation.Current >= SchemaVersionConstants.IdentifierOfTypeTableVersion)
                 {
                     VLatest.ReindexResource.PopulateCommand(
                         sqlCommandWrapper,

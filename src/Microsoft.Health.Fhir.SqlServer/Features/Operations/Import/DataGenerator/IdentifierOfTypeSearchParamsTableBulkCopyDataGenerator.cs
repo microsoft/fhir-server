@@ -12,15 +12,15 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator
 {
-    internal class IdentifierOfTypeSearchParasTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
+    internal class IdentifierOfTypeSearchParamsTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
     {
         private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkIdentifierSearchParamTableTypeV1Row> _searchParamGenerator;
 
-        internal IdentifierOfTypeSearchParasTableBulkCopyDataGenerator()
+        internal IdentifierOfTypeSearchParamsTableBulkCopyDataGenerator()
         {
         }
 
-        public IdentifierOfTypeSearchParasTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkIdentifierSearchParamTableTypeV1Row> searchParamGenerator)
+        public IdentifierOfTypeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkIdentifierSearchParamTableTypeV1Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));
 

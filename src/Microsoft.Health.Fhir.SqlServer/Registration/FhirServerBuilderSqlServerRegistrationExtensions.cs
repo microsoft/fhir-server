@@ -203,7 +203,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsSelf();
 
-            services.Add<IdentifierOfTypeSearchParasTableBulkCopyDataGenerator>()
+            services.Add<IdentifierOfTypeSearchParamsTableBulkCopyDataGenerator>()
              .Transient()
              .AsSelf();
 
