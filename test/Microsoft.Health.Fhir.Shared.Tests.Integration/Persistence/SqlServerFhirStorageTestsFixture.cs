@@ -106,6 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 sqlConnectionStringProvider,
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
+            SqlServerFhirModel = sqlServerFhirModel;
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
 
@@ -158,6 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 bulkReindexResourceTvpGeneratorVLatest,
                 options,
                 SqlConnectionWrapperFactory,
+                new CompressedRawResourceConverter(),
                 NullLogger<SqlServerFhirDataStore>.Instance,
                 schemaInformation);
 
@@ -195,6 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlConnectionWrapperFactory,
                 schemaInformation,
                 fhirRequestContextAccessor,
+                new CompressedRawResourceConverter(),
                 NullLogger<SqlServerSearchService>.Instance);
 
             ISearchParameterSupportResolver searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
@@ -219,6 +222,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal ISqlConnectionFactory SqlConnectionFactory { get; }
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
+
+        internal SqlServerFhirModel SqlServerFhirModel { get; }
 
         public async Task InitializeAsync()
         {

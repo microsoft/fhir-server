@@ -60,6 +60,15 @@ steps:
         Write-Host "##vso[task.setvariable variable=TestExportStoreUri]$($exportStoreUri)"
         Write-Host "##vso[task.setvariable variable=TestExportStoreKey]$($exportStoreKey.Value)"
 
+        $integrationStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__IntegrationDataStore__StorageAccountUri"}
+        $integrationStoreUri = $integrationStoreSettings[0].Value
+        Write-Host "$integrationStoreUri"
+        $integrationStoreAccountName = [System.Uri]::new("$integrationStoreUri").Host.Split('.')[0]
+        $integrationStoreKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name "$integrationStoreAccountName" | Where-Object {$_.KeyName -eq "key1"}
+        
+        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
+        Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey.Value)"
+
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
@@ -99,6 +108,8 @@ steps:
       'TestContainerRegistryPassword': $(TestContainerRegistryPassword)
       'TestExportStoreUri': $(TestExportStoreUri)
       'TestExportStoreKey': $(TestExportStoreKey)
+      'TestIntegrationStoreUri': $(TestIntegrationStoreUri)
+      'TestIntegrationStoreKey': $(TestIntegrationStoreKey)
       'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
       'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
       'tenant-admin-user-name': $(tenant-admin-user-name)
@@ -116,6 +127,8 @@ steps:
       'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
       'user_globalExporterUser_id': $(user_globalExporterUser_id)
       'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
+      'user_globalImporterUser_id': $(user_globalImporterUser_id)
+      'user_globalImporterUser_secret': $(user_globalImporterUser_secret)
       'user_globalReaderUser_id': $(user_globalReaderUser_id)
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)

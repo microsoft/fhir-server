@@ -13,22 +13,14 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
-    public class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
+    public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
     {
-        public PatchResourceRequest(ResourceKey resourceKey, JsonPatchDocument patchDocument)
+        public PatchResourceRequest(ResourceKey resourceKey, JsonPatchDocument patchDocument, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
+            EnsureArg.IsNotNull(patchDocument, nameof(patchDocument));
 
             ResourceKey = resourceKey;
-            PatchDocument = patchDocument;
-        }
-
-        public PatchResourceRequest(string type, string id, JsonPatchDocument patchDocument, WeakETag weakETag = null)
-        {
-            EnsureArg.IsNotNull(type, nameof(type));
-            EnsureArg.IsNotNull(id, nameof(id));
-
-            ResourceKey = new ResourceKey(type, id);
             PatchDocument = patchDocument;
             WeakETag = weakETag;
         }

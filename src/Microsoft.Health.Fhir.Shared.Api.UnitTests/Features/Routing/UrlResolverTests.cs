@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         public void GivenAnUnknownOperation_WhenOperationResultUrlIsResolved_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
             const string id = "12345";
-            const string opName = "import";
+            const string opName = "fakeOp";
 
             Assert.Throws<OperationNotImplementedException>(() => _urlResolver.ResolveOperationResultUrl(opName, id));
         }

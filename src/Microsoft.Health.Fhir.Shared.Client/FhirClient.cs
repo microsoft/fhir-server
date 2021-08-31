@@ -217,12 +217,24 @@ namespace Microsoft.Health.Fhir.Client
             return DeleteAsync($"{resource.TypeName}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> PatchAsync<T>(T resource, string body, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> PatchAsync<T>(T resource, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            using var message = new HttpRequestMessage(HttpMethod.Patch, $"{resource.TypeName}/{resource.Id}")
+            return await PatchAsync<T>($"{resource.TypeName}/{resource.Id}", content, ifMatchVersion, cancellationToken);
+        }
+
+        public async Task<FhirResponse<T>> ConditionalPatchAsync<T>(string resourceType, string searchCriteria, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+                 where T : Resource
+        {
+            return await PatchAsync<T>($"{resourceType}?{searchCriteria}", content, ifMatchVersion, cancellationToken);
+        }
+
+        private async Task<FhirResponse<T>> PatchAsync<T>(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+           where T : Resource
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
             {
-                Content = new StringContent(body, Encoding.UTF8, "application/json-patch+json"),
+                Content = new StringContent(content, Encoding.UTF8, "application/json-patch+json"),
             };
 
             message.Headers.Accept.Add(_mediaType);
@@ -239,28 +251,6 @@ namespace Microsoft.Health.Fhir.Client
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<T>(response);
-        }
-
-        public async Task<FhirResponse> PatchAsync(string uri, string content, string ifMatchVersion = null, CancellationToken cancellationToken = default)
-        {
-            using var message = new HttpRequestMessage(HttpMethod.Patch, uri)
-            {
-                Content = new StringContent(content),
-            };
-            message.Headers.Accept.Add(_mediaType);
-
-            if (ifMatchVersion != null)
-            {
-                var weakETag = $"W/\"{ifMatchVersion}\"";
-
-                message.Headers.Add(IfMatchHeaderName, weakETag);
-            }
-
-            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
-
-            await EnsureSuccessStatusCodeAsync(response);
-
-            return new FhirResponse(response);
         }
 
         public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null, CancellationToken cancellationToken = default)
@@ -395,6 +385,43 @@ namespace Microsoft.Health.Fhir.Client
             await EnsureSuccessStatusCodeAsync(response);
 
             return await response.Content.ReadAsStringAsync(cancellationToken);
+        }
+
+        public async Task<Uri> ImportAsync(Parameters parameters, CancellationToken cancellationToken = default)
+        {
+            string requestPath = "$import";
+            using var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
+            {
+                Content = CreateStringContent(parameters),
+            };
+
+            message.Headers.Add("Prefer", "respond-async");
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return response.Content.Headers.ContentLocation;
+        }
+
+        public async Task CancelImport(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            message.Headers.Add("Prefer", "respond-async");
+
+            await HttpClient.SendAsync(message, cancellationToken);
+        }
+
+        public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            message.Headers.Add("Prefer", "respond-async");
+
+            var response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return response;
         }
 
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
