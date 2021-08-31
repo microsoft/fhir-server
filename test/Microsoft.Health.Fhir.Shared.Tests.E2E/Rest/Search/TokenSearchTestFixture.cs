@@ -46,25 +46,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                        id.Type.Coding.Add(new Coding("http://terminology.hl7.org/CodeSystem/v2-0203", "PN", "Personal number"));
                        id.Type.Coding.Add(new Coding("http://terminology.hl7.org/CodeSystem/v3-GenderStatus", "I", "Intact"));
                        id.Type.Text = "Multiple";
-                       id.Value = "744-744-6141";
+                       id.Value = "ab";
                    }),
                  p => SetPatient(p, id =>
                  {
                      id.Type = new CodeableConcept();
                      id.System = "http://terminology.hl7.org/CodeSystem/v2-0203";
-                     id.Value = "744-744-6141";
+                     id.Value = "ab";
                  }),
                  p => SetPatient(p, id =>
                  {
                      id.Type = new CodeableConcept();
                      id.System = "http://terminology.hl7.org/CodeSystem/v2-0203";
-
-                     // id.Value = "744-744-6142";
                  }),
                  p => SetPatient(p, id =>
                  {
                      id.Type = new CodeableConcept();
-                     id.Value = "744-744-6141";
+                     id.Value = "ab";
+                 }),
+                 p => SetPatient(p, id =>
+                 {
+                     id.Type = new CodeableConcept();
+                     id.System = "http://terminology.hl7.org/CODESYSTEM/v2-0203";
+                     id.Value = "AB";
                  }));
 
             Observations = await TestFhirClient.CreateResourcesAsync<Observation>(
@@ -91,6 +95,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     o.Category = new List<CodeableConcept>
                     {
                         new CodeableConcept("system", "test"),
+                    };
+                },
+                o =>
+                {
+                     SetObservation(o, cc => { });
+                     o.Category = new List<CodeableConcept>
+                    {
+                        new CodeableConcept("SYSTEM", "TEST"),
                     };
                 });
 

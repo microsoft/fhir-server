@@ -31,12 +31,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public static readonly object[][] IdentiferSearchParameterData = new[]
         {
             new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|RRI|1234", ":ofType", 1 },
-            new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|PN|744-744-6141", ":ofType", 2 },
-            new object[] { "http://terminology.hl7.org/CodeSystem/v3-GenderStatus|I|744-744-6141", ":ofType", 2 },
-            new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|744-744-6141", string.Empty, 3 },
+            new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|PN|ab", ":ofType", 2 },
+            new object[] { "http://terminology.hl7.org/CodeSystem/v3-GenderStatus|I|ab", ":ofType", 2 },
+            new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|ab", string.Empty, 3 },
             new object[] { "http://terminology.hl7.org/CodeSystem/v2-0203|", string.Empty, 3, 4 },
-            new object[] { "|744-744-6141", string.Empty, 2, 5 },
-            new object[] { "744-744-6141", string.Empty, 2, 3, 5 },
+            new object[] { "|ab", string.Empty, 2, 5 },
+            new object[] { "ab", string.Empty, 2, 3, 5 },
         };
 
         public TokenSearchTests(TokenSearchTestFixture fixture)

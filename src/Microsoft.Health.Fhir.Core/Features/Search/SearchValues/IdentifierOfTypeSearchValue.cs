@@ -23,11 +23,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <param name="value">The identifier value.</param>
         public IdentifierOfTypeSearchValue(string system, string code, string value)
         {
-            // All values must be present and non empty.
-            EnsureArg.IsTrue(
-                !string.IsNullOrWhiteSpace(system) &&
-                !string.IsNullOrWhiteSpace(code) &&
-                !string.IsNullOrWhiteSpace(value));
+            EnsureArg.IsNotEmptyOrWhiteSpace(system, nameof(system));
+            EnsureArg.IsNotEmptyOrWhiteSpace(system, nameof(code));
+            EnsureArg.IsNotEmptyOrWhiteSpace(system, nameof(value));
 
             System = system;
             Code = code;
@@ -95,9 +93,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 return false;
             }
 
-            return System.Equals(identifierSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
-                   Code.Equals(identifierSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
-                   Value.Equals(identifierSearchValueOther.Value, StringComparison.OrdinalIgnoreCase);
+            return System.Equals(identifierSearchValueOther.System, StringComparison.Ordinal) &&
+                   Code.Equals(identifierSearchValueOther.Code, StringComparison.Ordinal) &&
+                   Value.Equals(identifierSearchValueOther.Value, StringComparison.Ordinal);
         }
 
         /// <inheritdoc />
