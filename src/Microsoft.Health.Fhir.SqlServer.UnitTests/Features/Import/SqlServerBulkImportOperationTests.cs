@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 VLatest.TokenSearchParam,
                 VLatest.TokenStringCompositeSearchParam,
                 VLatest.TokenText,
+                VLatest.IdentifierOfTypeSearchParam,
                 VLatest.TokenTokenCompositeSearchParam,
                 VLatest.UriSearchParam,
             };
