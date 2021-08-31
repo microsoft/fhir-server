@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 "referenceSearchParams",
                 "tokenSearchParams",
                 "tokenTextSearchParams",
+                "identifierOfTypeSearchParams",
                 "stringSearchParams",
                 "numberSearchParams",
                 "quantitySearchParams",
