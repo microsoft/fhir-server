@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenSearchParamsTableBulkCopyDataGenerator tokenSearchParamsTableBulkCopyDataGenerator,
             TokenStringCompositeSearchParamsTableBulkCopyDataGenerator tokenStringCompositeSearchParamsTableBulkCopyDataGenerator,
             TokenTextSearchParamsTableBulkCopyDataGenerator tokenTextSearchParamsTableBulkCopyDataGenerator,
+            IdentifierOfTypeSearchParasTableBulkCopyDataGenerator identifierOfTypeSearchParasTableBulkCopyDataGenerator,
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator,
             IOptions<OperationsConfiguration> operationsConfig,
@@ -94,6 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(tokenSearchParamsTableBulkCopyDataGenerator, nameof(tokenSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(tokenStringCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenStringCompositeSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(tokenTextSearchParamsTableBulkCopyDataGenerator, nameof(tokenTextSearchParamsTableBulkCopyDataGenerator));
+            EnsureArg.IsNotNull(identifierOfTypeSearchParasTableBulkCopyDataGenerator, nameof(identifierOfTypeSearchParasTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(uriSearchParamsTableBulkCopyDataGenerator, nameof(uriSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
@@ -117,6 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _generators.Add(tokenSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(tokenStringCompositeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(tokenTextSearchParamsTableBulkCopyDataGenerator);
+            _generators.Add(identifierOfTypeSearchParasTableBulkCopyDataGenerator);
             _generators.Add(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(uriSearchParamsTableBulkCopyDataGenerator);
 

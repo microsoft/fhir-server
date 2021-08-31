@@ -109,6 +109,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.ReferenceSearchParam.TableName,
                 VLatest.TokenSearchParam.TableName,
                 VLatest.TokenText.TableName,
+                VLatest.IdentifierOfTypeSearchParam.TableName,
                 VLatest.StringSearchParam.TableName,
                 VLatest.UriSearchParam.TableName,
                 VLatest.NumberSearchParam.TableName,

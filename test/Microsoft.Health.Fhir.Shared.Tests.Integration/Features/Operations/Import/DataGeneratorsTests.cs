@@ -101,6 +101,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
+        public void GivenIdentifierOfTypeTextSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
+        {
+            DataTable table = TestBulkDataProvider.GenerateIdentifierOfTypeSearchParamsTable(1, 1000, 103);
+            ValidataDataTable(VLatest.IdentifierOfTypeSearchParam, table);
+        }
+
+        [Fact]
         public void GivenTokenTokenCompositeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable(1, 1000, 103);
