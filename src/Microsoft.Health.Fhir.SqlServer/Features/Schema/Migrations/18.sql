@@ -463,8 +463,11 @@ ON dbo.IdentifierOfTypeSearchParam
     SearchParamId,
     SystemId,
     Code,
-    Value,
-    ResourceSurrogateId
+    Value
+)
+INCLUDE
+(
+ResourceSurrogateId
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
