@@ -81,11 +81,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 {
                     throw new BadRequestException($"{operation.op} is invalid.");
                 }
-
-                if (operation.path == null)
-                {
-                    throw new BadRequestException($"{operation.op} has empty path");
-                }
             }
         }
 
@@ -96,6 +91,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 operations.ApplyTo(node.JsonObject);
             }
             catch (JsonPatchException e)
+            {
+                throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
+            }
+            catch (ArgumentNullException e)
             {
                 throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
             }
