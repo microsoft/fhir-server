@@ -5,17 +5,18 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
-using FluentValidation.Validators;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
-    public class NarrativeValidator : NoopPropertyValidator<ResourceElement, ResourceElement>
+    public class NarrativeValidator : AbstractValidator<ResourceElement>
     {
         private readonly INarrativeHtmlSanitizer _narrativeHtmlSanitizer;
 
@@ -26,41 +27,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             _narrativeHtmlSanitizer = narrativeHtmlSanitizer;
         }
 
-        public override string Name => nameof(NarrativeValidator);
-
-        public override bool IsValid(ValidationContext<ResourceElement> context, ResourceElement value)
+        public override Task<ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            bool isValid = true;
+            var failures = new List<ValidationFailure>();
 
             if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 if (resourceElement.IsDomainResource)
                 {
-                    foreach (ValidationFailure validationFailure in ValidateResource(resourceElement.Instance))
-                    {
-                        validationFailure.ErrorCode = "Custom";
-                        context.AddFailure(validationFailure);
-                        isValid = false;
-                    }
+                    failures.AddRange(ValidateResource(resourceElement.Instance));
                 }
                 else if (resourceElement.InstanceType.Equals(KnownResourceTypes.Bundle, System.StringComparison.OrdinalIgnoreCase))
                 {
                     var bundleEntries = resourceElement.Instance.Select(KnownFhirPaths.BundleEntries);
                     if (bundleEntries != null)
                     {
-                        foreach (ValidationFailure validationFailure in bundleEntries.SelectMany(ValidateResource))
-                        {
-                            validationFailure.ErrorCode = "Custom";
-                            context.AddFailure(validationFailure);
-                            isValid = false;
-                        }
+                        failures.AddRange(bundleEntries.SelectMany(ValidateResource));
                     }
                 }
             }
 
-            return isValid;
+            failures.ForEach(x => context.AddFailure(x));
+            return Task.FromResult(new ValidationResult(failures));
         }
 
         private IEnumerable<ValidationFailure> ValidateResource(ITypedElement typedElement)

@@ -3,9 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
@@ -35,11 +39,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _runProfileValidation = runProfileValidation;
         }
 
-        public override bool IsValid(ValidationContext<ResourceElement> context, ResourceElement value)
+        public override async Task<ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
         {
             EnsureArg.IsNotNull(context, nameof(context));
-            bool isValid = true;
-
+            var failures = new List<ValidationFailure>();
             if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 var fhirContext = _contextAccessor.RequestContext;
@@ -62,19 +65,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                             resourceElement.InstanceType,
                             error.DetailsText,
                             error);
-                        validationFailure.ErrorCode = "Custom";
-                        context.AddFailure(validationFailure);
-                        isValid = false;
+                        failures.Add(validationFailure);
                     }
                 }
 
-                if (!base.IsValid(context, value))
-                {
-                    isValid = false;
-                }
+                var baseValidation = await base.ValidateAsync(context, cancellation);
+                failures.AddRange(baseValidation.Errors);
             }
 
-            return isValid;
+            failures.ForEach(x => context.AddFailure(x));
+            return new ValidationResult(failures);
         }
     }
 }
