@@ -14,13 +14,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 {
     internal class DateTimeSearchParamsTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
     {
-        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkDateTimeSearchParamTableTypeV1Row> _searchParamGenerator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkDateTimeSearchParamTableTypeV2Row> _searchParamGenerator;
 
         internal DateTimeSearchParamsTableBulkCopyDataGenerator()
         {
         }
 
-        public DateTimeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkDateTimeSearchParamTableTypeV1Row> searchParamGenerator)
+        public DateTimeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkDateTimeSearchParamTableTypeV2Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));
 
@@ -40,21 +40,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             EnsureArg.IsNotNull(table, nameof(table));
             EnsureArg.IsNotNull(input, nameof(input));
 
-            IEnumerable<BulkDateTimeSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
+            IEnumerable<BulkDateTimeSearchParamTableTypeV2Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkDateTimeSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkDateTimeSearchParamTableTypeV2Row searchParam in searchParams)
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
         }
 
-        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkDateTimeSearchParamTableTypeV1Row searchParam)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkDateTimeSearchParamTableTypeV2Row searchParam)
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
             FillColumn(newRow, VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name, searchParam.StartDateTime.DateTime);
             FillColumn(newRow, VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name, searchParam.EndDateTime.DateTime);
             FillColumn(newRow, VLatest.DateTimeSearchParam.IsLongerThanADay.Metadata.Name, searchParam.IsLongerThanADay);
-
+            FillColumn(newRow, VLatest.DateTimeSearchParam.IsMin.Metadata.Name, searchParam.IsMin);
+            FillColumn(newRow, VLatest.DateTimeSearchParam.IsMax.Metadata.Name, searchParam.IsMax);
             table.Rows.Add(newRow);
         }
 
@@ -63,6 +64,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.DateTimeSearchParam.StartDateTime.Metadata.Name, VLatest.DateTimeSearchParam.StartDateTime.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.DateTimeSearchParam.EndDateTime.Metadata.Name, VLatest.DateTimeSearchParam.EndDateTime.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.DateTimeSearchParam.IsLongerThanADay.Metadata.Name, VLatest.DateTimeSearchParam.IsLongerThanADay.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.DateTimeSearchParam.IsMin.Metadata.Name, VLatest.DateTimeSearchParam.IsMin.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.DateTimeSearchParam.IsMax.Metadata.Name, VLatest.DateTimeSearchParam.IsMax.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }
