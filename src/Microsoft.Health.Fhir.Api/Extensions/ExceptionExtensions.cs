@@ -10,6 +10,7 @@ namespace Microsoft.Health.Fhir.Api.Extensions
 {
     internal static class ExceptionExtensions
     {
+        [Obsolete("GetInnerMostException is deprecated, please use System.GetBaseException instead.")]
         public static Exception GetInnerMostException(this Exception input)
         {
             EnsureArg.IsNotNull(input, nameof(input));
