@@ -14,7 +14,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -30,7 +29,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.IO;
@@ -55,7 +53,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ILogger<CosmosFhirDataStore> _logger;
         private readonly Lazy<ISupportedSearchParameterDefinitionManager> _supportedSearchParameters;
 
-        private static readonly HardDelete _hardDelete = new HardDelete();
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
         private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
         private readonly CoreFeatureConfiguration _coreFeatures;
@@ -295,15 +292,55 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug("Obliterating {resourceType}/{id}. Keep current version: {keepCurrentVersion}", key.ResourceType, key.Id, keepCurrentVersion);
 
-                StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
-                    async ct => await _hardDelete.Execute(
-                        _containerScope.Value.Scripts,
-                        key,
-                        keepCurrentVersion,
-                        ct),
-                    cancellationToken);
+                var partitionKey = new PartitionKey(key.ToPartitionKey());
+                var itemsInHistory = new StringBuilder($"select value r.id from root r where r.resourceId = @resourceId");
 
-                _logger.LogDebug("Hard-deleted {count} documents, which consumed {RU} RUs. The list of hard-deleted documents: {resources}.", response.Resource.Count, response.RequestCharge, string.Join(", ", response.Resource));
+                if (keepCurrentVersion)
+                {
+                    itemsInHistory.Append(" and r.isHistory = true");
+                }
+
+                QueryDefinition sqlQuerySpec = new QueryDefinition(itemsInHistory.ToString())
+                    .WithParameter("@resourceId", key.Id);
+
+                string continuationToken = null;
+                TransactionalBatch batch = _containerScope.Value.CreateTransactionalBatch(partitionKey);
+                int itemsInBatch = 0;
+                int totalItems = 0;
+                double requestCharge = 0;
+
+                do
+                {
+                    (IReadOnlyList<string> results, string ct) = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() =>
+                        ExecuteDocumentQueryAsync<string>(
+                            sqlQuerySpec,
+                            new QueryRequestOptions { PartitionKey = partitionKey, MaxItemCount = 100 },
+                            continuationToken: continuationToken,
+                            cancellationToken: cancellationToken));
+                    continuationToken = ct;
+
+                    foreach (string resourceId in results)
+                    {
+                        batch.DeleteItem(resourceId);
+                        totalItems++;
+
+                        if (++itemsInBatch >= 100)
+                        {
+                            requestCharge += await ExecuteBatch(batch);
+
+                            batch = _containerScope.Value.CreateTransactionalBatch(partitionKey);
+                            itemsInBatch = 0;
+                        }
+                    }
+                }
+                while (!string.IsNullOrEmpty(continuationToken));
+
+                if (itemsInBatch > 0)
+                {
+                    requestCharge += await ExecuteBatch(batch);
+                }
+
+                _logger.LogDebug("Hard-deleted {count} documents, which consumed {RU} RUs.", totalItems, requestCharge);
             }
             catch (CosmosException exception)
             {
@@ -315,6 +352,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 _logger.LogError(exception, "Unhandled Document Client Exception");
 
                 throw;
+            }
+
+            async Task<double> ExecuteBatch(TransactionalBatch batch)
+            {
+                TransactionalBatchResponse response = await batch.ExecuteAsync(cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new BadRequestException(response.ErrorMessage);
+                }
+
+                return response.RequestCharge;
             }
         }
 
