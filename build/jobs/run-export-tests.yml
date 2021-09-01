@@ -51,7 +51,7 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
         # Get export store for uploading anonymizer configuration file
-        $appServiceName = "${{ parameters.appServiceName }}"
+        $appServiceName = "${{ parameters.webAppName }}"
         $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
 
         $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}
@@ -164,7 +164,7 @@ jobs:
         Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
         # Get export store for uploading anonymizer configuration file
-        $appServiceName = "${{ parameters.appServiceName }}-sql"
+        $appServiceName = "${{ parameters.webAppName }}-sql"
         $appSettings = (Get-AzWebApp -ResourceGroupName $(ResourceGroupName) -Name $appServiceName).SiteConfig.AppSettings
 
         $exportStoreSettings = $appSettings | where {$_.Name -eq "FhirServer__Operations__Export__StorageAccountUri"}

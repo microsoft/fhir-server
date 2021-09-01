@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return (blobName, blob.Properties.ETag);
         }
 
-        protected async Task<CloudBlobContainer> InitializeAnonymizationContainer()
+        private async Task<CloudBlobContainer> InitializeAnonymizationContainer()
         {
             CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
             CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
@@ -276,7 +276,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return result;
         }
 
-        protected CloudStorageAccount GetCloudStorageAccountHelper()
+        private CloudStorageAccount GetCloudStorageAccountHelper()
         {
             CloudStorageAccount storageAccount = null;
 
