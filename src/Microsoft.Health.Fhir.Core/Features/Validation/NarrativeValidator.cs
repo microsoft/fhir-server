@@ -29,10 +29,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 
         public override Task<ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
         {
+            return Task.FromResult(Validate(context));
+        }
+
+        public override ValidationResult Validate(ValidationContext<ResourceElement> context)
+        {
             EnsureArg.IsNotNull(context, nameof(context));
-
             var failures = new List<ValidationFailure>();
-
             if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 if (resourceElement.IsDomainResource)
@@ -50,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             }
 
             failures.ForEach(x => context.AddFailure(x));
-            return Task.FromResult(new ValidationResult(failures));
+            return new ValidationResult(failures);
         }
 
         private IEnumerable<ValidationFailure> ValidateResource(ITypedElement typedElement)

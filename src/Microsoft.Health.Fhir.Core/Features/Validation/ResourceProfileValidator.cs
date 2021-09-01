@@ -39,7 +39,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _runProfileValidation = runProfileValidation;
         }
 
-        public override async Task<ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
+        public override Task<ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
+        {
+            return Task.FromResult(Validate(context));
+        }
+
+        public override ValidationResult Validate(ValidationContext<ResourceElement> context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
             var failures = new List<ValidationFailure>();
@@ -69,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     }
                 }
 
-                var baseValidation = await base.ValidateAsync(context, cancellation);
+                var baseValidation = base.Validate(context);
                 failures.AddRange(baseValidation.Errors);
             }
 

@@ -35,6 +35,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public override Task<FluentValidation.Results.ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
         {
+            return Task.FromResult(Validate(context));
+        }
+
+        public override FluentValidation.Results.ValidationResult Validate(ValidationContext<ResourceElement> context)
+        {
             EnsureArg.IsNotNull(context, nameof(context));
             var failures = new List<ValidationFailure>();
             if (context.InstanceToValidate is ResourceElement resourceElement)
@@ -53,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
 
             failures.ForEach(x => context.AddFailure(x));
-            return Task.FromResult(new FluentValidation.Results.ValidationResult(failures));
+            return new FluentValidation.Results.ValidationResult(failures);
         }
     }
 }
