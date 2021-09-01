@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportTests.cs" Link="Rest\AnonymizedExportTests.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportLongRunningTests.cs" Link="Rest\AnonymizedExportLongRunningTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(AspNetPackageVersion)" />

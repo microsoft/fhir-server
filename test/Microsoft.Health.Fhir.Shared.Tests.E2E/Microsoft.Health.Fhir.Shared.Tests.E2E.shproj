@@ -10,6 +10,7 @@
   <PropertyGroup />
   <ItemGroup>
     <None Include="Rest\AnonymizedExportTests.cs" />
+    <None Include="Rest\AnonymizedExportLongRunningTests.cs" />
     <None Include="Rest\CustomConvertDataTests.cs" />
     <None Include="Rest\ConvertDataTests.cs" />
   </ItemGroup>
