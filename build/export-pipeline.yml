@@ -83,6 +83,7 @@ stages:
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
       keyVaultName: $(DeploymentEnvironmentName)
 
 - stage: testR4
@@ -95,6 +96,7 @@ stages:
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: R4
+      webAppName: $(DeploymentEnvironmentNameR4)
       keyVaultName: $(DeploymentEnvironmentNameR4)
 
 - stage: cleanStorageAccounts
