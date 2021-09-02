@@ -99,21 +99,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            SearchResult searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
+            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            SearchResult searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
             int resultCount = searchResult.Results.Count();
-            if (!searchOptions.IsSortWithFilter &&
+            if (!sqlSearchOptions.IsSortWithFilter &&
                 searchResult.ContinuationToken == null &&
-                resultCount <= searchOptions.MaxItemCount &&
-                searchOptions.Sort != null &&
-                searchOptions.Sort.Count > 0 &&
-                searchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+                resultCount <= sqlSearchOptions.MaxItemCount &&
+                sqlSearchOptions.Sort != null &&
+                sqlSearchOptions.Sort.Count > 0 &&
+                sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
             {
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
-                if ((searchOptions.Sort[0].sortOrder == SortOrder.Ascending && _didWeSearchForSortValue.HasValue && !_didWeSearchForSortValue.Value) ||
-                    (searchOptions.Sort[0].sortOrder == SortOrder.Descending && _didWeSearchForSortValue.HasValue && _didWeSearchForSortValue.Value))
+                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && _didWeSearchForSortValue.HasValue && !_didWeSearchForSortValue.Value) ||
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && _didWeSearchForSortValue.HasValue && _didWeSearchForSortValue.Value))
                 {
-                    if (searchOptions.MaxItemCount - resultCount == 0)
+                    if (sqlSearchOptions.MaxItemCount - resultCount == 0)
                     {
                         // Since we are already returning MaxItemCount number of resources we don't want
                         // to execute another search right now just to drop all the resources. We will return
@@ -130,10 +131,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         var finalResultsInOrder = new List<SearchResultEntry>();
                         finalResultsInOrder.AddRange(searchResult.Results);
-                        searchOptions.SortQuerySecondPhase = true;
-                        searchOptions.MaxItemCount -= resultCount;
+                        sqlSearchOptions.SortQuerySecondPhase = true;
+                        sqlSearchOptions.MaxItemCount -= resultCount;
 
-                        searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
+                        searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
 
                         finalResultsInOrder.AddRange(searchResult.Results);
                         searchResult = new SearchResult(
@@ -146,10 +147,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             // If we should include the total count of matching search results
-            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+            if (sqlSearchOptions.IncludeTotal == TotalType.Accurate && !sqlSearchOptions.CountOnly)
             {
                 // If this is the first page and there aren't any more pages
-                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
+                if (sqlSearchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
                     // Count the match results on the page.
                     searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
@@ -159,17 +160,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     try
                     {
                         // Otherwise, indicate that we'd like to get the count
-                        searchOptions.CountOnly = true;
+                        sqlSearchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
+                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
                     finally
                     {
                         // Ensure search options is set to its original state.
-                        searchOptions.CountOnly = false;
+                        sqlSearchOptions.CountOnly = false;
                     }
                 }
             }
@@ -179,25 +180,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            return await SearchImpl(searchOptions, SqlSearchType.History, null, cancellationToken);
+            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            return await SearchImpl(sqlSearchOptions, SqlSearchType.History, null, cancellationToken);
         }
 
-        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
+        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
         {
-            Expression searchExpression = searchOptions.Expression;
+            Expression searchExpression = sqlSearchOptions.Expression;
 
             // AND in the continuation token
-            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
+            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
             {
-                var continuationToken = ContinuationToken.FromString(searchOptions.ContinuationToken);
+                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
                 if (continuationToken != null)
                 {
                     if (string.IsNullOrEmpty(continuationToken.SortValue))
                     {
                         // Check whether it's a _lastUpdated or (_type,_lastUpdated) sort optimization
                         bool optimize = true;
-                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
-                        if (searchOptions.Sort.Count > 0)
+                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = sqlSearchOptions.Sort.Count == 0 ? default : sqlSearchOptions.Sort[0];
+                        if (sqlSearchOptions.Sort.Count > 0)
                         {
                             if (!(searchParamInfo.Name == SearchParameterNames.LastUpdated || searchParamInfo.Name == SearchParameterNames.ResourceType))
                             {
@@ -249,8 +251,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
-            var originalSort = new List<(SearchParameterInfo, SortOrder)>(searchOptions.Sort);
-            var clonedSearchOptions = UpdateSort(searchOptions, searchExpression, searchType);
+            var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
+            var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression, searchType);
 
             if (clonedSearchOptions.CountOnly)
             {
@@ -316,7 +318,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         return searchResult;
                     }
 
-                    var resources = new List<SearchResultEntry>(searchOptions.MaxItemCount);
+                    var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
                     short? newContinuationType = null;
                     long? newContinuationId = null;
                     bool moreResults = false;
@@ -439,7 +441,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // this value back to the caller.
                     if (clonedSearchOptions.IsSortWithFilter)
                     {
-                        searchOptions.IsSortWithFilter = true;
+                        sqlSearchOptions.IsSortWithFilter = true;
                     }
 
                     return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
@@ -456,13 +458,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <param name="searchExpression">The searchExpression</param>
         /// <param name="sqlSearchType">The type of search being performed</param>
         /// <returns>If the sort needs to be updated, a new <see cref="SearchOptions"/> instance, otherwise, the same instance as <paramref name="searchOptions"/></returns>
-        private SearchOptions UpdateSort(SearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
+        private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
         {
-            SearchOptions newSearchOptions = searchOptions;
+            SqlSearchOptions newSearchOptions = searchOptions;
             if (sqlSearchType == SqlSearchType.History)
             {
                 // history is always sorted by _lastUpdated.
-                newSearchOptions = searchOptions.Clone();
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
                 newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                 {
@@ -474,7 +476,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             if (searchOptions.Sort.Count == 0)
             {
-                newSearchOptions = searchOptions.Clone();
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
                 if (_schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
                 {
@@ -501,7 +503,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 // Add _lastUpdated to the sort list so that there is a deterministic key to sort on
 
-                newSearchOptions = searchOptions.Clone();
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
                 newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                 {
@@ -519,7 +521,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (singleAllowedTypeId != null && allowedTypes != null)
                 {
                     // this means that this search is over a single type.
-                    newSearchOptions = searchOptions.Clone();
+                    newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
                     newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                     {
@@ -535,7 +537,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 // Make sure custom sort has _lastUpdated as the last sort parameter.
 
-                newSearchOptions = searchOptions.Clone();
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
                 newSearchOptions.Sort = new List<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(searchOptions.Sort)
                 {
@@ -634,7 +636,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
-            return await SearchImpl(searchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
+            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            return await SearchImpl(sqlSearchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
         }
     }
 }

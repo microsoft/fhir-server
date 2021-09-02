@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// <summary>
     /// It creates the correct generator and populates the predicates for sort parameters.
     /// </summary>
-    internal class SortRewriter : SqlExpressionRewriter<SearchOptions>
+    internal class SortRewriter : SqlExpressionRewriter<SqlSearchOptions>
     {
         private readonly SearchParamTableExpressionQueryGeneratorFactory _searchParamTableExpressionQueryGeneratorFactory;
 
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             _searchParamTableExpressionQueryGeneratorFactory = searchParamTableExpressionQueryGeneratorFactory;
         }
 
-        public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
+        public override Expression VisitSqlRoot(SqlRootExpression expression, SqlSearchOptions context)
         {
             // If we only need the count, we don't want to execute any sort specific queries.
             if (context.CountOnly)
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
-        public override Expression VisitSearchParameter(SearchParameterExpression expression, SearchOptions context)
+        public override Expression VisitSearchParameter(SearchParameterExpression expression, SqlSearchOptions context)
         {
             if (context.Sort.Count > 0)
             {

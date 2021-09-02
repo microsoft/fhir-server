@@ -26,6 +26,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
         }
 
+        internal SearchOptions(SearchOptions other)
+        {
+            ContinuationToken = other.ContinuationToken;
+            CountOnly = other.CountOnly;
+            IncludeTotal = other.IncludeTotal;
+
+            MaxItemCountSpecifiedByClient = other.MaxItemCountSpecifiedByClient;
+            Expression = other.Expression;
+            UnsupportedSearchParams = new List<Tuple<string, string>>(other.UnsupportedSearchParams);
+            Sort = new List<(SearchParameterInfo, SortOrder)>(other.Sort);
+
+            if (other.MaxItemCount > 0)
+            {
+                MaxItemCount = other.MaxItemCount;
+            }
+
+            if (other.IncludeCount > 0)
+            {
+                IncludeCount = other.IncludeCount;
+            }
+        }
+
         /// <summary>
         /// Gets the optional continuation token.
         /// </summary>
@@ -96,16 +118,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the list of sorting parameters.
         /// </summary>
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
-
-        /// <summary>
-        /// Marks whether we need to execute the second set of queries for (certain types of) sort.
-        /// </summary>
-        public bool SortQuerySecondPhase { get; internal set; } = false;
-
-        /// <summary>
-        /// Sets whether this search query is of type sort with filter.
-        /// </summary>
-        public bool IsSortWithFilter { get; internal set; } = false;
 
         /// <summary>
         /// Performs a shallow clone of this instance
