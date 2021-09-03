@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             };
                         }
 
-                        if (_schemaInformation.Current > SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
+                        if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
                         {
                             // For schema versions starting from AddMinMaxForDateAndStringSearchParamVersion we will check
                             // whether the corresponding type of the search parameter is supported.

@@ -121,10 +121,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGeneratorV6 = serviceProvider.GetRequiredService<V6.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertResourceTvpGeneratorV7 = serviceProvider.GetRequiredService<V7.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertResourceTvpGeneratorV13 = serviceProvider.GetRequiredService<V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var upsertResourceTvpGeneratorV16 = serviceProvider.GetRequiredService<V16.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var upsertResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var reindexResourceTvpGeneratorV16 = serviceProvider.GetRequiredService<V16.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var bulkReindexResourceTvpGeneratorV16 = serviceProvider.GetRequiredService<V16.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var reindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var bulkReindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
@@ -151,11 +151,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertResourceTvpGeneratorV6,
                 upsertResourceTvpGeneratorV7,
                 upsertResourceTvpGeneratorV13,
-                upsertResourceTvpGeneratorV16,
+                upsertResourceTvpGeneratorV17,
                 upsertResourceTvpGeneratorVLatest,
-                reindexResourceTvpGeneratorV16,
+                reindexResourceTvpGeneratorV17,
                 reindexResourceTvpGeneratorVLatest,
-                bulkReindexResourceTvpGeneratorV16,
+                bulkReindexResourceTvpGeneratorV17,
                 bulkReindexResourceTvpGeneratorVLatest,
                 options,
                 SqlConnectionWrapperFactory,
