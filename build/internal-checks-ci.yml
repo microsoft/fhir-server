@@ -1,0 +1,143 @@
+# Run SDL checks for the microsoft/fhir-server repository on GitHub.
+
+name: fhir-ci-$(Date:yyyyMMdd)$(Rev:-r)
+
+trigger: none
+
+variables: 
+- name: NugetSecurityAnalysisWarningLevel
+  value: warn
+- name: BuildConfiguration
+  value: Release
+
+resources:
+  repositories:
+  - repository: fhir-server
+    type: github
+    endpoint: Health
+    name: microsoft/fhir-server
+
+jobs:
+- job: Build
+  displayName: Build
+  cancelTimeoutInMinutes: 1
+  pool:
+    name: Hosted Windows 2019 with VS2019
+  steps:
+  - checkout: fhir-server
+    clean: true
+    fetchDepth: 1
+    persistCredentials: True
+  - task: NuGetToolInstaller@0
+    displayName: Use NuGet 4.3.0
+    inputs:
+      versionSpec: 4.3.0
+  - task: NuGetCommand@2
+    displayName: NuGet restore
+    enabled: False
+    inputs:
+      selectOrConfig: config
+      nugetConfigPath: nuget.config
+      externalEndpoints: 72411e68-1d51-42d1-946e-de9a43613206,c9b861fe-6f8c-45cc-8417-8cefd3693e33,90fb2597-6bb3-4ba0-b3f6-9dd34b622006
+  - task: UseDotNet@2
+    displayName: Use .NET Core sdk
+    inputs:
+      useGlobalJson: true
+      version: $(NetCoreVersion)
+  - task: DotNetCoreCLI@2
+    displayName: dotnet restore
+    inputs:
+      command: restore
+      projects: '**/*.sln'
+      feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
+      includeNuGetOrg: false
+  - task: DotNetCoreCLI@1
+    name: ''
+    displayName: dotnet build
+    inputs:
+      projects: '**/*.sln'
+      arguments: --configuration $(BuildConfiguration) --version-suffix $(build.buildnumber) /warnaserror
+  - task: ComponentGovernanceComponentDetection@0
+    displayName: Component Detection
+  - task: AutoApplicability@1
+    displayName: Run AutoApplicability
+    continueOnError: True
+    inputs:
+      ExternalRelease: true
+      IsService: true
+  - task: BinSkim@3
+    displayName: 'Run BinSkim '
+    continueOnError: True
+    inputs:
+      InputType: Basic
+      AnalyzeTarget: $(Build.SourcesDirectory)\Microsoft.Health.*.dll
+  - task: CodeMetrics@1
+    displayName: 'Run CodeMetrics '
+    continueOnError: True
+    enabled: False
+    inputs:
+      Files: $(Build.SourcesDirectory)\**\*.dll
+  - task: CredScan@2
+    displayName: Run CredScan
+    continueOnError: True
+    inputs:
+      outputFormat: sarif
+      debugMode: false
+      folderSuppression: false
+  - task: PoliCheck@1
+    displayName: Run PoliCheck
+    continueOnError: True
+    enabled: False
+  - task: VulnerabilityAssessment@0
+    displayName: Run Vulnerability Assessment
+    continueOnError: True
+  - task: SdtReport@1
+    displayName: Create Security Analysis Report
+    condition: succeededOrFailed()
+    continueOnError: True
+    inputs:
+      BinSkim: true
+      CredScan: true
+  - task: PublishSecurityAnalysisLogs@2
+    displayName: Publish Security Analysis Logs
+    condition: succeededOrFailed()
+    continueOnError: True
+  - task: PostAnalysis@1
+    displayName: Post Analysis
+    condition: succeededOrFailed()
+    inputs:
+      BinSkim: true
+      CredScan: true
+  - task: uploadScanResults@1
+    displayName: Upload Scan Results for Analysis
+    inputs:
+      areaPathParent: Health
+      areaPathChild: Patient Engagement\Resolute
+
+- job: AntiMalware
+  displayName: Anti-malware Phase
+  cancelTimeoutInMinutes: 1
+  dependsOn: Build
+  pool:
+    vmImage: windows-2019
+  steps:
+  - checkout: self
+  - task: DownloadBuildArtifacts@0
+    displayName: Download Nuget Artifacts
+    enabled: False
+    inputs:
+      buildVersionToDownload: specific
+      artifactName: nuget
+  - task: AntiMalware@3
+    displayName: Run MpCmdRun.exe
+    enabled: False
+    inputs:
+      FileDirPath: $(System.ArtifactsDirectory)
+      EnableServices: true
+      SignatureFreshness: OneDay
+      TreatStaleSignatureAs: Warning
+  - task: PublishSecurityAnalysisLogs@2
+    displayName: Publish Security Analysis Logs
+    enabled: False
+    inputs:
+      ArtifactName: CodeAnalysisLogs - Antimalware
