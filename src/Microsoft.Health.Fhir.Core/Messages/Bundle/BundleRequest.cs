@@ -27,11 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Bundle
         {
             var bundleType = Bundle.Scalar<string>(KnownFhirPaths.BundleType);
 
-            if (string.IsNullOrEmpty(bundleType))
-            {
-                throw new MethodNotAllowedException(Core.Resources.TypeNotPresent);
-            }
-
             yield return new CapabilityQuery($"CapabilityStatement.rest.interaction.where(code = '{bundleType}').exists()");
         }
     }

@@ -71,6 +71,9 @@
             "fullUrl": "http://example.org/fhir/Patient/123",
             "resource": {
                 "resourceType": "Patient",
+                "meta": {
+                    "versionId": 1
+                },
                 "id": "123",
                 "text": {
                     "status": "generated",
@@ -132,6 +135,9 @@
             "fullUrl": "http://example.org/fhir/Patient/123",
             "resource": {
                 "resourceType": "Patient",
+                "meta": {
+                    "versionId": 2
+                },
                 "id": "123",
                 "text": {
                     "status": "generated",

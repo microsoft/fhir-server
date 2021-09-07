@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<IProvideProfilesForValidation>(x => x.GetRequiredService<ServerProvideProfileValidation>());
 
             services.AddSingleton<IProfileValidator, ProfileValidator>();
+            services.AddSingleton<IResourceValidator, ResourceValidator>();
         }
     }
 }
