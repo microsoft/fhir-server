@@ -70,7 +70,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var nextLink = firstBundle.NextLink?.ToString();
             int requestCount = 1;
-            while (nextLink != null)
+            bool checkedAllResources = false;
+            while (nextLink != null && !checkedAllResources)
             {
                 Bundle nextBundle = await Client.SearchAsync(nextLink);
 
@@ -80,6 +81,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 if (remainingResources.Length > pageSize)
                 {
                     remainingResources = remainingResources[..pageSize];
+                }
+                else
+                {
+                    checkedAllResources = true;
                 }
 
                 ValidateBundle(nextBundle, nextLink, sort, remainingResources);
