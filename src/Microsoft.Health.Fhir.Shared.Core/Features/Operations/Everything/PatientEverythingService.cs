@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
@@ -29,10 +30,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
+        private readonly IReferenceSearchValueParser _referenceSearchValueParser;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
 
+        // TODO: Can we remove this?
 #pragma warning disable CS0618 // Type or member is obsolete
         private static readonly FhirJsonParser JsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -41,17 +44,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISearchOptionsFactory searchOptionsFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            ICompartmentDefinitionManager compartmentDefinitionManager)
+            ICompartmentDefinitionManager compartmentDefinitionManager,
+            IReferenceSearchValueParser referenceSearchValueParser)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(compartmentDefinitionManager, nameof(compartmentDefinitionManager));
+            EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
 
             _searchServiceFactory = searchServiceFactory;
             _searchOptionsFactory = searchOptionsFactory;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _compartmentDefinitionManager = compartmentDefinitionManager;
+            _referenceSearchValueParser = referenceSearchValueParser;
         }
 
         public async Task<SearchResult> SearchAsync(
@@ -209,9 +215,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             return new SearchResult(searchResultEntries, searchResult.ContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
         }
 
-        private static void StoreSeeAlsoLinkInformationInToken(string resourceId, EverythingOperationContinuationToken token, List<SearchResultEntry> searchResultEntries)
+        private void StoreSeeAlsoLinkInformationInToken(string resourceId, EverythingOperationContinuationToken token, IReadOnlyCollection<SearchResultEntry> searchResultEntries)
         {
-            SearchResultEntry patientResource = searchResultEntries.FirstOrDefault(s => s.Resource.ResourceTypeName == ResourceType.Patient.ToString());
+            SearchResultEntry patientResource = searchResultEntries.FirstOrDefault(s => string.Equals(s.Resource.ResourceTypeName, ResourceType.Patient.ToString(), StringComparison.Ordinal));
 
             // TODO: Why can't we check if patient resource is null?
             if (searchResultEntries.Any())
@@ -226,18 +232,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 {
                     foreach (Patient.LinkComponent link in links)
                     {
-                        if (link.Type == Patient.LinkType.ReplacedBy)
-                        {
-                            // TODO: Update error message
-                            // TODO: Make string error resource object
-                            // TODO: Convert reference to ID
-                            // TODO: This does not return an operation outcome - it should
-                            throw new InvalidOperationException($"The patient with ID {resourceId} is no longer relevant. Please use patient with ID {link.Other.Reference} instead.");
-                        }
+                        ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
 
-                        if (link.Type == Patient.LinkType.Seealso)
+                        // If the link does not point back to the current patient
+                        if (!string.Equals(referenceSearchValue.ResourceId, resourceId, StringComparison.Ordinal))
                         {
-                            token.AddSeeAlsoLink(link.Other.Reference);
+                            if (link.Type == Patient.LinkType.ReplacedBy)
+                            {
+                                // TODO: Update error message
+                                // TODO: Make string error resource object
+                                // TODO: Convert reference to ID
+                                // TODO: This does not return an operation outcome - it should
+                                throw new InvalidOperationException($"The patient with ID {resourceId} is no longer relevant. Please use patient with ID {link.Other.Reference} instead.");
+                            }
+
+                            if (link.Type == Patient.LinkType.Seealso)
+                            {
+                                // Links can be of type Patient or RelatedPerson - only add Patient resources
+                                if (string.Equals(referenceSearchValue.ResourceType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
+                                {
+                                    token.AddSeeAlsoLink(referenceSearchValue.ResourceId);
+                                }
+                            }
                         }
                     }
                 }
