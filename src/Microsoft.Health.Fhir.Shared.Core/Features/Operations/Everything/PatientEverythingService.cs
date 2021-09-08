@@ -9,9 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -31,33 +29,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
+        private readonly IResourceDeserializer _resourceDeserializer;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
-
-        // TODO: Can we remove this?
-#pragma warning disable CS0618 // Type or member is obsolete
-        private static readonly FhirJsonParser JsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
-#pragma warning restore CS0618 // Type or member is obsolete
 
         public PatientEverythingService(
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISearchOptionsFactory searchOptionsFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ICompartmentDefinitionManager compartmentDefinitionManager,
-            IReferenceSearchValueParser referenceSearchValueParser)
+            IReferenceSearchValueParser referenceSearchValueParser,
+            IResourceDeserializer resourceDeserializer)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(compartmentDefinitionManager, nameof(compartmentDefinitionManager));
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
+            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
 
             _searchServiceFactory = searchServiceFactory;
             _searchOptionsFactory = searchOptionsFactory;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _compartmentDefinitionManager = compartmentDefinitionManager;
             _referenceSearchValueParser = referenceSearchValueParser;
+            _resourceDeserializer = resourceDeserializer;
         }
 
         public async Task<SearchResult> SearchAsync(
@@ -222,9 +219,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             // TODO: Why can't we check if patient resource is null?
             if (searchResultEntries.Any())
             {
-                // TODO: Better way to extract link info from Patient?
-                var rawResourceElement = new RawResourceElement(patientResource.Resource);
-                Patient patient = rawResourceElement.ToPoco<Patient>(new ResourceDeserializer((FhirResourceFormat.Json, ConvertJson)));
+                ResourceElement element = _resourceDeserializer.Deserialize(patientResource.Resource);
+                Patient patient = element.ToPoco<Patient>();
 
                 List<Patient.LinkComponent> links = patient.Link;
 
@@ -248,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
                             if (link.Type == Patient.LinkType.Seealso)
                             {
-                                // Links can be of type Patient or RelatedPerson - only add Patient resources
+                                // Links can be of type Patient or RelatedPerson - only attempt to run the $everything operation on Patient resources
                                 if (string.Equals(referenceSearchValue.ResourceType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
                                 {
                                     token.AddSeeAlsoLink(referenceSearchValue.ResourceId);
@@ -420,14 +416,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             using IScoped<ISearchService> search = _searchServiceFactory();
             SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
-        }
-
-        private static ResourceElement ConvertJson(string str, string version, DateTimeOffset lastModified)
-        {
-            var resource = JsonParser.Parse<Resource>(str);
-            resource.VersionId = version;
-            resource.Meta.LastUpdated = lastModified;
-            return resource.ToTypedElement().ToResourceElement();
         }
     }
 }
