@@ -35,11 +35,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             Assert.Equal("abc", token.InternalContinuationToken);
         }
 
-        [Fact]
-        public void GivenEverythingOperationContinuationToken_WhenToString_ThenCorrectStringShouldBeReturned()
+        [Theory]
+        [InlineData(0, null)]
+        [InlineData(1, null)]
+        [InlineData(2, "abc")]
+        [InlineData(3, "abc")]
+        public void GivenEverythingOperationContinuationToken_WhenToString_ThenCorrectStringShouldBeReturned(int phase, string internalContinuationToken)
         {
-            Assert.Equal("{\"Phase\":1,\"InternalContinuationToken\":null}", EverythingOperationContinuationToken.ToString(1, null));
-            Assert.Equal("{\"Phase\":2,\"InternalContinuationToken\":\"abc\"}", EverythingOperationContinuationToken.ToString(2, "abc"));
+            var token = new EverythingOperationContinuationToken(phase, internalContinuationToken);
+
+            // The internal continuation token value will be padded with quotes if it is not null
+            internalContinuationToken = string.IsNullOrEmpty(internalContinuationToken) ? internalContinuationToken : "\"" + internalContinuationToken + "\"";
+
+            Assert.Equal($"{{\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken}}}", token.ToString());
         }
     }
 }

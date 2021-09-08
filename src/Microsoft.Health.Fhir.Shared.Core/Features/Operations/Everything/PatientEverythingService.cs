@@ -9,9 +9,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -29,6 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
+
+#pragma warning disable CS0618 // Type or member is obsolete
+        private static readonly FhirJsonParser JsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
+#pragma warning restore CS0618 // Type or member is obsolete
 
         public PatientEverythingService(
             Func<IScoped<ISearchService>> searchServiceFactory,
@@ -71,11 +78,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 : ContinuationTokenConverter.Encode(token.InternalContinuationToken);
             IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
+            // Check if we are currently processing a Patient's "seealso" link
+            resourceId = token.ProcessingSeeAlsoLink ? token.CurrentSeeAlsoLinkId : resourceId;
+
             var phase = token.Phase;
             switch (phase)
             {
                 case 0:
-                    searchResult = await SearchIncludes(resourceId, since, types, cancellationToken);
+                    searchResult = await SearchIncludes(resourceId, since, types, token, cancellationToken);
+
                     if (!searchResult.Results.Any())
                     {
                         phase = 1;
@@ -119,23 +130,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase));
             }
 
-            string newContinuationToken = null;
+            string nextContinuationToken = null;
             if (searchResult.ContinuationToken != null)
             {
-                newContinuationToken = EverythingOperationContinuationToken.ToString(phase, searchResult.ContinuationToken);
+                // Keep processing the remaining results for the current phase
+                token.InternalContinuationToken = searchResult.ContinuationToken;
+
+                nextContinuationToken = token.ToString();
             }
             else if (phase < 3)
             {
-                newContinuationToken = EverythingOperationContinuationToken.ToString(phase + 1, null);
+                // Advance to the next phase
+                token.Phase = phase + 1;
+                token.InternalContinuationToken = null;
+
+                nextContinuationToken = token.ToString();
+            }
+            else if (token.MoreSeeAlsoLinksToProcess)
+            {
+                token.Phase = 0;
+                token.InternalContinuationToken = null;
+                token.ProcessNextSeeAlsoLink();
+
+                nextContinuationToken = token.ToString();
             }
 
-            return new SearchResult(searchResult.Results, newContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+            return new SearchResult(searchResult.Results, nextContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
         }
 
         private async Task<SearchResult> SearchIncludes(
             string resourceId,
             PartialDateTime since,
             IReadOnlyList<string> types,
+            EverythingOperationContinuationToken token,
             CancellationToken cancellationToken)
         {
             using IScoped<ISearchService> search = _searchServiceFactory();
@@ -153,6 +180,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), searchParameters);
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
+
+            if (!token.ProcessingSeeAlsoLink)
+            {
+                StoreSeeAlsoLinkInformationInToken(resourceId, token, searchResultEntries);
+            }
 
             // Filter results by _type
             if (types.Any())
@@ -175,6 +207,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             return new SearchResult(searchResultEntries, searchResult.ContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+        }
+
+        private static void StoreSeeAlsoLinkInformationInToken(string resourceId, EverythingOperationContinuationToken token, List<SearchResultEntry> searchResultEntries)
+        {
+            SearchResultEntry patientResource = searchResultEntries.FirstOrDefault(s => s.Resource.ResourceTypeName == ResourceType.Patient.ToString());
+
+            // TODO: Why can't we check if patient resource is null?
+            if (searchResultEntries.Any())
+            {
+                // TODO: Better way to extract link info from Patient?
+                var rawResourceElement = new RawResourceElement(patientResource.Resource);
+                Patient patient = rawResourceElement.ToPoco<Patient>(new ResourceDeserializer((FhirResourceFormat.Json, ConvertJson)));
+
+                List<Patient.LinkComponent> links = patient.Link;
+
+                if (links != null)
+                {
+                    foreach (Patient.LinkComponent link in links)
+                    {
+                        if (link.Type == Patient.LinkType.ReplacedBy)
+                        {
+                            // TODO: Update error message
+                            // TODO: Make string error resource object
+                            // TODO: Convert reference to ID
+                            // TODO: This does not return an operation outcome - it should
+                            throw new InvalidOperationException($"The patient with ID {resourceId} is no longer relevant. Please use patient with ID {link.Other.Reference} instead.");
+                        }
+
+                        if (link.Type == Patient.LinkType.Seealso)
+                        {
+                            token.AddSeeAlsoLink(link.Other.Reference);
+                        }
+                    }
+                }
+            }
         }
 
         private async Task<SearchResult> SearchRevinclude(
@@ -337,6 +404,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             using IScoped<ISearchService> search = _searchServiceFactory();
             SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
+        }
+
+        private static ResourceElement ConvertJson(string str, string version, DateTimeOffset lastModified)
+        {
+            var resource = JsonParser.Parse<Resource>(str);
+            resource.VersionId = version;
+            resource.Meta.LastUpdated = lastModified;
+            return resource.ToTypedElement().ToResourceElement();
         }
     }
 }

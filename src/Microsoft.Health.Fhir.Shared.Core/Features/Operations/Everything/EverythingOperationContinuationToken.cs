@@ -3,7 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Text.Json;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 {
@@ -13,15 +14,44 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             Phase = phase;
             InternalContinuationToken = internalContinuationToken;
+
+            SeeAlsoLinks = new List<string>();
+            CurrentSeeAlsoLinkIndex = -1;
+            CurrentSeeAlsoLinkId = null;
         }
 
-        public int Phase { get; private set; }
+        [JsonProperty]
+        private List<string> SeeAlsoLinks { get; }
 
-        public string InternalContinuationToken { get; private set; }
+        [JsonProperty]
+        private int CurrentSeeAlsoLinkIndex { get; set; }
 
-        public static string ToString(int phase, string internalContinuationToken)
+        [JsonProperty]
+        public string CurrentSeeAlsoLinkId { get; private set; }
+
+        public int Phase { get; set; }
+
+        public string InternalContinuationToken { get; set; }
+
+        public bool ProcessingSeeAlsoLink
         {
-            return JsonSerializer.Serialize(new EverythingOperationContinuationToken(phase, internalContinuationToken));
+            get
+            {
+                return !string.IsNullOrEmpty(CurrentSeeAlsoLinkId);
+            }
+        }
+
+        public bool MoreSeeAlsoLinksToProcess
+        {
+            get
+            {
+                return CurrentSeeAlsoLinkIndex < SeeAlsoLinks.Count - 1;
+            }
+        }
+
+        public override string ToString()
+        {
+            return JsonConvert.SerializeObject(this);
         }
 
         public static EverythingOperationContinuationToken FromString(string json)
@@ -31,14 +61,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 return null;
             }
 
-            try
-            {
-                return JsonSerializer.Deserialize<EverythingOperationContinuationToken>(json);
-            }
-            catch (JsonException)
-            {
-                return null;
-            }
+            return JsonConvert.DeserializeObject<EverythingOperationContinuationToken>(json);
+        }
+
+        public void AddSeeAlsoLink(string link)
+        {
+            SeeAlsoLinks.Add(link);
+        }
+
+        public void ProcessNextSeeAlsoLink()
+        {
+            CurrentSeeAlsoLinkIndex++;
+            CurrentSeeAlsoLinkId = SeeAlsoLinks[CurrentSeeAlsoLinkIndex];
         }
     }
 }
