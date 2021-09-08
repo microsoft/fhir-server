@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -130,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     break;
                 default:
                     // This should never happen
-                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase));
+                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase), HttpStatusCode.InternalServerError);
             }
 
             string nextContinuationToken = null;
@@ -216,8 +217,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             SearchResultEntry patientResource = searchResultEntries.FirstOrDefault(s => string.Equals(s.Resource.ResourceTypeName, ResourceType.Patient.ToString(), StringComparison.Ordinal));
 
-            // TODO: Why can't we check if patient resource is null?
-            if (searchResultEntries.Any())
+            if (patientResource.Resource != null)
             {
                 ResourceElement element = _resourceDeserializer.Deserialize(patientResource.Resource);
                 Patient patient = element.ToPoco<Patient>();
@@ -235,11 +235,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                         {
                             if (link.Type == Patient.LinkType.ReplacedBy)
                             {
-                                // TODO: Update error message
-                                // TODO: Make string error resource object
-                                // TODO: Convert reference to ID
-                                // TODO: This does not return an operation outcome - it should
-                                throw new InvalidOperationException($"The patient with ID {resourceId} is no longer relevant. Please use patient with ID {link.Other.Reference} instead.");
+                                throw new EverythingOperationException(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, resourceId, referenceSearchValue.ResourceId), HttpStatusCode.BadRequest);
                             }
 
                             if (link.Type == Patient.LinkType.Seealso)

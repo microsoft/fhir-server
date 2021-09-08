@@ -607,4 +607,7 @@
     <value>Can't find '{0}' in type '{1}'</value>
     <comment>{0}: expression we trying to resolve, {1}: FHIR type</comment>
   </data>
+  <data name="EverythingOperationResourceIrrelevant" xml:space="preserve">
+    <value>The patient with id `{0}` is no longer relevant. Use patient with id `{1}` instead.</value>
+  </data>
 </root>

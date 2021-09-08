@@ -66,7 +66,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         public void AddSeeAlsoLink(string link)
         {
-            SeeAlsoLinks.Add(link);
+            // Safe to linear search on addition as it isn't common for a patient to have many "seealso" links
+            if (!SeeAlsoLinks.Contains(link))
+            {
+                SeeAlsoLinks.Add(link);
+            }
         }
 
         public void ProcessNextSeeAlsoLink()
