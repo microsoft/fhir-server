@@ -38,9 +38,17 @@
                         "uid": "1.2.276.0.50.192168001099.7810872.14547392.458",
                         "instance": [
                             {
+                                "sopClass": {
+                                    "system": "urn:ietf:rfc:3986",
+                                    "code": "urn:oid:1.2.840.10008.5.1.4.1.1.2"
+                                },
                                 "uid": "1.2.276.0.50.192168001099.7810872.14547392.467"
                             }
-                        ]
+                        ],
+                        "modality": {
+                            "system": "http://dicom.nema.org/resources/ontology/DCM",
+                            "code": "CT"
+                        }
                     }
                 ]
             },

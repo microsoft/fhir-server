@@ -193,6 +193,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 {
                     Reference = "Patient?identifier=http:/example.org/fhir/ids|" + patientId,
                 },
+                Status = ObservationStatus.Corrected,
+                Code = new CodeableConcept("http://loinc.org", "789-8"),
             };
 
             var bundle = new Bundle
