@@ -74,6 +74,11 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 [
     {
         "op": "add",
+        "path": "/telecom",
+        "value": []
+    },
+    {
+        "op": "add",
         "path": "/telecom/0",
         "value": 
         {
