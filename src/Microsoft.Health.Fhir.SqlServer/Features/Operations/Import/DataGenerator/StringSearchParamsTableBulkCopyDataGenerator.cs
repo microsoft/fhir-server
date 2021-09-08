@@ -58,10 +58,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Rows.Add(newRow);
         }
 
-        internal override void FillSearchParamsSchema(DataTable table)
+        internal override void FillSchema(DataTable table)
         {
+            // Columns should follow same order as sql table defination.
+            table.Columns.Add(new DataColumn(ResourceTypeId.Metadata.Name, ResourceTypeId.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(ResourceSurrogateId.Metadata.Name, ResourceSurrogateId.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.StringSearchParam.Text.Metadata.Name, VLatest.StringSearchParam.Text.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.StringSearchParam.TextOverflow.Metadata.Name, VLatest.StringSearchParam.TextOverflow.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.StringSearchParam.IsMin.Metadata.Name, VLatest.StringSearchParam.IsMin.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.StringSearchParam.IsMax.Metadata.Name, VLatest.StringSearchParam.IsMax.Metadata.SqlDbType.GetGeneralType()));
         }
