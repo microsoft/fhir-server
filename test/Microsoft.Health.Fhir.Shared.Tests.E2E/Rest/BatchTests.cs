@@ -108,15 +108,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenBundleTypeIsMissing_WhenSubmittingABundle_ThenMethodNotAllowedExceptionIsReturned()
         {
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>()));
-            ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "BadRequest", null, IssueType.Invalid);
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAnInValidBundle_WhenSubmitting_ThenBadRequestReturned()
+        public async Task GivenAnInvalidBundle_WhenSubmitting_ThenBadRequestReturned()
         {
             var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
-            requestBundle.Entry.First().Request = null;
+            requestBundle.Entry.First().Request.Method = null;
 
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PostBundleAsync(requestBundle));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
