@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using System.Threading;
 using EnsureThat;
 using MediatR.Pipeline;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 throw new RequestNotValidException(Core.Resources.BundleRequiredForBatchOrTransaction);
             }
 
-            var results = _resourceValidator.TryValidate(request.Bundle.Instance);
+            var results = _resourceValidator.TryValidate(request.Bundle.Instance).Where(x => x.Severity == "Error").ToArray();
             if (results.Length != 0)
             {
                 throw new ResourceNotValidException(results);

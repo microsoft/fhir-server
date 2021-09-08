@@ -10,6 +10,9 @@
             "fullUrl": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5",
             "resource": {
                 "id": "9F746C86-48B4-424D-9F92-1E46215E35D5",
+                "meta": {
+                    "versionId": 1
+                },
                 "resourceType": "Patient",
                 "text": {
                     "status": "generated",
