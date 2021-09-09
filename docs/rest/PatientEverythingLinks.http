@@ -3,7 +3,7 @@
 # behaviour depending on the type of the link:
 # - "seealso": Patient $everything is run on this patient as well
 # - "replaced-by": An operation outcome is returned
-# - "replaces"/"refers": These links are ignored
+# - "replaces"/"refer": These links are ignored
 #
 # This test assumes you are running the FHIR server locally with R4
 
@@ -25,7 +25,7 @@ grant_type=client_credentials
 # This patient directly references HL7 as its managing organization.
 # It also has two "seealso" links: one to a RelatedPerson and one
 # to another Patient resource.
-# Finally, it has a "replaces" link and a "refers" link. These 
+# Finally, it has a "replaces" link and a "refer" link. These 
 # should be ignored by the Patient $everything operation.
 # @name mum
 PUT https://{{hostname}}/Patient/mum
