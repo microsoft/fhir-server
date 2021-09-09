@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
@@ -67,9 +68,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
-                ? new EverythingOperationContinuationToken(0, null)
-                : EverythingOperationContinuationToken.FromString(ContinuationTokenConverter.Decode(continuationToken));
+            EverythingOperationContinuationToken token;
+
+            try
+            {
+                token = string.IsNullOrEmpty(continuationToken)
+                    ? new EverythingOperationContinuationToken(0, null)
+                    : EverythingOperationContinuationToken.FromString(ContinuationTokenConverter.Decode(continuationToken));
+            }
+            catch (JsonReaderException)
+            {
+                throw new BadRequestException(Core.Resources.InvalidContinuationToken);
+            }
 
             if (token == null || token.Phase < 0 || token.Phase > 3)
             {
@@ -131,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     break;
                 default:
                     // This should never happen
-                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase), HttpStatusCode.InternalServerError);
+                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase), HttpStatusCode.BadRequest);
             }
 
             string nextContinuationToken = null;

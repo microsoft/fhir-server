@@ -188,5 +188,73 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(secondBundle, Fixture.Observation);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithSeeAlsoLink_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink()
+        {
+            string searchUrl = $"Patient/{Fixture.PatientWithSeeAlsoLink.Id}/$everything";
+
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(firstBundle, Fixture.PatientWithSeeAlsoLink);
+
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+            Assert.Empty(secondBundle.Resource.Entry);
+
+            nextLink = secondBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
+            ValidateBundle(thirdBundle, Fixture.PatientReferencedByLink);
+
+            nextLink = thirdBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
+
+            // All the patients that have links to the "patient-reference" patient will be in its patient compartment
+            ValidateBundle(fourthBundle, Fixture.PatientWithSeeAlsoLink, Fixture.PatientWithReplacedByLink, Fixture.PatientWithReferLink, Fixture.PatientWithReplacesLink);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithReplacedByLink_WhenRunningPatientEverything_ThenBadRequestIsReturned()
+        {
+            string searchUrl = $"Patient/{Fixture.PatientWithReplacedByLink.Id}/$everything";
+
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.Contains(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, Fixture.PatientWithReplacedByLink.Id, Fixture.PatientReferencedByLink.Id), ex.Message);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithReplacesLink_WhenRunningPatientEverything_ThenLinkShouldBeIgnored()
+        {
+            string searchUrl = $"Patient/{Fixture.PatientWithReplacesLink.Id}/$everything";
+
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(firstBundle, Fixture.PatientWithReplacesLink);
+
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+
+            Assert.Empty(secondBundle.Resource.Entry);
+            Assert.Null(secondBundle.Resource.NextLink);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithReferLink_WhenRunningPatientEverything_ThenLinkShouldBeIgnored()
+        {
+            string searchUrl = $"Patient/{Fixture.PatientWithReferLink.Id}/$everything";
+
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(firstBundle, Fixture.PatientWithReferLink);
+
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+
+            Assert.Empty(secondBundle.Resource.Entry);
+            Assert.Null(secondBundle.Resource.NextLink);
+        }
     }
 }

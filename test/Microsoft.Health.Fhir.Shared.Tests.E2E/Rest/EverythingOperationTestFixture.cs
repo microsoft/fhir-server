@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -21,6 +22,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public Patient Patient { get; private set; }
 
         public Patient NonExistentPatient { get; private set; }
+
+        public Patient PatientWithSeeAlsoLink { get; private set; }
+
+        public Patient PatientWithReplacedByLink { get; private set; }
+
+        public Patient PatientWithReferLink { get; private set; }
+
+        public Patient PatientWithReplacesLink { get; private set; }
+
+        public Patient PatientReferencedByLink { get; private set; }
 
         public Organization Organization { get; private set; }
 
@@ -90,6 +101,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ObservationOfNonExistentPatient = await TestFhirClient.CreateAsync(observationToCreate);
 
             await TestFhirClient.DeleteAsync(NonExistentPatient);
+
+            // Test case #3
+            // Create patients with different types of links
+            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate.Id = "patient-reference";
+            PatientReferencedByLink = await TestFhirClient.CreateAsync(patientToCreate);
+
+            PatientWithSeeAlsoLink = await CreatePatientWithLink(Patient.LinkType.Seealso, PatientReferencedByLink);
+            PatientWithReplacedByLink = await CreatePatientWithLink(Patient.LinkType.ReplacedBy, PatientReferencedByLink);
+            PatientWithReplacesLink = await CreatePatientWithLink(Patient.LinkType.Replaces, PatientReferencedByLink);
+            PatientWithReferLink = await CreatePatientWithLink(Patient.LinkType.Refer, PatientReferencedByLink);
+        }
+
+        private async Task<Patient> CreatePatientWithLink(Patient.LinkType linkType, Patient patientReferencedByLink)
+        {
+            Patient patientWithLink = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+
+            var link = new Patient.LinkComponent
+            {
+                Type = linkType,
+                Other = new ResourceReference($"Patient/{patientReferencedByLink.Id }"),
+            };
+
+            patientWithLink.Link = new List<Patient.LinkComponent>
+            {
+                link,
+            };
+
+            return await TestFhirClient.CreateAsync(patientWithLink);
         }
     }
 }

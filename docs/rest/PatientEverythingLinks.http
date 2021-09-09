@@ -109,7 +109,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
       "other": {
         "reference": "RelatedPerson/newborn-mom-2"
       },
-      "type": "refers"
+      "type": "refer"
     }
   ]
 }
