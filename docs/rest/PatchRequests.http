@@ -74,6 +74,11 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 [
     {
         "op": "add",
+        "path": "/telecom",
+        "value": []
+    },
+    {
+        "op": "add",
         "path": "/telecom/0",
         "value": 
         {
@@ -179,3 +184,21 @@ Authorization: Bearer {{bearer.response.body.access_token}}
         }
     ]
 }
+
+### Conditional Patch
+PATCH {{fhirurl}}/Patient?identifier=1032704
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "replace",
+        "path": "/name/0",
+        "value": {
+                "family": "Doe",
+                "given": [
+                "Jane"
+                ]
+        }
+    }
+]
