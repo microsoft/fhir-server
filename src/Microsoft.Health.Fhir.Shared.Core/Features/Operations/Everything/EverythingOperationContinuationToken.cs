@@ -8,40 +8,28 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 {
-    public class EverythingOperationContinuationToken
+    internal class EverythingOperationContinuationToken
     {
-        public EverythingOperationContinuationToken(int phase, string internalContinuationToken)
+        [JsonConstructor]
+        internal EverythingOperationContinuationToken(int phase, string internalContinuationToken)
         {
             Phase = phase;
             InternalContinuationToken = internalContinuationToken;
 
             SeeAlsoLinks = new List<string>();
             CurrentSeeAlsoLinkIndex = -1;
-            CurrentSeeAlsoLinkId = null;
         }
 
         [JsonProperty]
-        private List<string> SeeAlsoLinks { get; }
+        internal List<string> SeeAlsoLinks { get; }
 
         [JsonProperty]
-        private int CurrentSeeAlsoLinkIndex { get; set; }
+        internal int Phase { get; set; }
 
         [JsonProperty]
-        public string CurrentSeeAlsoLinkId { get; private set; }
+        internal string InternalContinuationToken { get; set; }
 
-        public int Phase { get; set; }
-
-        public string InternalContinuationToken { get; set; }
-
-        public bool ProcessingSeeAlsoLink
-        {
-            get
-            {
-                return !string.IsNullOrEmpty(CurrentSeeAlsoLinkId);
-            }
-        }
-
-        public bool MoreSeeAlsoLinksToProcess
+        internal bool MoreSeeAlsoLinksToProcess
         {
             get
             {
@@ -49,12 +37,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
         }
 
+        internal string CurrentSeeAlsoLinkId
+        {
+            get
+            {
+                return SeeAlsoLinks[CurrentSeeAlsoLinkIndex];
+            }
+        }
+
+        internal bool IsProcessingSeeAlsoLink
+        {
+            get
+            {
+                return CurrentSeeAlsoLinkIndex > -1;
+            }
+        }
+
+        [JsonProperty]
+        private int CurrentSeeAlsoLinkIndex { get; set; }
+
         public override string ToString()
         {
             return JsonConvert.SerializeObject(this);
         }
 
-        public static EverythingOperationContinuationToken FromString(string json)
+        internal static EverythingOperationContinuationToken FromString(string json)
         {
             if (string.IsNullOrEmpty(json))
             {
@@ -65,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             try
             {
-                 token = JsonConvert.DeserializeObject<EverythingOperationContinuationToken>(json);
+                token = JsonConvert.DeserializeObject<EverythingOperationContinuationToken>(json);
             }
             catch (JsonException)
             {
@@ -75,19 +82,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             return token;
         }
 
-        public void AddSeeAlsoLink(string link)
-        {
-            // Safe to linear search on addition as it isn't common for a patient to have many "seealso" links
-            if (!SeeAlsoLinks.Contains(link))
-            {
-                SeeAlsoLinks.Add(link);
-            }
-        }
-
-        public void ProcessNextSeeAlsoLink()
+        internal void ProcessNextSeeAlsoLink()
         {
             CurrentSeeAlsoLinkIndex++;
-            CurrentSeeAlsoLinkId = SeeAlsoLinks[CurrentSeeAlsoLinkIndex];
         }
     }
 }

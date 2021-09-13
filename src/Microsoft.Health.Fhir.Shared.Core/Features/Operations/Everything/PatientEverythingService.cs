@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
             // Check if we are currently processing a Patient's "seealso" link
-            resourceId = token.ProcessingSeeAlsoLink ? token.CurrentSeeAlsoLinkId : resourceId;
+            resourceId = token.IsProcessingSeeAlsoLink ? token.CurrentSeeAlsoLinkId : resourceId;
 
             var phase = token.Phase;
             switch (phase)
@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
-            if (!token.ProcessingSeeAlsoLink)
+            if (!token.IsProcessingSeeAlsoLink)
             {
                 StoreSeeAlsoLinkInformationInToken(resourceId, token, searchResultEntries);
             }
@@ -225,27 +225,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
                 List<Patient.LinkComponent> links = patient.Link;
 
-                if (links != null)
+                if (links == null)
                 {
-                    foreach (Patient.LinkComponent link in links)
+                    // No links to store
+                    return;
+                }
+
+                // Use a hash set to ensure we are not adding duplicate "seealso" links to the token
+                var linkIds = new HashSet<string>();
+
+                foreach (Patient.LinkComponent link in links)
+                {
+                    ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
+
+                    // If the link points back to the current patient
+                    if (string.Equals(referenceSearchValue.ResourceId, resourceId, StringComparison.Ordinal))
                     {
-                        ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
+                        // Ignore it to avoid running patient $everything on the same patient again
+                        continue;
+                    }
 
-                        // If the link does not point back to the current patient
-                        if (!string.Equals(referenceSearchValue.ResourceId, resourceId, StringComparison.Ordinal))
+                    if (link.Type == Patient.LinkType.ReplacedBy)
+                    {
+                        throw new EverythingOperationException(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, resourceId, referenceSearchValue.ResourceId), HttpStatusCode.BadRequest);
+                    }
+
+                    if (link.Type == Patient.LinkType.Seealso)
+                    {
+                        // Links can be of type Patient or RelatedPerson - only attempt to run the $everything operation on Patient resources
+                        if (string.Equals(referenceSearchValue.ResourceType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
                         {
-                            if (link.Type == Patient.LinkType.ReplacedBy)
+                            // TODO: should we return an error here?
+                            if (!linkIds.Contains(referenceSearchValue.ResourceId))
                             {
-                                throw new EverythingOperationException(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, resourceId, referenceSearchValue.ResourceId), HttpStatusCode.BadRequest);
-                            }
-
-                            if (link.Type == Patient.LinkType.Seealso)
-                            {
-                                // Links can be of type Patient or RelatedPerson - only attempt to run the $everything operation on Patient resources
-                                if (string.Equals(referenceSearchValue.ResourceType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
-                                {
-                                    token.AddSeeAlsoLink(referenceSearchValue.ResourceId);
-                                }
+                                token.SeeAlsoLinks.Add(referenceSearchValue.ResourceId);
+                                linkIds.Add(referenceSearchValue.ResourceId);
                             }
                         }
                     }

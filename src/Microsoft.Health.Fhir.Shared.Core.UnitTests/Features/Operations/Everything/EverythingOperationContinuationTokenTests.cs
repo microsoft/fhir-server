@@ -47,21 +47,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             // The internal continuation token value will be padded with quotes if it is not null
             internalContinuationToken = string.IsNullOrEmpty(internalContinuationToken) ? "null" : "\"" + internalContinuationToken + "\"";
 
-            Assert.Equal($"{{\"SeeAlsoLinks\":[],\"CurrentSeeAlsoLinkIndex\":-1,\"CurrentSeeAlsoLinkId\":null,\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"ProcessingSeeAlsoLink\":false,\"MoreSeeAlsoLinksToProcess\":false}}", token.ToString());
+            Assert.Equal($"{{\"SeeAlsoLinks\":[],\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"CurrentSeeAlsoLinkIndex\":-1}}", token.ToString());
         }
 
         [Fact]
         public void GivenEverythingOperationContinuationTokenWithSeeAlsoLinks_WhenToString_ThenCorrectStringShouldBeReturned()
         {
             var token = new EverythingOperationContinuationToken(0, null);
-            token.AddSeeAlsoLink("link1");
-            token.AddSeeAlsoLink("link2");
+            token.SeeAlsoLinks.Add("link1");
+            token.SeeAlsoLinks.Add("link2");
 
             token.ProcessNextSeeAlsoLink();
-            Assert.Equal($"{{\"SeeAlsoLinks\":[\"link1\",\"link2\"],\"CurrentSeeAlsoLinkIndex\":0,\"CurrentSeeAlsoLinkId\":\"link1\",\"Phase\":0,\"InternalContinuationToken\":null,\"ProcessingSeeAlsoLink\":true,\"MoreSeeAlsoLinksToProcess\":true}}", token.ToString());
+            Assert.Equal($"{{\"SeeAlsoLinks\":[\"link1\",\"link2\"],\"Phase\":0,\"InternalContinuationToken\":null,\"CurrentSeeAlsoLinkIndex\":0}}", token.ToString());
 
             token.ProcessNextSeeAlsoLink();
-            Assert.Equal($"{{\"SeeAlsoLinks\":[\"link1\",\"link2\"],\"CurrentSeeAlsoLinkIndex\":1,\"CurrentSeeAlsoLinkId\":\"link2\",\"Phase\":0,\"InternalContinuationToken\":null,\"ProcessingSeeAlsoLink\":true,\"MoreSeeAlsoLinksToProcess\":false}}", token.ToString());
+            Assert.Equal($"{{\"SeeAlsoLinks\":[\"link1\",\"link2\"],\"Phase\":0,\"InternalContinuationToken\":null,\"CurrentSeeAlsoLinkIndex\":1}}", token.ToString());
         }
     }
 }
