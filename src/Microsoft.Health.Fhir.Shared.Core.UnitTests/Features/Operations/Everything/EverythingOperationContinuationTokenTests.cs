@@ -45,9 +45,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             var token = new EverythingOperationContinuationToken(phase, internalContinuationToken);
 
             // The internal continuation token value will be padded with quotes if it is not null
-            internalContinuationToken = string.IsNullOrEmpty(internalContinuationToken) ? internalContinuationToken : "\"" + internalContinuationToken + "\"";
+            internalContinuationToken = string.IsNullOrEmpty(internalContinuationToken) ? "null" : "\"" + internalContinuationToken + "\"";
 
-            Assert.Equal($"{{\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken}}}", token.ToString());
+            Assert.Equal($"{{\"SeeAlsoLinks\":[],\"CurrentSeeAlsoLinkIndex\":-1,\"CurrentSeeAlsoLinkId\":null,\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"ProcessingSeeAlsoLink\":false,\"MoreSeeAlsoLinksToProcess\":false}}", token.ToString());
+        }
+
+        [Fact]
+        public void GivenEverythingOperationContinuationTokenWithSeeAlsoLinks_WhenToString_ThenCorrectStringShouldBeReturned()
+        {
+            var token = new EverythingOperationContinuationToken(0, null);
+            token.AddSeeAlsoLink("link1");
+            token.AddSeeAlsoLink("link2");
+
+            token.ProcessNextSeeAlsoLink();
+            Assert.Equal($"{{\"SeeAlsoLinks\":[\"link1\",\"link2\"],\"CurrentSeeAlsoLinkIndex\":0,\"CurrentSeeAlsoLinkId\":\"link1\",\"Phase\":0,\"InternalContinuationToken\":null,\"ProcessingSeeAlsoLink\":true,\"MoreSeeAlsoLinksToProcess\":true}}", token.ToString());
+
+            token.ProcessNextSeeAlsoLink();
+            Assert.Equal($"{{\"SeeAlsoLinks\":[\"link1\",\"link2\"],\"CurrentSeeAlsoLinkIndex\":1,\"CurrentSeeAlsoLinkId\":\"link2\",\"Phase\":0,\"InternalContinuationToken\":null,\"ProcessingSeeAlsoLink\":true,\"MoreSeeAlsoLinksToProcess\":false}}", token.ToString());
         }
     }
 }

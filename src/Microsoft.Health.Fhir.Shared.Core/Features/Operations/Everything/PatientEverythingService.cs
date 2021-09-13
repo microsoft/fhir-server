@@ -68,18 +68,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            EverythingOperationContinuationToken token;
-
-            try
-            {
-                token = string.IsNullOrEmpty(continuationToken)
-                    ? new EverythingOperationContinuationToken(0, null)
-                    : EverythingOperationContinuationToken.FromString(ContinuationTokenConverter.Decode(continuationToken));
-            }
-            catch (JsonReaderException)
-            {
-                throw new BadRequestException(Core.Resources.InvalidContinuationToken);
-            }
+            EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
+                ? new EverythingOperationContinuationToken(0, null)
+                : EverythingOperationContinuationToken.FromString(ContinuationTokenConverter.Decode(continuationToken));
 
             if (token == null || token.Phase < 0 || token.Phase > 3)
             {

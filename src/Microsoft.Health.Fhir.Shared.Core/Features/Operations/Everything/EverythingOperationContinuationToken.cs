@@ -61,7 +61,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 return null;
             }
 
-            return JsonConvert.DeserializeObject<EverythingOperationContinuationToken>(json);
+            EverythingOperationContinuationToken token;
+
+            try
+            {
+                 token = JsonConvert.DeserializeObject<EverythingOperationContinuationToken>(json);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+
+            return token;
         }
 
         public void AddSeeAlsoLink(string link)
