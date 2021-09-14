@@ -1,6 +1,8 @@
 #!/bin/bash
 
-echo "Injecting values to the different tests configurations."
+pwd
+
+echo "Injecting values to the different tests configurations"
 
 echo "the patients are $PATIENT_IDS"
 jq '. |= (.server = "'$FHIR_ENDPOINT_INSIDE_DOCKER'" | .arguments.patient_ids = "'$PATIENT_IDS'")' build/inferno/cli/inferno.onc-program-us-core.json > build/inferno/inferno-program/batch/inferno.onc-program-us-core.json
