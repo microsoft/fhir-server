@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(firstBundle, selfLink, sort, expectedFirstBundle);
 
             var nextLink = firstBundle.NextLink?.ToString();
-            int requestCount = 1;
+            int pageNumber = 1;
             bool checkedAllResources = false;
             while (nextLink != null && !checkedAllResources)
             {
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 // Truncating host and appending continuation token
                 nextLink = selfLink + nextLink.Substring(_continuationToken.Match(nextLink).Index);
-                var remainingResources = expectedResources[(pageSize * requestCount)..];
+                var remainingResources = expectedResources[(pageSize * pageNumber)..];
                 if (remainingResources.Length > pageSize)
                 {
                     remainingResources = remainingResources[..pageSize];
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ValidateBundle(nextBundle, nextLink, sort, remainingResources);
 
                 nextLink = nextBundle.NextLink?.ToString();
-                requestCount++;
+                pageNumber++;
             }
 
             return firstBundle;

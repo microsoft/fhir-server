@@ -501,9 +501,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family&_count={count}", sort: false, pageSize: count, patients[0..5]);
         }
 
+        [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithMultipleNamesForCosmos_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[3], patients[2], patients[0], };
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
+        }
+
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
+        public async Task GivenPatientsWithMultipleNamesForSql_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
@@ -517,12 +528,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(3)]
         [InlineData(4)]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
-        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder(int count)
+        public async Task GivenPatientsWithMultipleNamesAndPaginatedForSql_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder(int count)
         {
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
 
             List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients.ToArray());
+        }
+
+        /*
+         * There is a difference in the way we break ties between Cosmos and SQL
+         * For Cosmos, we always choose the last updated resource (irrespective of the overall sort order).
+         * For SQL, we choose the resource based on overall sort order.
+         * Hence we see a difference when sorting by Descending order.
+         * */
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithMultipleNamesAndPaginatedForCosmos_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[3], patients[2], patients[0], };
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients.ToArray());
         }
 
@@ -573,6 +604,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients);
         }
 
+        /*
+         * There is a difference in the way we break ties between Cosmos and SQL
+         * For Cosmos, we always choose the last updated resource (irrespective of the overall sort order).
+         * For SQL, we choose the resource based on overall sort order.
+         * Hence we see a difference when sorting by Descending order.
+         * */
         [SkippableTheory]
         [InlineData(2)]
         [InlineData(3)]
