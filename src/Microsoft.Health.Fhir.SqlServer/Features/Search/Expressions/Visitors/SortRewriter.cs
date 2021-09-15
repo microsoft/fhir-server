@@ -114,7 +114,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     // corresponding _sort parameter.
                     if (context.Sort[0].sortOrder == SortOrder.Ascending)
                     {
-                        // This scenarip re
                         var missingExpression = Expression.MissingSearchParameter(context.Sort[0].searchParameterInfo, isMissing: true);
                         var queryGenForMissing = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
                         var notExistsExpression = new SearchParamTableExpression(

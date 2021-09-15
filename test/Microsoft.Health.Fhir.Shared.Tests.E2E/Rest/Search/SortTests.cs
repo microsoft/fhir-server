@@ -538,9 +538,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         /*
-         * There is a difference in the way we break ties between Cosmos and SQL
-         * For Cosmos, we always choose the last updated resource (irrespective of the overall sort order).
-         * For SQL, we choose the resource based on overall sort order.
+         * There is a difference in the way we break ties between Cosmos and SQL.
+         * For Cosmos, we choose the resource based on last updated time ordered by overall sort order.
+         * For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order).
          * Hence we see a difference when sorting by Descending order.
          * */
         [SkippableTheory]
@@ -605,9 +605,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         /*
-         * There is a difference in the way we break ties between Cosmos and SQL
-         * For Cosmos, we always choose the last updated resource (irrespective of the overall sort order).
-         * For SQL, we choose the resource based on overall sort order.
+         * There is a difference in the way we break ties between Cosmos and SQL.
+         * For Cosmos, we choose the resource based on overall sort order.
+         * For SQL, we always choose the oldest resource (irrespective of overall sort order).
          * Hence we see a difference when sorting by Descending order.
          * */
         [SkippableTheory]

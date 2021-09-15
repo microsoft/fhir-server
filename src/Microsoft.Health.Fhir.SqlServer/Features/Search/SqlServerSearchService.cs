@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private const int _defaultResourceTableFinalSelectColumnCount = 11;
+        private const int _defaultNumberOfColumnsReadFromResult = 11;
         private bool? _didWeSearchForSortValue;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
 
@@ -366,10 +366,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             newContinuationType = resourceTypeId;
                             newContinuationId = resourceSurrogateId;
 
-                            // For normal queries, we select _defaultResourceTableFinalSelectColumnCount number of columns.
+                            // For normal queries, we select _defaultNumberOfColumnsReadFromResult number of columns.
                             // If we have more, that means we have an extra column tracking sort value.
                             // Keep track of sort value if this is the last row.
-                            if (matchCount == clonedSearchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultResourceTableFinalSelectColumnCount)
+                            if (matchCount == clonedSearchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultNumberOfColumnsReadFromResult)
                             {
                                 var tempSortValue = reader.GetValue(SortValueColumnName);
                                 if ((tempSortValue as DateTime?) != null)
@@ -434,7 +434,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         clonedSearchOptions.Sort.Count > 0 &&
                         clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
                     {
-                        _didWeSearchForSortValue = numberOfColumnsRead > _defaultResourceTableFinalSelectColumnCount;
+                        _didWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
                     }
 
                     // This value is set inside the SortRewriter. If it is set, we need to pass
