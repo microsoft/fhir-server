@@ -11,6 +11,9 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
+#if R5
+using Microsoft.Health.Fhir.Core.Features.Subscriptions;
+#endif
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -36,6 +39,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddScoped<TransactionBundleValidator>();
             services.AddScoped<ResourceReferenceResolver>();
+
+#if R5
+            services.AddScoped<IChannelManager, ChannelManager>();
+            services.AddScoped<ISubscriptionListener, SubscriptionListener>();
+#endif
         }
     }
 }

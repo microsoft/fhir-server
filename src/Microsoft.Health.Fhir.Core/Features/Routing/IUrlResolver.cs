@@ -34,6 +34,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <summary>
         /// Resolves the URL for the given <paramref name="resource"/>.
         /// </summary>
+        /// <param name="resourceId">The resource id.</param>
+        /// <param name="resourceTypeName">The resource type name.</param>
+        /// <param name="version">The history version of the resource.</param>
+        /// <param name="includeVersion">Includes the version in the URL.</param>
+        /// <returns>The URL for the given <paramref name="resource"/>.</returns>
+        Uri ResolveResourceUrl(string resourceId, string resourceTypeName, string version, bool includeVersion = false);
+
+        /// <summary>
+        /// Resolves the URL for the given <paramref name="resource"/>.
+        /// </summary>
         /// <param name="resource">The resource whose URL should be resolved for.</param>
         /// <param name="includeVersion">Includes the version in the URL.</param>
         /// <returns>The URL for the given <paramref name="resource"/>.</returns>

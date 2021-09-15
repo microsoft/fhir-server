@@ -16,6 +16,9 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+#if R5
+using Microsoft.Health.Fhir.Core.Features.Subscriptions;
+#endif
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -27,6 +30,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     public partial class UpsertResourceHandler : BaseResourceHandler, IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
+#if R5
+        private ISubscriptionListener _subscriptionListener;
+#endif
 
         public UpsertResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -34,12 +40,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
             IAuthorizationService<DataActions> authorizationService,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider
+#if R5
+#pragma warning disable SA1001 // Commas should be spaced correctly
+#pragma warning disable SA1113 // Comma should be on the same line as previous parameter
+#pragma warning disable SA1115 // Parameter should follow comma
+            , ISubscriptionListener subscriptionListener
+#pragma warning restore SA1115 // Parameter should follow comma
+#pragma warning restore SA1113 // Comma should be on the same line as previous parameter
+#pragma warning restore SA1001 // Commas should be spaced correctly
+#endif
+#pragma warning disable SA1009 // Closing parenthesis should be spaced correctly
+#pragma warning disable SA1111 // Closing parenthesis should be on line of last parameter
+            )
+#pragma warning restore SA1111 // Closing parenthesis should be on line of last parameter
+#pragma warning restore SA1009 // Closing parenthesis should be spaced correctly
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _modelInfoProvider = modelInfoProvider;
+#if R5
+            EnsureArg.IsNotNull(subscriptionListener, nameof(subscriptionListener));
+            _subscriptionListener = subscriptionListener;
+#endif
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken)
@@ -67,6 +91,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 
             resource.VersionId = result.Wrapper.Version;
 
+#if R5
+            await _subscriptionListener.Evaluate(resource, result.OutcomeType == SaveOutcomeType.Created ? SubscriptionTopic.InteractionTrigger.Create : SubscriptionTopic.InteractionTrigger.Update);
+#endif
             return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
         }
 

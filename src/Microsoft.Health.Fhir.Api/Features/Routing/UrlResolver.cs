@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return ResolveResourceUrl(resource.ResourceId, resource.ResourceTypeName, resource.Version, includeVersion);
         }
 
-        private Uri ResolveResourceUrl(string resourceId, string resourceTypeName, string version, bool includeVersion)
+        public Uri ResolveResourceUrl(string resourceId, string resourceTypeName, string version, bool includeVersion)
         {
             var routeName = RouteNames.ReadResource;
             var routeValues = new RouteValueDictionary
