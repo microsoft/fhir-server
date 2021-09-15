@@ -234,19 +234,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            // Some of the schema changes we are making to tables include addition of columns. In order to support
-            // upgrading older schemas to the newer ones we have to add default constraints to the upgrade script.
-            // These constraints will not be present in databases that were directly initialized with the latest schema.
-            // We need to exclude these constraints from the schema difference comparison.
             bool unexpectedDifference = false;
-            HashSet<string> constraintNames = new HashSet<string>()
-            {
-                "[dbo].[date_IsMin_Constraint]",
-                "[dbo].[date_IsMax_Constraint]",
-                "[dbo].[string_IsMin_Constraint]",
-                "[dbo].[string_IsMax_Constraint]",
-            };
-
             foreach (SchemaDifference schemaDifference in remainingDifferences)
             {
                 if (schemaDifference.Name == "SqlTable" &&
@@ -259,11 +247,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         {
                             // The ParitionColumn and the PartitionScheme come up in the differences list even though
                             // when digging into the "difference" object the values being compared are equal.
-                            continue;
-                        }
-                        else if (child.TargetObject.ObjectType.Name == "DefaultConstraint" && constraintNames.Contains(child.TargetObject.Name.ToString()))
-                        {
-                            // Expected
                             continue;
                         }
                         else

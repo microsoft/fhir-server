@@ -431,8 +431,8 @@ CREATE TABLE dbo.StringSearchParam
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsHistory bit NOT NULL,
-    IsMin bit NOT NULL,
-    IsMax bit NOT NULL,
+    IsMin bit CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
+    IsMax bit CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL
 )
 
 ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )
@@ -726,8 +726,8 @@ CREATE TABLE dbo.DateTimeSearchParam
     EndDateTime datetime2(7) NOT NULL,
     IsLongerThanADay bit NOT NULL,
     IsHistory bit NOT NULL,
-    IsMin bit NOT NULL,
-    IsMax bit NOT NULL
+    IsMin bit CONSTRAINT date_IsMin_Constraint DEFAULT 0 NOT NULL,
+    IsMax bit CONSTRAINT date_IsMax_Constraint DEFAULT 0 NOT NULL
 )
 
 ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )
