@@ -41,6 +41,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             get
             {
+                // If we are not processing a "seealso" link
+                if (CurrentSeeAlsoLinkIndex < 0)
+                {
+                    return null;
+                }
+
                 return SeeAlsoLinks[CurrentSeeAlsoLinkIndex];
             }
         }
@@ -84,7 +90,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         internal void ProcessNextSeeAlsoLink()
         {
-            CurrentSeeAlsoLinkIndex++;
+            // If there are more links to process
+            if (CurrentSeeAlsoLinkIndex < SeeAlsoLinks.Count - 1)
+            {
+                CurrentSeeAlsoLinkIndex++;
+            }
+            else
+            {
+                // This will set the flag that indicates if we are processing "seealso" links to false
+                CurrentSeeAlsoLinkIndex = -1;
+            }
         }
     }
 }

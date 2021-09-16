@@ -610,4 +610,7 @@
   <data name="EverythingOperationResourceIrrelevant" xml:space="preserve">
     <value>The patient with id `{0}` is no longer relevant. Use patient with id `{1}` instead.</value>
   </data>
+  <data name="CurrentSeeAlsoLinkIdShouldNotBeNull" xml:space="preserve">
+    <value>The 'seealso' link id cannot be null when a 'seealso' link is being processed.</value>
+  </data>
 </root>

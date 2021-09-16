@@ -91,7 +91,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             var parentPatientId = resourceId;
 
             // Check if we are currently processing a Patient's "seealso" link
-            resourceId = token.IsProcessingSeeAlsoLink ? token.CurrentSeeAlsoLinkId : resourceId;
+            if (token.IsProcessingSeeAlsoLink)
+            {
+                if (token.CurrentSeeAlsoLinkId == null)
+                {
+                    // The current "seealso" link id should never be null when we are processing a "seealso" link
+                    throw new EverythingOperationException(Core.Resources.CurrentSeeAlsoLinkIdShouldNotBeNull, HttpStatusCode.InternalServerError);
+                }
+
+                resourceId = token.CurrentSeeAlsoLinkId;
+            }
 
             var phase = token.Phase;
             switch (phase)

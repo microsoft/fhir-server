@@ -286,6 +286,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;seealso&apos; link id cannot be null when a &apos;seealso&apos; link is being processed..
+        /// </summary>
+        internal static string CurrentSeeAlsoLinkIdShouldNotBeNull {
+            get {
+                return ResourceManager.GetString("CurrentSeeAlsoLinkIdShouldNotBeNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
         /// </summary>
         internal static string CustomHeaderPrefixCannotBeEmpty {
