@@ -58,7 +58,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
         private const int _defaultNumberOfColumnsReadFromResult = 11;
-        private bool? _didWeSearchForSortValue;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
 
         public SqlServerSearchService(
@@ -111,8 +110,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 // We seem to have run a sort which has returned less results than what max we can return.
                 // Let's determine whether we need to execute another query or not.
-                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && _didWeSearchForSortValue.HasValue && !_didWeSearchForSortValue.Value) ||
-                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && _didWeSearchForSortValue.HasValue && _didWeSearchForSortValue.Value))
+                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value))
                 {
                     if (sqlSearchOptions.MaxItemCount - resultCount == 0)
                     {
@@ -434,7 +433,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         clonedSearchOptions.Sort.Count > 0 &&
                         clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
                     {
-                        _didWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
+                        sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
                     }
 
                     // This value is set inside the SortRewriter. If it is set, we need to pass

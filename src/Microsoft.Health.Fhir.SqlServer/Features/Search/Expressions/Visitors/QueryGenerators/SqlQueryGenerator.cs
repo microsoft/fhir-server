@@ -868,19 +868,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new InvalidOperationException("Multiple chain level is not possible.");
             }
 
-            GetSortRelatedDetails(
-                context,
-                out SortOrder sortOrder,
-                out ContinuationToken continuationToken,
-                out object sortValue,
-                out Column sortColumnName);
+            SortContext sortContext = GetSortRelatedDetails(context);
 
-            if (!string.IsNullOrEmpty(sortColumnName) && searchParamTableExpression.QueryGenerator != null)
+            if (!string.IsNullOrEmpty(sortContext.SortColumnName) && searchParamTableExpression.QueryGenerator != null)
             {
                 StringBuilder.Append("SELECT ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
-                    .Append(sortColumnName, null).AppendLine(" as SortValue")
+                    .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
@@ -895,14 +890,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     // if continuation token exists, add it to the query
-                    if (continuationToken != null)
+                    if (sortContext.ContinuationToken != null)
                     {
-                        var sortOperand = sortOrder == SortOrder.Ascending ? ">" : "<";
+                        var sortOperand = sortContext.SortOrder == SortOrder.Ascending ? ">" : "<";
 
                         delimited.BeginDelimitedElement();
-                        StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue, includeInHash: false));
-                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
-                        StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue, includeInHash: false)).AppendLine(")");
+                        StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false));
+                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
+                        StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
@@ -914,19 +909,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void HandleTableKindSortWithFilter(SearchParamTableExpression searchParamTableExpression, SearchOptions context)
         {
-            GetSortRelatedDetails(
-                context,
-                out SortOrder sortOrder,
-                out ContinuationToken continuationToken,
-                out object sortValue,
-                out Column sortColumnName);
+            SortContext sortContext = GetSortRelatedDetails(context);
 
-            if (!string.IsNullOrEmpty(sortColumnName) && searchParamTableExpression.QueryGenerator != null)
+            if (!string.IsNullOrEmpty(sortContext.SortColumnName) && searchParamTableExpression.QueryGenerator != null)
             {
                 StringBuilder.Append("SELECT ")
                     .Append(VLatest.Resource.ResourceTypeId, null).Append(" AS T1, ")
                     .Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
-                    .Append(sortColumnName, null).AppendLine(" as SortValue")
+                    .Append(sortContext.SortColumnName, null).AppendLine(" as SortValue")
                     .Append("FROM ").AppendLine(searchParamTableExpression.QueryGenerator.Table);
 
                 using (var delimited = StringBuilder.BeginDelimitedWhereClause())
@@ -941,14 +931,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     // if continuation token exists, add it to the query
-                    if (continuationToken != null)
+                    if (sortContext.ContinuationToken != null)
                     {
-                        var sortOperand = sortOrder == SortOrder.Ascending ? ">" : "<";
+                        var sortOperand = sortContext.SortOrder == SortOrder.Ascending ? ">" : "<";
 
                         delimited.BeginDelimitedElement();
-                        StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue, includeInHash: false));
-                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
-                        StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue, includeInHash: false)).AppendLine(")");
+                        StringBuilder.Append("((").Append(sortContext.SortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false));
+                        StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" > ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, sortContext.ContinuationToken.ResourceSurrogateId, includeInHash: false)).Append(")");
+                        StringBuilder.Append(" OR ").Append(sortContext.SortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortContext.SortColumnName, sortContext.SortValue, includeInHash: false)).AppendLine(")");
                     }
 
                     AppendIntersectionWithPredecessor(delimited, searchParamTableExpression);
@@ -1123,48 +1113,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return false;
         }
 
-        private static void GetSortRelatedDetails(
-            SearchOptions context,
-            out SortOrder sortOrder,
-            out ContinuationToken continuationToken,
-            out object sortValue,
-            out Column sortColumnName)
+        private static SortContext GetSortRelatedDetails(SearchOptions context)
         {
+            SortContext sortContext = new SortContext();
             SearchParameterInfo searchParamInfo = default;
-            sortOrder = default;
             if (context.Sort?.Count > 0)
             {
-                (searchParamInfo, sortOrder) = context.Sort[0];
+                (searchParamInfo, sortContext.SortOrder) = context.Sort[0];
             }
 
-            continuationToken = ContinuationToken.FromString(context.ContinuationToken);
-            sortValue = null;
-            sortColumnName = default;
+            sortContext.ContinuationToken = ContinuationToken.FromString(context.ContinuationToken);
 
             if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
             {
-                sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
+                sortContext.SortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
             }
             else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
             {
-                sortColumnName = VLatest.StringSearchParam.Text;
+                sortContext.SortColumnName = VLatest.StringSearchParam.Text;
             }
 
-            if (continuationToken != null)
+            if (sortContext.ContinuationToken != null)
             {
                 if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
                 {
                     DateTime dateSortValue;
-                    if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
+                    if (DateTime.TryParseExact(sortContext.ContinuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
                     {
-                        sortValue = dateSortValue;
+                        sortContext.SortValue = dateSortValue;
                     }
                 }
                 else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
                 {
-                    sortValue = continuationToken.SortValue;
+                    sortContext.SortValue = sortContext.ContinuationToken.SortValue;
                 }
             }
+
+            return sortContext;
         }
 
         /// <summary>
@@ -1180,6 +1165,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             public override bool VisitSearchParameter(SearchParameterExpression expression, string context) => string.Equals(expression.Parameter.Code, context, StringComparison.Ordinal);
+        }
+
+        internal class SortContext
+        {
+            public SortOrder SortOrder { get; set; }
+
+            public ContinuationToken ContinuationToken { get; set; }
+
+            public object SortValue { get; set; }
+
+            public Column SortColumnName { get; set; }
         }
     }
 }
