@@ -8,9 +8,13 @@ using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Search;
 using Microsoft.Health.Test.Utilities;
+using Microsoft.Net.Http.Headers;
+using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -213,13 +217,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientWithReplacedByLink_WhenRunningPatientEverything_ThenBadRequestIsReturned()
+        public async Task GivenPatientWithReplacedByLink_WhenRunningPatientEverything_ThenMovedPermanentlyIsReturned()
         {
             string searchUrl = $"Patient/{Fixture.PatientWithReplacedByLink.Id}/$everything";
 
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
 
-            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            // Confirm header location contains url for the correct request
+            string operationName = OperationsConstants.PatientEverything;
+            string id = Fixture.PatientReferencedByLink.Id;
+            var patientEverythingOperationUrl = new Uri($"http://localhost/{OperationsConstants.Operations}/{operationName}/{id}");
+
+            IUrlResolver urlResolver = Substitute.For<IUrlResolver>();
+            urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(patientEverythingOperationUrl);
+
+            Assert.Equal(patientEverythingOperationUrl.AbsoluteUri, ex.Headers.GetValues(HeaderNames.ContentLocation).First());
+            Assert.Equal(HttpStatusCode.MovedPermanently, ex.StatusCode);
             Assert.Contains(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, Fixture.PatientWithReplacedByLink.Id, Fixture.PatientReferencedByLink.Id), ex.Message);
         }
 

@@ -11,10 +11,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     internal class EverythingOperationContinuationToken
     {
         [JsonConstructor]
-        internal EverythingOperationContinuationToken(int phase, string internalContinuationToken)
+        internal EverythingOperationContinuationToken()
         {
-            Phase = phase;
-            InternalContinuationToken = internalContinuationToken;
+            Phase = 0;
+            InternalContinuationToken = null;
 
             SeeAlsoLinks = new List<string>();
             CurrentSeeAlsoLinkIndex = -1;

@@ -42,7 +42,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         [InlineData(3, "abc")]
         public void GivenEverythingOperationContinuationToken_WhenToString_ThenCorrectStringShouldBeReturned(int phase, string internalContinuationToken)
         {
-            var token = new EverythingOperationContinuationToken(phase, internalContinuationToken);
+            var token = new EverythingOperationContinuationToken
+            {
+                Phase = phase,
+                InternalContinuationToken = internalContinuationToken,
+            };
 
             // The internal continuation token value will be padded with quotes if it is not null
             internalContinuationToken = string.IsNullOrEmpty(internalContinuationToken) ? "null" : "\"" + internalContinuationToken + "\"";
@@ -53,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         [Fact]
         public void GivenEverythingOperationContinuationTokenWithSeeAlsoLinks_WhenToString_ThenCorrectStringShouldBeReturned()
         {
-            var token = new EverythingOperationContinuationToken(0, null);
+            var token = new EverythingOperationContinuationToken();
             token.SeeAlsoLinks.Add("link1");
             token.SeeAlsoLinks.Add("link2");
 

@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             CancellationToken cancellationToken)
         {
             EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
-                ? new EverythingOperationContinuationToken(0, null)
+                ? new EverythingOperationContinuationToken()
                 : EverythingOperationContinuationToken.FromString(ContinuationTokenConverter.Decode(continuationToken));
 
             if (token == null || token.Phase < 0 || token.Phase > 3)
