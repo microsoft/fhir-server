@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
@@ -28,12 +29,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
         private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
+        private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
         private readonly PatientEverythingService _patientEverythingService;
 
         public PatientEverythingServiceTests()
         {
-            _patientEverythingService = new PatientEverythingService(() => _searchService.CreateMockScope(), _searchOptionsFactory, _searchParameterDefinitionManager, _compartmentDefinitionManager, _referenceSearchValueParser, _resourceDeserializer);
+            _patientEverythingService = new PatientEverythingService(() => _searchService.CreateMockScope(), _searchOptionsFactory, _searchParameterDefinitionManager, _compartmentDefinitionManager, _referenceSearchValueParser, _resourceDeserializer, _urlResolver);
         }
 
         [Fact]

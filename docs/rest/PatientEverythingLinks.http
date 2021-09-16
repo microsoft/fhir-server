@@ -642,7 +642,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
   "link": [
     {
       "other": {
-        "reference": "RelatedPerson/newborn-mom"
+        "reference": "Patient/mother"
       },
       "type": "replaced-by"
     }
@@ -651,5 +651,10 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # An operation outcome should be returned.
+# The url to the correct request should be in the content location header.
 GET https://{{hostname}}/Patient/{{replacedby.response.body.id}}/$everything
 Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Paste the response's content location header below
+GET <paste content location header here>

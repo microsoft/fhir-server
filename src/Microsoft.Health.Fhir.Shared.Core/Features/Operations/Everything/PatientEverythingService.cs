@@ -16,10 +16,10 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
-using Newtonsoft.Json;
 using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
         private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly IUrlResolver _urlResolver;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
@@ -42,7 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ICompartmentDefinitionManager compartmentDefinitionManager,
             IReferenceSearchValueParser referenceSearchValueParser,
-            IResourceDeserializer resourceDeserializer)
+            IResourceDeserializer resourceDeserializer,
+            IUrlResolver urlResolver)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             EnsureArg.IsNotNull(compartmentDefinitionManager, nameof(compartmentDefinitionManager));
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
 
             _searchServiceFactory = searchServiceFactory;
             _searchOptionsFactory = searchOptionsFactory;
@@ -57,6 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             _compartmentDefinitionManager = compartmentDefinitionManager;
             _referenceSearchValueParser = referenceSearchValueParser;
             _resourceDeserializer = resourceDeserializer;
+            _urlResolver = urlResolver;
         }
 
         public async Task<SearchResult> SearchAsync(
@@ -250,7 +254,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
                     if (link.Type == Patient.LinkType.ReplacedBy)
                     {
-                        throw new EverythingOperationException(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, resourceId, referenceSearchValue.ResourceId), HttpStatusCode.BadRequest);
+                        var url = _urlResolver.ResolveOperationResultUrl(OperationsConstants.PatientEverything, referenceSearchValue.ResourceId);
+
+                        throw new EverythingOperationException(
+                            string.Format(
+                                Core.Resources.EverythingOperationResourceIrrelevant,
+                                resourceId,
+                                referenceSearchValue.ResourceId),
+                            HttpStatusCode.MovedPermanently,
+                            url.ToString());
                     }
 
                     if (link.Type == Patient.LinkType.Seealso)
@@ -258,7 +270,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                         // Links can be of type Patient or RelatedPerson - only attempt to run the $everything operation on Patient resources
                         if (string.Equals(referenceSearchValue.ResourceType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
                         {
-                            // TODO: should we return an error here?
                             if (!linkIds.Contains(referenceSearchValue.ResourceId))
                             {
                                 token.SeeAlsoLinks.Add(referenceSearchValue.ResourceId);
