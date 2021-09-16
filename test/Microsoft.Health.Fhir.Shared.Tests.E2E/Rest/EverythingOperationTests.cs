@@ -208,9 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             nextLink = thirdBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
-
-            // All the patients that have links to the "patient-reference" patient will be in its patient compartment
-            ValidateBundle(fourthBundle, Fixture.PatientWithSeeAlsoLink, Fixture.PatientWithReplacedByLink, Fixture.PatientWithReferLink, Fixture.PatientWithReplacesLink);
+            Assert.Empty(fourthBundle.Resource.Entry);
         }
 
         [Fact]

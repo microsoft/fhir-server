@@ -588,7 +588,6 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 # - The device-mum device
 # Then, it should run Patient $everything on the Patient "mother", which should return:
 # - The Patient "mother" resource
-# - The patient's compartment resource: the Patient "mum"
 # - The device-mother device
 GET https://{{hostname}}/Patient/{{mum.response.body.id}}/$everything
 Authorization: Bearer {{bearer.response.body.access_token}}

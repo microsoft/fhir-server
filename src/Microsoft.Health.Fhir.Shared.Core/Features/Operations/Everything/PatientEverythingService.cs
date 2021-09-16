@@ -83,6 +83,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 : ContinuationTokenConverter.Encode(token.InternalContinuationToken);
             IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
+            // We will need to store the id of the patient that links to this one if we are processing a "seealso" link
+            var parentPatientId = resourceId;
+
             // Check if we are currently processing a Patient's "seealso" link
             resourceId = token.IsProcessingSeeAlsoLink ? token.CurrentSeeAlsoLinkId : resourceId;
 
@@ -117,8 +120,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     break;
                 case 2:
                     searchResult = start == null && end == null
-                        ? await SearchCompartment(resourceId, since, types, encodedInternalContinuationToken, cancellationToken)
-                        : await SearchCompartmentWithoutDate(resourceId, since, types, encodedInternalContinuationToken, cancellationToken);
+                        ? await SearchCompartment(resourceId, parentPatientId, since, types, encodedInternalContinuationToken, token, cancellationToken)
+                        : await SearchCompartmentWithoutDate(resourceId, parentPatientId, since, types, encodedInternalContinuationToken, token, cancellationToken);
 
                     if (!searchResult.Results.Any())
                     {
@@ -354,9 +357,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         private async Task<SearchResult> SearchCompartmentWithoutDate(
             string resourceId,
+            string parentPatientId,
             PartialDateTime since,
             IReadOnlyList<string> types,
             string continuationToken,
+            EverythingOperationContinuationToken token,
             CancellationToken cancellationToken)
         {
             var nonDateResourceTypes = new List<string>();
@@ -389,6 +394,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
+            // If we are processing a "seealso" link, the parent patient that links to it will be in its patient compartment
+            if (token.IsProcessingSeeAlsoLink)
+            {
+                // Add a parameter to prevent this, since we already returned the parent patient resource in a previous call
+                searchParameters.Add(Tuple.Create(KnownQueryParameterNames.Id, $"ne{parentPatientId}"));
+            }
+
             using IScoped<ISearchService> search = _searchServiceFactory();
             SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
@@ -396,9 +408,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         private async Task<SearchResult> SearchCompartment(
             string resourceId,
+            string parentPatientId,
             PartialDateTime since,
             IReadOnlyList<string> types,
             string continuationToken,
+            EverythingOperationContinuationToken token,
             CancellationToken cancellationToken)
         {
             var searchParameters = new List<Tuple<string, string>>();
@@ -422,6 +436,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             if (!string.IsNullOrEmpty(continuationToken))
             {
                 searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
+            }
+
+            // If we are processing a "seealso" link, the parent patient that links to it will be in its patient compartment
+            if (token.IsProcessingSeeAlsoLink)
+            {
+                // Add a parameter to prevent this, since we already returned the parent patient resource in a previous call
+                searchParameters.Add(Tuple.Create(KnownQueryParameterNames.Id, $"ne{parentPatientId}"));
             }
 
             using IScoped<ISearchService> search = _searchServiceFactory();
