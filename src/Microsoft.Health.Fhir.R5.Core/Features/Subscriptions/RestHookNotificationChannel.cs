@@ -33,6 +33,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
             {
                 Bundle bundle = new Bundle();
                 bundle.Type = Bundle.BundleType.SubscriptionNotification;
+                bundle.Entry = new List<Bundle.EntryComponent>();
+
+                AddSubscriptionStatus(bundle, subscription);
 
                 using (var content = new StringContent(_fhirJsonSerializer.SerializeToString(bundle)))
                 {
@@ -49,6 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
                 Bundle bundle = new Bundle();
                 bundle.Type = Bundle.BundleType.SubscriptionNotification;
                 bundle.Entry = new List<Bundle.EntryComponent>();
+
+                AddSubscriptionStatus(bundle, subscription);
+
                 foreach (var resource in resources)
                 {
                     var uri = _urlResolver.ResolveResourceUrl(resource.Id, resource.TypeName, resource.VersionId, false).ToString();
@@ -85,6 +91,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
                 Bundle bundle = new Bundle();
                 bundle.Type = Bundle.BundleType.SubscriptionNotification;
                 bundle.Entry = new List<Bundle.EntryComponent>();
+
+                AddSubscriptionStatus(bundle, subscription);
+
                 foreach (var resource in resources)
                 {
                     var uri = _urlResolver.ResolveResourceUrl(resource.Id, resource.TypeName, resource.VersionId, false).ToString();
@@ -113,6 +122,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Subscriptions
                     await httpClient.PostAsync(new Uri(subscription.Endpoint), content);
                 }
             }
+        }
+
+        private static void AddSubscriptionStatus(Bundle bundle, Subscription subscription)
+        {
+            bundle.Entry.Add(new Bundle.EntryComponent()
+            {
+                Resource = new SubscriptionStatus()
+                {
+                    Status = subscription.Status,
+                    Type = SubscriptionStatus.SubscriptionNotificationType.EventNotification,
+
+                    // EventsSinceSubscriptionStart
+                    EventsInNotification = 1,
+                    Subscription = new ResourceReference(subscription.TypeName + "/" + subscription.Id),
+                    Topic = subscription.Topic,
+                },
+            });
         }
     }
 }

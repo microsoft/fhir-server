@@ -1,0 +1,125 @@
+# Tests the basic Subscription workflow.
+# Creates the resources needed for it and then triggers the subscriptions.
+
+@hostname = localhost:44348
+
+# This is the rest hook endpoint. I've tested this using an Azure Function set up following these steps:
+# 1. Make a new function app with a linked storage account
+# 2. Make a new function with Portal development, an HTTP trigger template, and an auth level of Anonymous
+# 3. In the Integration blade add an Azure Blob Storage output
+# 4. In the function add this line of JS: context.bindings.outputBlob = "Body passed in: " + JSON.stringify(req.body);
+# 5. Get the function url and paste it below.
+@restEndpoint = https://fhirsubscriptionresthook.azurewebsites.net/api/HttpTrigger1
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+### Create the subscription topic
+POST https://{{hostname}}/SubscriptionTopic
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "SubscriptionTopic",
+    "url": "testtopic",
+    "version": "1.1",
+    "title": "patient-create",
+    "status": "active",
+    "resourceTrigger": [
+        {
+            "description": "Patient",
+            "methodCriteria": "update"
+        }
+    ]
+}
+
+### Create the full resource subscription
+POST https://{{hostname}}/Subscription
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Subscription",
+  "endpoint": "{{restEndpoint}}",
+  "channelType": {
+    "code": "rest-hook",
+    "display": "Rest Hook",
+    "system": "http://terminology.hl7.org/CodeSystem/subscription-channel-type"
+  },
+  "content": "full-resource",
+  "topic": "testtopic",
+  "status": "active"
+}
+
+### Create the id only subscription
+POST https://{{hostname}}/Subscription
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Subscription",
+  "endpoint": "{{restEndpoint}}",
+  "channelType": {
+    "code": "rest-hook",
+    "display": "Rest Hook",
+    "system": "http://terminology.hl7.org/CodeSystem/subscription-channel-type"
+  },
+  "content": "id-only",
+  "topic": "testtopic",
+  "status": "active"
+}
+
+### Create the empty subscription
+POST https://{{hostname}}/Subscription
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Subscription",
+  "endpoint": "{{restEndpoint}}",
+  "channelType": {
+    "code": "rest-hook",
+    "display": "Rest Hook",
+    "system": "http://terminology.hl7.org/CodeSystem/subscription-channel-type"
+  },
+  "content": "empty",
+  "topic": "testtopic",
+  "status": "active"
+}
+
+### POST a Patient resources to test the scenarios below:
+# @name patient
+POST https://{{hostname}}/Patient
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+	"resourceType": "Patient",
+	"name": [{
+		"given": ["bob"],
+		"family": "smith"
+	}],
+	"gender": "male"
+}
+
+### PUT an update to the Patient to trigger the subscriptions
+PUT https://{{hostname}}/Patient/{{patient.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+	"resourceType": "Patient",
+  "id": "{{patient.response.body.id}}",
+	"name": [{
+		"given": ["bobby"],
+		"family": "smith"
+	}],
+	"gender": "male"
+}
