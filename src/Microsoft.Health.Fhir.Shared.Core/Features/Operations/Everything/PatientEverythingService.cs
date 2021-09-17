@@ -418,7 +418,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             if (token.IsProcessingSeeAlsoLink)
             {
                 // Add a parameter to prevent this, since we already returned the parent patient resource in a previous call
-                searchParameters.Add(Tuple.Create(KnownQueryParameterNames.Id, $"ne{parentPatientId}"));
+                searchParameters.Add(Tuple.Create($"{KnownQueryParameterNames.Id}:not", parentPatientId));
             }
 
             using IScoped<ISearchService> search = _searchServiceFactory();
@@ -462,7 +462,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             if (token.IsProcessingSeeAlsoLink)
             {
                 // Add a parameter to prevent this, since we already returned the parent patient resource in a previous call
-                searchParameters.Add(Tuple.Create(KnownQueryParameterNames.Id, $"ne{parentPatientId}"));
+                searchParameters.Add(Tuple.Create($"{KnownQueryParameterNames.Id}:not", parentPatientId));
             }
 
             using IScoped<ISearchService> search = _searchServiceFactory();
