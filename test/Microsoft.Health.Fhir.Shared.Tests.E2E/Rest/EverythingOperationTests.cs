@@ -228,15 +228,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
 
             // Confirm header location contains url for the correct request
-            string operationName = OperationsConstants.PatientEverything;
             string id = Fixture.PatientReferencedByReplacedByLink.Id;
-            var patientEverythingOperationUrl = new Uri($"http://localhost/{OperationsConstants.Operations}/{operationName}/{id}");
+            var patientEverythingOperationUrl = new Uri($"http://localhost/{ResourceType.Patient.ToString()}/{id}/$everything");
 
             IUrlResolver urlResolver = Substitute.For<IUrlResolver>();
             urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(patientEverythingOperationUrl);
 
-            // TODO: investigate how to pull content type header from response in test env
-            // Assert.Equal(patientEverythingOperationUrl.AbsoluteUri, ex.Headers.GetValues(HeaderNames.ContentLocation).First());
+            Assert.Equal(patientEverythingOperationUrl.AbsoluteUri, ex.Content.Headers.GetValues(HeaderNames.ContentLocation).First());
             Assert.Equal(HttpStatusCode.MovedPermanently, ex.StatusCode);
             Assert.Contains(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, Fixture.PatientWithReplacedByLink.Id, Fixture.PatientReferencedByReplacedByLink.Id), ex.Message);
         }
