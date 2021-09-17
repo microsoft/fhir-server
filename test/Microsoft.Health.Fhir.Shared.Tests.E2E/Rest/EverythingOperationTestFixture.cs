@@ -31,7 +31,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Patient PatientWithReplacesLink { get; private set; }
 
-        public Patient PatientReferencedByLink { get; private set; }
+        public Patient PatientReferencedBySeeAlsoLink { get; private set; }
+
+        public Patient PatientReferencedByReferLink { get; private set; }
+
+        public Patient PatientReferencedByReplacesLink { get; private set; }
+
+        public Patient PatientReferencedByReplacedByLink { get; private set; }
 
         public Organization Organization { get; private set; }
 
@@ -42,6 +48,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public Observation Observation { get; private set; }
 
         public Observation ObservationOfNonExistentPatient { get; private set; }
+
+        public Observation ObservationOfPatientReferencedBySeeAlsoLink { get; private set; }
 
         public Encounter Encounter { get; private set; }
 
@@ -103,15 +111,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await TestFhirClient.DeleteAsync(NonExistentPatient);
 
             // Test case #3
-            // Create patients with different types of links
+            // Create patients to be referenced by links
             patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
-            patientToCreate.Id = "patient-reference";
-            PatientReferencedByLink = await TestFhirClient.CreateAsync(patientToCreate);
+            patientToCreate.Id = "patient-reference-see-also";
+            PatientReferencedBySeeAlsoLink = await TestFhirClient.CreateAsync(patientToCreate);
 
-            PatientWithSeeAlsoLink = await CreatePatientWithLink(Patient.LinkType.Seealso, PatientReferencedByLink);
-            PatientWithReplacedByLink = await CreatePatientWithLink(Patient.LinkType.ReplacedBy, PatientReferencedByLink);
-            PatientWithReplacesLink = await CreatePatientWithLink(Patient.LinkType.Replaces, PatientReferencedByLink);
-            PatientWithReferLink = await CreatePatientWithLink(Patient.LinkType.Refer, PatientReferencedByLink);
+            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate.Id = "patient-reference-replaced-by";
+            PatientReferencedByReplacedByLink = await TestFhirClient.CreateAsync(patientToCreate);
+
+            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate.Id = "patient-reference-replaces";
+            PatientReferencedByReplacesLink = await TestFhirClient.CreateAsync(patientToCreate);
+
+            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            patientToCreate.Id = "patient-reference-refer";
+            PatientReferencedByReferLink = await TestFhirClient.CreateAsync(patientToCreate);
+
+            // Create patients with different types of links
+            PatientWithSeeAlsoLink = await CreatePatientWithLink(Patient.LinkType.Seealso, PatientReferencedBySeeAlsoLink);
+            PatientWithReplacedByLink = await CreatePatientWithLink(Patient.LinkType.ReplacedBy, PatientReferencedByReplacedByLink);
+            PatientWithReplacesLink = await CreatePatientWithLink(Patient.LinkType.Replaces, PatientReferencedByReplacesLink);
+            PatientWithReferLink = await CreatePatientWithLink(Patient.LinkType.Refer, PatientReferencedByReferLink);
+
+            // Create Patient compartment resource
+            observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
+            observationToCreate.Subject.Reference = $"Patient/{PatientReferencedBySeeAlsoLink.Id}";
+            ObservationOfPatientReferencedBySeeAlsoLink = await TestFhirClient.CreateAsync(observationToCreate);
         }
 
         private async Task<Patient> CreatePatientWithLink(Patient.LinkType linkType, Patient patientReferencedByLink)
