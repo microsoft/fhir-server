@@ -61,5 +61,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         /// Options to determine if the parallel query execution is needed across physical partitions to speed up the selective queries
         /// </summary>
         public CosmosDataStoreParallelQueryOptions ParallelQueryOptions { get; } = new CosmosDataStoreParallelQueryOptions { MaxQueryConcurrency = 500 };
+
+        /// <summary>
+        /// Value indicating whether this Comsos data store retains history
+        /// </summary>
+        public bool KeepHistory { get; set; } = true;
     }
 }

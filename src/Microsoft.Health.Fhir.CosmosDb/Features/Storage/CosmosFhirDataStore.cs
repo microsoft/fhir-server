@@ -111,6 +111,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
+            // override the incoming keepHistory flag if the overall cosmos configuration
+            // is set to false.  When the overall config is true, some upsert requests may
+            // still have this flag set to false for specific documents, so we only
+            // override when the overall config is false.
+            if (_cosmosDataStoreConfiguration.KeepHistory == false)
+            {
+                keepHistory = _cosmosDataStoreConfiguration.KeepHistory;
+            }
+
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
             UpdateSortIndex(cosmosWrapper);
 
