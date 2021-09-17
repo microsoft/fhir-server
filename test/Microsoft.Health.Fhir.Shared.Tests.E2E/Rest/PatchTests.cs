@@ -74,6 +74,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Bundle> patched = await _client.PostBundleAsync(bundleWithPatch);
 
             Assert.Equal(HttpStatusCode.OK, patched.Response.StatusCode);
+
+            Assert.Equal(2, patched.Resource?.Entry?.Count);
+            Assert.IsType<Patient>(patched.Resource.Entry[1].Resource);
             Assert.Equal(AdministrativeGender.Female, ((Patient)patched.Resource.Entry[1].Resource).Gender);
         }
 
