@@ -395,6 +395,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The resource with the id &apos;{0}&apos; has more than {1} &apos;seealso&apos; links..
+        /// </summary>
+        internal static string EverythingOperationMaxSeeAlsoLinksReached {
+            get {
+                return ResourceManager.GetString("EverythingOperationMaxSeeAlsoLinksReached", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The patient with id `{0}` is no longer relevant. Use patient with id `{1}` instead..
         /// </summary>
         internal static string EverythingOperationResourceIrrelevant {

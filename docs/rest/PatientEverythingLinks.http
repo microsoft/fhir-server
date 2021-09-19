@@ -658,3 +658,109 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ###
 # Paste the response's content location header below
 GET <paste content location header here>
+
+###
+# @name toomanylinks
+PUT https://{{hostname}}/Patient/toomanylinks
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "toomanylinks",
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "family": "Test",
+      "given": [
+        "Test"
+      ]
+    }
+  ],
+  "gender": "other",
+  "birthDate": "2006-06-06",
+  "address": [
+    {
+      "use": "home",
+      "line": [
+        "1 Microsoft Way"
+      ]
+    }
+  ],
+  "link": [
+    {
+      "other": {
+        "reference": "Patient/test0"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test1"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test2"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test3"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test4"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test5"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test6"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test7"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test8"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test9"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/test10"
+      },
+      "type": "seealso"
+    }
+  ]
+}
+
+###
+# An operation outcome should be returned indicating that the patient has more than
+# the maximum number of links.
+GET https://{{hostname}}/Patient/{{toomanylinks.response.body.id}}/$everything
+Authorization: Bearer {{bearer.response.body.access_token}}
+

@@ -613,4 +613,7 @@
   <data name="CurrentSeeAlsoLinkIdShouldNotBeNull" xml:space="preserve">
     <value>The 'seealso' link id cannot be null when a 'seealso' link is being processed.</value>
   </data>
+  <data name="EverythingOperationMaxSeeAlsoLinksReached" xml:space="preserve">
+    <value>The resource with the id '{0}' has more than {1} 'seealso' links.</value>
+  </data>
 </root>

@@ -37,6 +37,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
 
+        // Limit the total number of "seealso" links because we store them in the continuation token, and the token
+        // has limited storage space.
+        // This number was selected considering the everything token could contain an internal continuation token which
+        // could be up to 2kB and resource ids can be up to 64B.
+        // Note: we plan to remove this cap in the future (see AB#85289).
+        private readonly int _seeAlsoLinkCountThreshold = 10;
+
         public PatientEverythingService(
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISearchOptionsFactory searchOptionsFactory,
@@ -91,16 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             var parentPatientId = resourceId;
 
             // Check if we are currently processing a Patient's "seealso" link
-            if (token.IsProcessingSeeAlsoLink)
-            {
-                if (token.CurrentSeeAlsoLinkId == null)
-                {
-                    // The current "seealso" link id should never be null when we are processing a "seealso" link
-                    throw new EverythingOperationException(Core.Resources.CurrentSeeAlsoLinkIdShouldNotBeNull, HttpStatusCode.InternalServerError);
-                }
-
-                resourceId = token.CurrentSeeAlsoLinkId;
-            }
+            resourceId = token.IsProcessingSeeAlsoLink ? token.CurrentSeeAlsoLinkId : resourceId;
 
             var phase = token.Phase;
             switch (phase)
@@ -247,8 +245,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     return;
                 }
 
-                // Use a hash set to ensure we are not adding duplicate "seealso" links to the token
-                var linkIds = new HashSet<string>();
+                // Track the number of "seealso" links, since there is a limit to how many we can store in the continuation token
+                int uniqueSeeAlsoLinkCount = 0;
 
                 foreach (Patient.LinkComponent link in links)
                 {
@@ -279,10 +277,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                         // Links can be of type Patient or RelatedPerson - only attempt to run the $everything operation on Patient resources
                         if (string.Equals(referenceSearchValue.ResourceType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
                         {
-                            if (!linkIds.Contains(referenceSearchValue.ResourceId))
+                            if (!token.SeeAlsoLinks.Contains(referenceSearchValue.ResourceId))
                             {
                                 token.SeeAlsoLinks.Add(referenceSearchValue.ResourceId);
-                                linkIds.Add(referenceSearchValue.ResourceId);
+                                uniqueSeeAlsoLinkCount++;
+
+                                if (uniqueSeeAlsoLinkCount > _seeAlsoLinkCountThreshold)
+                                {
+                                    // Instead of returning an error, we plan to retrieve the patient resource and extract the remaining links to process (see AB#85289).
+                                    throw new EverythingOperationException(string.Format(Core.Resources.EverythingOperationMaxSeeAlsoLinksReached, resourceId, 10), HttpStatusCode.BadRequest);
+                                }
                             }
                         }
                     }
