@@ -47,8 +47,7 @@ steps:
       }
       catch 
       {
-          Write-Host "StatusCode:" $_.Exception.Response.StatusCode.value__ 
-          Write-Host "StatusDescription:" $_.Exception.Response.StatusDescription
+          ConvertTo-Json $_ | Write-Host
       }
 
       Write-Host "Got access token"
