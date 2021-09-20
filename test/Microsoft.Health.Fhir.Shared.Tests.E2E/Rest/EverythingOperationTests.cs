@@ -221,18 +221,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientWithMoreThanMaxAllowedSeeAlsoLinks_WhenRunningPatientEverything_ThenBadRequestIsReturned()
-        {
-            string searchUrl = $"Patient/{Fixture.PatientWithMultipleSeeAlsoLinks.Id}/$everything";
-
-            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
-
-            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
-            Assert.Contains(string.Format(Core.Resources.EverythingOperationMaxSeeAlsoLinksReached, Fixture.PatientWithMultipleSeeAlsoLinks.Id, 10), ex.Message);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithReplacedByLink_WhenRunningPatientEverything_ThenMovedPermanentlyIsReturned()
         {
             string searchUrl = $"Patient/{Fixture.PatientWithReplacedByLink.Id}/$everything";

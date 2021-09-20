@@ -33,8 +33,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Patient PatientReferencedBySeeAlsoLink { get; private set; }
 
-        public Patient PatientWithMultipleSeeAlsoLinks { get; private set; }
-
         public Patient PatientReferencedByReferLink { get; private set; }
 
         public Patient PatientReferencedByReplacesLink { get; private set; }
@@ -140,45 +138,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
             observationToCreate.Subject.Reference = $"Patient/{PatientReferencedBySeeAlsoLink.Id}";
             ObservationOfPatientReferencedBySeeAlsoLink = await TestFhirClient.CreateAsync(observationToCreate);
-
-            // Create a patient with many "seealso" links
-            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
-
-            for (int i = 0; i <= 10; i++)
-            {
-                AddLink(patientToCreate, Patient.LinkType.Seealso, $"test{i}");
-            }
-
-            PatientWithMultipleSeeAlsoLinks = await TestFhirClient.CreateAsync(patientToCreate);
         }
 
         private async Task<Patient> CreatePatientWithLink(Patient.LinkType linkType, Patient patientReferencedByLink)
         {
             Patient patientWithLink = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
-            AddLink(patientWithLink, linkType, patientReferencedByLink.Id);
 
-            return await TestFhirClient.CreateAsync(patientWithLink);
-        }
-
-        private void AddLink(Patient patientWithLink, Patient.LinkType linkType, string patientReferencedByLinkId)
-        {
             var link = new Patient.LinkComponent
             {
                 Type = linkType,
-                Other = new ResourceReference($"Patient/{patientReferencedByLinkId}"),
+                Other = new ResourceReference($"Patient/{patientReferencedByLink.Id}"),
             };
 
-            if (patientWithLink.Link == null)
+            patientWithLink.Link = new List<Patient.LinkComponent>
             {
-                patientWithLink.Link = new List<Patient.LinkComponent>
-                {
-                    link,
-                };
-            }
-            else
-            {
-                patientWithLink.Link.Add(link);
-            }
+                link,
+            };
+
+            return await TestFhirClient.CreateAsync(patientWithLink);
         }
     }
 }

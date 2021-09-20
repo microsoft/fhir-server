@@ -36,36 +36,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         }
 
         [Theory]
-        [InlineData(0, null)]
-        [InlineData(1, null)]
-        [InlineData(2, "abc")]
-        [InlineData(3, "abc")]
-        public void GivenEverythingOperationContinuationToken_WhenToString_ThenCorrectStringShouldBeReturned(int phase, string internalContinuationToken)
+        [InlineData(0, null, null)]
+        [InlineData(1, null, "test")]
+        [InlineData(2, "abc", null)]
+        [InlineData(3, "abc", "1234567890")]
+        public void GivenEverythingOperationContinuationToken_WhenToString_ThenCorrectStringShouldBeReturned(int phase, string internalContinuationToken, string currentSeeAlsoLinkId)
         {
             var token = new EverythingOperationContinuationToken
             {
                 Phase = phase,
                 InternalContinuationToken = internalContinuationToken,
+                CurrentSeeAlsoLinkId = currentSeeAlsoLinkId,
             };
 
-            // The internal continuation token value will be padded with quotes if it is not null
+            // Values will be padded with quotes if they are not null
             internalContinuationToken = string.IsNullOrEmpty(internalContinuationToken) ? "null" : "\"" + internalContinuationToken + "\"";
+            currentSeeAlsoLinkId = string.IsNullOrEmpty(currentSeeAlsoLinkId) ? "null" : "\"" + currentSeeAlsoLinkId + "\"";
 
-            Assert.Equal($"{{\"SeeAlsoLinks\":[],\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"CurrentSeeAlsoLinkIndex\":-1}}", token.ToString());
-        }
-
-        [Fact]
-        public void GivenEverythingOperationContinuationTokenWithSeeAlsoLinks_WhenToString_ThenCorrectStringShouldBeReturned()
-        {
-            var token = new EverythingOperationContinuationToken();
-            token.SeeAlsoLinks.Add("link1");
-            token.SeeAlsoLinks.Add("link2");
-
-            token.ProcessNextSeeAlsoLink();
-            Assert.Equal($"{{\"SeeAlsoLinks\":[\"link1\",\"link2\"],\"Phase\":0,\"InternalContinuationToken\":null,\"CurrentSeeAlsoLinkIndex\":0}}", token.ToString());
-
-            token.ProcessNextSeeAlsoLink();
-            Assert.Equal($"{{\"SeeAlsoLinks\":[\"link1\",\"link2\"],\"Phase\":0,\"InternalContinuationToken\":null,\"CurrentSeeAlsoLinkIndex\":1}}", token.ToString());
+            Assert.Equal($"{{\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"CurrentSeeAlsoLinkId\":{currentSeeAlsoLinkId}}}", token.ToString());
         }
     }
 }

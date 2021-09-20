@@ -3,25 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 {
     internal class EverythingOperationContinuationToken
     {
+        // The $everything operation continuation token is used to retrieve the next phase of results when running the
+        // Patient $everything operation. The information stored in this class is serialized, encoded and returned as
+        // part of the "next" URL in the result set bundle.
+        // The length of the serialized token must not exceed the limit of the URL (2083 characters), so we need to
+        // avoid using the continuation token to store large amounts of data. This is why we only store the current
+        // "seealso" link id in the token (opposed to all "seealso" links).
         [JsonConstructor]
         internal EverythingOperationContinuationToken()
         {
             Phase = 0;
             InternalContinuationToken = null;
-
-            SeeAlsoLinks = new List<string>();
-            CurrentSeeAlsoLinkIndex = -1;
         }
-
-        [JsonProperty]
-        internal List<string> SeeAlsoLinks { get; }
 
         [JsonProperty]
         internal int Phase { get; set; }
@@ -29,38 +28,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         [JsonProperty]
         internal string InternalContinuationToken { get; set; }
 
-        internal bool MoreSeeAlsoLinksToProcess
-        {
-            get
-            {
-                return CurrentSeeAlsoLinkIndex < SeeAlsoLinks.Count - 1;
-            }
-        }
-
-        internal string CurrentSeeAlsoLinkId
-        {
-            get
-            {
-                // If we are not processing a "seealso" link
-                if (CurrentSeeAlsoLinkIndex < 0)
-                {
-                    return null;
-                }
-
-                return SeeAlsoLinks[CurrentSeeAlsoLinkIndex];
-            }
-        }
+        [JsonProperty]
+        internal string CurrentSeeAlsoLinkId { get; set; }
 
         internal bool IsProcessingSeeAlsoLink
         {
             get
             {
-                return CurrentSeeAlsoLinkIndex > -1;
+                return CurrentSeeAlsoLinkId != null;
             }
         }
-
-        [JsonProperty]
-        private int CurrentSeeAlsoLinkIndex { get; set; }
 
         public override string ToString()
         {
@@ -86,20 +63,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             return token;
-        }
-
-        internal void ProcessNextSeeAlsoLink()
-        {
-            // If there are more links to process
-            if (CurrentSeeAlsoLinkIndex < SeeAlsoLinks.Count - 1)
-            {
-                CurrentSeeAlsoLinkIndex++;
-            }
-            else
-            {
-                // This will set the flag that indicates if we are processing "seealso" links to false
-                CurrentSeeAlsoLinkIndex = -1;
-            }
         }
     }
 }
