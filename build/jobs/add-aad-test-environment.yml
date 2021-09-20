@@ -25,7 +25,7 @@ steps:
       $resource = "https://graph.windows.net/"
 
       $test = "$(test-key-vault)"
-      Write-Host $test
+      Write-Host $test.Substring(1)
 
       $body = @{
           grant_type = "password"
