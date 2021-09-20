@@ -41,7 +41,15 @@ steps:
       }
 
       Write-Host "Cleaned up keyvaults"
-      $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+      try 
+      {
+          $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+      }
+      catch 
+      {
+          Write-Host "StatusCode:" $_.Exception.Response.StatusCode.value__ 
+          Write-Host "StatusDescription:" $_.Exception.Response.StatusDescription
+      }
 
       Write-Host "Got access token"
       Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
