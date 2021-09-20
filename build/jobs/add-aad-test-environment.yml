@@ -24,8 +24,8 @@ steps:
       $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
       $resource = "https://graph.windows.net/"
 
-      $test = "$(test-key-vault)"
-      Write-Host $test.Substring(1)
+      $test = "$(tenant-admin-user-password)"
+      Write-Host $test.Substring(0,1)
 
       $body = @{
           grant_type = "password"
