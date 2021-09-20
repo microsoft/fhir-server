@@ -237,6 +237,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 exceptionNotification.OuterMethod = exception.TargetSite?.Name;
                 exceptionNotification.IsRequestEntityTooLarge = exception.IsRequestEntityTooLarge();
                 exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
+                exceptionNotification.BaseException = exception;
 
                 await _mediator.Publish(exceptionNotification, CancellationToken.None);
             }
