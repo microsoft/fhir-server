@@ -14,7 +14,7 @@ jobs:
     displayName: 'Delete AAD apps'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
+      azurePowerShellVersion: '6.3.0'
       ScriptType: InlineScript
       Inline: |
         Install-Module AzureAD -Force

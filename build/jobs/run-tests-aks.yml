@@ -22,7 +22,7 @@ jobs:
     displayName: 'Set Variables'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
+      azurePowerShellVersion: '6.3.0'
       ScriptType: inlineScript
       Inline: |
         $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts

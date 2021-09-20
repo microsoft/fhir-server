@@ -27,7 +27,7 @@ stages:
       displayName: Provision Resource Group
       inputs:
         azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
+        azurePowerShellVersion: '6.3.0'
         ScriptType: inlineScript
         Inline: |
           New-AzResourceGroup -Name "$(resourceGroupRoot)" -Location "$(ResourceGroupRegion)" -Force
@@ -35,7 +35,7 @@ stages:
       displayName: 'Deploy Default Site'
       inputs:
         azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
+        azurePowerShellVersion: '6.3.0'
         ScriptType: inlineScript
         Inline: |
           $testConfig = (ConvertFrom-Json (Get-Content -Raw "*/**/testconfiguration.json"))
@@ -71,7 +71,7 @@ stages:
       displayName: 'Delete resource group'
       inputs:
         azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
+        azurePowerShellVersion: '6.3.0'
         ScriptType: InlineScript
         Inline: 'Get-AzResourceGroup -Name $(resourceGroupRoot) | Remove-AzResourceGroup -Verbose -Force'
 

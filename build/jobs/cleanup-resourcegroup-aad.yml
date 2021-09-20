@@ -9,7 +9,7 @@ jobs:
     displayName: 'Delete resource group'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
+      azurePowerShellVersion: '6.3.0'
       ScriptType: InlineScript
       Inline: 'Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force'
 

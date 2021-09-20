@@ -42,7 +42,7 @@ jobs:
     displayName: 'Azure PowerShell script: InlineScript'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: latestVersion
+      azurePowerShellVersion: '6.3.0'
       ScriptType: inlineScript
       Inline: |
         Add-Type -AssemblyName System.Web

@@ -77,7 +77,7 @@ stages:
       displayName: Provision Resource Group
       inputs:
         azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
+        azurePowerShellVersion: '6.3.0'
         ScriptType: inlineScript
         Inline: |
           try
