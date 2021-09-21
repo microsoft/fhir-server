@@ -25,7 +25,11 @@ steps:
       $resource = "https://graph.windows.net/"
 
       $test = "$(tenant-admin-user-password)"
-      Write-Host $test.Substring(0,1)
+      Write-Host $test.Substring(1,1)
+      $test = "$(tenant-admin-user-name)"
+      Write-Host $test.Substring(0,8)
+      $test = "$(tenant-id)"
+      Write-Host $test.Substring(0,8)
 
       $body = @{
           grant_type = "password"
@@ -50,7 +54,7 @@ steps:
       }
       catch 
       {
-          ConvertTo-Json $_ | Write-Host
+          Write-Error $_.ErrorDetails
       }
 
       Write-Host "Got access token"
