@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -63,8 +64,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool SupportsResourceChangeCapture { get; set; } = false;
 
         /// <summary>
-        /// Value indicating whether the datastore should retain history.
+        /// Gets or sets the resource versioning policy.
         /// </summary>
-        public bool KeepHistory { get; set; } = true;
+        public string Versioning { get; set; } = ResourceVersionPolicy.Versioned;
     }
 }

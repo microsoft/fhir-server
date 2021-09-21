@@ -18,12 +18,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
             SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
 
-            // TODO: Not the right place for this? Is there a way to select the other options in the hash set?
-            Versioning = configuration != null && configuration.KeepHistory ? new DefaultOptionHashSet<string>(ResourceVersionPolicy.Versioned, StringComparer.Ordinal) : new DefaultOptionHashSet<string>(ResourceVersionPolicy.NoVersion, StringComparer.Ordinal);
-
             SearchRevInclude = new HashSet<string>(StringComparer.Ordinal);
             SearchInclude = new HashSet<string>(StringComparer.Ordinal);
             ReferencePolicy = new HashSet<string>(StringComparer.Ordinal);
+            Versioning = new DefaultOptionHashSet<string>(configuration.Versioning, StringComparer.Ordinal);
             SupportedProfile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             Operation = new HashSet<OperationComponent>(new PropertyEqualityComparer<OperationComponent>(x => x.Name, x => x.Definition.ToString()));
 
