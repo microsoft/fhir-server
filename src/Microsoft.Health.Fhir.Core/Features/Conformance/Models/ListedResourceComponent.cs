@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             SearchRevInclude = new HashSet<string>(StringComparer.Ordinal);
             SearchInclude = new HashSet<string>(StringComparer.Ordinal);
             ReferencePolicy = new HashSet<string>(StringComparer.Ordinal);
-            Versioning = new DefaultOptionHashSet<string>(configuration.Versioning, StringComparer.Ordinal);
+            Versioning = new DefaultOptionHashSet<string>(configuration.Versioning.Default, StringComparer.Ordinal);
             SupportedProfile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             Operation = new HashSet<OperationComponent>(new PropertyEqualityComparer<OperationComponent>(x => x.Name, x => x.Definition.ToString()));
 

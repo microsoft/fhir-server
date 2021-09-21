@@ -66,6 +66,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets the resource versioning policy.
         /// </summary>
-        public string Versioning { get; set; } = ResourceVersionPolicy.Versioned;
+        public VersioningConfiguration Versioning { get; set; } = new VersioningConfiguration();
     }
 }
