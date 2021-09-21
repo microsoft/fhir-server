@@ -1124,29 +1124,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             sortContext.ContinuationToken = ContinuationToken.FromString(context.ContinuationToken);
 
-            if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
+            switch (searchParamInfo.Type)
             {
-                sortContext.SortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
-            }
-            else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
-            {
-                sortContext.SortColumnName = VLatest.StringSearchParam.Text;
-            }
-
-            if (sortContext.ContinuationToken != null)
-            {
-                if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
-                {
-                    DateTime dateSortValue;
-                    if (DateTime.TryParseExact(sortContext.ContinuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
+                case ValueSets.SearchParamType.Date:
+                    sortContext.SortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
+                    if (sortContext.ContinuationToken != null)
                     {
-                        sortContext.SortValue = dateSortValue;
+                        DateTime dateSortValue;
+                        if (DateTime.TryParseExact(sortContext.ContinuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
+                        {
+                            sortContext.SortValue = dateSortValue;
+                        }
                     }
-                }
-                else if (searchParamInfo.Type == ValueSets.SearchParamType.String)
-                {
-                    sortContext.SortValue = sortContext.ContinuationToken.SortValue;
-                }
+
+                    break;
+                case ValueSets.SearchParamType.String:
+                    sortContext.SortColumnName = VLatest.StringSearchParam.Text;
+                    if (sortContext.ContinuationToken != null)
+                    {
+                        sortContext.SortValue = sortContext.ContinuationToken.SortValue;
+                    }
+
+                    break;
             }
 
             return sortContext;
