@@ -11,7 +11,7 @@ steps:
     displayName: 'Set Variables'
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: '6.3.0'
+      azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
         $keyVault = "$(DeploymentEnvironmentName)-ts"

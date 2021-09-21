@@ -29,7 +29,7 @@ stages:
       displayName: Provision Resource Group
       inputs:
         azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: '6.3.0'
+        azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
           New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force

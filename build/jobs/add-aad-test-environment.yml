@@ -9,7 +9,7 @@ steps:
   displayName: Setup AAD Test Environment
   inputs:
     azureSubscription: $(ConnectedServiceName)
-    azurePowerShellVersion: '6.3.0'
+    azurePowerShellVersion: latestVersion
     ScriptType: inlineScript
     Inline: |
       Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser

@@ -12,7 +12,7 @@ jobs:
     continueOnError: true
     inputs:
       azureSubscription: $(ConnectedServiceName)
-      azurePowerShellVersion: '6.3.0'
+      azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
         $currentUtcTime = [DateTime]::UtcNow
