@@ -61,5 +61,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value whether capturing resource change data is enabled or not.
         /// </summary>
         public bool SupportsResourceChangeCapture { get; set; } = false;
+
+        /// <summary>
+        /// Value indicating whether the datastore should retain history.
+        /// </summary>
+        public bool KeepHistory { get; set; } = true;
     }
 }

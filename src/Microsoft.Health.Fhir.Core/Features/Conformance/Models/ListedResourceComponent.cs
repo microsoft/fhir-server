@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -12,11 +13,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
     public class ListedResourceComponent
     {
-        public ListedResourceComponent()
+        public ListedResourceComponent(CoreFeatureConfiguration configuration)
         {
             Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
             SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
-            Versioning = new DefaultOptionHashSet<string>("versioned", StringComparer.Ordinal);
+
+            // TODO: Not the right place for this? Is there a way to select the other options in the hash set?
+            Versioning = configuration != null && configuration.KeepHistory ? new DefaultOptionHashSet<string>(ResourceVersionPolicy.Versioned, StringComparer.Ordinal) : new DefaultOptionHashSet<string>(ResourceVersionPolicy.NoVersion, StringComparer.Ordinal);
+
             SearchRevInclude = new HashSet<string>(StringComparer.Ordinal);
             SearchInclude = new HashSet<string>(StringComparer.Ordinal);
             ReferencePolicy = new HashSet<string>(StringComparer.Ordinal);
