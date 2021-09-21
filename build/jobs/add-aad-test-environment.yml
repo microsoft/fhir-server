@@ -20,15 +20,12 @@ steps:
 
       # Get admin token
       $username = "$(tenant-admin-user-name)"
-      $password_raw = "$(tenant-admin-user-password)"
+      $password_raw = '$(tenant-admin-user-password)'
       $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
       $adminCredential = New-Object PSCredential $username,$password
 
       $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
       $resource = "https://graph.windows.net/"
-
-      $test = "$(tenant-admin-user-password)"
-      Write-Host $test.Substring(3,1)
 
       $body = @{
           grant_type = "password"
@@ -47,7 +44,6 @@ steps:
       }
 
       Write-Host "Cleaned up keyvaults"
-      Write-Host $test.Substring(13,1)
       try 
       {
           $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
