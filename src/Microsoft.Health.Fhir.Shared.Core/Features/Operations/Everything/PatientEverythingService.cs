@@ -291,7 +291,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             // Retrieve the parent patient so that we can extract its links and process the next "seealso" link.
             using IScoped<ISearchService> search = _searchServiceFactory();
-            var searchResultEntries = new List<SearchResultEntry>();
 
             // To do so, first create the search parameter to add to the query
             var searchParameters = new List<Tuple<string, string>>
@@ -302,10 +301,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             // And then execute the search.
             SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), searchParameters);
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
-            searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
             // The search result entries should contain one patient resource - the parent patient.
-            SearchResultEntry parentPatientResource = searchResultEntries.FirstOrDefault(s => string.Equals(s.Resource.ResourceTypeName, ResourceType.Patient.ToString(), StringComparison.Ordinal));
+            SearchResultEntry parentPatientResource = searchResult.Results.FirstOrDefault(s => string.Equals(s.Resource.ResourceTypeName, ResourceType.Patient.ToString(), StringComparison.Ordinal));
 
             List<Patient.LinkComponent> links = ExtractLinksFromParentPatient(parentPatientResource);
 
