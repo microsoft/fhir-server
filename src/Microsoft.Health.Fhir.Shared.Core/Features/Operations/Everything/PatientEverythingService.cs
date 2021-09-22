@@ -370,7 +370,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 int indexOfCurrent = seeAlsoLinkIdsSorted.FindIndex(id => id == token.CurrentSeeAlsoLinkId);
                 int indexOfNext = indexOfCurrent + 1;
 
-                if (indexOfNext < seeAlsoLinkIdsSorted.Count - 1)
+                if (indexOfNext < seeAlsoLinkIdsSorted.Count)
                 {
                     token.CurrentSeeAlsoLinkId = seeAlsoLinkIdsSorted[indexOfNext];
                 }
