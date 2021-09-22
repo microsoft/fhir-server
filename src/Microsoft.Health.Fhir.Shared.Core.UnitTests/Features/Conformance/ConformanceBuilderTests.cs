@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public ConformanceBuilderTests()
         {
             IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            configuration.Value.Returns(new CoreFeatureConfiguration());
 
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
