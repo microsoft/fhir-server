@@ -261,12 +261,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Confirm header location contains url for the correct request
             string id = Fixture.PatientReferencedByReplacedByLink.Id;
-            var patientEverythingOperationUrl = new Uri($"http://localhost/{ResourceType.Patient.ToString()}/{id}/$everything");
+            string uri = $"/{ResourceType.Patient.ToString()}/{id}/$everything";
 
-            IUrlResolver urlResolver = Substitute.For<IUrlResolver>();
-            urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(patientEverythingOperationUrl);
-
-            Assert.Equal(patientEverythingOperationUrl.AbsoluteUri, ex.Content.Headers.GetValues(HeaderNames.ContentLocation).First());
+            Assert.Contains(uri, ex.Content.Headers.GetValues(HeaderNames.ContentLocation).First());
             Assert.Equal(HttpStatusCode.MovedPermanently, ex.StatusCode);
             Assert.Contains(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, Fixture.PatientWithReplacedByLink.Id, Fixture.PatientReferencedByReplacedByLink.Id), ex.Message);
         }
