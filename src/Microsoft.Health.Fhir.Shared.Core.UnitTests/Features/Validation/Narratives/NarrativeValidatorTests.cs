@@ -3,13 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using FluentValidation;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 
@@ -32,10 +30,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             defaultObservation.Text.Div = maliciousNarrative;
 
             var instanceToValidate = defaultObservation.ToResourceElement();
-            var result = _validator.IsValid(
-                    new ValidationContext<ResourceElement>(instanceToValidate), instanceToValidate);
+            var result = _validator.Validate(instanceToValidate);
 
-            Assert.False(result);
+            Assert.False(result.IsValid);
         }
 
         [Theory]
@@ -53,10 +50,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultPatient });
 
             var instanceToValidate = bundle.ToResourceElement();
-            var result = _validator.IsValid(
-                    new ValidationContext<ResourceElement>(instanceToValidate), instanceToValidate);
+            var result = _validator.Validate(instanceToValidate);
 
-            Assert.False(result);
+            Assert.False(result.IsValid);
         }
     }
 }

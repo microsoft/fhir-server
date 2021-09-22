@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
             if (!allResults.All(x => x.IsValid))
             {
-                throw new ResourceNotValidException(allResults.SelectMany(x => x.Errors).Where(e => e.ErrorCode == "Custom").ToList());
+                throw new ResourceNotValidException(allResults.SelectMany(x => x.Errors).ToList());
             }
         }
     }

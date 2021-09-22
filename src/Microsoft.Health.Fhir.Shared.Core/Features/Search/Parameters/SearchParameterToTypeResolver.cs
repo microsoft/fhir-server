@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
@@ -26,8 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     [SuppressMessage("Design", "CA1801", Justification = "Visitor overloads are resolved dynamically so method signature should remain the same.")]
     internal static class SearchParameterToTypeResolver
     {
-        private static readonly ModelInspector ModelInspector = GetModelInspector();
-
         public static EnumerableReturnType Resolve(
             string resourceType,
             (SearchParamType type, Expression expression, Uri definition) typeAndExpression,
@@ -328,29 +325,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static ClassMapping GetMapping(Type type)
         {
-            ClassMapping returnValue = ModelInspector.FindClassMapping(type);
+            ClassMapping returnValue = ModelInfo.ModelInspector.FindClassMapping(type);
 
             if (returnValue == null)
             {
-                return ModelInspector.ImportType(type);
+                return ModelInfo.ModelInspector.ImportType(type);
             }
 
             return returnValue;
-        }
-
-        private static ModelInspector GetModelInspector()
-        {
-            // ModelInspector has lot of dictionaries, so it would be waste of memory to create new one here.
-            // So instead we use reflection to access internal property of ModelInfo.
-            string methodName = "ModelInspector";
-            var modelInspectorProperty = typeof(ModelInfo).GetProperty(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-
-            if (modelInspectorProperty == null)
-            {
-                throw new MissingMethodException(nameof(ModelInfo), methodName);
-            }
-
-            return (ModelInspector)modelInspectorProperty.GetValue(null);
         }
 
         private class Context

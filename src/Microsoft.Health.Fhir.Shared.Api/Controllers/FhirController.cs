@@ -429,7 +429,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
          /// <param name="ifMatchHeader">Optional If-Match header.</param>
         [HttpPatch]
         [Route(KnownRoutes.ResourceType)]
-        [AuditEventType(AuditEventSubType.Patch)]
+        [AuditEventType(AuditEventSubType.ConditionalPatch)]
         public async Task<IActionResult> ConditionalPatch(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
