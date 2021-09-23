@@ -267,27 +267,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             EnsureArg.IsNotNull(onInvalidElement, nameof(onInvalidElement));
             EnsureArg.IsNotNull(onInvalidAttr, nameof(onInvalidAttr));
 
+            ValidateAttributes(htmlDivElement, onInvalidAttr);
+
             // Ensure only allowed elements and attributes are used
-            foreach (var element in htmlDivElement.QuerySelectorAll("*"))
+            foreach (IElement element in htmlDivElement.QuerySelectorAll("*"))
             {
                 if (!AllowedElements.Contains(element.NodeName))
                 {
                     onInvalidElement(element);
                 }
 
-                foreach (var attr in element.Attributes.ToArray())
+                ValidateAttributes(element, onInvalidAttr);
+            }
+        }
+
+        private static void ValidateAttributes(IElement element, Action<IElement, IAttr> onInvalidAttr)
+        {
+            foreach (IAttr attr in element.Attributes.ToArray())
+            {
+                if (!AllowedAttributes.Contains(attr.Name))
                 {
-                    if (!AllowedAttributes.Contains(attr.Name))
+                    onInvalidAttr(element, attr);
+                }
+
+                if (string.Equals("src", attr.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!Src.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
                     {
                         onInvalidAttr(element, attr);
-                    }
-
-                    if (string.Equals("src", attr.Name, StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (!Src.Any(x => attr.Value.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            onInvalidAttr(element, attr);
-                        }
                     }
                 }
             }
