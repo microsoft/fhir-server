@@ -153,6 +153,8 @@ namespace Microsoft.Extensions.DependencyInjection
                     // which will be used in other middlewares.
                     app.UseFhirRequestContext();
 
+                    app.UseApiNotifications();
+
                     if (env.IsDevelopment())
                     {
                         app.UseDeveloperExceptionPage();
@@ -175,7 +177,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     // The audit module needs to come after the exception handler because we need to catch the response before it gets converted to custom error.
                     app.UseAudit();
-                    app.UseApiNotifications();
 
                     app.UseFhirRequestContextAuthentication();
 
