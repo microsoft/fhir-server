@@ -153,6 +153,7 @@ namespace Microsoft.Extensions.DependencyInjection
                     // which will be used in other middlewares.
                     app.UseFhirRequestContext();
 
+                    // Adding the notification here makes sure that we are publishing all the unknown/unhandled errors e.g 500 errors should be logged in RequestMetric
                     app.UseApiNotifications();
 
                     if (env.IsDevelopment())
