@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -61,5 +62,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets a value whether capturing resource change data is enabled or not.
         /// </summary>
         public bool SupportsResourceChangeCapture { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets the resource versioning policy.
+        /// </summary>
+        public VersioningConfiguration Versioning { get; set; } = new VersioningConfiguration();
     }
 }
