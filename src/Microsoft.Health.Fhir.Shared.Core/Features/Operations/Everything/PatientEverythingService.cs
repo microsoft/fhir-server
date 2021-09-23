@@ -252,11 +252,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             // resource that contains the "replaced-by" link.
             foreach (Patient.LinkComponent link in links)
             {
-                ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
-
                 // Regardless of the other links present, we throw an error if we find a "replaced-by" link.
                 if (link.Type == Patient.LinkType.ReplacedBy)
                 {
+                    ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
+
                     // Specify the url that must be used instead.
                     Uri url = _urlResolver.ResolveOperationResultUrl(OperationsConstants.PatientEverything, referenceSearchValue.ResourceId);
 

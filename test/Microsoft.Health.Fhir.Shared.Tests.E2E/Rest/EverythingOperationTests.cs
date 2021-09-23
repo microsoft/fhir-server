@@ -8,12 +8,10 @@ using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
-using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Search;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
-using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
