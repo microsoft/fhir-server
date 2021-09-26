@@ -46,7 +46,6 @@ namespace Microsoft.Health.Fhir.Import.Core
                 .AsImplementedInterfaces();
 
             fhirServerBuilder.Services.AddSingleton(Options.Create(importTaskConfiguration));
-            fhirServerBuilder.Services.AddSingleton(Options.Create(importTaskConfiguration));
 
             return fhirServerBuilder;
         }
