@@ -16,21 +16,17 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Messages.Import;
+using Microsoft.Health.Fhir.Import.Core;
+using Microsoft.Health.Fhir.Import.Core.Messages;
+using Microsoft.Health.Fhir.Import.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -55,7 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
-        private readonly FeatureConfiguration _features;
         private readonly ILogger<ImportController> _logger;
         private readonly ImportTaskConfiguration _importConfig;
 
@@ -63,21 +58,18 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IMediator mediator,
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
             IUrlResolver urlResolver,
-            IOptions<OperationsConfiguration> operationsConfig,
-            IOptions<FeatureConfiguration> features,
+            IOptions<ImportTaskConfiguration> importConfig,
             ILogger<ImportController> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(operationsConfig?.Value?.Import, nameof(operationsConfig));
+            EnsureArg.IsNotNull(importConfig?.Value, nameof(importConfig));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            EnsureArg.IsNotNull(features?.Value, nameof(features));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _importConfig = operationsConfig.Value.Import;
+            _importConfig = importConfig.Value;
             _urlResolver = urlResolver;
-            _features = features.Value;
             _mediator = mediator;
             _logger = logger;
         }
@@ -112,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                  HttpContext.RequestAborted);
 
             var bulkImportResult = ImportResult.Accepted();
-            bulkImportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Import, response.TaskId);
+            bulkImportResult.SetContentLocationHeader(_urlResolver, ImportConstants.Import, response.TaskId);
             return bulkImportResult;
         }
 
@@ -142,7 +134,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (getBulkImportResult.StatusCode == HttpStatusCode.OK)
             {
                 bulkImportActionResult = ImportResult.Ok(getBulkImportResult.TaskResult);
-                bulkImportActionResult.SetContentTypeHeader(OperationsConstants.BulkImportContentTypeHeaderValue);
+                bulkImportActionResult.SetContentTypeHeader(ImportConstants.BulkImportContentTypeHeaderValue);
             }
             else
             {
@@ -156,7 +148,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (!_importConfig.Enabled)
             {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Import));
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, ImportConstants.Import));
             }
         }
 

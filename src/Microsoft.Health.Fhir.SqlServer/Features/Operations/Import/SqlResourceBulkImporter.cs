@@ -14,8 +14,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Import.Core;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.TaskManagement;
 using Polly;
@@ -36,21 +35,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             ISqlBulkCopyDataWrapperFactory sqlBulkCopyDataWrapperFactory,
             IImportErrorSerializer importErrorSerializer,
             List<TableBulkCopyDataGenerator> generators,
-            IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<ImportTaskConfiguration> importTaskConfiguration,
             ILogger<SqlResourceBulkImporter> logger)
         {
             EnsureArg.IsNotNull(sqlImportOperation, nameof(sqlImportOperation));
             EnsureArg.IsNotNull(sqlBulkCopyDataWrapperFactory, nameof(sqlBulkCopyDataWrapperFactory));
             EnsureArg.IsNotNull(importErrorSerializer, nameof(importErrorSerializer));
             EnsureArg.IsNotNull(generators, nameof(generators));
-            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
+            EnsureArg.IsNotNull(importTaskConfiguration?.Value, nameof(importTaskConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlImportOperation = sqlImportOperation;
             _sqlBulkCopyDataWrapperFactory = sqlBulkCopyDataWrapperFactory;
             _importErrorSerializer = importErrorSerializer;
             _generators = generators;
-            _importTaskConfiguration = operationsConfig.Value.Import;
+            _importTaskConfiguration = importTaskConfiguration.Value;
             _logger = logger;
         }
 
@@ -74,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             TokenTextSearchParamsTableBulkCopyDataGenerator tokenTextSearchParamsTableBulkCopyDataGenerator,
             TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator,
             UriSearchParamsTableBulkCopyDataGenerator uriSearchParamsTableBulkCopyDataGenerator,
-            IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<ImportTaskConfiguration> importTaskConfiguration,
             ILogger<SqlResourceBulkImporter> logger)
         {
             EnsureArg.IsNotNull(sqlImportOperation, nameof(sqlImportOperation));
@@ -96,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             EnsureArg.IsNotNull(tokenTextSearchParamsTableBulkCopyDataGenerator, nameof(tokenTextSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator, nameof(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator));
             EnsureArg.IsNotNull(uriSearchParamsTableBulkCopyDataGenerator, nameof(uriSearchParamsTableBulkCopyDataGenerator));
-            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
+            EnsureArg.IsNotNull(importTaskConfiguration?.Value, nameof(importTaskConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlImportOperation = sqlImportOperation;
@@ -120,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             _generators.Add(tokenTokenCompositeSearchParamsTableBulkCopyDataGenerator);
             _generators.Add(uriSearchParamsTableBulkCopyDataGenerator);
 
-            _importTaskConfiguration = operationsConfig.Value.Import;
+            _importTaskConfiguration = importTaskConfiguration.Value;
             _logger = logger;
         }
 

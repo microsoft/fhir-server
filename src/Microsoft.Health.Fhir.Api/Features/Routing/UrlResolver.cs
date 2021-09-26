@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Import.Core;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
@@ -250,7 +251,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.Reindex:
                     routeName = RouteNames.GetReindexStatusById;
                     break;
-                case OperationsConstants.Import:
+                case ImportConstants.Import:
                     routeName = RouteNames.GetImportStatusById;
                     break;
                 default:

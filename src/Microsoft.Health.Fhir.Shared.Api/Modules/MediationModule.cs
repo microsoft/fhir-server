@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using System.Reflection;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +24,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddMediatR(KnownAssemblies.All);
+            RegisterAssemblies(services, KnownAssemblies.All);
+        }
+
+        internal static void RegisterAssemblies(IServiceCollection services, params Assembly[] assemblies)
+        {
+            EnsureArg.HasItems(assemblies, nameof(assemblies));
+
+            services.AddMediatR(assemblies);
 
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]
@@ -32,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 typeof(INotificationHandler<>),
             };
 
-            services.TypesInSameAssembly(KnownAssemblies.All)
+            services.TypesInSameAssembly(assemblies)
                 .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
                 .Transient()
                 .AsImplementedInterfaces(x => x == typeof(IProvideCapability));

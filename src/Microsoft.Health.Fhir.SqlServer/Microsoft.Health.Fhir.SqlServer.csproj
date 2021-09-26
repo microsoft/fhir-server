@@ -66,6 +66,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Import.Core\Microsoft.Health.Fhir.Import.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
   <ItemGroup>

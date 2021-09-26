@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Fhir.Import.Core;
 using OperationsConstants = Microsoft.Health.Fhir.Core.Features.Operations.OperationsConstants;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
@@ -63,8 +64,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string PurgeHistoryOperationDefinition = OperationDefinition + "/" + OperationsConstants.PurgeHistory;
 
         public const string Import = "$import";
-        public const string ImportDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.Import;
-        public const string ImportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Import + "/" + IdRouteSegment;
+        public const string ImportDataOperationDefinition = OperationDefinition + "/" + ImportConstants.Import;
+        public const string ImportJobLocation = OperationsConstants.Operations + "/" + ImportConstants.Import + "/" + IdRouteSegment;
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 

@@ -8,6 +8,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Import.Core;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Headers
         [Fact]
         public void GivenAnImportResult_WhenSettingAContentLocationHeader_ThenImportResultHasAContentLocationHeader()
         {
-            string opName = OperationsConstants.Import;
+            string opName = ImportConstants.Import;
             string id = Guid.NewGuid().ToString();
             var bulkImportOperationUrl = new Uri($"http://localhost/{OperationsConstants.Operations}/{opName}/{id}");
 

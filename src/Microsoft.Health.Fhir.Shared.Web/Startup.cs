@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
+using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.SqlServer.Configs;
@@ -39,7 +40,8 @@ namespace Microsoft.Health.Fhir.Web
                 .AddContainerRegistryTokenProvider()
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
-                .AddMemberMatch();
+                .AddMemberMatch()
+                .AddImport(Configuration);
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
@@ -97,10 +99,6 @@ namespace Microsoft.Health.Fhir.Web
             services.AddFactory<IScoped<TaskHosting>>();
 
             services.AddHostedService<TaskHostingBackgroundService>();
-            services.Add<TaskFactory>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
             services.Configure<TaskHostingConfiguration>(options => Configuration.GetSection("TaskHosting").Bind(options));
         }
 

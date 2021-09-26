@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+	<CodeAnalysisRuleSet>..\..\CustomAnalysisRules.ruleset</CodeAnalysisRuleSet>
+    <RootNamespace>Microsoft.Health.Fhir.Import.Core</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants>R4</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="0.16.0" />
+    <PackageReference Include="Ensure.That" Version="10.1.0" />
+    <PackageReference Include="FluentValidation" Version="10.3.3" />
+    <PackageReference Include="Hl7.Fhir.Specification.R4" Version="$(Hl7FhirVersion)" PrivateAssets="build;analyzers" />
+    <PackageReference Include="MediatR" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="$(RuntimePackageVersion)" />
+    <PackageReference Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
+    <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Import.Core\Microsoft.Health.Fhir.Import.Core.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.R4.Core\Microsoft.Health.Fhir.R4.Core.csproj" />
+  </ItemGroup>
+
+  <Import Project="..\Microsoft.Health.Fhir.Import.Shared.Core\Microsoft.Health.Fhir.Import.Shared.Core.projitems" Label="Shared" />
+
+</Project>

@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
+using Microsoft.Health.Fhir.Import.Core.Models;
 using static Hl7.Fhir.Model.Parameters;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations.Import

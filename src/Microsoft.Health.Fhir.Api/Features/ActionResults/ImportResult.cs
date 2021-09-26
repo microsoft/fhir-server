@@ -5,7 +5,7 @@
 
 using System.Net;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Import.Core;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {

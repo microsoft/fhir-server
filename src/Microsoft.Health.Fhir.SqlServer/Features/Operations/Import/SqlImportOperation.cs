@@ -13,8 +13,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Import.Core;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -37,19 +36,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ISqlServerTransientFaultRetryPolicyFactory sqlServerTransientFaultRetryPolicyFactory,
             SqlServerFhirModel model,
-            IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<ImportTaskConfiguration> importTaskConfiguration,
             ILogger<SqlImportOperation> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(sqlServerTransientFaultRetryPolicyFactory, nameof(sqlServerTransientFaultRetryPolicyFactory));
             EnsureArg.IsNotNull(model, nameof(model));
-            EnsureArg.IsNotNull(operationsConfig, nameof(operationsConfig));
+            EnsureArg.IsNotNull(importTaskConfiguration?.Value, nameof(importTaskConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _sqlServerTransientFaultRetryPolicyFactory = sqlServerTransientFaultRetryPolicyFactory;
             _model = model;
-            _importTaskConfiguration = operationsConfig.Value.Import;
+            _importTaskConfiguration = importTaskConfiguration.Value;
             _logger = logger;
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();

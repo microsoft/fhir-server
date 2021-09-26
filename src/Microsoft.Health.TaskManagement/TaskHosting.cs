@@ -16,18 +16,17 @@ namespace Microsoft.Health.TaskManagement
     public class TaskHosting
     {
         private ITaskConsumer _consumer;
-        private ITaskFactory _taskFactory;
+        private IEnumerable<ITaskFactory> _taskFactories;
         private ILogger<TaskHosting> _logger;
         private ConcurrentDictionary<string, ITask> _activeTaskRecordsForKeepAlive = new ConcurrentDictionary<string, ITask>();
 
-        public TaskHosting(ITaskConsumer consumer, ITaskFactory taskFactory, ILogger<TaskHosting> logger)
+        public TaskHosting(ITaskConsumer consumer, IEnumerable<ITaskFactory> taskFactories, ILogger<TaskHosting> logger)
         {
             EnsureArg.IsNotNull(consumer, nameof(consumer));
-            EnsureArg.IsNotNull(taskFactory, nameof(taskFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _consumer = consumer;
-            _taskFactory = taskFactory;
+            _taskFactories = taskFactories;
             _logger = logger;
         }
 
@@ -95,18 +94,33 @@ namespace Microsoft.Health.TaskManagement
             }
         }
 
+        private ITask CreateTask(TaskInfo taskInfo)
+        {
+            foreach (ITaskFactory taskFactory in _taskFactories)
+            {
+                ITask task = taskFactory.Create(taskInfo);
+                if (task != null)
+                {
+                    return task;
+                }
+            }
+
+            return null;
+        }
+
         private async Task ExecuteTaskAsync(TaskInfo taskInfo, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(taskInfo, nameof(taskInfo));
 
-            using ITask task = _taskFactory.Create(taskInfo);
-            task.RunId = task.RunId ?? taskInfo.RunId;
+            using ITask task = CreateTask(taskInfo);
 
             if (task == null)
             {
                 _logger.LogWarning("Not supported task type: {taskTypeId}", taskInfo.TaskTypeId);
                 return;
             }
+
+            task.RunId = task.RunId ?? taskInfo.RunId;
 
             TaskResultData result = null;
             try

@@ -6,7 +6,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Import.Core;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import

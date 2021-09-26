@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Import.Core;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import

@@ -9,16 +9,14 @@ using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
-using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Messages.Import;
+using Microsoft.Health.Fhir.Import.Core;
+using Microsoft.Health.Fhir.Import.Core.Messages;
+using Microsoft.Health.Fhir.Import.Core.Models;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -82,24 +80,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private ImportController GetController(ImportTaskConfiguration bulkImportConfig)
         {
-            var operationConfig = new OperationsConfiguration()
-            {
-                Import = bulkImportConfig,
-            };
-
-            IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            optionsOperationConfiguration.Value.Returns(operationConfig);
-
-            var features = new FeatureConfiguration();
-            IOptions<FeatureConfiguration> optionsFeatures = Substitute.For<IOptions<FeatureConfiguration>>();
-            optionsFeatures.Value.Returns(features);
+            IOptions<ImportTaskConfiguration> bulkImportConfigOptions = Substitute.For<IOptions<ImportTaskConfiguration>>();
+            bulkImportConfigOptions.Value.Returns(bulkImportConfig);
 
             return new ImportController(
                 _mediator,
                 _fhirRequestContextAccessor,
                 _urlResolver,
-                optionsOperationConfiguration,
-                optionsFeatures,
+                bulkImportConfigOptions,
                 NullLogger<ImportController>.Instance);
         }
 

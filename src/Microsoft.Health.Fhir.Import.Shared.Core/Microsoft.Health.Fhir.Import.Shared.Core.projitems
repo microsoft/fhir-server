@@ -1,0 +1,15 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>F6230A0E-6457-46E7-8AB9-DF80A3387EBC</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Import.Core</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)ImportCoreRegistrationExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ImportErrorSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ImportResourceParser.cs" />
+  </ItemGroup>
+</Project>

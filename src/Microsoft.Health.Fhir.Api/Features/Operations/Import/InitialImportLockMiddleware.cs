@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Import.Core;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 {

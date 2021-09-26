@@ -16,7 +16,5 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public ValidateOperationConfiguration Validate { get; set; } = new ValidateOperationConfiguration();
 
         public IntegrationDataStoreConfiguration IntegrationDataStore { get; set; } = new IntegrationDataStoreConfiguration();
-
-        public ImportTaskConfiguration Import { get; set; } = new ImportTaskConfiguration();
     }
 }

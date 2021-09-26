@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Import.Core;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
 {

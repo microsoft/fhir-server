@@ -55,7 +55,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                     null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 5;
 
@@ -96,7 +96,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
@@ -135,7 +135,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 2;
@@ -178,7 +178,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 2;
@@ -231,7 +231,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 };
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 0;
 
@@ -285,7 +285,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                     null);
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = maxConcurrentCount;
 
@@ -356,7 +356,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 }
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
@@ -407,7 +407,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                         });
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 1;
 
@@ -465,7 +465,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 }
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 5;
 
@@ -543,7 +543,7 @@ namespace Microsoft.Health.TaskManagement.UnitTests
                 }
             });
 
-            TaskHosting taskHosting = new TaskHosting(consumer, factory, _logger);
+            TaskHosting taskHosting = new TaskHosting(consumer, new ITaskFactory[] { factory }, _logger);
             taskHosting.PollingFrequencyInSeconds = 0;
             taskHosting.MaxRunningTaskCount = 20;
             taskHosting.TaskHeartbeatTimeoutThresholdInSeconds = 1;

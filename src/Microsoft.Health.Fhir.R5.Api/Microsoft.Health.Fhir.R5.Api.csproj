@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Import.R5.Core\Microsoft.Health.Fhir.Import.R5.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.Core\Microsoft.Health.Fhir.R5.Core.csproj" PrivateAssets="build;analyzers" />
   </ItemGroup>
 
