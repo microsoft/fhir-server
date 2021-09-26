@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Import.DataStore.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.TaskManagement;
 
@@ -40,8 +41,7 @@ namespace Microsoft.Health.Fhir.Web
                 .AddContainerRegistryTokenProvider()
                 .AddAzureIntegrationDataStoreClient(Configuration)
                 .AddConvertData()
-                .AddMemberMatch()
-                .AddImport(Configuration);
+                .AddMemberMatch();
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
@@ -50,10 +50,12 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
-                fhirServerBuilder.AddSqlServer(config =>
-                {
-                    Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
-                });
+                fhirServerBuilder
+                    .AddImport(builder => builder.AddImportSqlServerDataStore(), Configuration)
+                    .AddSqlServer(config =>
+                    {
+                        Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                    });
             }
 
             // Set task hosting and related background service

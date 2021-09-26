@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Import.Core
 {
     public static class ImportCoreRegistrationExtensions
     {
-        public static IFhirServerBuilder AddImportOperationCore(this IFhirServerBuilder fhirServerBuilder, ImportTaskConfiguration importTaskConfiguration)
+        public static IFhirServerBuilder AddImportCore(this IFhirServerBuilder fhirServerBuilder, ImportTaskConfiguration importTaskConfiguration)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             EnsureArg.IsNotNull(importTaskConfiguration, nameof(importTaskConfiguration));

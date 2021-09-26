@@ -58,6 +58,18 @@ COPY ./src/Microsoft.Health.Fhir.Shared.Client/Microsoft.Health.Fhir.Shared.Clie
 COPY ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems \
      ./src/Microsoft.Health.Fhir.Shared.Api/Microsoft.Health.Fhir.Shared.Api.projitems
 
+COPY ./src/Microsoft.Health.Fhir.Import.Core/Microsoft.Health.Fhir.Import.Core.csproj \
+     ./src/Microsoft.Health.Fhir.Import.Core/Microsoft.Health.Fhir.Import.Core.csproj
+	 
+COPY ./src/Microsoft.Health.Fhir.Import.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.Import.${FHIR_VERSION}.Core.csproj \
+     ./src/Microsoft.Health.Fhir.Import.${FHIR_VERSION}.Core/Microsoft.Health.Fhir.Import.${FHIR_VERSION}.Core.csproj
+	 
+COPY ./src/Microsoft.Health.Fhir.Import.Shared.Core/Microsoft.Health.Fhir.Import.Shared.Core.projitems \
+     ./src/Microsoft.Health.Fhir.Import.Shared.Core/Microsoft.Health.Fhir.Import.Shared.Core.projitems
+	 
+COPY ./src/Microsoft.Health.Fhir.Import.DataStore.SqlServer/Microsoft.Health.Fhir.Import.DataStore.SqlServer.csproj \
+     ./src/Microsoft.Health.Fhir.Import.DataStore.SqlServer/Microsoft.Health.Fhir.Import.DataStore.SqlServer.csproj
+	 
 RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj
 
 # now copy over everything else and publish

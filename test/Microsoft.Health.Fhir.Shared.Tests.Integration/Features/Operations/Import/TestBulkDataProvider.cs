@@ -5,7 +5,7 @@
 
 using System;
 using System.Data;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
+using Microsoft.Health.Fhir.Import.DataStore.SqlServer.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Import

@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Import.Core;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.Import.DataStore.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;

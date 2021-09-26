@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Reflection;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.Import.DataStore.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Xunit;

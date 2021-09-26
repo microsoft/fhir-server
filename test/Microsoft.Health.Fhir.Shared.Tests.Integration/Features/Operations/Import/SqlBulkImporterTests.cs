@@ -14,8 +14,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Import.Core;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
+using Microsoft.Health.Fhir.Import.DataStore.SqlServer;
+using Microsoft.Health.Fhir.Import.DataStore.SqlServer.DataGenerator;
 using NSubstitute;
 using Xunit;
 
