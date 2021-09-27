@@ -5,6 +5,7 @@
 
 using System;
 using System.Reflection;
+using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Api.Modules;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -16,8 +17,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
     {
         private const string ImportOperationConfigurationSectionName = "FhirServer:Operations:Import";
 
-        public static IFhirServerBuilder AddImport(this IFhirServerBuilder fhirServerBuilder, Action<IFhirServerBuilder> importStoreAction, IConfiguration configuration)
+        public static IFhirServerBuilder AddImport(this IFhirServerBuilder fhirServerBuilder, Action<IFhirServerBuilder> addImportStoreAction, IConfiguration configuration)
         {
+            EnsureArg.IsNotNull(addImportStoreAction, nameof(addImportStoreAction));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
+
             ImportTaskConfiguration importTaskConfiguration = new ImportTaskConfiguration();
             configuration.GetSection(ImportOperationConfigurationSectionName).Bind(importTaskConfiguration);
 
@@ -26,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                 Assembly importCoreAssembly = typeof(ImportConstants).Assembly;
                 MediationModule.RegisterAssemblies(fhirServerBuilder.Services, importCoreAssembly);
 
-                importStoreAction(fhirServerBuilder);
+                addImportStoreAction(fhirServerBuilder);
                 return fhirServerBuilder.AddImportCore(importTaskConfiguration);
             }
 
