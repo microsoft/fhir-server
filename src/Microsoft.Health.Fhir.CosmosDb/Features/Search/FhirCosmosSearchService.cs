@@ -18,7 +18,6 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -49,7 +48,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             RequestContextAccessor<IFhirRequestContext> requestContextAccessor,
             CosmosDataStoreConfiguration cosmosConfig,
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
@@ -59,7 +57,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(cosmosConfig, nameof(cosmosConfig));
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
@@ -73,8 +70,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _physicalPartitionInfo = physicalPartitionInfo;
             _queryPartitionStatisticsCache = queryPartitionStatisticsCache;
             _logger = logger;
-            _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
-            _resourceIdSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.Id);
+            _resourceTypeSearchParameter = SearchParameterInfo.ResourceTypeSearchParameter;
+            _resourceIdSearchParameter = new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id);
         }
 
         public override async Task<SearchResult> SearchAsync(
@@ -398,7 +395,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 if (searchOptions.Sort?.Count > 0)
                 {
-                    feedOptions.MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency;
+                    feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
                 }
                 else
                 {
@@ -411,7 +408,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         queryPartitionStatistics = _queryPartitionStatisticsCache.GetQueryPartitionStatistics(searchOptions.Expression);
                         if (IsQuerySelective(queryPartitionStatistics))
                         {
-                            feedOptions.MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency;
+                            feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
                         }
 
                         // plant a ConcurrentBag int the request context's properties, so the CosmosResponseProcessor
@@ -429,13 +426,36 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             try
             {
-                (IReadOnlyList<T> results, string nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
+                (IReadOnlyList<T> results, string nextContinuationToken) = (null, null);
+                var desiredItemCount = feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor;
+
+                // Set timeout for sequential query execution
+                if (feedOptions.MaxConcurrency == null &&
+                    _cosmosConfig.ParallelQueryOptions.EnableConcurrencyIfQueryExceedsTimeLimit == true &&
+                    string.IsNullOrEmpty(searchOptions.ContinuationToken) &&
+                    string.IsNullOrEmpty(continuationToken) &&
+                    searchEnumerationTimeoutOverrideIfSequential == null)
+                {
+                    searchEnumerationTimeoutOverrideIfSequential = TimeSpan.FromSeconds(5);
+
+                    // Executing query sequentially until the timeout
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, null, searchOptions.MaxItemCountSpecifiedByClient, searchEnumerationTimeoutOverrideIfSequential, cancellationToken);
+
+                    // check if we need to restart the query in parallel
+                    if (results.Count < desiredItemCount && !string.IsNullOrEmpty(nextContinuationToken))
+                    {
+                        feedOptions.MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency;
+                        (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, null, searchOptions.MaxItemCountSpecifiedByClient, null, cancellationToken);
+                    }
+                }
+                else
+                {
+                    (results, nextContinuationToken) = await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, feedOptions.MaxConcurrency == null ? searchEnumerationTimeoutOverrideIfSequential : null, cancellationToken);
+                }
 
                 if (queryPartitionStatistics != null && messagesList != null)
                 {
-                    var desiredItemCount = feedOptions.MaxItemCount * CosmosFhirDataStore.ExecuteDocumentQueryAsyncMinimumFillFactor;
-
-                    if (results.Count < desiredItemCount && !string.IsNullOrEmpty(nextContinuationToken))
+                    if ((results == null || results.Count < desiredItemCount) && !string.IsNullOrEmpty(nextContinuationToken))
                     {
                         // ExecuteDocumentQueryAsync gave up on filling the pages. This suggests that we would have been better off querying in parallel.
                         queryPartitionStatistics.Update(_physicalPartitionInfo.PhysicalPartitionCount);
@@ -501,7 +521,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         {
             var feedOptions = new QueryRequestOptions
             {
-                MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency, // execute counts across all partitions
+                MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency, // execute counts across all partitions
             };
 
             return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
@@ -652,7 +672,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // The previous iteration executed sequentially and did not retrieve the desired number of results. We will switch to parallel execution.
                         // Note that we are not passing in the continuation token, because if we do, the SDK does not execute in parallel.
 
-                        var queryRequestOptionsOverride = new QueryRequestOptions { MaxItemCount = searchOptions.MaxItemCount, MaxConcurrency = CosmosFhirDataStore.MaxQueryConcurrency };
+                        var queryRequestOptionsOverride = new QueryRequestOptions { MaxItemCount = searchOptions.MaxItemCount, MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency };
 
                         includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                             query,

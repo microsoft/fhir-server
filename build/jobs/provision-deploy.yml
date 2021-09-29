@@ -71,6 +71,8 @@ jobs:
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
             enableConvertData = $true
+            enableImport = $true
+            backgroundTaskCount = 5
             enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             imageTag = '${{ parameters.imageTag }}'
         }
@@ -88,7 +90,7 @@ jobs:
         New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
         
         Write-Host "Setting Key Vault access"
-        Set-AzKeyVaultAccessPolicy -VaultName $webAppName -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
+        Set-AzKeyVaultAccessPolicy -VaultName $webAppName -ObjectId b542f965-4eec-4682-8999-78dd501df864 -PermissionsToSecrets list,get
 
   - template: ./provision-healthcheck.yml
     parameters: 

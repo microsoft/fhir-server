@@ -29,6 +29,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public const string Export = "Export";
 
+        public const string AnonymizedExport = "AnonymizedExport";
+
+        public const string Import = "Import";
+
         public const string ExportDataValidation = "ExportDataValidation";
 
         public const string ExportLongRunning = "ExportLongRunning";

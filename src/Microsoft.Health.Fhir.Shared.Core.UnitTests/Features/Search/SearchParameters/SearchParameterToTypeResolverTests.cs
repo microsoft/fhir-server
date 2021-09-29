@@ -37,14 +37,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
             else
             {
-                Assert.Equal(62, types.Length);
+                Assert.Equal(63, types.Length);
             }
         }
 
         [Fact]
         public void GivenAFhirPathExpressionWithTwoPossibleOutcomeTypes_WhenResolve_TwoTypesReturned()
         {
-            var expression = _compiler.Parse("CarePlan.activity.detail.product");
+            var path = (ModelInfoProvider.Version == FhirSpecification.R5) ?
+                "CarePlan.activity.plannedActivityDetail.product" :
+                "CarePlan.activity.detail.product";
+            var expression = _compiler.Parse(path);
             SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
                 "CarePlan",
                 (SearchParamType.Reference, expression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-race")),
@@ -63,6 +66,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 null).ToArray();
 
             Assert.Equal("string", results.Single().FhirNodeType);
+        }
+
+        [Fact]
+        public void GivenAFhirPathExpressionAsConstructorFilter_WhenResolvingTypes_ThenTheyReturnedSameAsWhen()
+        {
+            var whereExpression = _compiler.Parse("Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race')");
+            var constructorExpression = _compiler.Parse("Patient.extension(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race')");
+            var whereResult = SearchParameterToTypeResolver.Resolve(
+               KnownResourceTypes.Patient,
+               (SearchParamType.Token, whereExpression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-race")),
+               null).First();
+
+            var constuctorResult = SearchParameterToTypeResolver.Resolve(
+                KnownResourceTypes.Patient,
+                (SearchParamType.Token, constructorExpression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-race")),
+                null).First();
+            Assert.Equal(whereResult.ClassMapping, constuctorResult.ClassMapping);
+            Assert.Equal(whereResult.Path, constuctorResult.Path);
+            Assert.Equal(whereResult.SearchParamType, constuctorResult.SearchParamType);
+            Assert.Equal(whereResult.FhirNodeType, constuctorResult.FhirNodeType);
+            Assert.Equal(whereResult.Definition, constuctorResult.Definition);
+        }
+
+        [Fact]
+        public void GivenAFhirPathExpressionWithOfType_WhenResolvingTypes_ThenTheyAreReturnedCorrectly()
+        {
+            var expression = _compiler.Parse("QuestionnaireResponse.item.where(extension('http://hl7.org/fhir/StructureDefinition/questionnaireresponse-isSubject').exists()).answer.value.ofType(Reference)");
+            SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
+    KnownResourceTypes.QuestionnaireResponse,
+    (SearchParamType.Reference, expression, new Uri("http://hl7.org/fhir/StructureDefinition/questionnaireresponse-isSubject")),
+    null).ToArray();
+
+            Assert.Equal("Reference", results.Single().FhirNodeType);
+        }
+
+        [Fact]
+        public void GivenABadFhirPathExpression_WhenResolving_ThenResolveThrowException()
+        {
+            var expression = _compiler.Parse("Patient.cookie");
+            Assert.Throws<NotSupportedException>(() =>
+                SearchParameterToTypeResolver.Resolve(
+                    KnownResourceTypes.Patient,
+                    (SearchParamType.Token, expression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-cookie")),
+                    null).ToArray());
         }
     }
 }

@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken);
 
-        Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken);
+        Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken);
 
         Task BulkUpdateSearchParameterIndicesAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
 

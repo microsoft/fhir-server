@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 {
     [ServiceFilter(typeof(AuditLoggingFilterAttribute))]
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
+    [ValidateModelState]
     public class ExportController : Controller
     {
         /*

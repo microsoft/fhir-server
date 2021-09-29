@@ -250,6 +250,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.Reindex:
                     routeName = RouteNames.GetReindexStatusById;
                     break;
+                case OperationsConstants.Import:
+                    routeName = RouteNames.GetImportStatusById;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }
@@ -298,6 +301,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     break;
                 case OperationsConstants.MemberMatch:
                     routeName = RouteNames.MemberMatchOperationDefinition;
+                    break;
+                case OperationsConstants.PurgeHistory:
+                    routeName = RouteNames.PurgeHistoryDefinition;
                     break;
 
                 default:

@@ -13,6 +13,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
@@ -26,17 +27,15 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Everything;
+using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -57,8 +56,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger<FhirController> _logger;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
-        private readonly IAuthorizationService _authorizationService;
-        private readonly FeatureConfiguration _featureConfiguration;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirController" /> class.
@@ -89,8 +86,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             _logger = logger;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
-            _authorizationService = authorizationService;
-            _featureConfiguration = uiConfiguration.Value;
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -168,7 +163,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [ConditionalConstraint]
         [Route(KnownRoutes.ResourceType)]
-        [AuditEventType(AuditEventSubType.Create)]
+        [AuditEventType(AuditEventSubType.ConditionalCreate)]
         public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
@@ -213,7 +208,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="resource">The resource.</param>
         [HttpPut]
         [Route(KnownRoutes.ResourceType)]
-        [AuditEventType(AuditEventSubType.Update)]
+        [AuditEventType(AuditEventSubType.ConditionalUpdate)]
         public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
@@ -366,7 +361,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Delete)]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
         {
-            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete, HttpContext.RequestAborted);
+            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, HttpContext.RequestAborted);
+
+            return FhirResult.NoContent().SetETagHeader(response.WeakETag);
+        }
+
+        /// <summary>
+        /// Deletes the specified resource's history, keeping the current version
+        /// </summary>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        [HttpDelete]
+        [Route(KnownRoutes.PurgeHistoryResourceTypeById)]
+        [AuditEventType(AuditEventSubType.PurgeHistory)]
+        public async Task<IActionResult> PurgeHistory(string typeParameter, string idParameter)
+        {
+            DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), DeleteOperation.PurgeHistory, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
         }
@@ -379,12 +389,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="maxDeleteCount">Specifies the maximum number of resources that can be deleted.</param>
         [HttpDelete]
         [Route(KnownRoutes.ResourceType)]
-        [AuditEventType(AuditEventSubType.Delete)]
+        [AuditEventType(AuditEventSubType.ConditionalDelete)]
         public async Task<IActionResult> ConditionalDelete(string typeParameter, [FromQuery] bool hardDelete, [FromQuery(Name = KnownQueryParameterNames.Count)] int? maxDeleteCount)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
-            DeleteResourceResponse response = await _mediator.Send(new ConditionalDeleteResourceRequest(typeParameter, conditionalParameters, hardDelete, maxDeleteCount.GetValueOrDefault(1)), HttpContext.RequestAborted);
+            DeleteResourceResponse response = await _mediator.Send(new ConditionalDeleteResourceRequest(typeParameter, conditionalParameters, hardDelete ? DeleteOperation.HardDelete : DeleteOperation.SoftDelete, maxDeleteCount.GetValueOrDefault(1)), HttpContext.RequestAborted);
 
             if (maxDeleteCount.HasValue)
             {
@@ -395,18 +405,42 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /// <summary>
-        /// Patches the specified resource
+        /// Patches the specified resource.
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
+        /// <param name="patchDocument">The JSON patch document.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header.</param>
         [HttpPatch]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Controller methods won't be called if static.")]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "Need the parameters for routing to work.")]
-        public Task<IActionResult> Patch(string typeParameter, string idParameter)
+        public async Task<IActionResult> Patch(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
-            throw new MethodNotAllowedException(Resources.PatchNotSupported);
+            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), patchDocument, ifMatchHeader, HttpContext.RequestAborted);
+
+            return ToSaveOutcomeResult(response.Outcome);
+        }
+
+        /// <summary>
+        /// Conditionally patches a specified resource.
+        /// </summary>
+        /// <param name="typeParameter">Type of resource to patch.</param>
+        /// <param name="patchDocument">The JSON patch document.</param>
+         /// <param name="ifMatchHeader">Optional If-Match header.</param>
+        [HttpPatch]
+        [Route(KnownRoutes.ResourceType)]
+        [AuditEventType(AuditEventSubType.ConditionalPatch)]
+        public async Task<IActionResult> ConditionalPatch(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        {
+            IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
+
+            UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
+                new ConditionalPatchResourceRequest(typeParameter, patchDocument, conditionalParameters, ifMatchHeader),
+                HttpContext.RequestAborted);
+
+            SaveOutcome saveOutcome = response.Outcome;
+
+            return ToSaveOutcomeResult(saveOutcome);
         }
 
         /// <summary>
@@ -513,31 +547,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement bundleResponse = await _mediator.PostBundle(bundle.ToResourceElement());
 
             return FhirResult.Create(bundleResponse);
-        }
-
-        /// <summary>
-        /// Returns resources defined in $everything operation
-        /// </summary>
-        /// <param name="idParameter">The resource ID</param>
-        /// <param name="start">The start date relates to care dates</param>
-        /// <param name="end">The end date relates to care dates</param>
-        /// <param name="since">Resources updated after this period will be included in the response</param>
-        /// <param name="type">Comma-delimited FHIR resource types to include in the return resources</param>
-        /// <param name="ct">The continuation token</param>
-        [HttpGet]
-        [Route(KnownRoutes.PatientEverythingById, Name = RouteNames.PatientEverythingById)]
-        [AuditEventType(AuditEventSubType.Everything)]
-        public async Task<IActionResult> PatientEverythingById(
-            string idParameter,
-            [FromQuery(Name = EverythingOperationParameterNames.Start)] PartialDateTime start,
-            [FromQuery(Name = EverythingOperationParameterNames.End)] PartialDateTime end,
-            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
-            [FromQuery(Name = KnownQueryParameterNames.Type)] string type,
-            string ct)
-        {
-            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct), HttpContext.RequestAborted);
-
-            return FhirResult.Create(result.Bundle);
         }
     }
 }

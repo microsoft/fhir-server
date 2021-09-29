@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -20,10 +21,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         public IReadOnlyList<Observation> Observations { get; private set; }
 
+        public string Tag { get; private set; }
+
         protected override async Task OnInitializedAsync()
         {
             // Prepare the resources used for number search tests.
-            await TestFhirClient.DeleteAllResources(ResourceType.Observation);
+
+            Tag = Guid.NewGuid().ToString();
+
+            var meta = new Meta
+            {
+                Tag = new List<Coding>
+                    {
+                        new Coding("testTag", Tag),
+                    },
+            };
 
             Observations = await TestFhirClient.CreateResourcesAsync<Observation>(
                 o => SetObservation(o, 0.002m, "unit1", "system1"),
@@ -38,6 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             void SetObservation(Observation observation, decimal quantity, string unit, string system)
             {
+                observation.Meta = meta;
                 observation.Code = new CodeableConcept("system", "code");
                 observation.Status = ObservationStatus.Registered;
 

@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
                 wrapper.Version = "1";
 
                 var requestComponent = new RequestComponent { Method = HTTPVerb.POST, Url = "patient/" };
-                var responseComponent = new ResponseComponent { Etag = "W/\"1\"", LastModified = DateTimeOffset.UtcNow };
+                var responseComponent = new ResponseComponent { Etag = "W/\"1\"", LastModified = DateTimeOffset.UtcNow, Status = "201 Created" };
                 rawBundle.Entry.Add(new RawBundleEntryComponent(wrapper)
                 {
                     Request = requestComponent,

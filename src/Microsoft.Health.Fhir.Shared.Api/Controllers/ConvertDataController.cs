@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly ILogger _logger;
         private readonly ConvertDataConfiguration _config;
+        private readonly ArtifactStoreConfiguration _artifactStoreConfig;
         private static HashSet<string> _supportedParams = GetSupportedParams();
 
         private const char ImageRegistryDelimiter = '/';
@@ -42,14 +43,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public ConvertDataController(
             IMediator mediator,
             IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
             ILogger<ConvertDataController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value?.ConvertData, nameof(operationsConfig));
+            EnsureArg.IsNotNull(artifactStoreConfig?.Value, nameof(artifactStoreConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _config = operationsConfig.Value.ConvertData;
+            _artifactStoreConfig = artifactStoreConfig.Value;
             _logger = logger;
         }
 
@@ -74,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.InvalidTemplateCollectionReference, templateCollectionReference));
             }
 
-            // Validate template registry has been configured.
+            // Validate if template has been configured.
             bool isDefaultTemplateReference = ImageInfo.IsDefaultTemplateImageReference(templateCollectionReference);
             string registryServer = ExtractRegistryServer(templateCollectionReference);
             if (isDefaultTemplateReference)
@@ -83,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             else
             {
-                CheckIfRegistryIsConfigured(registryServer);
+                CheckIfCustomTemplateIsConfigured(registryServer, templateCollectionReference);
             }
 
             var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate);
@@ -173,13 +177,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return supportedParams;
         }
 
-        private void CheckIfRegistryIsConfigured(string registryServer)
+        private void CheckIfCustomTemplateIsConfigured(string registryServer, string templateCollectionReference)
         {
-            if (!_config.ContainerRegistryServers.Any(server =>
+            // For compatibility purpose.
+            // Return if registryServer has been configured in previous ConvertDataConfiguration.
+            if (_config.ContainerRegistryServers.Any(server =>
                 string.Equals(server, registryServer, StringComparison.OrdinalIgnoreCase)))
             {
-                _logger.LogError("The requested ACR server is not configured.");
-                throw new ContainerRegistryNotConfiguredException(string.Format(Resources.ContainerRegistryNotConfigured, registryServer));
+                return;
+            }
+
+            var ociImage = ImageInfo.CreateFromImageReference(templateCollectionReference);
+            if (!_artifactStoreConfig.OciArtifacts.Any(ociArtifact =>
+                    ociArtifact.ContainsOciImage(ociImage.Registry, ociImage.ImageName, ociImage.Digest)))
+            {
+                _logger.LogInformation("The requested template image is not configured.");
+                throw new ContainerRegistryNotConfiguredException(string.Format(Resources.ConvertDataTemplateNotConfigured, templateCollectionReference));
             }
         }
 
@@ -189,7 +202,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (defaultTemplatesDataType != inputDataType)
             {
-                _logger.LogError("The default template collection and input data type are inconsistent.");
+                _logger.LogInformation("The default template collection and input data type are inconsistent.");
                 throw new RequestNotValidException(string.Format(Resources.InputDataTypeAndDefaultTemplateCollectionInconsistent, inputDataType.ToString(), templateCollectionReference));
             }
         }

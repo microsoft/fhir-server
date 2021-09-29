@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Messages.CapabilityStatement;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Storage;
@@ -233,21 +234,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             string continuationToken = null;
             do
             {
-                var queryParams = new List<Tuple<string, string>>();
+                var searchOptions = new SearchOptions();
+                searchOptions.Sort = new List<(SearchParameterInfo, SortOrder)>();
+                searchOptions.UnsupportedSearchParams = new List<Tuple<string, string>>();
+                searchOptions.Expression = Expression.SearchParameter(SearchParameterInfo.ResourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, KnownResourceTypes.SearchParameter, false));
+                searchOptions.MaxItemCount = 10;
                 if (continuationToken != null)
                 {
-                    queryParams.Add(new Tuple<string, string>(KnownQueryParameterNames.ContinuationToken, continuationToken));
+                    searchOptions.ContinuationToken = continuationToken;
                 }
 
-                var result = await search.Value.SearchAsync("SearchParameter", queryParams, cancellationToken);
-                if (!string.IsNullOrEmpty(result?.ContinuationToken))
-                {
-                    continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken));
-                }
-                else
-                {
-                    continuationToken = null;
-                }
+                var result = await search.Value.SearchAsync(searchOptions, cancellationToken);
+                continuationToken = result?.ContinuationToken;
 
                 if (result?.Results != null && result.Results.Any())
                 {

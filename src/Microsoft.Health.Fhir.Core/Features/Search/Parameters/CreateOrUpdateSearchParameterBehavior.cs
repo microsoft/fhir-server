@@ -45,19 +45,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
         {
-            ResourceWrapper prevSearchParamResource = null;
-
             // if the resource type being updated is a SearchParaemter, then we want to query the previous version before it is changed
             // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
             // and the user could be changing the Url as part of this update
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
                 var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
-                prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
-
-                // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
-                // to the fhirpath or the datatype
-                await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource, cancellationToken);
+                ResourceWrapper prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
+                if (prevSearchParamResource != null)
+                {
+                    // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
+                    // to the fhirpath or the datatype
+                    await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource);
+                }
+                else
+                {
+                    await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance);
+                }
             }
 
             // Now allow the resource to updated per the normal behavior

@@ -14,12 +14,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardD
 {
     internal class HardDelete : StoredProcedureBase
     {
-        public async Task<StoredProcedureExecuteResponse<IList<string>>> Execute(Scripts client, ResourceKey key, CancellationToken cancellationToken)
+        public async Task<StoredProcedureExecuteResponse<IList<string>>> Execute(Scripts client, ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(key, nameof(key));
 
-            return await ExecuteStoredProc<IList<string>>(client, key.ToPartitionKey(), cancellationToken, key.ResourceType, key.Id);
+            return await ExecuteStoredProc<IList<string>>(client, key.ToPartitionKey(), cancellationToken, key.ResourceType, key.Id, keepCurrentVersion);
         }
     }
 }

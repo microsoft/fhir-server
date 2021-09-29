@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
@@ -26,8 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     [SuppressMessage("Design", "CA1801", Justification = "Visitor overloads are resolved dynamically so method signature should remain the same.")]
     internal static class SearchParameterToTypeResolver
     {
-        private static readonly ModelInspector ModelInspector = GetModelInspector();
-
         public static EnumerableReturnType Resolve(
             string resourceType,
             (SearchParamType type, Expression expression, Uri definition) typeAndExpression,
@@ -133,46 +130,59 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             if (expression.Focus != null)
             {
-                if (expression.FunctionName == "type")
+                switch (expression.FunctionName)
                 {
-                    // Ignore
-                    yield break;
-                }
+                    case "type":
+                        yield break;
 
-                if (expression.FunctionName == "exists" || expression.FunctionName == "is")
-                {
-                    yield return new SearchParameterTypeResult(GetMapping(typeof(FhirBoolean)), ctx.SearchParamType, null, ctx.Definition);
+                    case "exists":
+                    case "is":
+                        {
+                            yield return new SearchParameterTypeResult(GetMapping(typeof(FhirBoolean)), ctx.SearchParamType, null, ctx.Definition);
 
-                    yield break;
-                }
+                            yield break;
+                        }
 
-                if (expression.FunctionName == "as")
-                {
-                    // Matches Condition.abatement.as(Age)
-                    var constantExp = expression.Arguments.OfType<ConstantExpression>().Single().Value as string;
+                    case "as":
+                    case "ofType":
+                        {
+                            // Matches Condition.abatement.as(Age)
+                            var constantExp = expression.Arguments.OfType<ConstantExpression>().Single().Value as string;
 
-                    ClassMapping mapping = GetMapping(constantExp);
-                    ctx = ctx.WithAsTypeMapping(mapping);
+                            ClassMapping mapping = GetMapping(constantExp);
+                            ctx = ctx.WithAsTypeMapping(mapping);
 
-                    foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
-                    {
-                        yield return type;
-                    }
+                            foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
+                            {
+                                yield return type;
+                            }
 
-                    yield break;
-                }
+                            yield break;
+                        }
 
-                if (expression.FunctionName == "where" ||
-                    expression.FunctionName == "first" ||
-                    expression.FunctionName == "builtin.children" ||
-                    expression.FunctionName == "builtin.item")
-                {
-                    foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
-                    {
-                        yield return type;
-                    }
+                    case "extension":
+                        {
+                            ctx = ctx.WithPath("extension");
+                            foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
+                            {
+                                yield return type;
+                            }
 
-                    yield break;
+                            yield break;
+                        }
+
+                    case "where":
+                    case "first":
+                    case "builtin.children":
+                    case "builtin.item":
+                        {
+                            foreach (SearchParameterTypeResult type in Accept(expression.Focus, ctx))
+                            {
+                                yield return type;
+                            }
+
+                            yield break;
+                        }
                 }
             }
 
@@ -190,14 +200,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             else
             {
-                var pathBuilder = new StringBuilder(ctx.Path.First().propertyName);
+                var fhirType = ctx.Path.First().propertyName;
+                var pathBuilder = new StringBuilder(fhirType);
 
                 var skipResourceElement = true;
                 ClassMapping mapping = ctx.Path.First().knownMapping;
 
-                if (mapping == null && ModelInfoProvider.Instance.GetTypeForFhirType(ctx.Path.First().propertyName) != null)
+                if (mapping == null && ModelInfoProvider.Instance.GetTypeForFhirType(fhirType) != null)
                 {
-                    mapping = GetMapping(ctx.Path.First().propertyName);
+                    mapping = GetMapping(fhirType);
                 }
 
                 // Default to parent resource
@@ -237,9 +248,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                             }
                             else
                             {
-                                foreach (Type fhirType in prop.FhirType)
+                                foreach (Type childFhirType in prop.FhirType)
                                 {
-                                    yield return new SearchParameterTypeResult(GetMapping(fhirType), ctx.SearchParamType, path, ctx.Definition);
+                                    yield return new SearchParameterTypeResult(GetMapping(childFhirType), ctx.SearchParamType, path, ctx.Definition);
                                 }
                             }
 
@@ -252,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     }
                     else
                     {
-                        break;
+                        throw new NotSupportedException(string.Format(Core.Resources.CantResolveExpressionForAType, pathBuilder, fhirType));
                     }
                 }
 
@@ -314,27 +325,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static ClassMapping GetMapping(Type type)
         {
-            ClassMapping returnValue = ModelInspector.FindClassMapping(type);
+            ClassMapping returnValue = ModelInfo.ModelInspector.FindClassMapping(type);
 
             if (returnValue == null)
             {
-                return ModelInspector.ImportType(type);
+                return ModelInfo.ModelInspector.ImportType(type);
             }
 
             return returnValue;
-        }
-
-        private static ModelInspector GetModelInspector()
-        {
-            string methodName = "GetStructureDefinitionSummaryProvider";
-            MethodInfo modelInspectorMethod = typeof(ModelInfo).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
-
-            if (modelInspectorMethod == null)
-            {
-                throw new MissingMethodException(nameof(ModelInfo), methodName);
-            }
-
-            return (ModelInspector)modelInspectorMethod.Invoke(null, null);
         }
 
         private class Context

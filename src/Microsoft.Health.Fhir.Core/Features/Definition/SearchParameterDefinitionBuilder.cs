@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -38,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"), // expression is null or empty.
             new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"), // expression is null or empty.
             new Uri("http://hl7.org/fhir/SearchParameter/Subscription-url"), // expression is null or empty.
+            new Uri("http://hl7.org/fhir/SearchParameter/TestScript-scope-artifact-phase"), // referencing non existing search param.
+            new Uri("http://hl7.org/fhir/SearchParameter/TestScript-scope-artifact-conformance"), // referencing non existing search param.
         };
 
         internal static void Build(
@@ -160,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>
             {
                 // _type is currently missing from the search params definition bundle, so we inject it in here.
-                (KnownResourceTypes.Resource, new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, SearchParamType.Token, SearchParameterNames.ResourceTypeUri, null, "Resource.type().name", null)),
+                (KnownResourceTypes.Resource, SearchParameterInfo.ResourceTypeSearchParameter),
             };
 
             // Do the second pass to make sure the definition is valid.
@@ -174,6 +175,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // If this is a composite search parameter, then make sure components are defined.
                 if (string.Equals(searchParameter.Type, SearchParamType.Composite.GetLiteral(), StringComparison.OrdinalIgnoreCase))
                 {
+                    if (modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(searchParameter.Url)))
+                    {
+                        continue;
+                    }
+
                     var composites = searchParameter.Component;
                     if (composites.Count == 0)
                     {

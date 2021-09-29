@@ -61,12 +61,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
-        /// This is the maximum degree of parallelism for the SDK to use when querying physical partitions in parallel.
-        /// -1 means "System Decides", int.MaxValue sets the limit high enough that it shouldn't be limited.
-        /// </summary>
-        internal const int MaxQueryConcurrency = int.MaxValue;
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
         /// </summary>
         /// <param name="containerScope">
@@ -143,6 +137,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
                 {
                     // this means there is already an existing version of this resource
+                }
+                catch (CosmosException e) when (e.IsServiceUnavailableDueToTimeout())
+                {
+                    throw new CosmosException(e.Message, HttpStatusCode.RequestTimeout, e.SubStatusCode, e.ActivityId, e.RequestCharge);
                 }
             }
 
@@ -289,18 +287,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
+        public async Task HardDeleteAsync(ResourceKey key, bool keepCurrentVersion, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(key, nameof(key));
 
             try
             {
-                _logger.LogDebug("Obliterating {resourceType}/{id}", key.ResourceType, key.Id);
+                _logger.LogDebug("Obliterating {resourceType}/{id}. Keep current version: {keepCurrentVersion}", key.ResourceType, key.Id, keepCurrentVersion);
 
                 StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _containerScope.Value.Scripts,
                         key,
+                        keepCurrentVersion,
                         ct),
                     cancellationToken);
 
@@ -308,7 +307,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (CosmosException exception)
             {
-                if (exception.IsRequestEntityTooLarge())
+                if (exception.IsRequestRateExceeded())
                 {
                     throw;
                 }
@@ -357,16 +356,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
+                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
                         throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
-                    case HttpStatusCode.NotFound:
-                        throw new ResourceNotFoundException(string.Format(
-                            Core.Resources.ResourceNotFoundByIdAndVersion,
-                            resourceWrapper.ResourceTypeName,
-                            resourceWrapper.ResourceId,
-                            weakETag));
-
                     case HttpStatusCode.ServiceUnavailable:
+                        _logger.LogError("Failed to reindex resource because the Cosmos service was unavailable.");
                         throw new ServiceUnavailableException();
                 }
 
@@ -436,7 +430,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             using var timeoutTokenSource = new CancellationTokenSource(timeout);
             using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
-            bool executingWithMaxParallelism = feedOptions.MaxConcurrency == MaxQueryConcurrency && continuationToken == null;
+            bool executingWithMaxParallelism = feedOptions.MaxConcurrency == _cosmosDataStoreConfiguration.ParallelQueryOptions.MaxQueryConcurrency && continuationToken == null;
+
+            if (executingWithMaxParallelism)
+            {
+                _logger.LogInformation("Executing {maxConcurrency} parallel queries across physical partitions", feedOptions.MaxConcurrency);
+            }
 
             var maxCount = executingWithMaxParallelism
                 ? totalDesiredCount * (mustNotExceedMaxItemCount ? 1 : ExecuteDocumentQueryAsyncMaximumFillFactor) // in this mode, the SDK likely has already fetched pages, so we might as well consume them

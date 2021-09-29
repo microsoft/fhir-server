@@ -5,13 +5,17 @@
     <RootNamespace>Microsoft.Health.Fhir.Api</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <DefineConstants>STU3</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Api\Modules\AnonymizationModule.cs" Link="Modules\AnonymizationModule.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
-    <PackageReference Include="FluentValidation" Version="9.5.4" />
+    <PackageReference Include="FluentValidation" Version="10.3.3" />
     <PackageReference Include="Hl7.Fhir.STU3" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="MediatR" Version="9.0.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="9.0.0" />

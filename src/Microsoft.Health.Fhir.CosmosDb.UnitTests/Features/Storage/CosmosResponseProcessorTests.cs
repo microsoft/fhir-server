@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             _mediator = Substitute.For<IMediator>();
             var nullLogger = NullLogger<CosmosResponseProcessor>.Instance;
-
             _cosmosResponseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, _mediator, Substitute.For<ICosmosQueryLogger>(), nullLogger);
         }
 
@@ -127,18 +126,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
-        public void GivenAThrottlingResponseWithRetryAfterHeader_WhenProcessed_ThrowsWithRetryAfter()
+        public async Task GivenAThrottlingResponseWithRetryAfterHeader_WhenProcessed_ThrowsWithRetryAfter()
         {
             var retryAfter = TimeSpan.FromMilliseconds(200);
 
-            RequestRateExceededException exception = Assert.Throws<RequestRateExceededException>(() => _cosmosResponseProcessor.ProcessErrorResponse(HttpStatusCode.TooManyRequests, new Headers { { "x-ms-retry-after-ms", ((int)retryAfter.TotalMilliseconds).ToString() } }, "too many requests"));
+            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(HttpStatusCode.TooManyRequests, new Headers { { "x-ms-retry-after-ms", ((int)retryAfter.TotalMilliseconds).ToString() } }, "too many requests"));
             Assert.Equal(retryAfter, exception.RetryAfter);
         }
 
         [Fact]
-        public void GivenAThrottlingResponseWithoutRetryAfterHeader_WhenProcessed_ThrowsWithoutRetryAfter()
+        public async Task GivenAThrottlingResponseWithoutRetryAfterHeader_WhenProcessed_ThrowsWithoutRetryAfter()
         {
-            RequestRateExceededException exception = Assert.Throws<RequestRateExceededException>(() => _cosmosResponseProcessor.ProcessErrorResponse(HttpStatusCode.TooManyRequests, new Headers(), "too many requests"));
+            RequestRateExceededException exception = await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(HttpStatusCode.TooManyRequests, new Headers(), "too many requests"));
             Assert.Null(exception.RetryAfter);
         }
 

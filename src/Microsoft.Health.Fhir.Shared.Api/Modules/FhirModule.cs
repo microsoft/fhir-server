@@ -5,9 +5,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -25,7 +23,6 @@ using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -39,14 +36,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public class FhirModule : IStartupModule
     {
-        private static readonly Regex MessageChecker = new Regex("Type checking the data: Literal '(?<value>.*)' cannot be parsed as a (?<type>.*). \\(at (?<location>.*)\\)", RegexOptions.Compiled);
-
         /// <inheritdoc />
         public void Load(IServiceCollection services)
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            var jsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
+#pragma warning disable CS0618 // Type or member is obsolete
+            var jsonParser = new FhirJsonParser(new ParserSettings() { PermissiveParsing = true, TruncateDateTimeToDate = true });
+#pragma warning restore CS0618 // Type or member is obsolete
             var jsonSerializer = new FhirJsonSerializer();
 
             var xmlParser = new FhirXmlParser();
@@ -75,59 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                     {
                         FhirResourceFormat.Json, (str, version, lastModified) =>
                         {
-                            Resource resource = null;
-                            var parsed = false;
-                            var i = 0;
-                            do
-                            {
-                                try
-                                {
-                                    resource = jsonParser.Parse<Resource>(str);
-                                    parsed = true;
-                                }
-                                catch (StructuralTypeException ex)
-                                {
-                                    var match = MessageChecker.Match(ex.Message);
-                                    if (match.Success && match.Groups.Count == 4 && match.Groups["type"].Value == "date")
-                                    {
-                                        i++;
-                                        if (i > 100)
-                                        {
-                                            throw;
-                                        }
-
-                                        var valueToReplace = match.Groups["value"].Value;
-                                        var location = match.Groups["location"].Value;
-                                        var replace = valueToReplace.Substring(0, 10);
-                                        var root = FhirJsonNode.Parse(str, KnownResourceTypes.Resource);
-                                        var currentNode = root;
-                                        while (currentNode != null)
-                                        {
-                                            foreach (var child in currentNode.Children())
-                                            {
-                                                if (location.StartsWith(child.Location, StringComparison.OrdinalIgnoreCase))
-                                                {
-                                                    currentNode = child;
-                                                    break;
-                                                }
-                                            }
-
-                                            if (currentNode.Location == location)
-                                            {
-                                                break;
-                                            }
-                                        }
-
-                                        (currentNode as FhirJsonNode).JsonValue.Value = replace;
-                                        str = root.ToJson();
-                                    }
-                                    else
-                                    {
-                                        throw;
-                                    }
-                                }
-                            }
-                            while (!parsed);
+                            var resource = jsonParser.Parse<Resource>(str);
                             return SetMetadata(resource, version, lastModified);
                         }
                     },
@@ -157,6 +102,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateFormatParametersAttribute>();
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
             services.AddSingleton<ValidateReindexRequestFilterAttribute>();
+            services.AddSingleton<ValidateImportRequestFilterAttribute>();
 
             // Support for resolve()
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();

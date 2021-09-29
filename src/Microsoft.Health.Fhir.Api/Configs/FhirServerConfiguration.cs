@@ -7,6 +7,7 @@ using Microsoft.Health.Api.Configuration;
 using Microsoft.Health.Api.Features.Cors;
 using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 
 namespace Microsoft.Health.Fhir.Api.Configs
 {
@@ -22,12 +23,14 @@ namespace Microsoft.Health.Fhir.Api.Configs
 
         public OperationsConfiguration Operations { get; } = new OperationsConfiguration();
 
-        public AuditConfiguration Audit { get; } = new AuditConfiguration("X-MS-AZUREFHIR-AUDIT-");
+        public AuditConfiguration Audit { get; } = new AuditConfiguration(KnownHeaders.CustomAuditHeaderPrefix);
 
         public CoreFeatureConfiguration CoreFeatures { get; } = new CoreFeatureConfiguration();
 
         public BundleConfiguration Bundle { get; } = new BundleConfiguration();
 
         public ThrottlingConfiguration Throttling { get; } = new ThrottlingConfiguration();
+
+        public ArtifactStoreConfiguration ArtifactStore { get; } = new ArtifactStoreConfiguration();
     }
 }

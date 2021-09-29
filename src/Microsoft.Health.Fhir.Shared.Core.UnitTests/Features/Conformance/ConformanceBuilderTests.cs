@@ -6,6 +6,8 @@
 using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -27,11 +29,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
         public ConformanceBuilderTests()
         {
+            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            configuration.Value.Returns(new CoreFeatureConfiguration());
+
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
             _builder = CapabilityStatementBuilder.Create(
                 ModelInfoProvider.Instance,
                 _searchParameterDefinitionManager,
+                configuration,
                 _supportedProfiles);
         }
 

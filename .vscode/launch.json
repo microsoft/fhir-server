@@ -1,9 +1,9 @@
 {
-   // Use IntelliSense to find out which attributes exist for C# debugging
-   // Use hover for the description of the existing attributes
-   // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
-   "version": "0.2.0",
-   "configurations": [
+    // Use IntelliSense to find out which attributes exist for C# debugging
+    // Use hover for the description of the existing attributes
+    // For further information visit https://github.com/OmniSharp/omnisharp-vscode/blob/master/debugger-launchjson.md
+    "version": "0.2.0",
+    "configurations": [
         {
             "name": "R4 Cosmos DB",
             "type": "coreclr",
@@ -16,7 +16,12 @@
             "stopAtEntry": false,
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "DataStore": "CosmosDb"
+                "DataStore": "CosmosDb",
+                "FhirServer:Security:Enabled": "false",
+                // Not a real secret!
+                // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
+                "CosmosDb:Host": "https://localhost:8081/",
+                "CosmosDb:Key": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -40,6 +45,7 @@
                 "SqlServer:Initialize": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "FhirServer:Security:Enabled": "false",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -57,7 +63,12 @@
             "stopAtEntry": false,
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "DataStore": "CosmosDb"
+                "DataStore": "CosmosDb",
+                "FhirServer:Security:Enabled": "false",
+                // Not a real secret!
+                // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
+                "CosmosDb:Host": "https://localhost:8081/",
+                "CosmosDb:Key": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -81,6 +92,7 @@
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "SqlServer:Initialize": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "FhirServer:Security:Enabled": "false",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -98,7 +110,12 @@
             "stopAtEntry": false,
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "DataStore": "CosmosDb"
+                "DataStore": "CosmosDb",
+                "FhirServer:Security:Enabled": "false",
+                // Not a real secret!
+                // https://docs.microsoft.com/en-us/azure/cosmos-db/local-emulator?tabs=ssl-netstd21#authenticate-requests
+                "CosmosDb:Host": "https://localhost:8081/",
+                "CosmosDb:Key": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"
@@ -122,6 +139,7 @@
                 "SqlServer:Initialize": "true",
                 "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "FhirServer:Security:Enabled": "false",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/Views"

@@ -260,6 +260,9 @@
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The continuation token is invalid.</value>
   </data>
+  <data name="InvalidReIndexParameterValue" xml:space="preserve">
+    <value>Reindex operation parameter '{0}' was out of the range of valid values. Please specify different value within a range '{1}' - '{2}'.</value>
+  </data>
   <data name="InvalidSearchCountSpecified" xml:space="preserve">
     <value>The count must be greater than zero.</value>
   </data>
@@ -538,11 +541,20 @@
     <value>The 'handling' value '{0}' is invalid. The supported values are: {1}.</value>
     <comment>{0}: the invalid handling value. {1}: the supported handling values.</comment>
   </data>
-  <data name="ReindexingResourceVersionConflict" xml:space="preserve">
-    <value>The version of one or more resources did not match, indicating that they have been updated since the reindex job kicked off.</value>
+  <data name="ReindexingResourceVersionConflictWithCount" xml:space="preserve">
+    <value>{0} resource(s) failed to reindex due to a non-matching version.</value>
   </data>
   <data name="ReindexingResourceNotFound" xml:space="preserve">
     <value>One or more resources to be reindexed were not found, indicating that they have been deleted since the reindex job kicked off.</value>
+  </data>
+  <data name="PatchImmutablePropertiesIsNotValid" xml:space="preserve">
+    <value>Patching immutable properties is not allowed.</value>
+  </data>
+  <data name="PatchResourceError" xml:space="preserve">
+    <value>Error patching resource: '{0}'.</value>
+  </data>
+  <data name="PatchVersionNotAllowed" xml:space="preserve">
+    <value>Patching a specific record version is not supported.</value>
   </data>
   <data name="UnableToUpdateSearchParameter" xml:space="preserve">
     <value>Attempt to update SearchParameter {0} failed.</value>
@@ -566,7 +578,33 @@
   <data name="InvalidEverythingOperationPhase" xml:space="preserve">
     <value>The phase '{0}' in $everything operation is invalid.</value>
   </data>
+  <data name="ImportTaskIsRunning" xml:space="preserve">
+    <value>There is already an import task running.</value>
+  </data>
+  <data name="ImportTaskNotFound" xml:space="preserve">
+    <value>The requested import task "{0}" was not found.</value>
+    <comment>{0} is the import task id.</comment>
+  </data>
+  <data name="ImportOperationCompleted" xml:space="preserve">
+    <value>Import operation has already completed</value>
+  </data>
   <data name="ConditionalRequestTooCostly" xml:space="preserve">
     <value>The operation was stopped due to the underlying request being too resource intensive. If possible, try narrowing or changing the criteria.</value>
+  </data>
+  <data name="LinksCantBeCreated" xml:space="preserve">
+    <value>Bundle.link values omitted because they exceeded the maximum Uri length.</value>
+  </data>
+  <data name="PatchResourceMustBeJson" xml:space="preserve">
+    <value>The resource to patch must be in JSON format.</value>
+  </data>
+  <data name="ReindexingUserAction" xml:space="preserve">
+    <value>Resubmit the same reindex job to finish indexing the remaining resources.</value>
+  </data>
+  <data name="ReindexingResourceVersionConflict" xml:space="preserve">
+    <value>One or more resources failed to reindex due to a non-matching version.</value>
+  </data>
+  <data name="CantResolveExpressionForAType" xml:space="preserve">
+    <value>Can't find '{0}' in type '{1}'</value>
+    <comment>{0}: expression we trying to resolve, {1}: FHIR type</comment>
   </data>
 </root>

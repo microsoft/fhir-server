@@ -78,30 +78,66 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
-                        (short id, string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
-                            VLatest.SearchParam.SearchParamId,
-                            VLatest.SearchParam.Uri,
-                            VLatest.SearchParam.Status,
-                            VLatest.SearchParam.LastUpdated,
-                            VLatest.SearchParam.IsPartiallySupported);
+                        short id;
+                        string uri;
+                        string stringStatus;
+                        DateTimeOffset? lastUpdated;
+                        bool? isPartiallySupported;
 
-                        if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
+                        ResourceSearchParameterStatus resourceSearchParameterStatus;
+
+                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterSynchronizationVersion)
                         {
-                            // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
-                            // They should be populated as soon as they are added to the table and should never be null.
-                            throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
+                            (id, uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
+                                VLatest.SearchParam.SearchParamId,
+                                VLatest.SearchParam.Uri,
+                                VLatest.SearchParam.Status,
+                                VLatest.SearchParam.LastUpdated,
+                                VLatest.SearchParam.IsPartiallySupported);
+
+                            if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
+                            {
+                                // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
+                                // They should be populated as soon as they are added to the table and should never be null.
+                                throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
+                            }
+
+                            var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
+
+                            resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
+                            {
+                                Id = id,
+                                Uri = new Uri(uri),
+                                Status = status,
+                                IsPartiallySupported = (bool)isPartiallySupported,
+                                LastUpdated = (DateTimeOffset)lastUpdated,
+                            };
                         }
-
-                        var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
-
-                        var resourceSearchParameterStatus = new SqlServerResourceSearchParameterStatus
+                        else
                         {
-                            Id = id,
-                            Uri = new Uri(uri),
-                            Status = status,
-                            IsPartiallySupported = (bool)isPartiallySupported,
-                            LastUpdated = (DateTimeOffset)lastUpdated,
-                        };
+                            (uri, stringStatus, lastUpdated, isPartiallySupported) = sqlDataReader.ReadRow(
+                                VLatest.SearchParam.Uri,
+                                VLatest.SearchParam.Status,
+                                VLatest.SearchParam.LastUpdated,
+                                VLatest.SearchParam.IsPartiallySupported);
+
+                            if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
+                            {
+                                // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
+                                // They should be populated as soon as they are added to the table and should never be null.
+                                throw new SearchParameterNotSupportedException(Resources.SearchParameterStatusShouldNotBeNull);
+                            }
+
+                            var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
+
+                            resourceSearchParameterStatus = new ResourceSearchParameterStatus
+                            {
+                                Uri = new Uri(uri),
+                                Status = status,
+                                IsPartiallySupported = (bool)isPartiallySupported,
+                                LastUpdated = (DateTimeOffset)lastUpdated,
+                            };
+                        }
 
                         if (_sortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
                         {

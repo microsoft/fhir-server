@@ -6,8 +6,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -46,7 +48,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _bundleFactory = new BundleFactory(
                 _urlResolver,
-                _fhirRequestContextAccessor);
+                _fhirRequestContextAccessor,
+                NullLogger<BundleFactory>.Instance);
 
             IFhirRequestContext fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
@@ -64,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             using (Mock.Property(() => ClockResolver.UtcNowFunc, () => _dateTime))
             {
-                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0],  null, null, _unsupportedSearchParameters));
+                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0], null, null, _unsupportedSearchParameters));
             }
 
             Assert.NotNull(actual);
@@ -85,11 +88,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var resourceWrappers = new SearchResultEntry[]
             {
-                new SearchResultEntry(CreateResourceWrapper(observation1)),
-                new SearchResultEntry(CreateResourceWrapper(observation2)),
+                new SearchResultEntry(CreateResourceWrapper(observation1, HttpMethod.Post)),
+                new SearchResultEntry(CreateResourceWrapper(observation2, HttpMethod.Post)),
             };
 
-            var searchResult = new SearchResult(resourceWrappers,  continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
+            var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
 
             ResourceElement actual = null;
 
@@ -104,18 +107,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 actual.ToPoco<Bundle>().Entry,
                 async e => await ValidateEntry(observation1.ToPoco<Observation>(), e),
                 async e => await ValidateEntry(observation2.ToPoco<Observation>(), e));
-
-            ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement)
-            {
-                return new ResourceWrapper(
-                    resourceElement,
-                    new RawResource(_fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Observation>()), FhirResourceFormat.Json, isMetaSet: false),
-                    null,
-                    false,
-                    null,
-                    null,
-                    null);
-            }
 
             async Task ValidateEntry(Observation expected, Bundle.EntryComponent actualEntry)
             {
@@ -142,18 +133,81 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             }
         }
 
+        private ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement, HttpMethod httpMethod)
+        {
+            return new ResourceWrapper(
+                resourceElement,
+                new RawResource(_fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Observation>()), FhirResourceFormat.Json, isMetaSet: false),
+                new ResourceRequest(httpMethod, url: "http://test/Resource/resourceId"),
+                false,
+                null,
+                null,
+                null);
+        }
+
         [Fact]
         public void GivenASearchResultWithContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
-            string encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(_continuationToken));
+            string encodedContinuationToken = ContinuationTokenConverter.Encode(_continuationToken);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, null, encodedContinuationToken, true).Returns(_nextUrl);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
-            var searchResult = new SearchResult(new SearchResultEntry[0],  _continuationToken, null, _unsupportedSearchParameters);
+            var searchResult = new SearchResult(new SearchResultEntry[0], _continuationToken, null, _unsupportedSearchParameters);
 
             ResourceElement actual = _bundleFactory.CreateSearchBundle(searchResult);
 
             Assert.Equal(_nextUrl.OriginalString, actual.Scalar<string>("Bundle.link.where(relation='next').url"));
+        }
+
+        [Theory]
+        [InlineData("123", "1", "POST", "201 Created")]
+        [InlineData("123", "1", "PUT", "201 Created")]
+        [InlineData("123", "2", "PUT", "200 OK")]
+        [InlineData("123", "2", "PATCH", "200 OK")]
+        [InlineData("123", "2", "DELETE", "204 NoContent")]
+        public void GivenAHistoryResultWithDifferentStatuses_WhenCreateHistoryBundle_ThenCorrectBundleShouldBeReturned(string id, string version, string method, string statusString)
+        {
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>(), Arg.Any<bool>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
+
+            ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId(id).UpdateVersion(version);
+
+            var resourceWrappers = new[]
+            {
+                new SearchResultEntry(CreateResourceWrapper(observation1, new HttpMethod(method))),
+            };
+
+            var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
+
+            var actual = _bundleFactory.CreateHistoryBundle(searchResult);
+
+            Assert.NotNull(actual.ToPoco<Bundle>().Entry[0].Request.Method);
+            Assert.NotNull(actual.ToPoco<Bundle>().Entry[0].Request.Url);
+            Assert.Equal(statusString, actual.ToPoco<Bundle>().Entry[0].Response.Status);
+        }
+
+        [Fact]
+        public void GivenAHistoryResultWithAllHttpVerbs_WhenCreateHistoryBundle_ThenBundleShouldNotCrash()
+        {
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>(), Arg.Any<bool>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
+
+            foreach (var verb in Enum.GetValues<Bundle.HTTPVerb>())
+            {
+                ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123").UpdateVersion("1");
+
+                var resourceWrappers = new[]
+                {
+                    new SearchResultEntry(CreateResourceWrapper(observation1, new HttpMethod(verb.ToString()))),
+                };
+
+                var searchResult = new SearchResult(resourceWrappers, continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
+
+                var actual = _bundleFactory.CreateHistoryBundle(searchResult);
+                Assert.NotNull(actual.ToPoco<Bundle>().Entry[0].Response.Status);
+            }
         }
     }
 }

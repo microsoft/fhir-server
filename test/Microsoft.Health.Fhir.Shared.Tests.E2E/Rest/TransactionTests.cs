@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Transaction)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
-    public class TransactionTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
+    public class TransactionTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
 
@@ -32,13 +32,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             _client = fixture.TestFhirClient;
         }
-
-        public async Task InitializeAsync()
-        {
-            await _client.DeleteAllResources(ResourceType.Patient);
-        }
-
-        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
@@ -53,20 +46,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAProperBundle_WhenSubmittingATransaction_ThenSuccessIsReturnedWithExpectedStatusCodesPerRequests()
         {
+            var id = Guid.NewGuid().ToString();
+
             // Insert resources first inorder to test a delete.
-            var resource = Samples.GetJsonSample("PatientWithMinimalData");
-            using FhirResponse<Patient> response = await _client.CreateAsync(resource.ToPoco<Patient>());
+            var resource = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            resource.Identifier[0].Value = id;
+            using FhirResponse<Patient> response = await _client.CreateAsync(resource);
 
             var insertedId = response.Resource.Id;
+            var bundleAsString = Samples.GetJson("Bundle-TransactionWithAllValidRoutes");
+            bundleAsString = bundleAsString.Replace("http:/example.org/fhir/ids|234234", $"http:/example.org/fhir/ids|{id}");
+            bundleAsString = bundleAsString.Replace("234235", Guid.NewGuid().ToString());
+            bundleAsString = bundleAsString.Replace("456456", Guid.NewGuid().ToString());
 
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithAllValidRoutes").ToPoco<Bundle>();
-
-            // Make the criteria unique so that the tests behave consistently for update
-            var updateIdGuid = Guid.NewGuid().ToString();
-            requestBundle.Entry[2].Request.Url = requestBundle.Entry[2].Request.Url + updateIdGuid;
-            requestBundle.Entry[2].FullUrl = requestBundle.Entry[2].FullUrl + updateIdGuid;
-            var updateIdPatient = (Patient)requestBundle.Entry[2].Resource;
-            updateIdPatient.Id = updateIdPatient.Id + updateIdGuid;
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            var requestBundle = parser.Parse<Bundle>(bundleAsString);
 
             requestBundle.Entry.Add(new EntryComponent
             {
@@ -130,22 +124,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenABundleWithMutipleEntriesReferringToSameResource_WhenSubmittingATransaction_ThenProperOperationOutComeIsReturned()
         {
-            // Insert a resource that has a predefined identifier.
-            var resource = Samples.GetJsonSample("PatientWithMinimalData");
-            await _client.CreateAsync(resource.ToPoco<Patient>());
+            var id = Guid.NewGuid().ToString();
 
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithConditionalReferenceReferringToSameResource");
+            // Insert resources first inorder to test a delete.
+            var resource = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            resource.Identifier[0].Value = id;
+            using FhirResponse<Patient> response = await _client.CreateAsync(resource);
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+            var bundleAsString = Samples.GetJson("Bundle-TransactionWithConditionalReferenceReferringToSameResource");
+            bundleAsString = bundleAsString.Replace("http:/example.org/fhir/ids|234234", $"http:/example.org/fhir/ids|{id}");
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            var bundle = parser.Parse<Bundle>(bundleAsString);
+
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(bundle));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
-            string[] expectedDiagnostics = { "Bundle contains multiple entries that refers to the same resource 'Patient?identifier=http:/example.org/fhir/ids|234234'." };
+            string[] expectedDiagnostics = { $"Bundle contains multiple entries that refers to the same resource 'Patient?identifier=http:/example.org/fhir/ids|{id}'." };
             IssueType[] expectedCodeType = { OperationOutcome.IssueType.Invalid };
             ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithUnauthorizedUser_WhenSubmittingATransaction_ThenOperationOutcomeWithUnAuthorizedStatusIsReturned()
         {
             TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.WrongAudienceClient);
@@ -161,12 +162,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithForbiddenUser_WhenSubmittingATransaction_ThenOperationOutcomeWithForbiddenStatusIsReturned()
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
-            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+            var id = Guid.NewGuid().ToString();
+            var bundleAsString = Samples.GetJson("Bundle-TransactionWithValidBundleEntry");
+            bundleAsString = bundleAsString.Replace("identifier=234234", $"identifier={id}");
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            var requestBundle = parser.Parse<Bundle>(bundleAsString);
+
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.PostBundleAsync(requestBundle));
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { "Transaction failed on 'POST' for the requested url '/Patient'.", "Authorization failed." };
@@ -256,13 +263,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundleReferencesInResourceBody_WhenSuccessfulExecution_ReferencesAreResolvedCorrectlyAsync()
         {
+            var id = Guid.NewGuid().ToString();
+
             // Insert a resource that has a predefined identifier.
-            var resource = Samples.GetJsonSample("PatientWithMinimalData");
-            await _client.CreateAsync(resource.ToPoco<Patient>());
+            var resource = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            resource.Identifier[0].Value = id;
+            await _client.CreateAsync(resource);
 
-            var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithReferenceInResourceBody");
-
-            var bundle = bundleWithConditionalReference.ToPoco<Bundle>();
+            var bundleAsString = Samples.GetJson("Bundle-TransactionWithReferenceInResourceBody");
+            bundleAsString = bundleAsString.Replace("http:/example.org/fhir/ids|234234", $"http:/example.org/fhir/ids|{id}");
+            var parser = new Hl7.Fhir.Serialization.FhirJsonParser();
+            var bundle = parser.Parse<Bundle>(bundleAsString);
 
             using FhirResponse<Bundle> fhirResponseForReferenceResolution = await _client.PostBundleAsync(bundle);
 

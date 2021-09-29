@@ -5,10 +5,11 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
-using FluentValidation.Validators;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Models;
@@ -38,18 +39,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             _runProfileValidation = runProfileValidation;
         }
 
-        public override IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
+        public override Task<ValidationResult> ValidateAsync(ValidationContext<ResourceElement> context, CancellationToken cancellation = default)
+        {
+            return Task.FromResult(Validate(context));
+        }
+
+        public override ValidationResult Validate(ValidationContext<ResourceElement> context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
-
-            if (context.PropertyValue is ResourceElement resourceElement)
+            var failures = new List<ValidationFailure>();
+            if (context.InstanceToValidate is ResourceElement resourceElement)
             {
                 var fhirContext = _contextAccessor.RequestContext;
                 var profileValidation = _runProfileValidation;
                 if (fhirContext.RequestHeaders.ContainsKey(KnownHeaders.ProfileValidation)
-                    && fhirContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var value))
+                    && fhirContext.RequestHeaders.TryGetValue(KnownHeaders.ProfileValidation, out var hValue))
                 {
-                    if (bool.TryParse(value, out bool headerValue))
+                    if (bool.TryParse(hValue, out bool headerValue))
                     {
                         profileValidation = headerValue;
                     }
@@ -60,18 +66,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     var errors = _profileValidator.TryValidate(resourceElement.Instance);
                     foreach (var error in errors.Where(x => x.Severity == IssueSeverity.Error || x.Severity == IssueSeverity.Fatal))
                     {
-                        yield return new FhirValidationFailure(
+                        var validationFailure = new FhirValidationFailure(
                             resourceElement.InstanceType,
                             error.DetailsText,
                             error);
+                        failures.Add(validationFailure);
                     }
                 }
 
-                foreach (var baseError in base.Validate(context))
-                {
-                    yield return baseError;
-                }
+                var baseValidation = base.Validate(context);
+                failures.AddRange(baseValidation.Errors);
             }
+
+            failures.ForEach(x => context.AddFailure(x));
+            return new ValidationResult(failures);
         }
     }
 }

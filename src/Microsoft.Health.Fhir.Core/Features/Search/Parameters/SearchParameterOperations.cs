@@ -78,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     throw new SearchParameterNotSupportedException(errorMessage);
                 }
 
+                _logger.LogTrace("Adding the search parameter '{url}'", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
 
                 await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url }, cancellationToken);
@@ -118,6 +119,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // First we delete the status metadata from the data store as this fuction depends on the
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
+                _logger.LogTrace("Deleting the search parameter '{url}'", searchParameterUrl);
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
             }
@@ -172,8 +174,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // As any part of the SearchParameter may have been changed, including the URL
                 // the most reliable method of updating the SearchParameter is to delete the previous
                 // data and insert the updated version
+                _logger.LogTrace("Deleting the search parameter '{url}' (update step 1/2)", prevSearchParamUrl);
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
+
+                _logger.LogTrace("Adding the search parameter '{url}' (update step 2/2)", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
                 await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url }, cancellationToken);
             }

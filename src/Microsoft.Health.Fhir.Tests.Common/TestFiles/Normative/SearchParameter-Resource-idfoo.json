@@ -1,0 +1,42 @@
+{
+    "resourceType": "SearchParameter",
+    "id": "Resource-idfoo",
+    "extension": [
+        {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+            "valueCode": "trial-use"
+        }
+    ],
+    "url": "http://hl7.org/fhir/SearchParameter/Resource-idfoo",
+    "version": "4.0.1",
+    "name": "_idfoo",
+    "status": "draft",
+    "experimental": false,
+    "date": "2019-11-01T09:29:23+11:00",
+    "publisher": "Health Level Seven International (FHIR Infrastructure)",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://hl7.org/fhir"
+                }
+            ]
+        },
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                }
+            ]
+        }
+    ],
+    "description": "Logical id of this artifact",
+    "code": "_idfoo",
+    "base": [ "Resource" ],
+    "type": "token",
+    "expression": "Resource.id",
+    "xpath": "f:Resource/f:id",
+    "xpathUsage": "normal"
+}

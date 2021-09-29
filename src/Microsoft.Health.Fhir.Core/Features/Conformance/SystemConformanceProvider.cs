@@ -10,7 +10,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -32,22 +34,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private SemaphoreSlim _defaultCapabilitySemaphore = new SemaphoreSlim(1, 1);
         private SemaphoreSlim _metadataSemaphore = new SemaphoreSlim(1, 1);
         private readonly List<Action<ListedCapabilityStatement>> _configurationUpdates = new List<Action<ListedCapabilityStatement>>();
+        private readonly IOptions<CoreFeatureConfiguration> _configuration;
         private readonly IKnowSupportedProfiles _supportedProfiles;
 
         public SystemConformanceProvider(
             IModelInfoProvider modelInfoProvider,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders,
+            IOptions<CoreFeatureConfiguration> configuration,
             IKnowSupportedProfiles supportedProfiles)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(capabilityProviders, nameof(capabilityProviders));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
 
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _capabilityProviders = capabilityProviders;
+            _configuration = configuration;
             _supportedProfiles = supportedProfiles;
         }
 
@@ -61,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _supportedProfiles)
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles)
                           .Apply(x =>
                           {
                               x.FhirVersion = _modelInfoProvider.SupportedVersion.ToString();

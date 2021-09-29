@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var resource = Samples.GetDefaultObservation().UpdateId("id1");
 
             var key = new ResourceKey("Observation", "id1");
-            var request = new DeleteResourceRequest(key, false);
+            var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
             var wrapper = CreateResourceWrapper(resource, false);
 
             _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(wrapper);
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var resource = searchParameter.ToTypedElement().ToResourceElement();
 
             var key = new ResourceKey("SearchParameter", "Id");
-            var request = new DeleteResourceRequest(key, false);
+            var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
             var wrapper = CreateResourceWrapper(resource, false);
 
             _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(wrapper);
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var resource = searchParameter.ToTypedElement().ToResourceElement();
 
             var key = new ResourceKey("SearchParameter", "Id");
-            var request = new DeleteResourceRequest(key, false);
+            var request = new DeleteResourceRequest(key, DeleteOperation.SoftDelete);
             var wrapper = CreateResourceWrapper(resource, true);
 
             _fhirDataStore.GetAsync(key, Arg.Any<CancellationToken>()).Returns(wrapper);

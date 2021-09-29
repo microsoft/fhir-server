@@ -1,0 +1,204 @@
+# .SUMMARY Sample requests to verify JSON PATCH
+# The assumption for the requests and resources below:
+# The FHIR version is R4 or R5
+
+@hostname = localhost:44348
+
+### Test rest client
+https://{{hostname}}/metadata
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+
+### POST one or more Patient resources to test the scenarios below:
+# @name patient
+POST https://{{hostname}}/Patient
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+< .\Data\R4ExamplePatient.json
+
+###
+## Add an address
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "add",
+        "path": "/address/0",
+        "value": {
+            "use": "home",
+            "line": [
+                "23 thule st",
+                "avon"
+            ],
+            "city": "Big Smoke",
+            "country": "erewhon",
+            "text": "23 thule st"
+        }
+    }
+]
+
+###
+## Remove a phone number
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "remove",
+        "path": "/telecom/0"
+    }
+]
+
+###
+## Add a phone number
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "add",
+        "path": "/telecom",
+        "value": []
+    },
+    {
+        "op": "add",
+        "path": "/telecom/0",
+        "value": 
+        {
+            "system": "phone",
+            "value": "888-888-8888",
+            "use": "work"
+        }
+    }
+]
+
+###
+## Try to patch version (result = fail)
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "replace",
+        "path": "/meta/versionId",
+        "value": "abc"
+    }
+]
+
+###
+## Remove a phone number and Change version (result = fail)
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "remove",
+        "path": "/telecom/0"
+    },
+    {
+        "op": "replace",
+        "path": "/meta/versionId",
+        "value": "abc"
+    }
+]
+
+###
+## Add deceasedBoolean
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "add",
+        "path": "/deceasedBoolean",
+        "value": false
+    }
+]
+
+###
+## Using Patch TEST operation
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "test",
+        "path": "/deceasedBoolean",
+        "value": false
+    },
+    {
+        "op": "replace",
+        "path": "/deceasedBoolean",
+        "value": true
+    }
+]
+
+### Patch in a bundle
+## See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request
+
+POST https://{{hostname}}/
+content-type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Bundle",
+    "id": "bundle-batch",
+    "type": "batch",
+    "entry": [
+        {
+            "fullUrl": "Patient/{{patient.response.body.id}}",
+            "resource": {
+                "resourceType": "Binary",
+                "contentType": "application/json-patch+json",
+                "data": "W3sib3AiOiJyZXBsYWNlIiwicGF0aCI6Ii9nZW5kZXIiLCJ2YWx1ZSI6ImZlbWFsZSJ9XQ=="
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient/{{patient.response.body.id}}"
+            }
+        }
+    ]
+}
+
+### Conditional Patch
+PATCH {{fhirurl}}/Patient?identifier=1032704
+content-type: application/json-patch+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+[
+    {
+        "op": "replace",
+        "path": "/name/0",
+        "value": {
+                "family": "Doe",
+                "given": [
+                "Jane"
+                ]
+        }
+    }
+]

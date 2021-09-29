@@ -55,5 +55,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
             Assert.NotNull(values);
             Assert.Empty(values);
         }
+
+        protected async Task TestExtensionAsync<TValue>(Action<TElement> setup, Action<TValue, ISearchValue> validator, params TValue[] expected)
+        {
+            setup(Element);
+
+            IEnumerable<ISearchValue> values = (await GetTypeConverterAsync()).ConvertTo(TypedElement);
+
+            Assert.NotNull(values);
+            Assert.Collection(
+                values,
+                expected.Select(e => new Action<ISearchValue>(sv => validator(e, sv))).ToArray());
+        }
     }
 }

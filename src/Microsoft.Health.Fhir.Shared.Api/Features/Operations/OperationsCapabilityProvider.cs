@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -11,11 +12,12 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
     /// <summary>
-    /// Class that handles adding details of the supported operationsto the capability
+    /// Class that handles adding details of the supported operations to the capability
     /// statement of the fhir-server. This class is split across the different
     /// FHIR versions since the OperationDefinition has a different format
     /// for STU3 compared to R4 and R5.
@@ -58,6 +60,44 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             }
 
             builder.Apply(AddMemberMatchDetails);
+            builder.Apply(AddPatientEverythingDetails);
+        }
+
+        private void AddExportDetailsHelper(ICapabilityStatementBuilder builder)
+        {
+            builder.Apply(AddExportDetails);
+        }
+
+        public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.PatientExport);
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.GroupExport);
+        }
+
+        public static void AddPatientEverythingDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            capabilityStatement.Rest.Server().Operation.Add(new OperationComponent
+            {
+                Name = OperationsConstants.PatientEverything,
+                Definition = new ReferenceComponent
+                {
+                    Reference = OperationsConstants.PatientEverythingUri,
+                },
+            });
+        }
+
+        private void GetAndAddOperationDefinitionUriToCapabilityStatement(ListedCapabilityStatement capabilityStatement, string operationType)
+        {
+            Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
+            capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
+            {
+                Name = operationType,
+                Definition = new ReferenceComponent
+                {
+                    Reference = operationDefinitionUri.ToString(),
+                },
+            });
         }
 
         public void AddAnonymizedExportDetails(ListedCapabilityStatement capabilityStatement)

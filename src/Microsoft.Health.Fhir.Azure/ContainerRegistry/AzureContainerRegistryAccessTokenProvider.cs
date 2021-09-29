@@ -13,9 +13,9 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Newtonsoft.Json;
 using Polly;
 
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             }
             catch (AccessTokenProviderException ex)
             {
-                _logger.LogError(ex, "Failed to get AAD access token from managed identity.");
+                _logger.LogWarning(ex, "Failed to get AAD access token from managed identity.");
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, HttpStatusCode.Unauthorized, ex);
             }
 
@@ -111,17 +111,17 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             var refreshTokenResponse = await SendRequestAsync(request, cancellationToken);
             if (refreshTokenResponse.StatusCode == HttpStatusCode.Unauthorized)
             {
-                _logger.LogError("Failed to exchange ACR refresh token: ACR server is unauthorized.");
+                _logger.LogInformation("Failed to exchange ACR refresh token: ACR server is unauthorized.");
                 throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, registryServer));
             }
             else if (refreshTokenResponse.StatusCode == HttpStatusCode.NotFound)
             {
-                _logger.LogError("Failed to exchange ACR refresh token: ACR server is not found.");
+                _logger.LogInformation("Failed to exchange ACR refresh token: ACR server is not found.");
                 throw new ContainerRegistryNotFoundException(string.Format(Resources.ContainerRegistryNotFound, registryServer));
             }
             else if (!refreshTokenResponse.IsSuccessStatusCode)
             {
-                _logger.LogError("Failed to exchange ACR refresh token with AAD access token. Status code: {statusCode}.", refreshTokenResponse.StatusCode);
+                _logger.LogWarning("Failed to exchange ACR refresh token with AAD access token. Status code: {statusCode}.", refreshTokenResponse.StatusCode);
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, refreshTokenResponse.StatusCode);
             }
 
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             string refreshToken = (string)refreshTokenJson.refresh_token;
             if (string.IsNullOrEmpty(refreshToken))
             {
-                _logger.LogError("ACR refresh token is empty.");
+                _logger.LogWarning("ACR refresh token is empty.");
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, refreshTokenResponse.StatusCode);
             }
 
@@ -158,17 +158,17 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             var accessTokenResponse = await SendRequestAsync(request, cancellationToken);
             if (accessTokenResponse.StatusCode == HttpStatusCode.Unauthorized)
             {
-                _logger.LogError("Failed to get ACR access token: ACR server is unauthorized.");
+                _logger.LogInformation("Failed to get ACR access token: ACR server is unauthorized.");
                 throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, registryServer));
             }
             else if (accessTokenResponse.StatusCode == HttpStatusCode.NotFound)
             {
-                _logger.LogError("Failed to get ACR access token: ACR server is not found.");
+                _logger.LogInformation("Failed to get ACR access token: ACR server is not found.");
                 throw new ContainerRegistryNotFoundException(string.Format(Resources.ContainerRegistryNotFound, registryServer));
             }
             else if (!accessTokenResponse.IsSuccessStatusCode)
             {
-                _logger.LogError("Failed to get ACR access token with ACR refresh token. Status code: {statusCode}.", accessTokenResponse.StatusCode);
+                _logger.LogWarning("Failed to get ACR access token with ACR refresh token. Status code: {statusCode}.", accessTokenResponse.StatusCode);
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, accessTokenResponse.StatusCode);
             }
 
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             string accessToken = accessTokenJson.access_token;
             if (string.IsNullOrEmpty(accessToken))
             {
-                _logger.LogError("ACR access token is empty.");
+                _logger.LogWarning("ACR access token is empty.");
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, accessTokenResponse.StatusCode);
             }
 

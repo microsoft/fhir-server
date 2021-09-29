@@ -6,7 +6,7 @@
 using System;
 using Microsoft.Health.Fhir.Web;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
     /// An attribute to be placed on a custom <see cref="Startup"/> type for in-proc E2E tests, when

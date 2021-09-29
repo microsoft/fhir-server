@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -52,7 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             SearchResult searchResult = await _patientEverythingService.SearchAsync(
                 request.ResourceId, request.Start, request.End, request.Since, request.ResourceTypes, request.ContinuationToken, cancellationToken);
 
-            ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
+            ResourceElement bundle = request.UnsupportedParameters != null && request.UnsupportedParameters.Any()
+                ? _bundleFactory.CreateSearchBundle(new SearchResult(searchResult.Results, searchResult.ContinuationToken, searchResult.SortOrder, request.UnsupportedParameters))
+                : _bundleFactory.CreateSearchBundle(searchResult);
 
             return new EverythingOperationResponse(bundle);
         }

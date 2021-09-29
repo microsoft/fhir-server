@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 ? CreateExtendedRetryPolicy(configuration.IndividualBatchActionRetryOptions.MaxNumberOfRetries / configuration.RetryOptions.MaxNumberOfRetries, configuration.IndividualBatchActionRetryOptions.MaxWaitTimeInSeconds)
                 : Policy.NoOpAsync();
 
-            _backgroundJobRetryPolicy = CreateExtendedRetryPolicy(3, configuration.RetryOptions.MaxWaitTimeInSeconds * 3);
+            _backgroundJobRetryPolicy = CreateExtendedRetryPolicy(100, -1);
         }
 
         public AsyncPolicy RetryPolicy
@@ -58,6 +58,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             return Policy.Handle<RequestRateExceededException>()
                 .Or<CosmosException>(e => e.IsRequestRateExceeded())
+                .Or<CosmosException>(e => e.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
                 .WaitAndRetryAsync(
                     retryCount: maxRetries,
                     sleepDurationProvider: (_, e, _) => e.AsRequestRateExceeded()?.RetryAfter ?? TimeSpan.FromSeconds(2),

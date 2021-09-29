@@ -11,6 +11,8 @@ using System.Reflection;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
@@ -29,26 +31,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         private readonly ListedCapabilityStatement _statement;
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly CoreFeatureConfiguration _configuration;
         private readonly IKnowSupportedProfiles _supportedProfiles;
 
         private CapabilityStatementBuilder(
             ListedCapabilityStatement statement,
             IModelInfoProvider modelInfoProvider,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IOptions<CoreFeatureConfiguration> configuration,
             IKnowSupportedProfiles supportedProfiles)
         {
             EnsureArg.IsNotNull(statement, nameof(statement));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(supportedProfiles, nameof(supportedProfiles));
 
             _statement = statement;
             _modelInfoProvider = modelInfoProvider;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _configuration = configuration.Value;
             _supportedProfiles = supportedProfiles;
         }
 
-        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IKnowSupportedProfiles supportedProfiles)
+        public static ICapabilityStatementBuilder Create(IModelInfoProvider modelInfoProvider, ISearchParameterDefinitionManager searchParameterDefinitionManager, IOptions<CoreFeatureConfiguration> configuration, IKnowSupportedProfiles supportedProfiles)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
@@ -56,8 +62,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             using Stream resourceStream = modelInfoProvider.OpenVersionedFileStream("BaseCapabilities.json");
             using var reader = new StreamReader(resourceStream);
             var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
+            statement.FhirVersion = modelInfoProvider.SupportedVersion.ToString();
             statement.Date = File.GetCreationTime(Assembly.GetExecutingAssembly().Location).ToUniversalTime().ToString("O");
-            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, supportedProfiles);
+            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles);
         }
 
         public ICapabilityStatementBuilder Apply(Action<ListedCapabilityStatement> action)
@@ -80,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (resourceComponent == null)
             {
-                resourceComponent = new ListedResourceComponent
+                resourceComponent = new ListedResourceComponent(_configuration)
                 {
                     Type = resourceType,
                     Profile = new ReferenceComponent
@@ -262,6 +269,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 if (!string.Equals(resource, KnownResourceTypes.AuditEvent, StringComparison.Ordinal))
                 {
                     AddResourceInteraction(resource, TypeRestfulInteraction.Update);
+                    AddResourceInteraction(resource, TypeRestfulInteraction.Patch);
                     AddResourceInteraction(resource, TypeRestfulInteraction.Delete);
                 }
 
@@ -343,7 +351,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     new DefaultOptionHashSetJsonConverter(),
                     new EnumLiteralJsonConverter(),
-                    new ProfileReferenceConverter(_modelInfoProvider),
+                    new ReferenceComponentConverter(_modelInfoProvider),
                     new CodingJsonConverter(),
                 },
                 NullValueHandling = NullValueHandling.Ignore,

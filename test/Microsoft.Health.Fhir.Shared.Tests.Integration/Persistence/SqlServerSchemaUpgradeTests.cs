@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -72,8 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Theory]
-        [InlineData((int)SchemaVersion.V7)]
-        [InlineData(SchemaVersionConstants.Max)]
+        [MemberData(nameof(GetSchemaVersions))]
         public async Task GivenASchemaVersion_WhenApplyingDiffTwice_ShouldSucceed(int schemaVersion)
         {
             var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
@@ -97,6 +97,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        public static IEnumerable<object[]> GetSchemaVersions()
+        {
+            foreach (object item in Enum.GetValues(typeof(SchemaVersion)))
+            {
+                // The schema upgrade scripts starting from v7 were made idempotent.
+                // Hence we need to run the tests only for versions 7 and above.
+                if ((int)item >= 7)
+                {
+                    yield return new object[] { item };
+                }
+            }
+        }
+
         private async Task<(SqlServerFhirStorageTestHelper testHelper, SchemaUpgradeRunner upgradeRunner)> SetupTestHelperAndCreateDatabase(string databaseName, int maxSchemaVersion, bool forceIncrementalSchemaUpgrade)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
@@ -110,7 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var connectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions };
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions });
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
@@ -145,6 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var schemaInitializer = new SchemaInitializer(
                 config,
+                schemaManagerDataStore,
                 schemaUpgradeRunner,
                 schemaInformation,
                 sqlConnectionFactory,
@@ -170,7 +184,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var source = new SchemaCompareDatabaseEndpoint(testConnectionString1);
             var target = new SchemaCompareDatabaseEndpoint(testConnectionString2);
-            var comparison = new SchemaComparison(source, target);
+            var comparison = new SchemaComparison(source, target)
+            {
+                Options = { IgnoreWhitespace = true, IgnoreComments = true },
+            };
 
             SchemaComparisonResult result = comparison.Compare();
 
@@ -181,6 +198,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
+                ("Procedure", "[dbo].[UpsertResource_3]"),
+                ("Procedure", "[dbo].[CreateTask]"),
+                ("Procedure", "[dbo].[GetNextTask]"),
+                ("Procedure", "[dbo].[HardDeleteResource]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),

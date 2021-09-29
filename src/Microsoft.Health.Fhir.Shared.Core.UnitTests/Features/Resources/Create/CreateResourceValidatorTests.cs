@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -30,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
         [InlineData("1+1")]
         [InlineData("11|")]
         [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
-        public void GivenAResourceWithoutInvalidId_WhenValidatingUpsert_ThenInvalidShouldBeReturned(string id)
+        public void GivenAResourceWithInvalidId_WhenValidatingUpsert_ThenInvalidShouldBeReturned(string id)
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
@@ -43,12 +45,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
                 profileValidator,
                 contextAccessor,
                 config);
-            var resource = Samples.GetDefaultObservation()
-                .UpdateId(id);
+
+            var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            defaultObservation.Text.Div = MaliciousNarrative().ToString();
+
+            var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            defaultPatient.Text.Div = MaliciousNarrative().ToString();
+
+            var bundle = new Bundle();
+            bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultObservation });
+            bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultPatient });
+
+            var resource = bundle.ToResourceElement()
+                            .UpdateId(id);
 
             var createResourceRequest = new CreateResourceRequest(resource);
             var result = validator.Validate(createResourceRequest);
             Assert.False(result.IsValid);
+            Assert.True(result.Errors.Count >= 3);
+            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("min. cardinality 1 cannot be null")));
+            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element")));
+            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters")));
         }
 
         [InlineData(true, null, true)]
@@ -90,6 +107,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             {
                 profileValidator.DidNotReceive().TryValidate(Arg.Any<ITypedElement>(), Arg.Any<string>());
             }
+        }
+
+        public static IEnumerable<object[]> MaliciousNarrative()
+        {
+            return new object[]
+            {
+                            "<div>'';!--\"<XSS>=&{()}</div>",
+                            "<div><?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><foo><![CDATA[<]]>SCRIPT<![CDATA[>]]>alert('gotcha');<![CDATA[<]]>/SCRIPT<![CDATA[>]]></foo></div>",
+                            "<div><a onclick=\"alert('gotcha');\"></a></div>",
+                            "<div><div id=\"nested\"><span><a onclick=\"alert('gotcha');\"></a></span></div></div>",
+                            "<div><IMG SRC=\"jav &#x0D;ascript:alert(<WBR>'XSS');\"></div>",
+                            "<div><img%20src%3D%26%23x6a;%26%23x61;%26%23x76;%26%23x61;%26%23x73;%26%23x63;%26%23x72;%26%23x69;%26%23x70;%26%23x74;%26%23x3a;alert(%26quot;%26%23x20;XSS%26%23x20;Test%26%23x20;Successful%26quot;)></div>",
+                            "<div><IMGSRC=&#106;&#97;&#118;&#97;&<WBR>#115;&#99;&#114;&#105;&#112;&<WBR>#116;&#58;&#97;&#108;&#101;&<WBR>#114;&#116;&#40;&#39;&#88;&#83<WBR>;&#83;&#39;&#41></div>",
+                            "<div><script src=http://www.example.com/malicious-code.js></script></div>",
+                            "<div>%22%27><img%20src%3d%22javascript:alert(%27%20XSS%27)%22></div>",
+                            "<div>\"'><img%20src%3D%26%23x6a;%26%23x61;%26%23x76;%26%23x61;%26%23x73;%26%23x63;%26%23x72;%26%23x69;%26%23x70;%26%23x74;%26%23x3a;</div>",
+                            "<div>\"><script>alert(\"XSS\")</script>&</div>",
+                            "<div>\"><STYLE>@import\"javascript:alert('XSS')\";</ STYLE ></div>",
+                            "<div>http://www.example.com/>\"><script>alert(\"XSS\")</script>&</div>",
+                            "<div onmouseover=\"alert('gotcha');\"></div>",
+            }.Select(x => new[] { x });
         }
     }
 }

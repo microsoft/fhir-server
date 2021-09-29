@@ -69,5 +69,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return exception.StatusCode == HttpStatusCode.Forbidden
                 && (Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValueClientIssue), exception.SubStatusCode) || exception.SubStatusCode == 3);
         }
+
+        /// <summary>
+        /// The Cosmos SDK will at times return a 503 error, whith additional info in the
+        /// body of the message indicating that the exception is due to a timeout
+        /// </summary>
+        /// <param name="exception">The exception object</param>
+        /// <returns>bool if request timeout found in the body of the message</returns>
+        public static bool IsServiceUnavailableDueToTimeout(this CosmosException exception)
+        {
+            if (exception.StatusCode == HttpStatusCode.ServiceUnavailable)
+            {
+                if (exception.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase) ||
+                    exception.InnerException.Message.Contains("RequestTimeout", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
     }
 }

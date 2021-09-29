@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -12,14 +13,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
     public class ListedResourceComponent
     {
-        public ListedResourceComponent()
+        public ListedResourceComponent(CoreFeatureConfiguration configuration)
         {
             Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
             SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
-            Versioning = new DefaultOptionHashSet<string>("versioned", StringComparer.Ordinal);
+
             SearchRevInclude = new HashSet<string>(StringComparer.Ordinal);
             SearchInclude = new HashSet<string>(StringComparer.Ordinal);
             ReferencePolicy = new HashSet<string>(StringComparer.Ordinal);
+            Versioning = new DefaultOptionHashSet<string>(configuration.Versioning.Default, StringComparer.Ordinal);
             SupportedProfile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             Operation = new HashSet<OperationComponent>(new PropertyEqualityComparer<OperationComponent>(x => x.Name, x => x.Definition.ToString()));
 

@@ -14,6 +14,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -27,15 +28,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
     /// Provides Audit specific tests.
     /// </summary
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public class AuditTests : IClassFixture<AuditTestFixture>, IAsyncLifetime
+    public class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
-        private const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
         private const string ExpectedClaimKey = "client_id";
 
         private readonly AuditTestFixture _fixture;
         private readonly TestFhirClient _client;
-
         private readonly TraceAuditLogger _auditLogger;
 
         public AuditTests(AuditTestFixture fixture)
@@ -44,13 +43,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             _client = fixture.TestFhirClient;
             _auditLogger = _fixture.AuditLogger;
         }
-
-        public async Task InitializeAsync()
-        {
-            await _client.DeleteAllResources(ResourceType.Patient);
-        }
-
-        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         public async Task GivenMetadata_WhenRead_ThenAuditLogEntriesShouldNotBeCreated()
@@ -372,7 +364,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             };
 
             var content = new FormUrlEncodedContent(formFields);
-            content.Headers.Add(CustomAuditHeaderPrefix + "test", "test");
+            content.Headers.Add(KnownHeaders.CustomAuditHeaderPrefix + "test", "test");
             await ExecuteAndValidate(
                 async () => await _client.HttpClient.PostAsync(pathSegment, content),
                 "smart-on-fhir-token",
@@ -380,7 +372,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.BadRequest,
                 "1234",
                 "client_id",
-                new Dictionary<string, string>() { [CustomAuditHeaderPrefix + "test"] = "test" });
+                new Dictionary<string, string>() { [KnownHeaders.CustomAuditHeaderPrefix + "test"] = "test" });
         }
 
         [Fact]

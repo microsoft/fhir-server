@@ -37,6 +37,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         internal const string GetReindexStatusById = "GetReindexStatusById";
 
+        internal const string GetImportStatusById = "GetImportStatusById";
+
+        internal const string CancelImport = "CancelImport";
+
         internal const string PostBundle = "PostBundle";
 
         internal const string PatientEverythingById = "PatientEverythingById";
@@ -56,5 +60,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string ConvertDataOperationDefinition = "ConvertDataOperationDefinition";
 
         internal const string MemberMatchOperationDefinition = "MemberMatchOperationDefinition";
+
+        internal const string PurgeHistoryDefinition = "PurgeHistoryDefinition";
     }
 }
