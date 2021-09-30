@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await EnsureInitializedAsync(cancellationToken);
         }
 
-        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken = default)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(searchParameterUris);
 
@@ -161,20 +161,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdatedNotification(updated), cancellationToken);
         }
 
-        internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken = default)
+        internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris, CancellationToken cancellationToken)
         {
             // new search parameters are added as supported, until reindexing occurs, when
             // they will be fully enabled
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported, cancellationToken);
         }
 
-        internal async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken = default)
+        internal async Task DeleteSearchParameterStatusAsync(string url, CancellationToken cancellationToken)
         {
             var searchParamUris = new List<string>() { url };
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted, cancellationToken);
         }
 
-        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken = default)
+        internal async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatusUpdates(CancellationToken cancellationToken)
         {
             var searchParamStatus = await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             return searchParamStatus.Where(p => p.LastUpdated > _latestSearchParams).ToList();

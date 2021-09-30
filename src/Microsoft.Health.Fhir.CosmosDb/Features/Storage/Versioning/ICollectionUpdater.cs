@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
     public interface ICollectionUpdater
     {
-        Task ExecuteAsync(Container container, CancellationToken cancellationToken = default);
+        Task ExecuteAsync(Container container, CancellationToken cancellationToken);
     }
 }

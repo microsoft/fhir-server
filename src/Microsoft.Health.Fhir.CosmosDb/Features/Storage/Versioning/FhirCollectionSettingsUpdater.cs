@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             _logger = logger;
         }
 
-        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken = default)
+        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(container, nameof(container));
 
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             }
         }
 
-        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container container, CancellationToken cancellationToken = default)
+        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container container, CancellationToken cancellationToken)
         {
             FeedIterator<CollectionVersion> query = container.GetItemQueryIterator<CollectionVersion>(
                 new QueryDefinition("SELECT * FROM root r"),

@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
             Container container = Substitute.For<Container>();
 
-            await _initializer.ExecuteAsync(container);
+            await _initializer.ExecuteAsync(container, CancellationToken.None);
 
             container.Received().CreateTransactionalBatch(Arg.Any<PartitionKey>());
         }
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
             Container container = Substitute.For<Container>();
 
-            await _initializer.ExecuteAsync(container);
+            await _initializer.ExecuteAsync(container, CancellationToken.None);
 
             container.DidNotReceive().CreateTransactionalBatch(Arg.Any<PartitionKey>());
         }

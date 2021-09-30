@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _logger = logger;
         }
 
-        public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken = default)
+        public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
         {
             try
             {
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken = default)
+        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken)
         {
             try
             {
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken = default)
+        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken)
         {
             try
             {

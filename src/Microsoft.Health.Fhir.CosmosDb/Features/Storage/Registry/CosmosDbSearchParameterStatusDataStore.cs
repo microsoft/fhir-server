@@ -39,12 +39,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _queryFactory = queryFactory;
         }
 
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {
             using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
             DateTimeOffset startedCheck = Clock.UtcNow;
+            using var cancellationSource = new CancellationTokenSource(TimeSpan.FromMinutes(1));
 
-            await _statusListSemaphore.WaitAsync(cancellationToken);
+            await _statusListSemaphore.WaitAsync(cancellationSource.Token);
             try
             {
                 if (_lastRefreshed.HasValue)
@@ -84,10 +85,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                     if (!parameterStatus.Any())
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                        await Task.Delay(TimeSpan.FromSeconds(1), cancellationSource.Token);
                     }
                 }
-                while (!parameterStatus.Any() && !cancellationToken.IsCancellationRequested);
+                while (!parameterStatus.Any() && !cancellationSource.IsCancellationRequested);
 
                 _lastRefreshed = startedCheck;
                 _statusList = parameterStatus;
@@ -123,7 +124,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             return false;
         }
 
-        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken = default)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 

@@ -56,11 +56,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 {
                     // Update the SearchParameterDefinitionManager with the new SearchParameter in order to validate any changes
                     // to the fhirpath or the datatype
-                    await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource);
+                    await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource, cancellationToken);
                 }
                 else
                 {
-                    await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance);
+                    await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance, cancellationToken);
                 }
             }
 

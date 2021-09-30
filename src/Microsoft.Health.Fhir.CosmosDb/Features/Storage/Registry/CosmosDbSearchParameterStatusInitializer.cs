@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _configuration = configuration;
         }
 
-        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken = default)
+        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(container, nameof(container));
 

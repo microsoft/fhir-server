@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
             _storedProcedures = storedProcedures;
         }
 
-        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken = default)
+        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
             foreach (IStoredProcedure storedProc in _storedProcedures)
             {
