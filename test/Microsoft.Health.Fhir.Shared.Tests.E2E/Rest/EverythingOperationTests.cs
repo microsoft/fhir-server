@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Search;
 using Microsoft.Health.Test.Utilities;
@@ -259,7 +260,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Confirm header location contains url for the correct request
             string id = Fixture.PatientReferencedByReplacedByLink.Id;
-            string uri = $"/{ResourceType.Patient.ToString()}/{id}/$everything";
+            string uri = $"/{KnownResourceTypes.Patient}/{id}/$everything";
 
             Assert.Contains(uri, ex.Content.Headers.GetValues(HeaderNames.ContentLocation).First());
             Assert.Equal(HttpStatusCode.MovedPermanently, ex.StatusCode);

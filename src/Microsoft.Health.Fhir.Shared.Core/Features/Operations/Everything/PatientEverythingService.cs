@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             EverythingOperationContinuationToken token,
             CancellationToken cancellationToken)
         {
-            using IScoped<ISearchService> search = _searchServiceFactory();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             var searchResultEntries = new List<SearchResultEntry>();
 
             // Build the search parameters to add to the query.
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             searchParameters.AddRange(_includes.Select(include => Tuple.Create(SearchParameterNames.Include, $"{ResourceType.Patient}:{include}")));
 
             // Search for the patient and all the resources it references directly.
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), searchParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, searchParameters);
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             if (!token.IsProcessingSeeAlsoLink)
             {
                 SearchResultEntry parentPatientResource = searchResultEntries.FirstOrDefault(s =>
-                    string.Equals(s.Resource.ResourceTypeName, ResourceType.Patient.ToString(), StringComparison.Ordinal));
+                    string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
 
                 CheckForReplacedByLinks(parentPatientId, parentPatientResource);
             }
@@ -290,7 +290,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private async Task<string> CheckForNextSeeAlsoLinkAndSetToken(string parentPatientId, EverythingOperationContinuationToken token, CancellationToken cancellationToken)
         {
             // Retrieve the parent patient so that we can extract its links and process the next "seealso" link.
-            using IScoped<ISearchService> search = _searchServiceFactory();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
 
             // To do so, first create the search parameter to add to the query
             var searchParameters = new List<Tuple<string, string>>
@@ -299,11 +299,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             };
 
             // And then execute the search.
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), searchParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, searchParameters);
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
 
             // The search result entries should contain one patient resource - the parent patient.
-            SearchResultEntry parentPatientResource = searchResult.Results.FirstOrDefault(s => string.Equals(s.Resource.ResourceTypeName, ResourceType.Patient.ToString(), StringComparison.Ordinal));
+            SearchResultEntry parentPatientResource = searchResult.Results.FirstOrDefault(s => string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
 
             List<Patient.LinkComponent> links = ExtractLinksFromParentPatient(parentPatientResource);
 
@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
                 // Links can be of type Patient or RelatedPerson. Only follow the links that point to patients.
                 // Note: we plan to include RelatedPerson resources in the result set in AB#85142.
-                if (string.Equals(referenceSearchValue.ResourceType, ResourceType.Patient.ToString(), StringComparison.Ordinal))
+                if (string.Equals(referenceSearchValue.ResourceType, KnownResourceTypes.Patient, StringComparison.Ordinal))
                 {
                     if (!seeAlsoLinkIdsHash.Contains(referenceSearchValue.ResourceId))
                     {
@@ -418,7 +418,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             // We do not use Patient?_revinclude here since it depends on the existence of the parent resource
-            using IScoped<ISearchService> search = _searchServiceFactory();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             SearchOptions searchOptions = _searchOptionsFactory.Create(_revinclude.resourceType, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
@@ -467,8 +467,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
-            using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 
@@ -513,8 +513,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             CheckForParentPatientDuplicate(parentPatientId, token, searchParameters);
 
-            using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 
@@ -552,8 +552,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             CheckForParentPatientDuplicate(parentPatientId, token, searchParameters);
 
-            using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 
