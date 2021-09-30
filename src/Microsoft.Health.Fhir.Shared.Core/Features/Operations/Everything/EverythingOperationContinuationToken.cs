@@ -39,12 +39,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
         }
 
-        public override string ToString()
+        public string ToJson()
         {
             return JsonConvert.SerializeObject(this);
         }
 
-        internal static EverythingOperationContinuationToken FromString(string json)
+        internal static EverythingOperationContinuationToken FromJson(string json)
         {
             if (string.IsNullOrEmpty(json))
             {

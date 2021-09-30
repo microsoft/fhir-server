@@ -13,24 +13,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         [Fact]
         public void GivenAString_WhenFromString_ThenCorrectEverythingOperationContinuationTokenShouldBeReturned()
         {
-            Assert.Null(EverythingOperationContinuationToken.FromString(null));
-            Assert.Null(EverythingOperationContinuationToken.FromString(string.Empty));
-            Assert.Null(EverythingOperationContinuationToken.FromString(" "));
-            Assert.Null(EverythingOperationContinuationToken.FromString("abc"));
+            Assert.Null(EverythingOperationContinuationToken.FromJson(null));
+            Assert.Null(EverythingOperationContinuationToken.FromJson(string.Empty));
+            Assert.Null(EverythingOperationContinuationToken.FromJson(" "));
+            Assert.Null(EverythingOperationContinuationToken.FromJson("abc"));
 
-            var token = EverythingOperationContinuationToken.FromString("{\"a\":\"b\"}");
+            var token = EverythingOperationContinuationToken.FromJson("{\"a\":\"b\"}");
             Assert.Equal(0, token.Phase);
             Assert.Null(token.InternalContinuationToken);
 
-            token = EverythingOperationContinuationToken.FromString("{\"Phase\":3}");
+            token = EverythingOperationContinuationToken.FromJson("{\"Phase\":3}");
             Assert.Equal(3, token.Phase);
             Assert.Null(token.InternalContinuationToken);
 
-            token = EverythingOperationContinuationToken.FromString("{\"Phase\":1,\"InternalContinuationToken\":null}");
+            token = EverythingOperationContinuationToken.FromJson("{\"Phase\":1,\"InternalContinuationToken\":null}");
             Assert.Equal(1, token.Phase);
             Assert.Null(token.InternalContinuationToken);
 
-            token = EverythingOperationContinuationToken.FromString("{\"Phase\":2,\"InternalContinuationToken\":\"abc\"}");
+            token = EverythingOperationContinuationToken.FromJson("{\"Phase\":2,\"InternalContinuationToken\":\"abc\"}");
             Assert.Equal(2, token.Phase);
             Assert.Equal("abc", token.InternalContinuationToken);
         }
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             internalContinuationToken = string.IsNullOrEmpty(internalContinuationToken) ? "null" : "\"" + internalContinuationToken + "\"";
             currentSeeAlsoLinkId = string.IsNullOrEmpty(currentSeeAlsoLinkId) ? "null" : "\"" + currentSeeAlsoLinkId + "\"";
 
-            Assert.Equal($"{{\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"CurrentSeeAlsoLinkId\":{currentSeeAlsoLinkId}}}", token.ToString());
+            Assert.Equal($"{{\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"CurrentSeeAlsoLinkId\":{currentSeeAlsoLinkId}}}", token.ToJson());
         }
     }
 }

@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         {
             EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
                 ? new EverythingOperationContinuationToken()
-                : EverythingOperationContinuationToken.FromString(ContinuationTokenConverter.Decode(continuationToken));
+                : EverythingOperationContinuationToken.FromJson(ContinuationTokenConverter.Decode(continuationToken));
 
             if (token == null || token.Phase < 0 || token.Phase > 3)
             {
@@ -165,14 +165,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 // Keep processing the remaining results for the current phase.
                 token.InternalContinuationToken = searchResult.ContinuationToken;
 
-                nextContinuationToken = token.ToString();
+                nextContinuationToken = token.ToJson();
             }
             else if (phase < 3)
             {
                 token.Phase = phase + 1;
                 token.InternalContinuationToken = null;
 
-                nextContinuationToken = token.ToString();
+                nextContinuationToken = token.ToJson();
             }
             else
             {
@@ -384,7 +384,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             token.Phase = 0;
             token.InternalContinuationToken = null;
 
-            return token.ToString();
+            return token.ToJson();
         }
 
         private async Task<SearchResult> SearchRevinclude(
