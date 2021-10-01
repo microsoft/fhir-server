@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                     },
                 };
 
-            _searchParameterStatusDataStore.GetSearchParameterStatuses().Returns(_resourceSearchParameterStatuses);
+            _searchParameterStatusDataStore.GetSearchParameterStatuses(Arg.Any<CancellationToken>()).Returns(_resourceSearchParameterStatuses);
 
             List<string> baseResourceTypes = new List<string>() { "Resource" };
             List<string> targetResourceTypes = new List<string>() { "Patient" };
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             await _searchParameterStatusDataStore
                 .DidNotReceive()
-                .UpsertStatuses(Arg.Any<List<ResourceSearchParameterStatus>>());
+                .UpsertStatuses(Arg.Any<List<ResourceSearchParameterStatus>>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
