@@ -6,26 +6,43 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 {
+    /// <summary>
+    /// The Patient $everything operation gets all the information related to a given patient. It returns this
+    /// information in up to four different phases, and each result set provides a URL that can be used to get the next
+    /// phase of results, if any.
+    /// In some cases, a patient resource can have links that point to other patient resources. There are four different
+    /// types of links: "seealso", "replaced-by", "replaces" and "refer".
+    /// "seealso" links point to another patient resource that contains data about the same person. We follow "seealso"
+    /// links and run Patient $everything on them, returning information in phases as we did for the parent patient. We
+    /// only do this once, so we do not follow the "seealso" links of a "seealso" link.
+    /// </summary>
     public class PatientEverythingService : IPatientEverythingService
     {
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
+        private readonly IReferenceSearchValueParser _referenceSearchValueParser;
+        private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly IUrlResolver _urlResolver;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
@@ -34,17 +51,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISearchOptionsFactory searchOptionsFactory,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            ICompartmentDefinitionManager compartmentDefinitionManager)
+            ICompartmentDefinitionManager compartmentDefinitionManager,
+            IReferenceSearchValueParser referenceSearchValueParser,
+            IResourceDeserializer resourceDeserializer,
+            IUrlResolver urlResolver)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(compartmentDefinitionManager, nameof(compartmentDefinitionManager));
+            EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
+            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
 
             _searchServiceFactory = searchServiceFactory;
             _searchOptionsFactory = searchOptionsFactory;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _compartmentDefinitionManager = compartmentDefinitionManager;
+            _referenceSearchValueParser = referenceSearchValueParser;
+            _resourceDeserializer = resourceDeserializer;
+            _urlResolver = urlResolver;
         }
 
         public async Task<SearchResult> SearchAsync(
@@ -57,8 +83,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             CancellationToken cancellationToken)
         {
             EverythingOperationContinuationToken token = string.IsNullOrEmpty(continuationToken)
-                ? new EverythingOperationContinuationToken(0, null)
-                : EverythingOperationContinuationToken.FromString(ContinuationTokenConverter.Decode(continuationToken));
+                ? new EverythingOperationContinuationToken()
+                : EverythingOperationContinuationToken.FromJson(ContinuationTokenConverter.Decode(continuationToken));
 
             if (token == null || token.Phase < 0 || token.Phase > 3)
             {
@@ -71,11 +97,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 : ContinuationTokenConverter.Encode(token.InternalContinuationToken);
             IReadOnlyList<string> types = string.IsNullOrEmpty(type) ? new List<string>() : type.SplitByOrSeparator();
 
+            // We will need to store the id of the patient that links to this one if we are processing a "seealso" link
+            var parentPatientId = resourceId;
+
+            // If we are currently processing a "seealso" link, set the resource id to the id of the link.
+            resourceId = token.IsProcessingSeeAlsoLink ? token.CurrentSeeAlsoLinkId : resourceId;
+
             var phase = token.Phase;
             switch (phase)
             {
+                // Phase 0 gets the patient and any resources it references directly.
                 case 0:
-                    searchResult = await SearchIncludes(resourceId, since, types, cancellationToken);
+                    searchResult = await SearchIncludes(resourceId, parentPatientId, since, types, token, cancellationToken);
+
                     if (!searchResult.Results.Any())
                     {
                         phase = 1;
@@ -83,8 +117,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     }
 
                     break;
+
+                // Phase 1 gets the resources in the patient's compartment that have date/time values.
                 case 1:
-                    // If both start and end are null, we can just perform regular compartment search in Phase 2
+                    // If both start and end are null, we can just perform a regular compartment search in Phase 2.
                     if (start == null && end == null)
                     {
                         phase = 2;
@@ -99,10 +135,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     }
 
                     break;
+
+                // Phase 2 gets the resources in the patient's compartment that do not have date/time values.
                 case 2:
                     searchResult = start == null && end == null
-                        ? await SearchCompartment(resourceId, since, types, encodedInternalContinuationToken, cancellationToken)
-                        : await SearchCompartmentWithoutDate(resourceId, since, types, encodedInternalContinuationToken, cancellationToken);
+                        ? await SearchCompartment(resourceId, parentPatientId, since, types, encodedInternalContinuationToken, token, cancellationToken)
+                        : await SearchCompartmentWithoutDate(resourceId, parentPatientId, since, types, encodedInternalContinuationToken, token, cancellationToken);
 
                     if (!searchResult.Results.Any())
                     {
@@ -111,37 +149,51 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     }
 
                     break;
+
+                // Phase 3 gets the patient's devices.
                 case 3:
                     searchResult = await SearchRevinclude(resourceId, since, types, encodedInternalContinuationToken, cancellationToken);
                     break;
                 default:
-                    // This should never happen
-                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase));
+                    // This should never happen.
+                    throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase), HttpStatusCode.BadRequest);
             }
 
-            string newContinuationToken = null;
+            string nextContinuationToken;
             if (searchResult.ContinuationToken != null)
             {
-                newContinuationToken = EverythingOperationContinuationToken.ToString(phase, searchResult.ContinuationToken);
+                // Keep processing the remaining results for the current phase.
+                token.InternalContinuationToken = searchResult.ContinuationToken;
+
+                nextContinuationToken = token.ToJson();
             }
             else if (phase < 3)
             {
-                newContinuationToken = EverythingOperationContinuationToken.ToString(phase + 1, null);
+                token.Phase = phase + 1;
+                token.InternalContinuationToken = null;
+
+                nextContinuationToken = token.ToJson();
+            }
+            else
+            {
+                nextContinuationToken = await CheckForNextSeeAlsoLinkAndSetToken(parentPatientId, token, cancellationToken);
             }
 
-            return new SearchResult(searchResult.Results, newContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+            return new SearchResult(searchResult.Results, nextContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
         }
 
         private async Task<SearchResult> SearchIncludes(
             string resourceId,
+            string parentPatientId,
             PartialDateTime since,
             IReadOnlyList<string> types,
+            EverythingOperationContinuationToken token,
             CancellationToken cancellationToken)
         {
-            using IScoped<ISearchService> search = _searchServiceFactory();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             var searchResultEntries = new List<SearchResultEntry>();
 
-            // Build search parameters
+            // Build the search parameters to add to the query.
             var searchParameters = new List<Tuple<string, string>>
             {
                 Tuple.Create(SearchParameterNames.Id, resourceId),
@@ -149,18 +201,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
             searchParameters.AddRange(_includes.Select(include => Tuple.Create(SearchParameterNames.Include, $"{ResourceType.Patient}:{include}")));
 
-            // Search
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), searchParameters);
+            // Search for the patient and all the resources it references directly.
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, searchParameters);
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
-            // Filter results by _type
+            // If we are currently processing the parent patient, we need to check for "replaced-by" links.
+            if (!token.IsProcessingSeeAlsoLink)
+            {
+                SearchResultEntry parentPatientResource = searchResultEntries.FirstOrDefault(s =>
+                    string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
+
+                CheckForReplacedByLinks(parentPatientId, parentPatientResource);
+            }
+
+            // Filter results by _type.
             if (types.Any())
             {
                 searchResultEntries = searchResultEntries.Where(s => types.Contains(s.Resource.ResourceTypeName)).ToList();
             }
 
-            // Filter results by _since
+            // Filter results by _since.
             if (since != null)
             {
                 var sinceDateTimeOffset = since.ToDateTimeOffset(
@@ -175,6 +236,155 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             return new SearchResult(searchResultEntries, searchResult.ContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+        }
+
+        private void CheckForReplacedByLinks(string parentPatientId, SearchResultEntry parentPatientResource)
+        {
+            List<Patient.LinkComponent> links = ExtractLinksFromParentPatient(parentPatientResource);
+
+            if (links == null)
+            {
+                return;
+            }
+
+            // If a "replaced-by" link is present, it indicates that the patient resource containing this link must no
+            // longer be used. The link points forward to another patient resource that must be used in lieu of the
+            // resource that contains the "replaced-by" link.
+            foreach (Patient.LinkComponent link in links)
+            {
+                // Regardless of the other links present, we throw an error if we find a "replaced-by" link.
+                if (link.Type == Patient.LinkType.ReplacedBy)
+                {
+                    ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
+
+                    // Specify the url that must be used instead.
+                    Uri url = _urlResolver.ResolveOperationResultUrl(OperationsConstants.PatientEverything, referenceSearchValue.ResourceId);
+
+                    throw new EverythingOperationException(
+                        string.Format(
+                            Core.Resources.EverythingOperationResourceIrrelevant,
+                            parentPatientId,
+                            referenceSearchValue.ResourceId),
+                        HttpStatusCode.MovedPermanently,
+                        url.ToString());
+                }
+            }
+        }
+
+        private List<Patient.LinkComponent> ExtractLinksFromParentPatient(SearchResultEntry parentPatientResource)
+        {
+            // If it wasn't found, it means the parent patient doesn't exist in the database.
+            if (parentPatientResource.Resource == null)
+            {
+                // There are no links to extract since there is no parent patient resource.
+                return null;
+            }
+
+            // Otherwise, we found the parent patient in the database. Extract its links.
+            ResourceElement element = _resourceDeserializer.Deserialize(parentPatientResource.Resource);
+            Patient parentPatient = element.ToPoco<Patient>();
+
+            return parentPatient.Link;
+        }
+
+        private async Task<string> CheckForNextSeeAlsoLinkAndSetToken(string parentPatientId, EverythingOperationContinuationToken token, CancellationToken cancellationToken)
+        {
+            // Retrieve the parent patient so that we can extract its links and process the next "seealso" link.
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+
+            // To do so, first create the search parameter to add to the query
+            var searchParameters = new List<Tuple<string, string>>
+            {
+                Tuple.Create(SearchParameterNames.Id, parentPatientId),
+            };
+
+            // And then execute the search.
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, searchParameters);
+            SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
+
+            // The search result entries should contain one patient resource - the parent patient.
+            SearchResultEntry parentPatientResource = searchResult.Results.FirstOrDefault(s => string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
+
+            List<Patient.LinkComponent> links = ExtractLinksFromParentPatient(parentPatientResource);
+
+            if (links == null)
+            {
+                return null;
+            }
+
+            var seeAlsoLinkIdsHash = new HashSet<string>();
+
+            // Walk through the links, storing the "seealso" links to a hash set.
+            // This will allow us to avoid:
+            // 1. Links that aren't "seealso" links
+            // 2. Links that don't point to Patient resources
+            // 3. Duplicates
+            foreach (Patient.LinkComponent link in links)
+            {
+                ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
+
+                if (link.Type != Patient.LinkType.Seealso)
+                {
+                    continue;
+                }
+
+                // If the link points back to the parent patient
+                if (string.Equals(referenceSearchValue.ResourceId, parentPatientId, StringComparison.Ordinal))
+                {
+                    // Ignore it to avoid running patient $everything on the same patient again.
+                    continue;
+                }
+
+                // Links can be of type Patient or RelatedPerson. Only follow the links that point to patients.
+                // Note: we plan to include RelatedPerson resources in the result set in AB#85142.
+                if (string.Equals(referenceSearchValue.ResourceType, KnownResourceTypes.Patient, StringComparison.Ordinal))
+                {
+                    if (!seeAlsoLinkIdsHash.Contains(referenceSearchValue.ResourceId))
+                    {
+                        seeAlsoLinkIdsHash.Add(referenceSearchValue.ResourceId);
+                    }
+                }
+            }
+
+            if (seeAlsoLinkIdsHash.Count == 0)
+            {
+                // The parent patient has links, but no "seealso" patient links.
+                return null;
+            }
+
+            // Sort the list to ensure that it is in the same order each time we access it.
+            var seeAlsoLinkIdsSorted = seeAlsoLinkIdsHash.ToList();
+            seeAlsoLinkIdsSorted.Sort();
+
+            // If we haven't processed any "seealso" links yet
+            if (token.CurrentSeeAlsoLinkId == null)
+            {
+                // Then the next "seealso" link we process will be the first in the list.
+                token.CurrentSeeAlsoLinkId = seeAlsoLinkIdsSorted.First();
+            }
+            else
+            {
+                // Otherwise, the next "seealso" link we process will be the one that follows the current one in the sorted list.
+                int indexOfCurrent = seeAlsoLinkIdsSorted.FindIndex(id => id == token.CurrentSeeAlsoLinkId);
+                int indexOfNext = indexOfCurrent + 1;
+
+                if (indexOfNext < seeAlsoLinkIdsSorted.Count)
+                {
+                    token.CurrentSeeAlsoLinkId = seeAlsoLinkIdsSorted[indexOfNext];
+                }
+                else
+                {
+                    // We reached the end of the list. There are no more "seealso" links to process.
+                    return null;
+                }
+            }
+
+            // If we reached this point, there is another "seealso" link to process.
+            // Reset the phase and internal continuation token so that we can run the $everything operation on the next "seealso" link.
+            token.Phase = 0;
+            token.InternalContinuationToken = null;
+
+            return token.ToJson();
         }
 
         private async Task<SearchResult> SearchRevinclude(
@@ -208,7 +418,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
 
             // We do not use Patient?_revinclude here since it depends on the existence of the parent resource
-            using IScoped<ISearchService> search = _searchServiceFactory();
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
             SearchOptions searchOptions = _searchOptionsFactory.Create(_revinclude.resourceType, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
@@ -257,16 +467,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
-            using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 
         private async Task<SearchResult> SearchCompartmentWithoutDate(
             string resourceId,
+            string parentPatientId,
             PartialDateTime since,
             IReadOnlyList<string> types,
             string continuationToken,
+            EverythingOperationContinuationToken token,
             CancellationToken cancellationToken)
         {
             var nonDateResourceTypes = new List<string>();
@@ -299,16 +511,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
-            using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
+            CheckForParentPatientDuplicate(parentPatientId, token, searchParameters);
+
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
         }
 
         private async Task<SearchResult> SearchCompartment(
             string resourceId,
+            string parentPatientId,
             PartialDateTime since,
             IReadOnlyList<string> types,
             string continuationToken,
+            EverythingOperationContinuationToken token,
             CancellationToken cancellationToken)
         {
             var searchParameters = new List<Tuple<string, string>>();
@@ -334,9 +550,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 searchParameters.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
-            using IScoped<ISearchService> search = _searchServiceFactory();
-            SearchOptions searchOptions = _searchOptionsFactory.Create(ResourceType.Patient.ToString(), resourceId, null, searchParameters);
+            CheckForParentPatientDuplicate(parentPatientId, token, searchParameters);
+
+            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
+            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, resourceId, null, searchParameters);
             return await search.Value.SearchAsync(searchOptions, cancellationToken);
+        }
+
+        private static void CheckForParentPatientDuplicate(string parentPatientId, EverythingOperationContinuationToken token, List<Tuple<string, string>> searchParameters)
+        {
+            // If we are processing a "seealso" link, the parent patient that references it will be in its patient compartment.
+            if (token.IsProcessingSeeAlsoLink)
+            {
+                // Add a parameter to prevent this, since we already returned the parent patient resource in a previous call.
+                // Aside: generally, we aim to avoid returning duplicate results in an $everything operation.
+                // However, there is a potential for a parent patient's compartment to contain one or more resources that
+                // are also present in the patient compartment of one of its "seealso" links. We allow duplicates results
+                // to be returned in this scenario.
+                searchParameters.Add(Tuple.Create($"{KnownQueryParameterNames.Id}:not", parentPatientId));
+            }
         }
     }
 }
