@@ -43,9 +43,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         {
             using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
             DateTimeOffset startedCheck = Clock.UtcNow;
-            using var cancellationSource = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+            using var retryDelayToken = new CancellationTokenSource(TimeSpan.FromMinutes(1));
 
-            await _statusListSemaphore.WaitAsync(cancellationSource.Token);
+            await _statusListSemaphore.WaitAsync(retryDelayToken.Token);
             try
             {
                 if (_lastRefreshed.HasValue)
@@ -85,10 +85,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                     if (!parameterStatus.Any())
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(1), cancellationSource.Token);
+                        await Task.Delay(TimeSpan.FromSeconds(1), retryDelayToken.Token);
                     }
                 }
-                while (!parameterStatus.Any() && !cancellationSource.IsCancellationRequested);
+                while (!parameterStatus.Any() && !retryDelayToken.IsCancellationRequested);
 
                 _lastRefreshed = startedCheck;
                 _statusList = parameterStatus;
