@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             PartialDateTime end,
             PartialDateTime since,
             string type,
+            bool excludeLinks,
             string continuationToken,
             CancellationToken cancellationToken)
         {
