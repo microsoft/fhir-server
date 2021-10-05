@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
 using Xunit;
+using ResourceVersionPolicy = Hl7.Fhir.Model.CapabilityStatement.ResourceVersionPolicy;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
@@ -22,46 +23,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
         }
 
-        [Fact]
-        public async void GivenCoreConfigWithNoVersionVersioningPolicy_WhenCheckingIfKeepHistory_ThenFalseIsReturned()
+        [Theory]
+        [InlineData(ResourceVersionPolicy.NoVersion, false)]
+        [InlineData(ResourceVersionPolicy.Versioned, true)]
+        [InlineData(ResourceVersionPolicy.VersionedUpdate, true)]
+        public async void GivenCoreConfigWithVersioningPolicy_WhenCheckingIfKeepHistory_ThenCorrectValueIsReturned(ResourceVersionPolicy versioningPolicy, bool expectedKeepHistory)
         {
             const ResourceType resourceType = ResourceType.Patient;
 
             CapabilityStatement statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, resourceType, null, null, CapabilityStatement.ResourceVersionPolicy.NoVersion);
+            CapabilityStatementMock.SetupMockResource(statement, resourceType, null, null, versioningPolicy);
 
             _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToResourceElement());
 
-            bool keepHistory = await _conformanceProvider.CanKeepHistory(resourceType.ToString(), CancellationToken.None);
-            Assert.False(keepHistory);
-        }
-
-        [Fact]
-        public async void GivenCoreConfigWithVersionedVersioningPolicy_WhenCheckingIfKeepHistory_ThenTrueIsReturned()
-        {
-            const ResourceType resourceType = ResourceType.Patient;
-
-            CapabilityStatement statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, resourceType, null, null, CapabilityStatement.ResourceVersionPolicy.Versioned);
-
-            _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToResourceElement());
-
-            bool keepHistory = await _conformanceProvider.CanKeepHistory(resourceType.ToString(), CancellationToken.None);
-            Assert.True(keepHistory);
-        }
-
-        [Fact]
-        public async void GivenCoreConfigWithVersionedUpdateVersioningPolicy_WhenCheckingIfKeepHistory_ThenTrueIsReturned()
-        {
-            const ResourceType resourceType = ResourceType.Patient;
-
-            CapabilityStatement statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, resourceType, null, null, CapabilityStatement.ResourceVersionPolicy.VersionedUpdate);
-
-            _conformanceProvider.GetCapabilityStatementOnStartup().Returns(statement.ToResourceElement());
-
-            bool keepHistory = await _conformanceProvider.CanKeepHistory(resourceType.ToString(), CancellationToken.None);
-            Assert.True(keepHistory);
+            bool actualKeepHistory = await _conformanceProvider.CanKeepHistory(resourceType.ToString(), CancellationToken.None);
+            Assert.Equal(expectedKeepHistory, actualKeepHistory);
         }
     }
 }
