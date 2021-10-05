@@ -219,6 +219,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithSeeAlsoLinkRemovedMidOperation_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink()
+        {
+            string searchUrl = $"Patient/{Fixture.PatientWithSeeAlsoLinkToRemove.Id}/$everything";
+
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(firstBundle, Fixture.PatientWithSeeAlsoLinkToRemove);
+
+            Fixture.PatientWithSeeAlsoLinkToRemove.Link.Clear();
+            await Fixture.UpdatePatient(Fixture.PatientWithSeeAlsoLinkToRemove);
+
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+            Assert.Empty(secondBundle.Resource.Entry);
+
+            nextLink = secondBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
+            ValidateBundle(thirdBundle, Fixture.PatientReferencedByRemovedSeeAlsoLink);
+
+            nextLink = thirdBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
+            Assert.Empty(fourthBundle.Resource.Entry);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithTwoSeeAlsoLinks_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLinks()
         {
             string searchUrl = $"Patient/{Fixture.PatientWithTwoSeeAlsoLinks.Id}/$everything";

@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Patient PatientWithTwoSeeAlsoLinks { get; private set; }
 
+        public Patient PatientWithSeeAlsoLinkToRemove { get; private set; }
+
         public Patient PatientWithReplacedByLink { get; private set; }
 
         public Patient PatientWithReferLink { get; private set; }
@@ -34,6 +36,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public Patient PatientWithReplacesLink { get; private set; }
 
         public Patient PatientReferencedBySeeAlsoLink { get; private set; }
+
+        public Patient PatientReferencedByRemovedSeeAlsoLink { get; private set; }
 
         public List<Patient> PatientsReferencedBySeeAlsoLink { get; private set; }
 
@@ -58,6 +62,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public Encounter Encounter { get; private set; }
 
         public Appointment Appointment { get; private set; }
+
+        internal async Task UpdatePatient(Patient patientToUpdate)
+        {
+            await TestFhirClient.UpdateAsync(patientToUpdate);
+        }
 
         protected override async Task OnInitializedAsync()
         {
@@ -126,6 +135,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             PatientsReferencedBySeeAlsoLink.Add(await TestFhirClient.CreateAsync(patientToCreate));
 
             patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
+            PatientReferencedByRemovedSeeAlsoLink = await TestFhirClient.CreateAsync(patientToCreate);
+
+            patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
             PatientReferencedByReplacedByLink = await TestFhirClient.CreateAsync(patientToCreate);
 
             patientToCreate = Samples.GetJsonSample<Patient>("PatientWithMinimalData");
@@ -137,6 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Create patients with different types of links
             PatientWithSeeAlsoLink = await CreatePatientWithLinks(Patient.LinkType.Seealso, new List<Patient> { PatientReferencedBySeeAlsoLink });
             PatientWithTwoSeeAlsoLinks = await CreatePatientWithLinks(Patient.LinkType.Seealso, PatientsReferencedBySeeAlsoLink);
+            PatientWithSeeAlsoLinkToRemove = await CreatePatientWithLinks(Patient.LinkType.Seealso, new List<Patient> { PatientReferencedByRemovedSeeAlsoLink });
             PatientWithReplacedByLink = await CreatePatientWithLinks(Patient.LinkType.ReplacedBy, new List<Patient> { PatientReferencedByReplacedByLink });
             PatientWithReplacesLink = await CreatePatientWithLinks(Patient.LinkType.Replaces, new List<Patient> { PatientReferencedByReplacesLink });
             PatientWithReferLink = await CreatePatientWithLinks(Patient.LinkType.Refer, new List<Patient> { PatientReferencedByReferLink });

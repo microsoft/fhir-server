@@ -206,13 +206,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
-            // If we are currently processing the parent patient, we need to check for "replaced-by" links.
+            // If we are currently processing the parent patient
             if (!token.IsProcessingSeeAlsoLink)
             {
                 SearchResultEntry parentPatientResource = searchResultEntries.FirstOrDefault(s =>
                     string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
-
                 CheckForReplacedByLinks(parentPatientId, parentPatientResource);
+
+                // Store the version of the parent patient in the token to ensure we fetch the same version when processing "seealso" links.
+                token.ParentPatientVersionId = parentPatientResource.Resource?.Version;
             }
 
             // Filter results by _type.
@@ -292,18 +294,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             // Retrieve the parent patient so that we can extract its links and process the next "seealso" link.
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
 
-            // To do so, first create the search parameter to add to the query
-            var searchParameters = new List<Tuple<string, string>>
-            {
-                Tuple.Create(SearchParameterNames.Id, parentPatientId),
-            };
-
-            // And then execute the search.
-            SearchOptions searchOptions = _searchOptionsFactory.Create(KnownResourceTypes.Patient, searchParameters);
-            SearchResult searchResult = await search.Value.SearchAsync(searchOptions, cancellationToken);
-
-            // The search result entries should contain one patient resource - the parent patient.
-            SearchResultEntry parentPatientResource = searchResult.Results.FirstOrDefault(s => string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
+            // Get the parent patient history and find the version we recorded in the first $everything operation API call.
+            SearchResult searchResult = await search.Value.SearchHistoryAsync(KnownResourceTypes.Patient, parentPatientId, null, null, null, null, null, cancellationToken);
+            SearchResultEntry parentPatientResource = searchResult.Results.FirstOrDefault(s => string.Equals(s.Resource.Version, token.ParentPatientVersionId, StringComparison.Ordinal));
 
             List<Patient.LinkComponent> links = ExtractLinksFromParentPatient(parentPatientResource);
 
