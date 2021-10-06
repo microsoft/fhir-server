@@ -298,5 +298,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(secondBundle.Resource.Entry);
             Assert.Null(secondBundle.Resource.NextLink);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithSeeAlsoLink_WhenRunningPatientEverythingWithExcludeLinksTrue_ThenPatientEverythingShouldNotRunOnLink()
+        {
+            string searchUrl = $"Patient/{Fixture.PatientWithSeeAlsoLink.Id}/$everything?excludeLinks=true";
+
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(firstBundle, Fixture.PatientWithSeeAlsoLink);
+
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+
+            Assert.Empty(secondBundle.Resource.Entry);
+            Assert.Null(secondBundle.Resource.NextLink);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithReplacedByLink_WhenRunningPatientEverythingWithExcludeLinksTrue_ThenNoErrorShouldBeReturned()
+        {
+            string searchUrl = $"Patient/{Fixture.PatientWithReplacedByLink.Id}/$everything?excludeLinks=true";
+
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(firstBundle, Fixture.PatientWithReplacedByLink);
+
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+
+            Assert.Empty(secondBundle.Resource.Entry);
+            Assert.Null(secondBundle.Resource.NextLink);
+        }
     }
 }
