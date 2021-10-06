@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     /// "seealso" links point to another patient resource that contains data about the same person. We follow "seealso"
     /// links and run Patient $everything on them, returning information in phases as we did for the parent patient. We
     /// only do this once, so we do not follow the "seealso" links of a "seealso" link.
+    /// Link processing can be disabled using the exclude links parameter.
     /// </summary>
     public class PatientEverythingService : IPatientEverythingService
     {
@@ -109,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             {
                 // Phase 0 gets the patient and any resources it references directly.
                 case 0:
-                    searchResult = await SearchIncludes(resourceId, parentPatientId, since, types, token, cancellationToken);
+                    searchResult = await SearchIncludes(resourceId, parentPatientId, since, types, token, !excludeLinks, cancellationToken);
 
                     if (!searchResult.Results.Any())
                     {
@@ -177,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
             else
             {
-                nextContinuationToken = await CheckForNextSeeAlsoLinkAndSetToken(parentPatientId, token, cancellationToken);
+                nextContinuationToken = await CheckForNextSeeAlsoLinkAndSetToken(parentPatientId, token, !excludeLinks, cancellationToken);
             }
 
             return new SearchResult(searchResult.Results, nextContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
@@ -189,6 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             PartialDateTime since,
             IReadOnlyList<string> types,
             EverythingOperationContinuationToken token,
+            bool linkProcessingEnabled,
             CancellationToken cancellationToken)
         {
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
@@ -208,7 +210,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
             // If we are currently processing the parent patient, we need to check for "replaced-by" links.
-            if (!token.IsProcessingSeeAlsoLink)
+            if (linkProcessingEnabled && !token.IsProcessingSeeAlsoLink)
             {
                 SearchResultEntry parentPatientResource = searchResultEntries.FirstOrDefault(s =>
                     string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
@@ -288,8 +290,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             return parentPatient.Link;
         }
 
-        private async Task<string> CheckForNextSeeAlsoLinkAndSetToken(string parentPatientId, EverythingOperationContinuationToken token, CancellationToken cancellationToken)
+        private async Task<string> CheckForNextSeeAlsoLinkAndSetToken(string parentPatientId, EverythingOperationContinuationToken token, bool linkProcessingEnabled, CancellationToken cancellationToken)
         {
+            if (!linkProcessingEnabled)
+            {
+                return null;
+            }
+
             // Retrieve the parent patient so that we can extract its links and process the next "seealso" link.
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
 

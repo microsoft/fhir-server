@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EverythingOperationParameterNames.End,
             KnownQueryParameterNames.Since,
             KnownQueryParameterNames.Type,
+            KnownQueryParameterNames.ExcludeLinks,
             KnownQueryParameterNames.ContinuationToken,
         };
 
@@ -90,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value))
                 .ToArray();
 
-            var unsupportedParameters = parameters.Where(x => !_supportedParameters.Contains(x.Item1.ToLower(CultureInfo.CurrentCulture))).ToList();
+            var unsupportedParameters = parameters.Where(x => !_supportedParameters.Contains(x.Item1)).ToList();
 
             foreach (Tuple<string, string> unsupportedParameter in unsupportedParameters)
             {
