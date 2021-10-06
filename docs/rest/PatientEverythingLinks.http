@@ -599,6 +599,22 @@ GET <paste next link here>
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
+# Run Patient $everything on the Patient "mum" but do not follow its links.
+# This should return:
+# - The Patient "mum" resource and the HL7 organization that it references directly
+# - The patient's compartment resources: the cashew allergy intolerance and the appendectomy procedure
+# - The device-mum device
+GET https://{{hostname}}/Patient/{{mum.response.body.id}}/$everything?excludeLinks=true
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+###
+# Paste the "next" link below
+GET <paste next link here>
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+###
 # Run Patient $everything, but only request Device resources.
 # This should return:
 # - The device-mum device
