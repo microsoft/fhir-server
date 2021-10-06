@@ -19,10 +19,10 @@ namespace Microsoft.Health.Fhir.CosmosDb {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
+    public class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Microsoft.Health.Fhir.CosmosDb.Resources", typeof(Resources).Assembly);
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         ///   resource lookups using this strongly typed resource class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Failed to get or access the Azure AD token to access the customer-managed key..
         /// </summary>
-        internal static string AadClientCredentialsGrantFailure {
+        public static string AadClientCredentialsGrantFailure {
             get {
                 return ResourceManager.GetString("AadClientCredentialsGrantFailure", resourceCulture);
             }
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Azure AD service is unavailable to get access to the customer-managed key..
         /// </summary>
-        internal static string AadServiceUnavailable {
+        public static string AadServiceUnavailable {
             get {
                 return ResourceManager.GetString("AadServiceUnavailable", resourceCulture);
             }
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Sub-queries in a chained expression cannot return more than {0} results, please use a more selective criteria..
         /// </summary>
-        internal static string ChainedExpressionSubqueryLimit {
+        public static string ChainedExpressionSubqueryLimit {
             get {
                 return ResourceManager.GetString("ChainedExpressionSubqueryLimit", resourceCulture);
             }
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to There was an error using the customer-managed key..
         /// </summary>
-        internal static string CmkDefaultError {
+        public static string CmkDefaultError {
             get {
                 return ResourceManager.GetString("CmkDefaultError", resourceCulture);
             }
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to _include:iterate and _revinclude:iterate are not supported..
         /// </summary>
-        internal static string IncludeIterateNotSupported {
+        public static string IncludeIterateNotSupported {
             get {
                 return ResourceManager.GetString("IncludeIterateNotSupported", resourceCulture);
             }
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Consistency level &apos;{0}&apos; specified in the request is invalid when service is configured with consistency level &apos;{1}&apos;. Ensure the request consistency level is not stronger than the service consistency level..
         /// </summary>
-        internal static string InvalidConsistencyLevel {
+        public static string InvalidConsistencyLevel {
             get {
                 return ResourceManager.GetString("InvalidConsistencyLevel", resourceCulture);
             }
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Internal server error: the input bytes are not in base64 format..
         /// </summary>
-        internal static string InvalidInputBytes {
+        public static string InvalidInputBytes {
             get {
                 return ResourceManager.GetString("InvalidInputBytes", resourceCulture);
             }
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to The customer-managed key URI is invalid..
         /// </summary>
-        internal static string InvalidKeyVaultKeyUri {
+        public static string InvalidKeyVaultKeyUri {
             get {
                 return ResourceManager.GetString("InvalidKeyVaultKeyUri", resourceCulture);
             }
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Key Vault does not grant permission to the Azure AD, or the customer-managed key is disabled..
         /// </summary>
-        internal static string KeyVaultAuthenticationFailure {
+        public static string KeyVaultAuthenticationFailure {
             get {
                 return ResourceManager.GetString("KeyVaultAuthenticationFailure", resourceCulture);
             }
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Could not resolve the DNS name of the Key Vault of the customer-managed key..
         /// </summary>
-        internal static string KeyVaultDnsNotResolved {
+        public static string KeyVaultDnsNotResolved {
             get {
                 return ResourceManager.GetString("KeyVaultDnsNotResolved", resourceCulture);
             }
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Key Vault internal service errors accessing the customer-managed key..
         /// </summary>
-        internal static string KeyVaultInternalServerError {
+        public static string KeyVaultInternalServerError {
             get {
                 return ResourceManager.GetString("KeyVaultInternalServerError", resourceCulture);
             }
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to The customer-managed key is not found..
         /// </summary>
-        internal static string KeyVaultKeyNotFound {
+        public static string KeyVaultKeyNotFound {
             get {
                 return ResourceManager.GetString("KeyVaultKeyNotFound", resourceCulture);
             }
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to The Key Vault Service is unavailable to access the customer-managed key..
         /// </summary>
-        internal static string KeyVaultServiceUnavailable {
+        public static string KeyVaultServiceUnavailable {
             get {
                 return ResourceManager.GetString("KeyVaultServiceUnavailable", resourceCulture);
             }
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Failure to Wrap or Unwrap the customer-managed key..
         /// </summary>
-        internal static string KeyVaultWrapUnwrapFailure {
+        public static string KeyVaultWrapUnwrapFailure {
             get {
                 return ResourceManager.GetString("KeyVaultWrapUnwrapFailure", resourceCulture);
             }
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Unhandled {0} &apos;{1}&apos;..
         /// </summary>
-        internal static string UnhandledEnumValue {
+        public static string UnhandledEnumValue {
             get {
                 return ResourceManager.GetString("UnhandledEnumValue", resourceCulture);
             }
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         /// <summary>
         ///   Looks up a localized string similar to Invalid consistency level &apos;{0}&apos;. Valid values are: {1}..
         /// </summary>
-        internal static string UnrecognizedConsistencyLevel {
+        public static string UnrecognizedConsistencyLevel {
             get {
                 return ResourceManager.GetString("UnrecognizedConsistencyLevel", resourceCulture);
             }
