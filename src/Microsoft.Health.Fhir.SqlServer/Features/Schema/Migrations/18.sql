@@ -2908,17 +2908,17 @@ GO
     Task Table
 **************************************************************/
 CREATE TABLE [dbo].[TaskInfo](
-	[TaskId] [varchar](64) NOT NULL,
-	[QueueId] [varchar](64) NOT NULL,
-	[Status] [smallint] NOT NULL,
+    [TaskId] [varchar](64) NOT NULL,
+    [QueueId] [varchar](64) NOT NULL,
+    [Status] [smallint] NOT NULL,
     [TaskTypeId] [smallint] NOT NULL,
     [RunId] [varchar](50) null,
-	[IsCanceled] [bit] NOT NULL,
+    [IsCanceled] [bit] NOT NULL,
     [RetryCount] [smallint] NOT NULL,
     [MaxRetryCount] [smallint] NOT NULL,
-	[HeartbeatDateTime] [datetime2](7) NULL,
-	[InputData] [varchar](max) NOT NULL,
-	[TaskContext] [varchar](max) NULL,
+    [HeartbeatDateTime] [datetime2](7) NULL,
+    [InputData] [varchar](max) NOT NULL,
+    [TaskContext] [varchar](max) NULL,
     [Result] [varchar](max) NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 
@@ -3027,8 +3027,8 @@ AS
     SET NOCOUNT ON
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 GO
 
 
@@ -3073,13 +3073,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET HeartbeatDateTime = @heartbeatDateTime, TaskContext = @taskContext
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET HeartbeatDateTime = @heartbeatDateTime, TaskContext = @taskContext
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3123,13 +3123,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET HeartbeatDateTime = @heartbeatDateTime
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET HeartbeatDateTime = @heartbeatDateTime
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3175,13 +3175,13 @@ AS
     -- We will timestamp the jobs when we update them to track stale jobs.
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
-	UPDATE dbo.TaskInfo
-	SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @taskResult
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @taskResult
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3221,13 +3221,13 @@ AS
         THROW 50404, 'Task not exist', 1;
     END
 
-	UPDATE dbo.TaskInfo
-	SET IsCanceled = 1, HeartbeatDateTime = @heartbeatDateTime
-	WHERE TaskId = @taskId
+    UPDATE dbo.TaskInfo
+    SET IsCanceled = 1, HeartbeatDateTime = @heartbeatDateTime
+    WHERE TaskId = @taskId
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3268,7 +3268,7 @@ AS
     FROM [dbo].[TaskInfo]
     WHERE TaskId = @taskId and RunId = @runId
 
-	-- We will timestamp the jobs when we update them to track stale jobs.
+    -- We will timestamp the jobs when we update them to track stale jobs.
     IF (@retryCount IS NULL) BEGIN
         THROW 50404, 'Task not exist or runid not match', 1;
     END
@@ -3276,19 +3276,19 @@ AS
     DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
 
     IF (@retryCount >= @maxRetryCount) BEGIN
-		UPDATE dbo.TaskInfo
-		SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @result
-		WHERE TaskId = @taskId
-	END
+        UPDATE dbo.TaskInfo
+        SET Status = 3, HeartbeatDateTime = @heartbeatDateTime, Result = @result
+        WHERE TaskId = @taskId
+    END
     Else IF (@status <> 3) BEGIN
         UPDATE dbo.TaskInfo
-		SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
-		WHERE TaskId = @taskId
-	END
+        SET Status = 1, HeartbeatDateTime = @heartbeatDateTime, Result = @result, RetryCount = @retryCount + 1
+        WHERE TaskId = @taskId
+    END
 
     SELECT TaskId, QueueId, Status, TaskTypeId, RunId, IsCanceled, RetryCount, MaxRetryCount, HeartbeatDateTime, InputData, TaskContext, Result
-	FROM [dbo].[TaskInfo]
-	where TaskId = @taskId
+    FROM [dbo].[TaskInfo]
+    where TaskId = @taskId
 
     COMMIT TRANSACTION
 GO
@@ -3364,7 +3364,20 @@ GO
     Resource change data table
 **************************************************************/
 
-CREATE TABLE dbo.ResourceChangeData
+-- Partition function for the ResourceChangeData table.
+-- It is not a fixed-sized partition. It is a sliding window partition.
+-- Adding a range right partition function on a timestamp column. 
+-- Range right means that the actual boundary value belongs to its right partition, 
+-- it is the first value in the right partition.
+CREATE PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp (datetime2(7))
+AS RANGE RIGHT FOR VALUES('1970-01-01T00:00:00.0000000');
+
+-- Partition scheme which uses a partition function called PartitionFunction_ResourceChangeData_Timestamp, 
+-- and places partitions on the PRIMARY filegroup.
+CREATE PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
+
+-- Partitioned table that stores resource change information. 
+CREATE TABLE dbo.ResourceChangeData 
 (
     Id bigint IDENTITY(1,1) NOT NULL,
     Timestamp datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeData_Timestamp DEFAULT sysutcdatetime(),
@@ -3377,9 +3390,28 @@ CREATE TABLE dbo.ResourceChangeData
 ON [PRIMARY]
 GO
 
+-- Staging table that will be used for partition switch out. 
+CREATE TABLE dbo.ResourceChangeDataStaging 
+(
+    Id bigint IDENTITY(1,1) NOT NULL,
+    Timestamp datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeDataStaging_Timestamp DEFAULT sysutcdatetime(),
+    ResourceId varchar(64) NOT NULL,
+    ResourceTypeId smallint NOT NULL,
+    ResourceVersion int NOT NULL,
+    ResourceChangeTypeId tinyint NOT NULL,
+    CONSTRAINT PK_ResourceChangeDataStaging_TimestampId PRIMARY KEY (Timestamp, Id)
+) ON [PRIMARY]
+
+-- Creates check for a partition check.
+ALTER TABLE dbo.ResourceChangeDataStaging WITH CHECK 
+    ADD CONSTRAINT chk_ResourceChangeDataStaging_partition CHECK(Timestamp < CONVERT(DATETIME2(7), '9999-12-31 23:59:59.9999999'));
+
+ALTER TABLE dbo.ResourceChangeDataStaging CHECK CONSTRAINT chk_ResourceChangeDataStaging_partition;
+
 /*************************************************************
     Resource change type table
 **************************************************************/
+
 CREATE TABLE dbo.ResourceChangeType
 (
     ResourceChangeTypeId tinyint NOT NULL,
@@ -3458,6 +3490,8 @@ GO
 -- PARAMETERS
 --     @startId
 --         * The start id of resource change records to fetch.
+--     @@lastProcessedDateTime
+--         * The last checkpoint datetime.
 --     @pageSize
 --         * The page size for fetching resource change records.
 --
@@ -3466,19 +3500,20 @@ GO
 --
 CREATE PROCEDURE dbo.FetchResourceChanges
     @startId bigint,
+    @lastProcessedDateTime datetime2(7),
     @pageSize smallint
 AS
 BEGIN
 
     SET NOCOUNT ON;
-
-    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database,
-    -- using the Repeatable Read isolation level table hint to avoid skipping resource changes
-    -- due to interleaved transactions on the resource change data table.
+	
+    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
+    -- using the Repeatable Read isolation level table hint to avoid skipping resource changes 
+    -- due to interleaved transactions on the resource change data table.    
     -- In Repeatable Read, the select query execution will be blocked until other open transactions are completed
-    -- for rows that match the search condition of the select statement.
-    -- A write transaction (update/delete) on the rows that match
-    -- the search condition of the select statement will wait until the read transaction is completed.
+    -- for rows that match the search condition of the select statement. 
+    -- A write transaction (update/delete) on the rows that match 
+    -- the search condition of the select statement will wait until the read transaction is completed. 
     -- But, other transactions can insert new rows.
     SELECT TOP(@pageSize) Id,
       Timestamp,
@@ -3490,6 +3525,162 @@ BEGIN
     WHERE Id >= @startId ORDER BY Id ASC
 END
 GO
+
+/*************************************************************
+    Purge partition feature for resource change data
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     ConfigurePartitionOnResourceChanges
+--
+-- DESCRIPTION
+--     Creates a staging table and initial partitions for the resource change data table.
+--
+-- PARAMETERS
+--     @numberOfFuturePartitionsToAdd
+--         * The number of partitions to add for feature datetimes.
+--
+CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
+    @numberOfFuturePartitionsToAdd int
+AS
+  BEGIN
+
+	--using XACT_ABORT to force a rollback on any error.
+	SET XACT_ABORT ON;
+	
+	BEGIN TRANSACTION
+				
+		/* Creates the partitions for future datetimes on the resource change data table. */	
+		
+		-- Rounds the current datetime to the hour.
+		DECLARE @partitionBoundary datetime2(7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
+		
+		-- Finds the highest boundary value.		
+		DECLARE @startingRightPartitionBoundary datetime2(7) = CAST((SELECT TOP (1) value
+							FROM sys.partition_range_values AS prv
+								JOIN sys.partition_functions AS pf
+									ON pf.function_id = prv.function_id
+							WHERE  pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+							ORDER  BY prv.boundary_id DESC) AS datetime2(7));
+							
+		-- Adds one due to starting from the current hour.
+		DECLARE @numberOfPartitionsToAdd int = @numberOfFuturePartitionsToAdd + 1;	
+		
+		WHILE @numberOfPartitionsToAdd > 0 
+		BEGIN  
+			-- Checks if a partition exists.
+			IF (@startingRightPartitionBoundary < @partitionBoundary) 
+			BEGIN
+				-- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
+				ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [PRIMARY];
+				ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@partitionBoundary); 
+			END;
+				
+			-- Adds one hour for the next partition.
+			SET @partitionBoundary = DATEADD(hour, 1, @partitionBoundary);
+			SET @numberOfPartitionsToAdd -= 1; 				
+		END;
+
+	COMMIT TRANSACTION
+END;
+GO
+
+-- STORED PROCEDURE
+--     RemovePartitionFromResourceChanges
+--
+-- DESCRIPTION
+--     Switches out and merges the extreme left partition with the imediate left partition.
+--     After that, truncates the staging table to purge the old resource change data.
+--
+--     @partitionBoundary
+--         * The output parameter to stores the removed partition boundary.
+--
+CREATE PROCEDURE dbo.RemovePartitionFromResourceChanges
+    @partitionBoundary datetime2(7) OUTPUT
+AS
+  BEGIN
+	
+	--using XACT_ABORT to force a rollback on any error.
+	SET XACT_ABORT ON;
+	
+	BEGIN TRANSACTION
+	
+		-- Finds the lowest boundary value.
+		DECLARE @leftPartitionBoundary datetime2(7) = CAST((SELECT TOP (1) value
+							FROM sys.partition_range_values AS prv
+								JOIN sys.partition_functions AS pf
+									ON pf.function_id = prv.function_id
+							WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+							ORDER BY prv.boundary_id ASC) AS datetime2(7));
+
+		-- Cleans up a staging table if there are existing rows.
+		TRUNCATE TABLE dbo.ResourceChangeDataStaging;
+		
+		-- Switches a partition to the staging table.
+		ALTER TABLE dbo.ResourceChangeData SWITCH PARTITION 2 TO dbo.ResourceChangeDataStaging;
+		
+		-- Merges range to move lower boundary one partition ahead.
+		ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() MERGE RANGE(@leftPartitionBoundary);
+		
+		-- Cleans up the staging table to purge resource changes.
+		TRUNCATE TABLE dbo.ResourceChangeDataStaging;
+		
+		SET @partitionBoundary = @leftPartitionBoundary
+
+	COMMIT TRANSACTION
+END;
+GO 
+
+--
+-- STORED PROCEDURE
+--     AddPartitionOnResourceChanges
+--
+-- DESCRIPTION
+--     Creates a new partition at the right for the future date which will be
+--     the next hour of the rightmost partition boundry.
+--
+-- PARAMETERS
+--     @partitionBoundary
+--         * The output parameter to stores the added partition boundary.
+--
+CREATE OR ALTER PROCEDURE dbo.AddPartitionOnResourceChanges
+    @partitionBoundary datetime2(7) OUTPUT
+AS
+  BEGIN
+	
+	--using XACT_ABORT to force a rollback on any error.
+	SET XACT_ABORT ON;
+	
+	BEGIN TRANSACTION
+			
+		-- Finds the highest boundary value
+		DECLARE @rightPartitionBoundary datetime2(7)= CAST((SELECT TOP (1) value
+							FROM sys.partition_range_values AS prv
+								JOIN sys.partition_functions AS pf
+									ON pf.function_id = prv.function_id
+							WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+							ORDER BY prv.boundary_id DESC) AS datetime2(7));
+
+		-- Rounds the current datetime to the hour.
+        DECLARE @timestamp datetime2(7) =  DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
+        
+        -- Ensures the next boundary value is greater than the current datetime.
+        IF (@rightPartitionBoundary < @timestamp) BEGIN
+	        SET @rightPartitionBoundary = @timestamp;
+        END;
+							
+		-- Adds one hour for the next partition.
+		SET @rightPartitionBoundary = DATEADD(hour, 1, @rightPartitionBoundary);
+		
+		-- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
+		ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
+		ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary);		
+		
+		SET @partitionBoundary = @rightPartitionBoundary
+
+	COMMIT TRANSACTION
+END;
+GO 
 
 /*************************************************************
     Event Agent checkpoint feature
@@ -3879,4 +4070,7 @@ AS
     OUTPUT Inserted.[ResourceSurrogateId];
 
     COMMIT TRANSACTION
+GO
+
+COMMIT TRANSACTION
 GO
