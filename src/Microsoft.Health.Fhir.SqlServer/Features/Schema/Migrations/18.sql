@@ -3376,6 +3376,24 @@ AS RANGE RIGHT FOR VALUES('1970-01-01T00:00:00.0000000');
 -- and places partitions on the PRIMARY filegroup.
 CREATE PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
 
+-- Creates default partitions
+DECLARE @numberOfPartitions int = 48;
+DECLARE @rightPartitionBoundary datetime2(7);
+
+-- There will be 51 partition boundaries and 52 partitions, 48 partitions for history, 
+-- one for the current hour, one for the next hour, and 2 partitions for start and end.
+WHILE @numberOfPartitions >= -1 
+BEGIN        
+    -- Rounds the start datetime to the hour.
+    SET @rightPartitionBoundary = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()) - @numberOfPartitions, 0);
+            
+    -- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
+    ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
+    ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary); 
+            
+    SET @numberOfPartitions -= 1;
+END;
+
 -- Partitioned table that stores resource change information. 
 CREATE TABLE dbo.ResourceChangeData 
 (
