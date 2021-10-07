@@ -31,12 +31,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
+        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
 
         private readonly PatientEverythingService _patientEverythingService;
 
         public PatientEverythingServiceTests()
         {
-            _patientEverythingService = new PatientEverythingService(() => _searchService.CreateMockScope(), _searchOptionsFactory, _searchParameterDefinitionManager, _compartmentDefinitionManager, _referenceSearchValueParser, _resourceDeserializer, _urlResolver);
+            _patientEverythingService = new PatientEverythingService(() => _searchService.CreateMockScope(), _searchOptionsFactory, _searchParameterDefinitionManager, _compartmentDefinitionManager, _referenceSearchValueParser, _resourceDeserializer, _urlResolver, _fhirDataStore);
         }
 
         [Fact]
