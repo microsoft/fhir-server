@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EverythingOperationParameterNames.End,
             KnownQueryParameterNames.Since,
             KnownQueryParameterNames.Type,
-            KnownQueryParameterNames.ExcludeLinks,
+            EverythingOperationParameterNames.ExcludeLinks,
             KnownQueryParameterNames.ContinuationToken,
         };
 
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = EverythingOperationParameterNames.End)] PartialDateTime end,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string type,
-            [FromQuery(Name = KnownQueryParameterNames.ExcludeLinks)] bool excludeLinks,
+            [FromQuery(Name = EverythingOperationParameterNames.ExcludeLinks)] bool excludeLinks,
             string ct)
         {
             IReadOnlyList<Tuple<string, string>> unsupportedParameters = ReadUnsupportedParameters();
