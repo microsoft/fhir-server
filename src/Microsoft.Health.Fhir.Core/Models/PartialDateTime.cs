@@ -224,11 +224,14 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// </remarks>
         private static string[] GenerateDateTimeOffsetFormats()
         {
-            var formats = new List<string> { "yyyy", "yyyy-MM", "yyyy-MM-dd" };
+            var formats = new List<string>();
 
             // From spec: "the minutes SHALL be present if an hour is present".
             var timeFormats = new List<string>
             {
+                "yyyy",
+                "yyyy-MM",
+                "yyyy-MM-dd",
                 "yyyy-MM-ddTHH:mm",
                 "yyyy-MM-ddTHH:mm:ss",
                 "yyyy-MM-ddTHH:mm:ss.f",
