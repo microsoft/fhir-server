@@ -292,9 +292,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 
         private async Task<string> CheckForNextSeeAlsoLinkAndSetToken(string parentPatientId, EverythingOperationContinuationToken token, CancellationToken cancellationToken)
         {
-            // Retrieve the parent patient so that we can extract its links and process the next "seealso" link.
-            using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
-
             // Get the version of the parent patient we recorded in the first $everything operation API call.
             ResourceWrapper parentPatientResource = await _fhirDataStore.GetAsync(new ResourceKey(KnownResourceTypes.Patient, parentPatientId, token.ParentPatientVersionId), cancellationToken);
 
