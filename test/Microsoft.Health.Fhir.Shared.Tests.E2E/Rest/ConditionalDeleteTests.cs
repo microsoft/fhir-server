@@ -108,23 +108,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await ValidateResults(identifier, 0);
         }
 
-        [InlineData(true)]
-        [InlineData(false)]
+        [InlineData(true, 50, 50, 0)]
+        [InlineData(false, 50, 50, 0)]
+        [InlineData(true, 10, 5, 5)]
+        [InlineData(false, 10, 5, 5)]
         [Theory]
-        public async Task Given50MatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully(bool hardDelete)
+        public async Task GivenMatchingResources_WhenDeletingConditionallyWithMultipleFlag_TheServerShouldDeleteSuccessfully(bool hardDelete, int create, int delete, int expected)
         {
             var identifier = Guid.NewGuid().ToString();
 
-            await Task.WhenAll(Enumerable.Range(1, 50).Select(_ => CreateWithIdentifier(identifier)));
+            await Task.WhenAll(Enumerable.Range(1, create).Select(_ => CreateWithIdentifier(identifier)));
 
-            var countOfCreated = await GetResourceCount(identifier);
+            await GetResourceCount(identifier);
 
-            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count=100", CancellationToken.None);
+            FhirResponse response = await _client.DeleteAsync($"{_resourceType}?identifier={identifier}&hardDelete={hardDelete}&_count={delete}", CancellationToken.None);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Equal(countOfCreated, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
+            Assert.Equal(delete, int.Parse(response.Headers.GetValues(KnownHeaders.ItemsDeleted).First()));
 
-            await ValidateResults(identifier, 0);
+            await ValidateResults(identifier, expected);
         }
 
         private async Task CreateWithIdentifier(string identifier)
