@@ -39,13 +39,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _queryFactory = queryFactory;
         }
 
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {
-            using var cancellationSource = new CancellationTokenSource(TimeSpan.FromMinutes(1));
             using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
             DateTimeOffset startedCheck = Clock.UtcNow;
+            using var retryDelayToken = new CancellationTokenSource(TimeSpan.FromMinutes(1));
 
-            await _statusListSemaphore.WaitAsync(cancellationSource.Token);
+            await _statusListSemaphore.WaitAsync(retryDelayToken.Token);
             try
             {
                 if (_lastRefreshed.HasValue)
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                         clientScope,
                         _statusList.Count,
                         _lastRefreshed.Value,
-                        cancellationSource.Token);
+                        cancellationToken);
 
                     if (!updateRequired)
                     {
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                     do
                     {
-                        FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync();
+                        FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync(cancellationToken);
 
                         parameterStatus.AddRange(results.Select(x => x.ToSearchParameterStatus()));
                     }
@@ -85,10 +85,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                     if (!parameterStatus.Any())
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(1), cancellationSource.Token);
+                        await Task.Delay(TimeSpan.FromSeconds(1), retryDelayToken.Token);
                     }
                 }
-                while (!parameterStatus.Any() && !cancellationSource.IsCancellationRequested);
+                while (!parameterStatus.Any() && !retryDelayToken.IsCancellationRequested);
 
                 _lastRefreshed = startedCheck;
                 _statusList = parameterStatus;
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             return false;
         }
 
-        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                     batch.UpsertItem(status);
                 }
 
-                await batch.ExecuteAsync();
+                await batch.ExecuteAsync(cancellationToken);
             }
         }
 
