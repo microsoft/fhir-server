@@ -55,6 +55,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Observation Observation { get; private set; }
 
+        public Observation ObservationOfPatientWithSeeAlsoLinkToRemove { get; private set; }
+
         public Observation ObservationOfNonExistentPatient { get; private set; }
 
         public Observation ObservationOfPatientReferencedBySeeAlsoLink { get; private set; }
@@ -158,6 +160,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
             observationToCreate.Subject.Reference = $"Patient/{PatientReferencedBySeeAlsoLink.Id}";
             ObservationOfPatientReferencedBySeeAlsoLink = await TestFhirClient.CreateAsync(observationToCreate);
+
+            observationToCreate = Samples.GetJsonSample<Observation>("Observation-For-Patient-f001");
+            observationToCreate.Subject.Reference = $"Patient/{PatientWithSeeAlsoLinkToRemove.Id}";
+            ObservationOfPatientWithSeeAlsoLinkToRemove = await TestFhirClient.CreateAsync(observationToCreate);
         }
 
         private async Task<Patient> CreatePatientWithLinks(Patient.LinkType linkType, List<Patient> patientsReferencedByLink)
