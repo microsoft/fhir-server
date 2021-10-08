@@ -191,11 +191,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateBundle(secondBundle, Fixture.Observation);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("?excludeLinks=false")]
+        [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientWithSeeAlsoLink_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink()
+        public async Task GivenPatientWithSeeAlsoLink_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink(string queryParameters)
         {
-            string searchUrl = $"Patient/{Fixture.PatientWithSeeAlsoLink.Id}/$everything";
+            string searchUrl = $"Patient/{Fixture.PatientWithSeeAlsoLink.Id}/$everything{queryParameters}";
 
             FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
             ValidateBundle(firstBundle, Fixture.PatientWithSeeAlsoLink);
@@ -217,11 +219,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(fifthBundle.Resource.Entry);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("?excludeLinks=false")]
+        [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientWithTwoSeeAlsoLinks_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLinks()
+        public async Task GivenPatientWithTwoSeeAlsoLinks_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLinks(string queryParameters)
         {
-            string searchUrl = $"Patient/{Fixture.PatientWithTwoSeeAlsoLinks.Id}/$everything";
+            string searchUrl = $"Patient/{Fixture.PatientWithTwoSeeAlsoLinks.Id}/$everything{queryParameters}";
 
             FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
             ValidateBundle(firstBundle, Fixture.PatientWithTwoSeeAlsoLinks);
@@ -250,11 +254,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(sixthBundle.Resource.Entry);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("?excludeLinks=false")]
+        [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientWithReplacedByLink_WhenRunningPatientEverything_ThenMovedPermanentlyIsReturned()
+        public async Task GivenPatientWithReplacedByLink_WhenRunningPatientEverything_ThenMovedPermanentlyIsReturned(string queryParameters)
         {
-            string searchUrl = $"Patient/{Fixture.PatientWithReplacedByLink.Id}/$everything";
+            string searchUrl = $"Patient/{Fixture.PatientWithReplacedByLink.Id}/$everything{queryParameters}";
 
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl));
 
@@ -267,11 +273,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(string.Format(Core.Resources.EverythingOperationResourceIrrelevant, Fixture.PatientWithReplacedByLink.Id, Fixture.PatientReferencedByReplacedByLink.Id), ex.Message);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("?excludeLinks=false")]
+        [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientWithReplacesLink_WhenRunningPatientEverything_ThenLinkShouldBeIgnored()
+        public async Task GivenPatientWithReplacesLink_WhenRunningPatientEverything_ThenLinkShouldBeIgnored(string queryParameters)
         {
-            string searchUrl = $"Patient/{Fixture.PatientWithReplacesLink.Id}/$everything";
+            string searchUrl = $"Patient/{Fixture.PatientWithReplacesLink.Id}/$everything{queryParameters}";
 
             FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
             ValidateBundle(firstBundle, Fixture.PatientWithReplacesLink);
@@ -283,11 +291,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Null(secondBundle.Resource.NextLink);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("?excludeLinks=false")]
+        [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientWithReferLink_WhenRunningPatientEverything_ThenLinkShouldBeIgnored()
+        public async Task GivenPatientWithReferLink_WhenRunningPatientEverything_ThenLinkShouldBeIgnored(string queryParameters)
         {
-            string searchUrl = $"Patient/{Fixture.PatientWithReferLink.Id}/$everything";
+            string searchUrl = $"Patient/{Fixture.PatientWithReferLink.Id}/$everything{queryParameters}";
 
             FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
             ValidateBundle(firstBundle, Fixture.PatientWithReferLink);
