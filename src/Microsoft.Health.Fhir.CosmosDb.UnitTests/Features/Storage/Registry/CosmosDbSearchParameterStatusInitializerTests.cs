@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
             _testParameterUri = new Uri("/test", UriKind.Relative);
             searchParameterStatusDataStore
-                .GetSearchParameterStatuses()
+                .GetSearchParameterStatuses(Arg.Any<CancellationToken>())
                 .Returns(new[]
                 {
                     new ResourceSearchParameterStatus
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
             Container container = Substitute.For<Container>();
 
-            await _initializer.ExecuteAsync(container);
+            await _initializer.ExecuteAsync(container, CancellationToken.None);
 
             container.Received().CreateTransactionalBatch(Arg.Any<PartitionKey>());
         }
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
             Container container = Substitute.For<Container>();
 
-            await _initializer.ExecuteAsync(container);
+            await _initializer.ExecuteAsync(container, CancellationToken.None);
 
             container.DidNotReceive().CreateTransactionalBatch(Arg.Any<PartitionKey>());
         }

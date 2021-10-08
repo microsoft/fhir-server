@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -222,6 +223,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal("403", bundleResource.Entry[0].Response.Status);
             Assert.Equal("404", bundleResource.Entry[1].Response.Status);
             Assert.Equal("200", bundleResource.Entry[2].Response.Status);
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundleRequestWithNullUrl_WhenProcessing_ReturnsABadRequest()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.PUT,
+                            Url = null,
+                        },
+                        Resource = new Basic { Id = "test"},
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.Handle(bundleRequest, default));
         }
 
         [Fact]

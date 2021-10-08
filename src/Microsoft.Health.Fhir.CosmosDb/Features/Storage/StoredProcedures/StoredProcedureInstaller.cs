@@ -5,6 +5,7 @@
 
 using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -23,17 +24,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
             _storedProcedures = storedProcedures;
         }
 
-        public async Task ExecuteAsync(Container container)
+        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
             foreach (IStoredProcedure storedProc in _storedProcedures)
             {
                 try
                 {
-                    await container.Scripts.ReadStoredProcedureAsync(storedProc.FullName);
+                    await container.Scripts.ReadStoredProcedureAsync(storedProc.FullName, cancellationToken: cancellationToken);
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
                 {
-                    await container.Scripts.CreateStoredProcedureAsync(storedProc.ToStoredProcedureProperties());
+                    await container.Scripts.CreateStoredProcedureAsync(storedProc.ToStoredProcedureProperties(), cancellationToken: cancellationToken);
                 }
             }
         }
