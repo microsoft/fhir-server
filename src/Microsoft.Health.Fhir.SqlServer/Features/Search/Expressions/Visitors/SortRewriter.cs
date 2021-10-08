@@ -43,6 +43,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
+            // Check if the parameter being sorted on is also part of another parameter for the search.
+            // If the parameter being sorted on is part of a filter then we don't need to run the seperate search for resources that are missing a value for the field being sorted on.
+            // If the parameter being sorted on is not part of a filter we need to run a seperate search to get resources that don't have a value for the field being sorted on.
             bool matchFound = false;
             for (int i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
