@@ -29,6 +29,40 @@ BEGIN
         CONSTRAINT string_IsMax_Constraint DEFAULT 0 FOR IsMax;
 END
 
+GO
+
+UPDATE dbo.StringSearchParam
+SET IsMin = 1
+FROM 
+(
+    SELECT ResourceSurrogateId, SearchParamId, MIN(Text) AS minVal
+    FROM dbo.StringSearchParam
+    GROUP BY ResourceSurrogateId, SearchParamId
+)
+AS results
+WHERE
+(
+    dbo.StringSearchParam.ResourceSurrogateId = results.ResourceSurrogateId
+    AND dbo.StringSearchParam.SearchParamId = results.SearchParamId
+    AND dbo.StringSearchParam.Text = results.minVal
+)
+
+UPDATE dbo.StringSearchParam
+SET dbo.StringSearchParam.IsMax = 1
+FROM 
+(
+    SELECT ResourceSurrogateId, SearchParamId, MAX(Text) AS maxVal
+    FROM dbo.StringSearchParam
+    GROUP BY ResourceSurrogateId, SearchParamId
+)
+AS results
+WHERE
+(
+    dbo.StringSearchParam.ResourceSurrogateId = results.ResourceSurrogateId
+    AND dbo.StringSearchParam.SearchParamId = results.SearchParamId
+    AND dbo.StringSearchParam.Text = results.maxVal
+)
+
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
 ON dbo.StringSearchParam
 (
@@ -96,6 +130,40 @@ BEGIN
         CONSTRAINT date_IsMin_Constraint DEFAULT 0 FOR IsMin,
         CONSTRAINT date_IsMax_Constraint DEFAULT 0 FOR IsMax;
 END
+
+GO
+
+UPDATE dbo.DateTimeSearchParam
+SET IsMin = 1
+FROM 
+(
+    SELECT ResourceSurrogateId, SearchParamId, MIN(StartDateTime) AS minVal
+    FROM dbo.DateTimeSearchParam
+    GROUP BY ResourceSurrogateId, SearchParamId
+)
+AS results
+WHERE
+(
+    dbo.DateTimeSearchParam.ResourceSurrogateId = results.ResourceSurrogateId
+    AND dbo.DateTimeSearchParam.SearchParamId = results.SearchParamId
+    AND dbo.DateTimeSearchParam.StartDateTime = results.minVal
+)
+
+UPDATE dbo.DateTimeSearchParam
+SET IsMax = 1
+FROM 
+(
+    SELECT ResourceSurrogateId, SearchParamId, MAX(EndDateTime) AS maxVal
+    FROM dbo.DateTimeSearchParam
+    GROUP BY ResourceSurrogateId, SearchParamId
+)
+AS results
+WHERE
+(
+    dbo.DateTimeSearchParam.ResourceSurrogateId = results.ResourceSurrogateId
+    AND dbo.DateTimeSearchParam.SearchParamId = results.SearchParamId
+    AND dbo.DateTimeSearchParam.EndDateTime = results.maxVal
+)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
 ON dbo.DateTimeSearchParam
