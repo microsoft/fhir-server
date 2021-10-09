@@ -219,6 +219,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithSeeAlsoLinkRemovedMidOperation_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink()
+        {
+            string searchUrl = $"Patient/{Fixture.PatientWithSeeAlsoLinkToRemove.Id}/$everything";
+
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            ValidateBundle(firstBundle, Fixture.PatientWithSeeAlsoLinkToRemove);
+
+            // Remove the "seealso" link from the patient after the first $everything API call has been completed.
+            Fixture.PatientWithSeeAlsoLinkToRemove.Link.Clear();
+            await Fixture.UpdatePatient(Fixture.PatientWithSeeAlsoLinkToRemove);
+
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+            ValidateBundle(secondBundle, Fixture.ObservationOfPatientWithSeeAlsoLinkToRemove);
+
+            nextLink = secondBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
+            Assert.Empty(thirdBundle.Resource.Entry);
+
+            // Subsequent $everything API calls use the version of the patient passed in on the first API call.
+            // The update to remove the "seealso" link is not recognized.
+            nextLink = thirdBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
+            ValidateBundle(fourthBundle, Fixture.PatientReferencedByRemovedSeeAlsoLink);
+
+            nextLink = fourthBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> fifthBundle = await Client.SearchAsync(nextLink);
+            Assert.Empty(fifthBundle.Resource.Entry);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatientWithTwoSeeAlsoLinks_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLinks()
         {
             string searchUrl = $"Patient/{Fixture.PatientWithTwoSeeAlsoLinks.Id}/$everything";

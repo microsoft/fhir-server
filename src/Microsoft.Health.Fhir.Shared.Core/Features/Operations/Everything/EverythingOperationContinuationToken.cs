@@ -31,6 +31,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         [JsonProperty]
         internal string CurrentSeeAlsoLinkId { get; set; }
 
+        [JsonProperty]
+        internal string ParentPatientVersionId { get; set; }
+
         internal bool IsProcessingSeeAlsoLink
         {
             get
