@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             internalContinuationToken = string.IsNullOrEmpty(internalContinuationToken) ? "null" : "\"" + internalContinuationToken + "\"";
             currentSeeAlsoLinkId = string.IsNullOrEmpty(currentSeeAlsoLinkId) ? "null" : "\"" + currentSeeAlsoLinkId + "\"";
 
-            Assert.Equal($"{{\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"CurrentSeeAlsoLinkId\":{currentSeeAlsoLinkId}}}", token.ToJson());
+            Assert.Equal($"{{\"Phase\":{phase},\"InternalContinuationToken\":{internalContinuationToken},\"CurrentSeeAlsoLinkId\":{currentSeeAlsoLinkId},\"ParentPatientVersionId\":null}}", token.ToJson());
         }
     }
 }
