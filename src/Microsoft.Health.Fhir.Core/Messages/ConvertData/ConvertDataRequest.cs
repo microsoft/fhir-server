@@ -10,7 +10,7 @@ using Microsoft.Health.Fhir.Liquid.Converter.Models;
 namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
 {
     /// <summary>
-    /// Request for data conversion, currently supports Hl7v2 and C-CDA to FHIR conversion only.
+    /// Request for data conversion, currently supports Hl7v2, C-CDA and Json to FHIR conversion only.
     /// </summary>
     public class ConvertDataRequest : IRequest<ConvertDataResponse>
     {

@@ -208,12 +208,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains($"The input data could not be parsed correctly", responseContent);
         }
 
-        [SkippableFact]
-        public async Task GivenACcdaValidRequestWithDefaultTemplateSet_ButInputDataIsNotValidCcdaDocument_WhenConvertData_ShouldReturnBadRequest()
+        [SkippableTheory]
+        [InlineData("Abc")]
+        [InlineData("¶Š™œãý£¾")]
+        [InlineData("<?xml version=\"1.0\"?><?xml-stylesheet type='text/xsl' href=''?>")]
+        public async Task GivenACcdaValidRequestWithDefaultTemplateSet_ButInputDataIsNotValidCcdaDocument_WhenConvertData_ShouldReturnBadRequest(string inputData)
         {
             Skip.IfNot(_convertDataEnabled);
 
-            var parameters = GetConvertDataParams(Samples.SampleHl7v2Message, "Ccda", CcdaDefaultTemplateSetReference, "CCD");
+            var parameters = GetConvertDataParams(inputData, "Ccda", CcdaDefaultTemplateSetReference, "CCD");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
