@@ -219,13 +219,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(fifthBundle.Resource.Entry);
         }
 
-        [Theory]
-        [InlineData("?excludeLinks=false")]
-        [InlineData("")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientWithSeeAlsoLinkRemovedMidOperation_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink(string queryParameters)
+        public async Task GivenPatientWithSeeAlsoLinkRemovedMidOperation_WhenRunningPatientEverything_ThenPatientEverythingShouldRunOnLink()
         {
-            string searchUrl = $"Patient/{Fixture.PatientWithSeeAlsoLinkToRemove.Id}/$everything{queryParameters}";
+            string searchUrl = $"Patient/{Fixture.PatientWithSeeAlsoLinkToRemove.Id}/$everything";
 
             FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
             ValidateBundle(firstBundle, Fixture.PatientWithSeeAlsoLinkToRemove);
