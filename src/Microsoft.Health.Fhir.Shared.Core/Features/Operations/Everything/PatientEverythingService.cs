@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IUrlResolver _urlResolver;
-        private readonly IFhirDataStore _fhirDataStore;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             IReferenceSearchValueParser referenceSearchValueParser,
             IResourceDeserializer resourceDeserializer,
             IUrlResolver urlResolver,
-            IFhirDataStore fhirDataStore)
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
 
             _searchServiceFactory = searchServiceFactory;
             _searchOptionsFactory = searchOptionsFactory;
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             _referenceSearchValueParser = referenceSearchValueParser;
             _resourceDeserializer = resourceDeserializer;
             _urlResolver = urlResolver;
-            _fhirDataStore = fhirDataStore;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
         }
 
         public async Task<SearchResult> SearchAsync(
@@ -304,8 +304,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 return null;
             }
 
-            // Get the version of the parent patient we recorded in the first $everything operation API call.
-            ResourceWrapper parentPatientResource = await _fhirDataStore.GetAsync(new ResourceKey(KnownResourceTypes.Patient, parentPatientId, token.ParentPatientVersionId), cancellationToken);
+            ResourceWrapper parentPatientResource;
+
+            using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
+            {
+                // Get the version of the parent patient we recorded in the first $everything operation API call.
+                parentPatientResource = await store.Value.GetAsync(new ResourceKey(KnownResourceTypes.Patient, parentPatientId, token.ParentPatientVersionId), cancellationToken);
+            }
 
             // If it wasn't found, it means the parent patient doesn't exist in the database.
             if (parentPatientResource == null)

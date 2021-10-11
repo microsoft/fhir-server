@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
-        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStore = Substitute.For<Func<IScoped<IFhirDataStore>>>();
 
         private readonly PatientEverythingService _patientEverythingService;
 
