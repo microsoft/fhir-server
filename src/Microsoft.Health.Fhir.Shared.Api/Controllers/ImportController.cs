@@ -80,11 +80,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Import)]
         public async Task<IActionResult> Import([FromBody] Parameters importTaskParameters)
         {
-            CheckIfImportIsEnabled();
+            // CheckIfImportIsEnabled();
 
             ImportRequest importRequest = importTaskParameters.ExtractImportRequest();
             ValidateImportRequestConfiguration(importRequest);
 
+            /*
             if (!ImportConstants.InitialLoadMode.Equals(importRequest.Mode, StringComparison.Ordinal))
             {
                 throw new RequestNotValidException(Resources.OnlyInitialImportOperationSupported);
@@ -94,6 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 throw new RequestNotValidException(Resources.InitialImportModeNotEnabled);
             }
+            */
 
             CreateImportResponse response = await _mediator.ImportAsync(
                  _fhirRequestContextAccessor.RequestContext.Uri,

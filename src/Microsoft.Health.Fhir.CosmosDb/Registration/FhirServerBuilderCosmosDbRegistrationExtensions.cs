@@ -47,7 +47,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             return fhirServerBuilder
                 .AddCosmosDbPersistence(configureAction)
-                .AddCosmosDbSearch();
+                .AddCosmosDbSearch()
+                .AddCosmosDbHealthCheck();
         }
 
         private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
@@ -220,6 +221,16 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
                 .AsImplementedInterfaces();
+
+            services.Add<CosmosdbTaskManager>()
+              .Scoped()
+              .AsSelf()
+              .AsImplementedInterfaces();
+
+            services.Add<CosmosDbTaskConsumer>()
+              .Scoped()
+              .AsSelf()
+              .AsImplementedInterfaces();
 
             return fhirServerBuilder;
         }

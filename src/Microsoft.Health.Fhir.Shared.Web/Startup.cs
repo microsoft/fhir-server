@@ -49,11 +49,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 fhirServerBuilder
                     .AddImport(builder => builder.AddImportCosmosDbDataStore(), Configuration)
-                    .AddCosmosDb()
-                    .AddSqlServer(config =>
-                    {
-                        Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
-                    });
+                    .AddCosmosDb();
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {
