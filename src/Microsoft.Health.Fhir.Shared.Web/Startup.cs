@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Web
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
             {
-                fhirServerBuilder.AddCosmosDb();
+                fhirServerBuilder.AddImport(null, Configuration).AddCosmosDb();
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {

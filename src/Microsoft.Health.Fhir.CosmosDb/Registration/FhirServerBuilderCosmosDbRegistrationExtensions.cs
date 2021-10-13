@@ -222,6 +222,16 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsImplementedInterfaces();
 
+            services.Add<CosmosdbTaskManager>()
+              .Scoped()
+              .AsSelf()
+              .AsImplementedInterfaces();
+
+            services.Add<CosmosDbTaskConsumer>()
+              .Scoped()
+              .AsSelf()
+              .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
 
         public static IFhirServerBuilder AddImport(this IFhirServerBuilder fhirServerBuilder, Action<IFhirServerBuilder> addImportStoreAction, IConfiguration configuration)
         {
-            EnsureArg.IsNotNull(addImportStoreAction, nameof(addImportStoreAction));
+            // EnsureArg.IsNotNull(addImportStoreAction, nameof(addImportStoreAction));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
             ImportTaskConfiguration importTaskConfiguration = new ImportTaskConfiguration();
@@ -30,7 +30,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
                 Assembly importCoreAssembly = typeof(ImportConstants).Assembly;
                 MediationModule.RegisterAssemblies(fhirServerBuilder.Services, importCoreAssembly);
 
-                addImportStoreAction(fhirServerBuilder);
+                addImportStoreAction?.Invoke(fhirServerBuilder);
+
                 return fhirServerBuilder.AddImportCore(importTaskConfiguration);
             }
 
