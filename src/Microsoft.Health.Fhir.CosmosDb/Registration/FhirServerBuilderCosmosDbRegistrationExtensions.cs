@@ -47,8 +47,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             return fhirServerBuilder
                 .AddCosmosDbPersistence(configureAction)
-                .AddCosmosDbSearch()
-                .AddCosmosDbHealthCheck();
+                .AddCosmosDbSearch();
         }
 
         private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)

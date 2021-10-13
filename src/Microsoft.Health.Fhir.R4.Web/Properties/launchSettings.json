@@ -14,7 +14,15 @@
             "environmentVariables": {
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "DataStore": "CosmosDb",
-                "ASPNETCORE_ENVIRONMENT": "development"
+                "ASPNETCORE_ENVIRONMENT": "development",
+                "SqlServer:Initialize": "true",
+                "SqlServer:AllowDatabaseCreation": "true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
+                "TaskHosting:Enabled": "true",
+                "TaskHosting:MaxRunningTaskCount": "2",
+                "FhirServer:Operations:IntegrationDataStore:StorageAccountConnection": "UseDevelopmentStorage=true",
+                "FhirServer:Operations:Import:Enabled": "true"
             },
             "applicationUrl": "https://localhost:44348/"
         },

@@ -98,5 +98,9 @@ namespace Microsoft.Health.Fhir.Import.Core
         /// Disable unique optional index during import data.
         /// </summary>
         public bool DisableUniqueOptionalIndexesForImport { get; set; }
+
+        public int ImporterBatchSize { get; set; } = 100;
+
+        public int ImporterConcurrentCount { get; set; } = 32;
     }
 }

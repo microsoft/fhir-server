@@ -8,18 +8,11 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations;
-using Microsoft.Health.Fhir.SqlServer.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
-using Microsoft.Health.Fhir.SqlServer.Features.Search;
-using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
-using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Registration;
@@ -42,59 +35,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerSearchParameterStatusDataStore>()
-                .Singleton()
-                .AsSelf()
-                .ReplaceService<ISearchParameterStatusDataStore>();
-
-            services.Add<SearchParameterToSearchValueTypeMap>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SqlServerFhirDataStore>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlServerFhirOperationDataStore>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlServerSearchService>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            AddSqlServerTableRowParameterGenerators(services);
-
-            services.Add<SearchParamTableExpressionQueryGeneratorFactory>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SqlRootExpressionRewriter>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<ChainFlatteningRewriter>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SortRewriter>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<PartitionEliminationRewriter>()
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SqlServerSortingValidator>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
-
             services.Add<SqlServerFhirModel>()
                 .Singleton()
                 .AsSelf()
@@ -102,15 +42,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<SchemaUpgradedHandler>()
                 .Transient()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlServerSearchParameterValidator>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<ReindexJobSqlThrottlingController>()
-                .Singleton()
                 .AsImplementedInterfaces();
 
             services.Add<SqlServerTaskManager>()
@@ -126,15 +57,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SqlServerTaskContextUpdaterFactory>()
                 .Scoped()
                 .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<CompressedRawResourceConverter>()
-                .Transient()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<PurgeOperationCapabilityProvider>()
-                .Transient()
                 .AsImplementedInterfaces();
 
             return fhirServerBuilder;

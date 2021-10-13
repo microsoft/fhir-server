@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Api.Features.BackgroundTaskService;
 using Microsoft.Health.Fhir.Api.Features.Operations.Import;
 using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Import.DataStore.CosmosDb;
 using Microsoft.Health.Fhir.Import.DataStore.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.TaskManagement;
@@ -46,7 +47,13 @@ namespace Microsoft.Health.Fhir.Web
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.OrdinalIgnoreCase))
             {
-                fhirServerBuilder.AddCosmosDb();
+                fhirServerBuilder
+                    .AddImport(builder => builder.AddImportCosmosDbDataStore(), Configuration)
+                    .AddCosmosDb()
+                    .AddSqlServer(config =>
+                    {
+                        Configuration?.GetSection(SqlServerDataStoreConfiguration.SectionName).Bind(config);
+                    });
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.OrdinalIgnoreCase))
             {

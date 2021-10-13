@@ -172,6 +172,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Impor
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Import.DataStore.SqlServer.UnitTests", "src\Microsoft.Health.Fhir.Import.DataStore.SqlServer.UnitTests\Microsoft.Health.Fhir.Import.DataStore.SqlServer.UnitTests.csproj", "{8EC44523-7C1C-4079-8923-A0C2DEB2637C}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Import.DataStore.CosmosDb", "src\Microsoft.Health.Fhir.Import.DataStore.CosmosDb\Microsoft.Health.Fhir.Import.DataStore.CosmosDb.csproj", "{C8B338E4-D147-43B0-BE59-AED71D34AB3E}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -449,6 +451,10 @@ Global
 		{8EC44523-7C1C-4079-8923-A0C2DEB2637C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8EC44523-7C1C-4079-8923-A0C2DEB2637C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8EC44523-7C1C-4079-8923-A0C2DEB2637C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8B338E4-D147-43B0-BE59-AED71D34AB3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8B338E4-D147-43B0-BE59-AED71D34AB3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8B338E4-D147-43B0-BE59-AED71D34AB3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8B338E4-D147-43B0-BE59-AED71D34AB3E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -529,9 +535,10 @@ Global
 		{66214000-0CCE-43FB-9C8F-342FF32FB000} = {30CB1663-335E-4EE0-89EF-F6646E59C76D}
 		{25F9E936-CC1F-4E7A-BAAA-735CB3053D5A} = {30CB1663-335E-4EE0-89EF-F6646E59C76D}
 		{8EC44523-7C1C-4079-8923-A0C2DEB2637C} = {30CB1663-335E-4EE0-89EF-F6646E59C76D}
+		{C8B338E4-D147-43B0-BE59-AED71D34AB3E} = {30CB1663-335E-4EE0-89EF-F6646E59C76D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		RESX_SortFileContentOnSave = True
 		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
+		RESX_SortFileContentOnSave = True
 	EndGlobalSection
 EndGlobal

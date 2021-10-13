@@ -27,6 +27,7 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Import.DataStore.CosmosDb\Microsoft.Health.Fhir.Import.DataStore.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Import.DataStore.SqlServer\Microsoft.Health.Fhir.Import.DataStore.SqlServer.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.Api\Microsoft.Health.Fhir.R5.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
