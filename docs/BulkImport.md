@@ -15,7 +15,7 @@ This feature enables importing FHIR data in NDJSON format to the FHIR server. Th
 
 Here are the high-level steps to use $import. Rest of the document describes some of these steps in detail:
 
-1. [Deploy a new fhir server](#deploy-a-fhir-server) if needed. Ensure that _Enable Import_ is set to _true_ during the installation.
+1. [Deploy a new fhir server](#deploy-a-fhir-server) if needed. Ensure that _Enable Import_ is set to _True_ during the installation.
 1. [Set init import mode](#change-init-import-mode-on-the-fhir-server) on the FHIR server. Setting this mode also suspends write operations (POST, PUT) on the FHIR server.
 1. Upload your NDJSON files to a container in the storage location associated with your FHIR server. You may want to use  [_Azure storage explorer_](https://docs.microsoft.com/en-us/azure/vs-azure-tools-storage-manage-with-storage-explorer?tabs=windows) or [_Az_copy_](https://docs.microsoft.com/en-us/azure/storage/common/storage-ref-azcopy) to upload your data.
 1. Ensure that the storage available on your Azure SQL is at least 3 times that of the sum of your NDJSON files.
@@ -36,9 +36,13 @@ Follow the guide [_QuickstartDeployPortal_](https://github.com/microsoft/fhir-se
 
 ### Change _init import mode_ on the FHIR server
 
-The FHIR server must have _init import mode_ set to _true_ for $import to work. Setting the value to _true_ also suspends the write operations (PUT, POST) on the FHIR server, and must be reverted to _false_ to resume the write operations.
+The FHIR server must have _init import mode_ set to _True_ for $import to work. Setting the value to _True_ also suspends the write operations (PUT, POST) on the FHIR server, and must be reverted to _False_ to resume the write operations.
 
-After the FHIR server app is ready, navigate to app service portal and click **Configuration**. Create the *FhirServer:Operations:Import:InitImportMode* setting if needed by clicking **New application setting**. Set the value to _true_ or _false_ as needed.
+```
+FhirServer:Operations:Import:InitImportMode: True
+```
+
+After the FHIR server app is ready, navigate to app service portal and click **Configuration**. Create the *FhirServer:Operations:Import:InitImportMode* setting if needed by clicking **New application setting**. Set the value to _True_ or _False_ as needed.
 
 Click **OK** then **Save**. Click **Continue** when prompted to restart the app and make the changes take effect.
 
