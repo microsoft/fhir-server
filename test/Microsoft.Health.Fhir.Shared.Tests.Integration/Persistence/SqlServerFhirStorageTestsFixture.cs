@@ -62,6 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         public SqlServerFhirStorageTestsFixture()
             : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
@@ -165,18 +166,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
-            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+            _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+            _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
-            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, fhirRequestContextAccessor);
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(fhirRequestContextAccessor));
+            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
+            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
                 () => searchableSearchParameterDefinitionManager,
                 options,
-                fhirRequestContextAccessor,
+                _fhirRequestContextAccessor,
                 Substitute.For<ISortingValidator>(),
                 NullLogger<SearchOptionsFactory>.Instance);
 
@@ -196,7 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 partitionEliminationRewriter,
                 SqlConnectionWrapperFactory,
                 schemaInformation,
-                fhirRequestContextAccessor,
+                _fhirRequestContextAccessor,
                 new CompressedRawResourceConverter(),
                 NullLogger<SqlServerSearchService>.Instance);
 
@@ -301,6 +302,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(SearchParameterStatusManager))
             {
                 return _searchParameterStatusManager;
+            }
+
+            if (serviceType == typeof(RequestContextAccessor<IFhirRequestContext>))
+            {
+                return _fhirRequestContextAccessor;
             }
 
             return null;

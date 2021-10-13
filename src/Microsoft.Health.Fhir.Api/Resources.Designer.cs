@@ -259,6 +259,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Bundle.entry.request.url is required..
+        /// </summary>
+        public static string InvalidBundleEntryRequestUrl {
+            get {
+                return ResourceManager.GetString("InvalidBundleEntryRequestUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported for this operation..
         /// </summary>
         public static string InvalidBundleType {

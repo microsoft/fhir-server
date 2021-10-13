@@ -398,10 +398,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             {
                 ("batch", string.Empty, HttpStatusCode.OK, null),
                 ("delete", batch.Entry[5].Request.Url, HttpStatusCode.NoContent, ResourceType.Patient),
+                ("conditional-delete", batch.Entry[6].Request.Url, HttpStatusCode.NoContent, ResourceType.Patient),
                 ("create", batch.Entry[0].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
-                ("create", batch.Entry[1].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("conditional-create", batch.Entry[1].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
                 ("update", batch.Entry[2].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
-                ("update", batch.Entry[3].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("conditional-update", batch.Entry[3].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
                 ("update", batch.Entry[4].Request.Url, Constants.IfMatchFailureStatus, ResourceType.Patient),
                 ("search-type", batch.Entry[8].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
                 ("read", batch.Entry[9].Request.Url, HttpStatusCode.NotFound, ResourceType.Patient),
@@ -518,9 +519,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             {
                 ("transaction", string.Empty, HttpStatusCode.OK, null),
                 ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
-                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
+                ("conditional-create", "Patient", HttpStatusCode.OK, ResourceType.Patient),
                 ("update", $"Patient/{existingPatient.Id}", HttpStatusCode.OK, ResourceType.Patient),
-                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.Created, ResourceType.Patient),
+                ("conditional-update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.OK, ResourceType.Patient),
             };
 
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
