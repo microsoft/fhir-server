@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                         ct),
                     cancellationToken);
 
-                return response.Resource.Select(wrapper => wrapper.TaskInfo).ToList();
+                return response.Resource?.Select(wrapper => wrapper.TaskInfo).ToList();
             }
             catch (CosmosException dce)
             {

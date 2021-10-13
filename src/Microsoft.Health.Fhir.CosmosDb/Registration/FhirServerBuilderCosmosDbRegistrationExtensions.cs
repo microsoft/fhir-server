@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection
@@ -228,6 +229,11 @@ namespace Microsoft.Extensions.DependencyInjection
               .AsImplementedInterfaces();
 
             services.Add<CosmosDbTaskConsumer>()
+              .Scoped()
+              .AsSelf()
+              .AsImplementedInterfaces();
+
+            services.Add<CosmosDbTaskContextUpdaterFactory>()
               .Scoped()
               .AsSelf()
               .AsImplementedInterfaces();
