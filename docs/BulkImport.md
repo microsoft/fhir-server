@@ -54,7 +54,7 @@ As _$import_ is an async operation, a **_callback_** link will be returned in _C
 
 ```http
 Prefer:respond-async
-ContentType:application/fhir+json
+Content-Type:application/fhir+json
 ```
 
 #### Body
