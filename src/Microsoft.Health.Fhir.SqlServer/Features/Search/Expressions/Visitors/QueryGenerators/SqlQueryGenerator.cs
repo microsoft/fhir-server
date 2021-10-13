@@ -1036,6 +1036,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendMinOrMax(in IndentedStringBuilder.DelimitedScope delimited, SearchOptions context)
         {
+            if (_schemaInfo.Current < SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
+            {
+                return;
+            }
+
             delimited.BeginDelimitedElement();
             if (context.Sort[0].sortOrder == SortOrder.Ascending)
             {

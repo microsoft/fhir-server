@@ -84,6 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
+            var sqlSortingValidator = new SqlServerSortingValidator(schemaInformation);
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             SqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
@@ -140,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertSearchParamsTvpGenerator,
                 () => _filebasedSearchParameterStatusDataStore,
                 schemaInformation,
-                new SqlServerSortingValidator(schemaInformation),
+                sqlSortingValidator,
                 sqlServerFhirModel,
                 _searchParameterDefinitionManager);
 
@@ -178,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => searchableSearchParameterDefinitionManager,
                 options,
                 _fhirRequestContextAccessor,
-                Substitute.For<ISortingValidator>(),
+                sqlSortingValidator,
                 NullLogger<SearchOptionsFactory>.Instance);
 
             var searchParamTableExpressionQueryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
