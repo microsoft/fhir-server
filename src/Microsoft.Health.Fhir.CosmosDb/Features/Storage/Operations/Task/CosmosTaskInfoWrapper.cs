@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.TaskManagement;
 using Newtonsoft.Json;
 
@@ -30,7 +29,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Task
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public override string PartitionKey { get; } = CosmosDbTaskConstants.TaskPartitionKey;
 
-        [JsonProperty(JobRecordProperties.JobRecord)]
+        [JsonProperty("taskInfo")]
         public TaskInfo TaskInfo { get; private set; }
     }
 }

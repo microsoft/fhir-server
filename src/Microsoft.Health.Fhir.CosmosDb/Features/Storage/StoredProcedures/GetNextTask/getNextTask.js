@@ -21,9 +21,9 @@
 
     function tryQueryAndUpdate(continuation) {
         let query = {
-            query: 'SELECT TOP @count * FROM ROOT r WHERE r.queueId = @queueId and \
-                (r.status = 1 or (r.status = 2 and r.heartbeatDateTime < @expirationDateTime)) \
-                ORDER BY r.heartbeatDateTime',
+            query: 'SELECT TOP @count * FROM ROOT r WHERE r.taskInfo.queueId = @queueId and \
+                (r.taskInfo.status = 1 or (r.taskInfo.status = 2 and r.taskInfo.heartbeatDateTime < @expirationDateTime)) \
+                ORDER BY r.taskInfo.heartbeatDateTime',
             parameters: [
                 { 'name': '@queueId', 'value': queueId },
                 { 'name': '@count', 'value': count },
@@ -54,14 +54,14 @@
     }
 
     function tryUpdateTask(documentToUpdate) {
-        documentToUpdate.heartbeatDateTime = new Date()
-        documentToUpdate.runId = uuidv4()
+        documentToUpdate.taskInfo.heartbeatDateTime = new Date()
+        documentToUpdate.taskInfo.runId = uuidv4()
         var accept = collection.replaceDocument(documentToUpdate._self, documentToUpdate,
-            function (err, documentToUpdate) {
-                if (err) throw "Unable to keep alive task ";
+            function (err, _) {
+                if (err) throw "Unable to get next task ";
             });
 
-        if (!accept) throw "Unable to keep alive, abort";
+        if (!accept) throw "Unable to get next, abort";
     }
 
     function uuidv4() {

@@ -8,8 +8,7 @@
     var collection = getContext().getCollection();
 
     let query = {
-        query: 'SELECT r.taskId, r.queueId, r.status, r.taskTypeId, r.runId, r.isCanceled, r.retryCount, r.maxRetryCount, r.heartbeatDateTime,\
-                r.inputData, r.taskContext, r.result FROM ROOT r WHERE r.taskId = @taskId',
+        query: 'SELECT * FROM ROOT r WHERE r.taskInfo.taskId = @taskId',
         parameters: [{ 'name': '@taskId', 'value': taskId }]
     };
 

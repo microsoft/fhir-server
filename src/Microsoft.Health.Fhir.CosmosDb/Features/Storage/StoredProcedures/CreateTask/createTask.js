@@ -19,7 +19,7 @@ function createTask(taskId, queueId, taskTypeId, inputData, isUniqueTaskByType, 
         throwArgumentValidationError(`The required parameter 'taskTypeId' is not specified.`);
     }
 
-    var taskToCreate = {
+    var taskInfo = {
         taskId: taskId,
         queueId: queueId,
         taskTypeId: parseInt(taskTypeId),
@@ -28,18 +28,23 @@ function createTask(taskId, queueId, taskTypeId, inputData, isUniqueTaskByType, 
         heartbeatDateTime: new Date(),
         status: 1,
         retryCount: 0,
-        isCanceled: 0
+        isCanceled: 0,
+    };
+
+    var taskToCreate = {
+        taskInfo: taskInfo,
+        partitionKey:"Task"
     };
 
     var query = {};
     if (!isUniqueTaskByType) {
         query = {
-            query: 'SELECT VALUE COUNT(1) FROM ROOT r WHERE r.taskId = @taskId or (r.taskTypeId = @taskTypeId and r.status <> 3)',
+            query: 'SELECT VALUE COUNT(1) FROM ROOT r WHERE r.taskInfo.taskId = @taskId or (r.taskInfo.taskTypeId = @taskTypeId and r.taskInfo.status <> 3)',
             parameters: [{ 'name': '@taskId', 'value': taskId }, { 'name': '@taskTypeId', 'value': taskTypeId }]
         };
     } else {
         query = {
-            query: 'SELECT VALUE COUNT(1) FROM ROOT r WHERE r.taskId = @taskId',
+            query: 'SELECT VALUE COUNT(1) FROM ROOT r WHERE r.taskInfo.taskId = @taskId',
             parameters: [{ 'name': '@taskId', 'value': taskId }]
         };
     }

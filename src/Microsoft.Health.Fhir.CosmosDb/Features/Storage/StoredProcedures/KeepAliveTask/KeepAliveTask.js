@@ -12,7 +12,7 @@
     const collection = getContext().getCollection();
 
     let query = {
-        query: 'SELECT * FROM ROOT r WHERE r.taskId = @taskId and r.runId = @runId',
+        query: 'SELECT * FROM ROOT r WHERE r.taskInfo.taskId = @taskId and r.taskInfo.runId = @runId',
         parameters: [{ 'name': '@taskId', 'value': taskId }, { 'name': '@runId', 'value': runId }]
     };
 
@@ -38,7 +38,7 @@
     }
 
     function tryKeepAlive(documentToUpdate) {
-        documentToUpdate.heartbeatDateTime = new Date()
+        documentToUpdate.taskInfo.heartbeatDateTime = new Date()
         var accept = collection.replaceDocument(documentToUpdate._self, documentToUpdate,
             function (err, documentUpdated) {
                 if (err) throw "Unable to keep alive task ";

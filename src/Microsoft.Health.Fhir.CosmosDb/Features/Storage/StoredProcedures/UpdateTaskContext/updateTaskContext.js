@@ -12,7 +12,7 @@
     const collection = getContext().getCollection();
 
     let query = {
-        query: 'SELECT * FROM ROOT r WHERE r.taskId = @taskId and r.runId = @runId',
+        query: 'SELECT * FROM ROOT r WHERE r.taskInfo.taskId = @taskId and r.taskInfo.runId = @runId',
         parameters: [{ 'name': '@taskId', 'value': taskId }, { 'name': '@runId', 'value': runId }]
     };
 
@@ -39,8 +39,8 @@
 
     function tryUpdateTaskContext(documentToUpdate) {
         // Find list of active running jobs.
-        documentToUpdate.heartbeatDateTime = new Date()
-        documentToUpdate.taskContext = taskContext
+        documentToUpdate.taskInfo.heartbeatDateTime = new Date()
+        documentToUpdate.taskInfo.taskContext = taskContext
 
         var accept = collection.replaceDocument(documentToUpdate._self, documentToUpdate,
             function (err, documentUpdated) {
