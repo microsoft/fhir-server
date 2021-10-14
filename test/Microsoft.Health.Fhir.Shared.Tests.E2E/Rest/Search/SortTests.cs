@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatientsWithSameBirthdate(tag);
 
-            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients.Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort={sortParameterName}&_count=3", false, pageSize: 3, patients);
         }
 
         [SkippableFact]
@@ -480,6 +480,173 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=_lastUpdated&subject:missing=true", false, expected_resources.ToArray());
         }
 
+        [SkippableFact]
+        public async Task GivenPatientsWithMultipleNames_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family", sort: false, patients[0..5]);
+        }
+
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public async Task GivenPatientsWithMultipleNamesAndPaginated_WhenFilteringAndSortingByFamilyName_ThenResourcesAreReturnedInAscendingOrder(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=family&_count={count}", sort: false, pageSize: count, patients[0..5]);
+        }
+
+        [SkippableFact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithMultipleNamesForCosmos_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[3], patients[2], patients[0], };
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithMultipleNamesForSql_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family", sort: false, expectedPatients.ToArray());
+        }
+
+        [Theory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithMultipleNamesAndPaginatedForSql_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[2], patients[3], patients[0], };
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients.ToArray());
+        }
+
+        /*
+         * There is a difference in the way we break ties between Cosmos and SQL.
+         * For Cosmos, we choose the resource based on last updated time ordered by overall sort order.
+         * For SQL, we always choose the "oldest" resource based on last updated time (irrespective of overall sort order).
+         * Hence we see a difference when sorting by Descending order.
+         * */
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithMultipleNamesAndPaginatedForCosmos_WhenFilteringAndSortingByFamilyNameWithHyphen_ThenResourcesAreReturnedInAscendingOrder(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMultipleFamilyNames(tag);
+
+            List<Patient> expectedPatients = new List<Patient>() { patients[4], patients[1], patients[3], patients[2], patients[0], };
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family=R&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients.ToArray());
+        }
+
+        [SkippableFact]
+        public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
+
+            var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).ToArray();
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family", sort: false, expectedPatients);
+        }
+
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyName_ThenThosePatientsAreIncludedInResult(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
+
+            var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).ToArray();
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=family&_count={count}", sort: false, pageSize: count, expectedPatients);
+        }
+
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginatedForSql_WhenSortingByFamilyNameWithHyphen_ThenThosePatientsAreIncludedInResult(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
+
+            var expectedPatients = new Patient[]
+                {
+                    patients[0],
+                    patients[4],
+                    patients[6],
+                    patients[5],
+                    patients[1],
+                    patients[2],
+                    patients[3],
+                };
+
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients);
+        }
+
+        /*
+         * There is a difference in the way we break ties between Cosmos and SQL.
+         * For Cosmos, we choose the resource based on overall sort order.
+         * For SQL, we always choose the oldest resource (irrespective of overall sort order).
+         * Hence we see a difference when sorting by Descending order.
+         * */
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginatedForCosmos_WhenSortingByFamilyNameWithHyphen_ThenThosePatientsAreIncludedInResult(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatientsWithMissingFamilyNames(tag);
+
+            var expectedPatients = patients.OrderBy(x => x.Name.Min(y => y.Family)).Reverse().ToArray();
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-family&_count={count}", sort: false, pageSize: count, expectedPatients);
+        }
+
+        [SkippableTheory]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        public async Task GivenPatientsWithFamilyNameMissingAndPaginated_WhenSortingByFamilyNameWithTotal_ThenCorrectTotalReturned(int count)
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithMissingFamilyNames(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort=family&_count={count}&_total=accurate");
+            Assert.Equal(7, response.Resource.Total);
+        }
+
+        [SkippableFact]
+        public async Task GivenPatientsWithFamilyNameMissing_WhenSortingByFamilyNameWithTotal_ThenCorrectTotalReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+            await CreatePatientsWithMissingFamilyNames(tag);
+
+            var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort=family&_total=accurate");
+            Assert.Equal(7, response.Resource.Total);
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
@@ -525,9 +692,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
+        private async Task<Patient[]> CreatePatientsWithMissingFamilyNames(string tag)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "Portland", "Williams", tag),
+                p => SetPatientInfo(p, "Vancouver", family: null, tag),
+                p => SetPatientInfo(p, "Bellingham", family: null, tag),
+                p => SetPatientInfo(p, "Bend", family: null, tag),
+                p => SetPatientInfo(p, "Seattle", "Mary", tag),
+                p => SetPatientInfo(p, "Portland", "Cathy", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag));
+
+            return patients;
+        }
+
+        private async Task<Patient[]> CreatePatientsWithMultipleFamilyNames(string tag)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "Portland", new List<string>() { "Rasputin", "Alex" }, tag),
+                p => SetPatientInfo(p, "Portland", new List<string>() { "Christie", "James", "Rock" }, tag),
+                p => SetPatientInfo(p, "Seattle", new List<string>() { "Robinson", "Ragnarok" }, tag),
+                p => SetPatientInfo(p, "Portland", new List<string>() { "Robinson", "Ragnarok" }, tag),
+                p => SetPatientInfo(p, "Seattle", new List<string>() { "Rasputin", "Ye" }, tag),
+                p => SetPatientInfo(p, "Seattle", new List<string>() { "Mike", "Duke" }, tag),
+                p => SetPatientInfo(p, "Portland", "Cathy", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag));
+
+            return patients;
+        }
+
         private void SetPatientInfo(Patient patient, string city, string family, string tag)
         {
             SetPatientInfoInternal(patient, city, family, tag, "1970-01-01");
+        }
+
+        private void SetPatientInfo(Patient patient, string city, List<string> familyNames, string tag)
+        {
+            SetPatientInfoInternal(patient, city, familyNames, tag, "1970-01-01");
         }
 
         private void SetPatientInfo(Patient patient, string city, string family, string tag, DateTime birthDate)
@@ -537,6 +738,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         private void SetPatientInfoInternal(Patient patient, string city, string family, string tag, string birthDate)
+        {
+            SetPatientInfoInternal(patient, city, new List<string>() { family }, tag, birthDate);
+        }
+
+        private void SetPatientInfoInternal(Patient patient, string city, List<string> family, string tag, string birthDate)
         {
             patient.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
 
@@ -548,7 +754,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 },
             };
 
-            patient.Name = new List<HumanName> { new HumanName { Family = family }, };
+            var familyNames = new List<HumanName>();
+            foreach (string name in family)
+            {
+                familyNames.Add(new HumanName { Family = name });
+            }
+
+            patient.Name = familyNames;
             patient.BirthDate = birthDate;
         }
 

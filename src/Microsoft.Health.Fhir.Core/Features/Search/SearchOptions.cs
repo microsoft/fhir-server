@@ -26,6 +26,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
         }
 
+        internal SearchOptions(SearchOptions other)
+        {
+            ContinuationToken = other.ContinuationToken;
+            CountOnly = other.CountOnly;
+            IncludeTotal = other.IncludeTotal;
+
+            MaxItemCountSpecifiedByClient = other.MaxItemCountSpecifiedByClient;
+            Expression = other.Expression;
+            UnsupportedSearchParams = new List<Tuple<string, string>>(other.UnsupportedSearchParams);
+            Sort = new List<(SearchParameterInfo, SortOrder)>(other.Sort);
+
+            if (other.MaxItemCount > 0)
+            {
+                MaxItemCount = other.MaxItemCount;
+            }
+
+            if (other.IncludeCount > 0)
+            {
+                IncludeCount = other.IncludeCount;
+            }
+        }
+
         /// <summary>
         /// Gets the optional continuation token.
         /// </summary>

@@ -199,6 +199,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
+                ("Procedure", "[dbo].[UpsertResource_4]"),
+                ("Procedure", "[dbo].[ReindexResource]"),
+                ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[CreateTask]"),
                 ("Procedure", "[dbo].[GetNextTask]"),
                 ("Procedure", "[dbo].[HardDeleteResource]"),
@@ -220,6 +223,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
@@ -229,7 +234,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            return remainingDifferences.Count == 0;
+            bool unexpectedDifference = false;
+            foreach (SchemaDifference schemaDifference in remainingDifferences)
+            {
+                if (schemaDifference.Name == "SqlTable" &&
+                    (schemaDifference.SourceObject.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
+                    schemaDifference.SourceObject.Name.ToString() == "[dbo].[StringSearchParam]"))
+                {
+                    foreach (SchemaDifference child in schemaDifference.Children)
+                    {
+                        if (child.TargetObject == null && child.SourceObject == null && (child.Name == "PartitionColumn" || child.Name == "PartitionScheme"))
+                        {
+                            // The ParitionColumn and the PartitionScheme come up in the differences list even though
+                            // when digging into the "difference" object the values being compared are equal.
+                            continue;
+                        }
+                        else
+                        {
+                            unexpectedDifference = true;
+                        }
+                    }
+                }
+                else
+                {
+                    unexpectedDifference = true;
+                }
+            }
+
+            return !unexpectedDifference;
         }
     }
 }
