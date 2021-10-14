@@ -8,7 +8,7 @@ We are making the following changes in this version of the schema
 */
 
 IF TYPE_ID(N'BulkStringSearchParamTableType_2') IS NULL
-BEGIN            
+BEGIN
     CREATE TYPE dbo.BulkStringSearchParamTableType_2 AS TABLE
     (
         Offset int NOT NULL,
@@ -21,7 +21,7 @@ BEGIN
 END
 
 IF NOT EXISTS (SELECT 'X' FROM SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID(N'StringSearchParam') AND NAME = 'IsMin')
-BEGIN    
+BEGIN
     ALTER TABLE dbo.StringSearchParam
     ADD IsMin bit NOT NULL,
         IsMax bit NOT NULL,
@@ -123,7 +123,7 @@ BEGIN
 END
 
 IF NOT EXISTS (SELECT 'X' FROM SYS.COLUMNS WHERE OBJECT_ID = OBJECT_ID(N'DateTimeSearchParam') AND NAME = 'IsMin')
-BEGIN    
+BEGIN
     ALTER TABLE dbo.DateTimeSearchParam
     ADD IsMin bit NOT NULL,
         IsMax bit NOT NULL,
@@ -131,10 +131,8 @@ BEGIN
         CONSTRAINT date_IsMax_Constraint DEFAULT 0 FOR IsMax;
 END
 
-    ALTER TABLE dbo.ResourceChangeDataStaging CHECK CONSTRAINT chk_ResourceChangeDataStaging_partition;
-END;
 GO
-    
+
 UPDATE dbo.DateTimeSearchParam
 SET IsMin = 1
 FROM 
@@ -150,7 +148,7 @@ WHERE
     AND dbo.DateTimeSearchParam.SearchParamId = results.SearchParamId
     AND dbo.DateTimeSearchParam.StartDateTime = results.minVal
 )
-        
+
 UPDATE dbo.DateTimeSearchParam
 SET IsMax = 1
 FROM 
@@ -363,26 +361,26 @@ AS
 
     SET XACT_ABORT ON
     BEGIN TRANSACTION
-                
+
     -- variables for the existing version of the resource that will be replaced
     DECLARE @previousResourceSurrogateId bigint
     DECLARE @previousVersion bigint
     DECLARE @previousIsDeleted bit
-        
+
     -- This should place a range lock on a row in the IX_Resource_ResourceTypeId_ResourceId nonclustered filtered index
     SELECT @previousResourceSurrogateId = ResourceSurrogateId, @previousVersion = Version, @previousIsDeleted = IsDeleted
     FROM dbo.Resource WITH (UPDLOCK, HOLDLOCK)
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
-        
+
     IF (@etag IS NOT NULL AND @etag <> @previousVersion) BEGIN
         THROW 50412, 'Precondition failed', 1;
     END
-                            
+
     DECLARE @version int -- the version of the resource being written
-        
+
     IF (@previousResourceSurrogateId IS NULL) BEGIN
         -- There is no previous version of this resource
-                
+
         IF (@isDeleted = 1) BEGIN
             -- Don't bother marking the resource as deleted since it already does not exist.
             COMMIT TRANSACTION
@@ -405,7 +403,7 @@ AS
 
         IF (@isDeleted = 1 AND @previousIsDeleted = 1) BEGIN
             -- Already deleted - don't create a new version
-    COMMIT TRANSACTION
+            COMMIT TRANSACTION
             RETURN
         END
 
@@ -599,17 +597,17 @@ AS
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0, IsMin, IsMax
     FROM @dateTimeSearchParms
-    
+
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, 0
     FROM @referenceTokenCompositeSearchParams
-    
+
     INSERT INTO dbo.TokenTokenCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, 0
     FROM @tokenTokenCompositeSearchParams
-    
+
     INSERT INTO dbo.TokenDateTimeCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, 0
@@ -619,27 +617,26 @@ AS
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, 0
     FROM @tokenQuantityCompositeSearchParams
-        
+
     INSERT INTO dbo.TokenStringCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, 0
     FROM @tokenStringCompositeSearchParams
-        
+
     INSERT INTO dbo.TokenNumberNumberCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, 0
     FROM @tokenNumberNumberCompositeSearchParams
-        
+
     SELECT @version
-        
+
     IF (@isResourceChangeCaptureEnabled = 1) BEGIN
         --If the resource change capture feature is enabled, to execute a stored procedure called CaptureResourceChanges to insert resource change data.
         EXEC dbo.CaptureResourceChanges @isDeleted=@isDeleted, @version=@version, @resourceId=@resourceId, @resourceTypeId=@resourceTypeId
     END
 
     COMMIT TRANSACTION
-END;
-GO 
+GO
 
 --
 -- STORED PROCEDURE
@@ -822,17 +819,17 @@ AS
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, 0
     FROM @numberSearchParams
-    
+
     INSERT INTO dbo.QuantitySearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, 0
     FROM @quantitySearchParams
-    
+
     INSERT INTO dbo.DateTimeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0, IsMin, IsMax
     FROM @dateTimeSearchParms
-            
+
     INSERT INTO dbo.ReferenceTokenCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, 0
@@ -842,30 +839,29 @@ AS
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, 0
     FROM @tokenTokenCompositeSearchParams
-        
+
     INSERT INTO dbo.TokenDateTimeCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, 0
     FROM @tokenDateTimeCompositeSearchParams
-                            
+
     INSERT INTO dbo.TokenQuantityCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, 0
     FROM @tokenQuantityCompositeSearchParams
-        
+
     INSERT INTO dbo.TokenStringCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, 0
     FROM @tokenStringCompositeSearchParams
-        
+
     INSERT INTO dbo.TokenNumberNumberCompositeSearchParam
         (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
     SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, 0
     FROM @tokenNumberNumberCompositeSearchParams
 
     COMMIT TRANSACTION
-END;
-GO 
+GO
 
 --
 -- STORED PROCEDURE
@@ -963,12 +959,12 @@ AS
 
     DECLARE @versionDiff int
     SET @versionDiff = (SELECT COUNT(*) FROM @computedValues WHERE VersionProvided IS NOT NULL AND VersionProvided <> VersionInDatabase)
-    
+
     IF (@versionDiff > 0) BEGIN
         -- Don't reindex resources that have outdated versions
         DELETE FROM @computedValues
         WHERE  VersionProvided IS NOT NULL AND VersionProvided <> VersionInDatabase
-END
+    END
 
     -- Update the search parameter hash value in the main resource table
     UPDATE resourceInDB
@@ -1141,7 +1137,5 @@ END
 
     SELECT @versionDiff
 
-COMMIT TRANSACTION
+    COMMIT TRANSACTION
 GO
-
-
