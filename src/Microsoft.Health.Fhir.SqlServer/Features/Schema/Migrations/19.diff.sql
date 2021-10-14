@@ -210,5 +210,5 @@ BEGIN
       FROM dbo.ResourceChangeData WITH (REPEATABLEREAD)
     WHERE Timestamp >= @lastProcessedDateTime and Id >= @startId 
     ORDER BY Timestamp ASC, Id ASC;
-END
+END;
 GO

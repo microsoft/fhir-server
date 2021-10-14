@@ -3499,7 +3499,7 @@ BEGIN
         (ResourceId, ResourceTypeId, ResourceVersion, ResourceChangeTypeId)
     VALUES
         (@resourceId, @resourceTypeId, @version, @changeType)
-END
+END;
 GO
 
 --
