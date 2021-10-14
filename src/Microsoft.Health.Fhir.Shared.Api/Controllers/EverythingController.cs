@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EverythingOperationParameterNames.End,
             KnownQueryParameterNames.Since,
             KnownQueryParameterNames.Type,
+            EverythingOperationParameterNames.ExcludeLinks,
             KnownQueryParameterNames.ContinuationToken,
         };
 
@@ -63,6 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="end">The end date relates to care dates</param>
         /// <param name="since">Resources that have been updated since this time will be included in the response</param>
         /// <param name="type">Comma-delimited FHIR resource types to include in the return resources</param>
+        /// <param name="excludeLinks">True if patient links should not be processed, false otherwise. This defaults to false if not provided.</param>
         /// <param name="ct">The continuation token</param>
         [HttpGet]
         [Route(KnownRoutes.PatientEverythingById, Name = RouteNames.PatientEverythingById)]
@@ -73,11 +75,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = EverythingOperationParameterNames.End)] PartialDateTime end,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string type,
+            [FromQuery(Name = EverythingOperationParameterNames.ExcludeLinks)] bool excludeLinks,
             string ct)
         {
             IReadOnlyList<Tuple<string, string>> unsupportedParameters = ReadUnsupportedParameters();
 
-            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, ct, unsupportedParameters), HttpContext.RequestAborted);
+            EverythingOperationResponse result = await _mediator.Send(new EverythingOperationRequest(ResourceType.Patient.ToString(), idParameter, start, end, since, type, excludeLinks, ct, unsupportedParameters), HttpContext.RequestAborted);
 
             return FhirResult.Create(result.Bundle);
         }
@@ -88,7 +91,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value))
                 .ToArray();
 
-            var unsupportedParameters = parameters.Where(x => !_supportedParameters.Contains(x.Item1.ToLower(CultureInfo.CurrentCulture))).ToList();
+            var unsupportedParameters = parameters.Where(x => !_supportedParameters.Contains(x.Item1)).ToList();
 
             foreach (Tuple<string, string> unsupportedParameter in unsupportedParameters)
             {

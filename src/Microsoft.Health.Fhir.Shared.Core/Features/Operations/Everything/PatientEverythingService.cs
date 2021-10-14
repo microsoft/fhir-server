@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     /// "seealso" links point to another patient resource that contains data about the same person. We follow "seealso"
     /// links and run Patient $everything on them, returning information in phases as we did for the parent patient. We
     /// only do this once, so we do not follow the "seealso" links of a "seealso" link.
+    /// Link processing can be disabled using the exclude links parameter.
     /// </summary>
     public class PatientEverythingService : IPatientEverythingService
     {
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IUrlResolver _urlResolver;
-        private readonly IFhirDataStore _fhirDataStore;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             IReferenceSearchValueParser referenceSearchValueParser,
             IResourceDeserializer resourceDeserializer,
             IUrlResolver urlResolver,
-            IFhirDataStore fhirDataStore)
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
-            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
 
             _searchServiceFactory = searchServiceFactory;
             _searchOptionsFactory = searchOptionsFactory;
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             _referenceSearchValueParser = referenceSearchValueParser;
             _resourceDeserializer = resourceDeserializer;
             _urlResolver = urlResolver;
-            _fhirDataStore = fhirDataStore;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
         }
 
         public async Task<SearchResult> SearchAsync(
@@ -83,6 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             PartialDateTime end,
             PartialDateTime since,
             string type,
+            bool excludeLinks,
             string continuationToken,
             CancellationToken cancellationToken)
         {
@@ -112,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             {
                 // Phase 0 gets the patient and any resources it references directly.
                 case 0:
-                    searchResult = await SearchIncludes(resourceId, parentPatientId, since, types, token, cancellationToken);
+                    searchResult = await SearchIncludes(resourceId, parentPatientId, since, types, token, !excludeLinks, cancellationToken);
 
                     if (!searchResult.Results.Any())
                     {
@@ -180,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
             else
             {
-                nextContinuationToken = await CheckForNextSeeAlsoLinkAndSetToken(parentPatientId, token, cancellationToken);
+                nextContinuationToken = await CheckForNextSeeAlsoLinkAndSetToken(parentPatientId, token, !excludeLinks, cancellationToken);
             }
 
             return new SearchResult(searchResult.Results, nextContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
@@ -192,6 +194,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             PartialDateTime since,
             IReadOnlyList<string> types,
             EverythingOperationContinuationToken token,
+            bool linkProcessingEnabled,
             CancellationToken cancellationToken)
         {
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
@@ -211,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
             // If we are currently processing the parent patient
-            if (!token.IsProcessingSeeAlsoLink)
+            if (linkProcessingEnabled && !token.IsProcessingSeeAlsoLink)
             {
                 SearchResultEntry parentPatientResource = searchResultEntries.FirstOrDefault(s =>
                     string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
@@ -290,10 +293,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             return parentPatient.Link;
         }
 
-        private async Task<string> CheckForNextSeeAlsoLinkAndSetToken(string parentPatientId, EverythingOperationContinuationToken token, CancellationToken cancellationToken)
+        private async Task<string> CheckForNextSeeAlsoLinkAndSetToken(
+            string parentPatientId,
+            EverythingOperationContinuationToken token,
+            bool linkProcessingEnabled,
+            CancellationToken cancellationToken)
         {
-            // Get the version of the parent patient we recorded in the first $everything operation API call.
-            ResourceWrapper parentPatientResource = await _fhirDataStore.GetAsync(new ResourceKey(KnownResourceTypes.Patient, parentPatientId, token.ParentPatientVersionId), cancellationToken);
+            if (!linkProcessingEnabled)
+            {
+                return null;
+            }
+
+            ResourceWrapper parentPatientResource;
+
+            using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())
+            {
+                // Get the version of the parent patient we recorded in the first $everything operation API call.
+                parentPatientResource = await store.Value.GetAsync(new ResourceKey(KnownResourceTypes.Patient, parentPatientId, token.ParentPatientVersionId), cancellationToken);
+            }
 
             // If it wasn't found, it means the parent patient doesn't exist in the database.
             if (parentPatientResource == null)

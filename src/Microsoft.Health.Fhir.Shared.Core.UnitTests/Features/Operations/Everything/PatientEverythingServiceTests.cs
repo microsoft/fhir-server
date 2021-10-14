@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Everything;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -31,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
         private readonly IReferenceSearchValueParser _referenceSearchValueParser = Substitute.For<IReferenceSearchValueParser>();
         private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
-        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStore = Substitute.For<Func<IScoped<IFhirDataStore>>>();
 
         private readonly PatientEverythingService _patientEverythingService;
 
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Everything
             _searchService.SearchAsync(Arg.Any<SearchOptions>(), CancellationToken.None).Returns(searchResult);
             _searchService.SearchHistoryAsync(KnownResourceTypes.Patient, Arg.Any<string>(), null, null, null, null, Arg.Any<string>(), CancellationToken.None).Returns(searchResult);
 
-            SearchResult actualResult = await _patientEverythingService.SearchAsync("123", null, null, null, null, null, CancellationToken.None);
+            SearchResult actualResult = await _patientEverythingService.SearchAsync("123", null, null, null, null, false, null, CancellationToken.None);
 
             Assert.Equal(searchResult.ContinuationToken, actualResult.ContinuationToken);
             Assert.Equal(searchResult.Results, actualResult.Results);
