@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         public SqlServerFhirResourceChangeCaptureEnabledTests(SqlServerFhirResourceChangeCaptureFixture fixture)
         {
             _fixture = fixture;
-            _schemaInformation = new SchemaInformation((int)SchemaVersion.V15, SchemaVersionConstants.Max);
+            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             _schemaInformation.Current = SchemaVersionConstants.Max;
         }
 

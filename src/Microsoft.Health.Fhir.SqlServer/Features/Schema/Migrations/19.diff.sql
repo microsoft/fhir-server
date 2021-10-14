@@ -3,26 +3,26 @@ We are making the following changes in this version of the schema
 -- Fixed issue with AcquiredExportJobs throwing an exception if the calculated limit was 0 or negative. 
 */
 
-IF NOT EXISTS(SELECT * FROM sys.partition_functions WHERE  name = 'PartitionFunction_ResourceChangeData_Timestamp')
-BEGIN            
+IF NOT EXISTS(SELECT * FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
+BEGIN 
     -- Partition function for the ResourceChangeData table.
     -- It is not a fixed-sized partition. It is a sliding window partition.
     -- Adding a range right partition function on a timestamp column. 
-    -- Range right means that the actual boundary value belongs to its right partition, 
+    -- Range right means that the actual boundary value belongs to its right partition,
     -- it is the first value in the right partition.
     CREATE PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp (datetime2(7))
         AS RANGE RIGHT FOR VALUES('1970-01-01T00:00:00.0000000');
 END;
 
 IF NOT EXISTS(SELECT * FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp')
-BEGIN    
-    -- Partition scheme which uses a partition function called PartitionFunction_ResourceChangeData_Timestamp, 
+BEGIN 
+    -- Partition scheme which uses a partition function called PartitionFunction_ResourceChangeData_Timestamp,
     -- and places partitions on the PRIMARY filegroup.
-    CREATE PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp 
+    CREATE PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp
         AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
 END; 
 
-IF (EXISTS(SELECT * FROM sys.partition_functions WHERE  name = 'PartitionFunction_ResourceChangeData_Timestamp')
+IF (EXISTS(SELECT * FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
 	AND EXISTS(SELECT * FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp'))
 BEGIN
    -- Creates initial partitions based on default 48-hour retention period.
@@ -30,10 +30,10 @@ BEGIN
     DECLARE @rightPartitionBoundary datetime2(7);
     DECLARE @currentDateTime datetime2(7) = sysutcdatetime();
 		
-	-- There will be 51 partition boundaries and 52 partitions, 48 partitions for history, 
+	-- There will be 51 partition boundaries and 52 partitions, 48 partitions for history,
     -- one for the current hour, one for the next hour, and 2 partitions for start and end.
     WHILE @numberOfPartitions >= -1 
-    BEGIN        
+    BEGIN
         -- Rounds the start datetime to the hour.
         SET @rightPartitionBoundary = DATEADD(hour, DATEDIFF(hour, 0, @currentDateTime) - @numberOfPartitions, 0);
 
@@ -46,8 +46,8 @@ BEGIN
 		BEGIN
 			-- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
 			ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
-			ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary); 
-		END;            
+			ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary);
+		END;
             
         SET @numberOfPartitions -= 1;
     END;
@@ -70,15 +70,20 @@ BEGIN
 END;
 GO
 
--- Creates check for a partition check.
-IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'chk_ResourceChangeDataStaging_partition') 
+-- Adds a check constraint on the staging table for a partition boundary validation.
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_ResourceChangeDataStaging_partition')
 BEGIN    
     ALTER TABLE dbo.ResourceChangeDataStaging WITH CHECK 
-        ADD CONSTRAINT chk_ResourceChangeDataStaging_partition CHECK(Timestamp < CONVERT(DATETIME2(7), '9999-12-31 23:59:59.9999999'));
-
-    ALTER TABLE dbo.ResourceChangeDataStaging CHECK CONSTRAINT chk_ResourceChangeDataStaging_partition;
+        ADD CONSTRAINT CHK_ResourceChangeDataStaging_partition CHECK(Timestamp < CONVERT(DATETIME2(7), '9999-12-31 23:59:59.9999999'));
 END;
 GO
+
+IF EXISTS(SELECT 1 FROM sys.check_constraints WHERE name = 'CHK_ResourceChangeDataStaging_partition')
+BEGIN    
+    ALTER TABLE dbo.ResourceChangeDataStaging CHECK CONSTRAINT CHK_ResourceChangeDataStaging_partition;
+END;
+GO
+
     
 IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
 BEGIN
@@ -89,7 +94,7 @@ END;
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
 BEGIN    
     -- Adds primary key clustered index.
-    ALTER TABLE dbo.ResourceChangeData ADD CONSTRAINT PK_ResourceChangeData_TimestampId 
+    ALTER TABLE dbo.ResourceChangeData ADD CONSTRAINT PK_ResourceChangeData_TimestampId
         PRIMARY KEY CLUSTERED(Timestamp ASC, Id ASC) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp)
 END;
 GO
@@ -163,7 +168,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     FetchResourceChanges
+--     FetchResourceChanges_2
 --
 -- DESCRIPTION
 --     Returns the number of resource change records from startId. The start id is inclusive.
@@ -188,13 +193,13 @@ BEGIN
 
     SET NOCOUNT ON;
     
-    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
-    -- using the Repeatable Read isolation level table hint to avoid skipping resource changes 
-    -- due to interleaved transactions on the resource change data table.    
+    -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database,
+    -- using the Repeatable Read isolation level table hint to avoid skipping resource changes
+    -- due to interleaved transactions on the resource change data table. 
     -- In Repeatable Read, the select query execution will be blocked until other open transactions are completed
     -- for rows that match the search condition of the select statement. 
     -- A write transaction (update/delete) on the rows that match 
-    -- the search condition of the select statement will wait until the read transaction is completed. 
+    -- the search condition of the select statement will wait until the read transaction is completed.
     -- But, other transactions can insert new rows.
     SELECT TOP(@pageSize) Id,
       Timestamp,

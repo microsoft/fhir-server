@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = string.Empty });
             var connectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var connectionFactory = new DefaultSqlConnectionFactory(connectionStringProvider);
-            var schemaInformation = new SchemaInformation((int)SchemaVersion.V15, SchemaVersionConstants.Max);
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             schemaInformation.Current = SchemaVersionConstants.Max;
             resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(connectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
         }

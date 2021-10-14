@@ -3371,12 +3371,12 @@ GO
 -- Partition function for the ResourceChangeData table.
 -- It is not a fixed-sized partition. It is a sliding window partition.
 -- Adding a range right partition function on a timestamp column. 
--- Range right means that the actual boundary value belongs to its right partition, 
+-- Range right means that the actual boundary value belongs to its right partition,
 -- it is the first value in the right partition.
 CREATE PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp (datetime2(7))
 AS RANGE RIGHT FOR VALUES('1970-01-01T00:00:00.0000000');
 
--- Partition scheme which uses a partition function called PartitionFunction_ResourceChangeData_Timestamp, 
+-- Partition scheme which uses a partition function called PartitionFunction_ResourceChangeData_Timestamp,
 -- and places partitions on the PRIMARY filegroup.
 CREATE PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
 
@@ -3385,7 +3385,7 @@ DECLARE @numberOfPartitions int = 48;
 DECLARE @rightPartitionBoundary datetime2(7);
 DECLARE @currentDateTime datetime2(7) = sysutcdatetime();
 
--- There will be 51 partition boundaries and 52 partitions, 48 partitions for history, 
+-- There will be 51 partition boundaries and 52 partitions, 48 partitions for history,
 -- one for the current hour, one for the next hour, and 2 partitions for start and end.
 WHILE @numberOfPartitions >= -1 
 BEGIN        
@@ -3425,11 +3425,11 @@ CREATE TABLE dbo.ResourceChangeDataStaging
     CONSTRAINT PK_ResourceChangeDataStaging_TimestampId PRIMARY KEY (Timestamp, Id)
 ) ON [PRIMARY]
 
--- Creates check for a partition check.
+-- Adds a check constraint on the staging table for a partition boundary validation.
 ALTER TABLE dbo.ResourceChangeDataStaging WITH CHECK 
-    ADD CONSTRAINT chk_ResourceChangeDataStaging_partition CHECK(Timestamp < CONVERT(DATETIME2(7), '9999-12-31 23:59:59.9999999'));
+    ADD CONSTRAINT CHK_ResourceChangeDataStaging_partition CHECK(Timestamp < CONVERT(DATETIME2(7), '9999-12-31 23:59:59.9999999'));
 
-ALTER TABLE dbo.ResourceChangeDataStaging CHECK CONSTRAINT chk_ResourceChangeDataStaging_partition;
+ALTER TABLE dbo.ResourceChangeDataStaging CHECK CONSTRAINT CHK_ResourceChangeDataStaging_partition;
 
 /*************************************************************
     Resource change type table
@@ -3504,7 +3504,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     FetchResourceChanges
+--     FetchResourceChanges_2
 --
 -- DESCRIPTION
 --     Returns the number of resource change records from startId. The start id is inclusive.
@@ -3531,7 +3531,7 @@ BEGIN
 	
     -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
     -- using the Repeatable Read isolation level table hint to avoid skipping resource changes 
-    -- due to interleaved transactions on the resource change data table.    
+    -- due to interleaved transactions on the resource change data table.
     -- In Repeatable Read, the select query execution will be blocked until other open transactions are completed
     -- for rows that match the search condition of the select statement. 
     -- A write transaction (update/delete) on the rows that match 
@@ -3582,20 +3582,20 @@ AS
 							FROM sys.partition_range_values AS prv
 								JOIN sys.partition_functions AS pf
 									ON pf.function_id = prv.function_id
-							WHERE  pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-							ORDER  BY prv.boundary_id DESC) AS datetime2(7));
+							WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+							ORDER BY prv.boundary_id DESC) AS datetime2(7));
 							
 		-- Adds one due to starting from the current hour.
 		DECLARE @numberOfPartitionsToAdd int = @numberOfFuturePartitionsToAdd + 1;	
 		
 		WHILE @numberOfPartitionsToAdd > 0 
-		BEGIN  
+		BEGIN
 			-- Checks if a partition exists.
 			IF (@startingRightPartitionBoundary < @partitionBoundary) 
 			BEGIN
 				-- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
 				ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [PRIMARY];
-				ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@partitionBoundary); 
+				ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@partitionBoundary);
 			END;
 				
 			-- Adds one hour for the next partition.
@@ -3611,7 +3611,7 @@ GO
 --     RemovePartitionFromResourceChanges
 --
 -- DESCRIPTION
---     Switches out and merges the extreme left partition with the imediate left partition.
+--     Switches out and merges the extreme left partition with the immediate left partition.
 --     After that, truncates the staging table to purge the old resource change data.
 --
 --     @partitionBoundary
@@ -3684,7 +3684,7 @@ AS
 							ORDER BY prv.boundary_id DESC) AS datetime2(7));
 
 		-- Rounds the current datetime to the hour.
-        DECLARE @timestamp datetime2(7) =  DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
+        DECLARE @timestamp datetime2(7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
         
         -- Ensures the next boundary value is greater than the current datetime.
         IF (@rightPartitionBoundary < @timestamp) BEGIN

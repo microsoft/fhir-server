@@ -156,9 +156,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
 
         private void PopulateFetchResourceChangesCommand(SqlCommand sqlCommand, long startId, DateTime lastProcessedDateTime, short pageSize)
         {
+            sqlCommand.CommandType = CommandType.StoredProcedure;
             if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
-                sqlCommand.CommandType = CommandType.StoredProcedure;
                 sqlCommand.CommandText = "dbo.FetchResourceChanges_2";
                 sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
                 sqlCommand.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
@@ -166,7 +166,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
             else
             {
-                sqlCommand.CommandType = CommandType.StoredProcedure;
                 sqlCommand.CommandText = "dbo.FetchResourceChanges";
                 sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
                 sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.SmallInt).Value = pageSize;
