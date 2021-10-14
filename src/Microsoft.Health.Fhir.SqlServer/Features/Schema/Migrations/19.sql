@@ -3556,7 +3556,7 @@ GO
 --     ConfigurePartitionOnResourceChanges
 --
 -- DESCRIPTION
---     Creates a staging table and initial partitions for the resource change data table.
+--     Creates initial partitions for future datetimes on the resource change data table.
 --
 -- PARAMETERS
 --     @numberOfFuturePartitionsToAdd
