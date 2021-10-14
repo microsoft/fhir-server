@@ -45,5 +45,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Throws<BadRequestException>(() => ContinuationTokenConverter.Decode(encodedPrevious));
         }
+
+        [Fact]
+        public void GivenShortBase64WhenDecoding_ThenCorrectValueIsReturned()
+        {
+            var data = "YWJj";
+
+            var decoded = ContinuationTokenConverter.Decode(data);
+
+            Assert.Equal("abc", decoded);
+        }
     }
 }
