@@ -69,12 +69,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
+                var ddd = JsonConvert.SerializeObject(taskResultData);
                 var response = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(
                     async ct => await _completeTask.ExecuteAsync(
                         _containerScope.Value.Scripts,
                         taskId,
-                        JsonConvert.SerializeObject(taskResultData),
                         runId,
+                        JsonConvert.SerializeObject(taskResultData),
                         ct),
                     cancellationToken);
 
