@@ -55,6 +55,7 @@
 
     function tryUpdateTask(documentToUpdate) {
         documentToUpdate.taskInfo.heartbeatDateTime = new Date()
+        documentToUpdate.taskInfo.status = 2
         documentToUpdate.taskInfo.runId = uuidv4()
         var accept = collection.replaceDocument(documentToUpdate._self, documentToUpdate,
             function (err, _) {
