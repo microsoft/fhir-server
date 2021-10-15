@@ -204,19 +204,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var nextLink = firstBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
-            Assert.Empty(secondBundle.Resource.Entry);
+            ValidateBundle(secondBundle, Fixture.PatientReferencedBySeeAlsoLink);
 
             nextLink = secondBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
-            ValidateBundle(thirdBundle, Fixture.PatientReferencedBySeeAlsoLink);
+            ValidateBundle(thirdBundle, Fixture.ObservationOfPatientReferencedBySeeAlsoLink);
 
             nextLink = thirdBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
-            ValidateBundle(fourthBundle, Fixture.ObservationOfPatientReferencedBySeeAlsoLink);
-
-            nextLink = fourthBundle.Resource.NextLink.ToString();
-            FhirResponse<Bundle> fifthBundle = await Client.SearchAsync(nextLink);
-            Assert.Empty(fifthBundle.Resource.Entry);
+            Assert.Empty(fourthBundle.Resource.Entry);
         }
 
         [Fact]
@@ -236,19 +232,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
             ValidateBundle(secondBundle, Fixture.ObservationOfPatientWithSeeAlsoLinkToRemove);
 
-            nextLink = secondBundle.Resource.NextLink.ToString();
-            FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
-            Assert.Empty(thirdBundle.Resource.Entry);
-
             // Subsequent $everything API calls use the version of the patient passed in on the first API call.
             // The update to remove the "seealso" link is not recognized.
+            nextLink = secondBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
+            ValidateBundle(thirdBundle, Fixture.PatientReferencedByRemovedSeeAlsoLink);
+
             nextLink = thirdBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
-            ValidateBundle(fourthBundle, Fixture.PatientReferencedByRemovedSeeAlsoLink);
-
-            nextLink = fourthBundle.Resource.NextLink.ToString();
-            FhirResponse<Bundle> fifthBundle = await Client.SearchAsync(nextLink);
-            Assert.Empty(fifthBundle.Resource.Entry);
+            Assert.Empty(fourthBundle.Resource.Entry);
         }
 
         [Theory]
@@ -262,28 +254,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
             ValidateBundle(firstBundle, Fixture.PatientWithTwoSeeAlsoLinks);
 
-            var nextLink = firstBundle.Resource.NextLink.ToString();
-            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
-            Assert.Empty(secondBundle.Resource.Entry);
-
             // The "seealso" links will be processed in sorted order by id
             var orderedPatientsReferencedByLink = Fixture.PatientsReferencedBySeeAlsoLink.OrderBy(p => p.Id).ToList();
 
+            var nextLink = firstBundle.Resource.NextLink.ToString();
+            FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+            ValidateBundle(secondBundle, orderedPatientsReferencedByLink[0]);
+
             nextLink = secondBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> thirdBundle = await Client.SearchAsync(nextLink);
-            ValidateBundle(thirdBundle, orderedPatientsReferencedByLink[0]);
+            ValidateBundle(thirdBundle, orderedPatientsReferencedByLink[1]);
 
             nextLink = thirdBundle.Resource.NextLink.ToString();
             FhirResponse<Bundle> fourthBundle = await Client.SearchAsync(nextLink);
             Assert.Empty(fourthBundle.Resource.Entry);
-
-            nextLink = fourthBundle.Resource.NextLink.ToString();
-            FhirResponse<Bundle> fifthBundle = await Client.SearchAsync(nextLink);
-            ValidateBundle(fifthBundle, orderedPatientsReferencedByLink[1]);
-
-            nextLink = fifthBundle.Resource.NextLink.ToString();
-            FhirResponse<Bundle> sixthBundle = await Client.SearchAsync(nextLink);
-            Assert.Empty(sixthBundle.Resource.Entry);
         }
 
         [Theory]
