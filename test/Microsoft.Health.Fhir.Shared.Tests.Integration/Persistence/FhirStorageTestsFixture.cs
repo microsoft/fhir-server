@@ -9,10 +9,19 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -27,6 +36,7 @@ using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -145,12 +155,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null, searchParamHash);
                 });
 
+            var fhirRequestContextAccessor = _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();
+            UrlResolver urlResolver = CreateUrlResolver(fhirRequestContextAccessor);
+            var bundleFactory = new BundleFactory(urlResolver, fhirRequestContextAccessor, NullLogger<BundleFactory>.Instance);
+
             var collection = new ServiceCollection();
 
             collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, new ResourceReferenceResolver(SearchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance));
             collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance));
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(DataStore, new Lazy<IConformanceProvider>(() => ConformanceProvider), resourceWrapperFactory, _resourceIdProvider, DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<SearchResourceHistoryRequest, SearchResourceHistoryResponse>), new SearchResourceHistoryHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<SearchResourceRequest, SearchResourceResponse>), new SearchResourceHandler(SearchService, bundleFactory, DisabledFhirAuthorizationService.Instance));
 
             ServiceProvider services = collection.BuildServiceProvider();
 
@@ -166,6 +182,41 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 await asyncLifetime.DisposeAsync();
             }
+        }
+
+        private static UrlResolver CreateUrlResolver(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        {
+            IUrlHelperFactory urlHelperFactory = Substitute.For<IUrlHelperFactory>();
+            IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+            IActionContextAccessor actionContextAccessor = Substitute.For<IActionContextAccessor>();
+            IBundleHttpContextAccessor bundleHttpContextAccessor = Substitute.For<IBundleHttpContextAccessor>();
+            IUrlHelper urlHelper = Substitute.For<IUrlHelper>();
+
+            var httpContext = new DefaultHttpContext();
+            var actionContext = new ActionContext();
+
+            const string scheme = "scheme";
+            const string host = "test";
+
+            httpContextAccessor.HttpContext.Returns(httpContext);
+
+            httpContext.Request.Scheme = scheme;
+            httpContext.Request.Host = new HostString(host);
+
+            actionContextAccessor.ActionContext.Returns(actionContext);
+
+            urlHelper.RouteUrl(Arg.Do<UrlRouteContext>(_ => { }));
+            urlHelperFactory.GetUrlHelper(actionContext).Returns(urlHelper);
+            urlHelper.RouteUrl(Arg.Any<UrlRouteContext>()).Returns($"{scheme}://{host}");
+
+            bundleHttpContextAccessor.HttpContext.Returns((HttpContext)null);
+
+            return new UrlResolver(
+                fhirRequestContextAccessor,
+                urlHelperFactory,
+                httpContextAccessor,
+                actionContextAccessor,
+                bundleHttpContextAccessor);
         }
     }
 }

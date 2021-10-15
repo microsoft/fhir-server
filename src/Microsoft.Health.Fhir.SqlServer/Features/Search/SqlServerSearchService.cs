@@ -18,6 +18,7 @@ using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -56,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly RequestContextAccessor<IFhirRequestContext> _requestContextAccessor;
-        private const int _resourceTableColumnCount = 10;
+        private const int _defaultNumberOfColumnsReadFromResult = 11;
         private readonly SearchParameterInfo _fakeLastUpdate = new SearchParameterInfo(SearchParameterNames.LastUpdated, SearchParameterNames.LastUpdated);
 
         public SqlServerSearchService(
@@ -97,15 +98,58 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public override async Task<SearchResult> SearchAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            SearchResult searchResult;
+            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            SearchResult searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+            int resultCount = searchResult.Results.Count();
+            if (!sqlSearchOptions.IsSortWithFilter &&
+                searchResult.ContinuationToken == null &&
+                resultCount <= sqlSearchOptions.MaxItemCount &&
+                sqlSearchOptions.Sort != null &&
+                sqlSearchOptions.Sort.Count > 0 &&
+                sqlSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+            {
+                // We seem to have run a sort which has returned less results than what max we can return.
+                // Let's determine whether we need to execute another query or not.
+                if ((sqlSearchOptions.Sort[0].sortOrder == SortOrder.Ascending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && !sqlSearchOptions.DidWeSearchForSortValue.Value) ||
+                    (sqlSearchOptions.Sort[0].sortOrder == SortOrder.Descending && sqlSearchOptions.DidWeSearchForSortValue.HasValue && sqlSearchOptions.DidWeSearchForSortValue.Value))
+                {
+                    if (sqlSearchOptions.MaxItemCount - resultCount == 0)
+                    {
+                        // Since we are already returning MaxItemCount number of resources we don't want
+                        // to execute another search right now just to drop all the resources. We will return
+                        // a "special" ct so that we the subsequent request will be handled correctly.
+                        var ct = new ContinuationToken(new object[]
+                            {
+                                    SqlSearchConstants.SortSentinelValueForCt,
+                                    0,
+                            });
+
+                        searchResult = new SearchResult(searchResult.Results, ct.ToJson(), searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
+                    }
+                    else
+                    {
+                        var finalResultsInOrder = new List<SearchResultEntry>();
+                        finalResultsInOrder.AddRange(searchResult.Results);
+                        sqlSearchOptions.SortQuerySecondPhase = true;
+                        sqlSearchOptions.MaxItemCount -= resultCount;
+
+                        searchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
+
+                        finalResultsInOrder.AddRange(searchResult.Results);
+                        searchResult = new SearchResult(
+                            finalResultsInOrder,
+                            searchResult.ContinuationToken,
+                            searchResult.SortOrder,
+                            searchResult.UnsupportedSearchParameters);
+                    }
+                }
+            }
 
             // If we should include the total count of matching search results
-            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+            if (sqlSearchOptions.IncludeTotal == TotalType.Accurate && !sqlSearchOptions.CountOnly)
             {
-                searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
-
                 // If this is the first page and there aren't any more pages
-                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
+                if (sqlSearchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
                     // Count the match results on the page.
                     searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
@@ -115,23 +159,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     try
                     {
                         // Otherwise, indicate that we'd like to get the count
-                        searchOptions.CountOnly = true;
+                        sqlSearchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
+                        var countOnlySearchResult = await SearchImpl(sqlSearchOptions, SqlSearchType.Default, null, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
                     finally
                     {
                         // Ensure search options is set to its original state.
-                        searchOptions.CountOnly = false;
+                        sqlSearchOptions.CountOnly = false;
                     }
                 }
-            }
-            else
-            {
-                searchResult = await SearchImpl(searchOptions, SqlSearchType.Default, null, cancellationToken);
             }
 
             return searchResult;
@@ -139,24 +179,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            return await SearchImpl(searchOptions, SqlSearchType.History, null, cancellationToken);
+            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            return await SearchImpl(sqlSearchOptions, SqlSearchType.History, null, cancellationToken);
         }
 
-        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
+        private async Task<SearchResult> SearchImpl(SqlSearchOptions sqlSearchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
         {
-            Expression searchExpression = searchOptions.Expression;
+            Expression searchExpression = sqlSearchOptions.Expression;
 
             // AND in the continuation token
-            if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
+            if (!string.IsNullOrWhiteSpace(sqlSearchOptions.ContinuationToken) && !sqlSearchOptions.CountOnly)
             {
-                var continuationToken = ContinuationToken.FromString(searchOptions.ContinuationToken);
+                var continuationToken = ContinuationToken.FromString(sqlSearchOptions.ContinuationToken);
                 if (continuationToken != null)
                 {
                     if (string.IsNullOrEmpty(continuationToken.SortValue))
                     {
-                        // it's a _lastUpdated or (_type,_lastUpdated) sort optimization
-
-                        (SearchParameterInfo _, SortOrder sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
+                        // Check whether it's a _lastUpdated or (_type,_lastUpdated) sort optimization
+                        bool optimize = true;
+                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = sqlSearchOptions.Sort.Count == 0 ? default : sqlSearchOptions.Sort[0];
+                        if (sqlSearchOptions.Sort.Count > 0)
+                        {
+                            if (!(searchParamInfo.Name == SearchParameterNames.LastUpdated || searchParamInfo.Name == SearchParameterNames.ResourceType))
+                            {
+                                optimize = false;
+                            }
+                        }
 
                         FieldName fieldName;
                         object keyValue;
@@ -175,9 +223,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             keyValue = new PrimaryKeyValue(continuationToken.ResourceTypeId.Value, continuationToken.ResourceSurrogateId);
                         }
 
-                        Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending
-                            ? Expression.GreaterThan(fieldName, null, keyValue)
-                            : Expression.LessThan(fieldName, null, keyValue);
+                        Expression lastUpdatedExpression = null;
+                        if (!optimize)
+                        {
+                            lastUpdatedExpression = Expression.GreaterThan(fieldName, null, keyValue);
+                        }
+                        else
+                        {
+                            if (sortOrder == SortOrder.Ascending)
+                            {
+                                lastUpdatedExpression = Expression.GreaterThan(fieldName, null, keyValue);
+                            }
+                            else
+                            {
+                                lastUpdatedExpression = Expression.LessThan(fieldName, null, keyValue);
+                            }
+                        }
 
                         var tokenExpression = Expression.SearchParameter(parameter, lastUpdatedExpression);
                         searchExpression = searchExpression == null ? tokenExpression : Expression.And(tokenExpression, searchExpression);
@@ -189,10 +250,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
             }
 
-            var originalSort = searchOptions.Sort;
-            searchOptions = UpdateSort(searchOptions, searchExpression, searchType);
+            var originalSort = new List<(SearchParameterInfo, SortOrder)>(sqlSearchOptions.Sort);
+            var clonedSearchOptions = UpdateSort(sqlSearchOptions, searchExpression, searchType);
 
-            if (searchOptions.CountOnly)
+            if (clonedSearchOptions.CountOnly)
             {
                 // if we're only returning a count, discard any _include parameters since included resources are not counted.
                 searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
@@ -205,7 +266,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
                                                .AcceptVisitor(_partitionEliminationRewriter)
-                                               .AcceptVisitor(_sortRewriter, searchOptions)
+                                               .AcceptVisitor(_sortRewriter, clonedSearchOptions)
                                                .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
                                                .AcceptVisitor(NotExpressionRewriter.Instance)
@@ -218,7 +279,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                        : LegacyStringOverflowRewriter.Instance))
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
                                                .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
-                                               .AcceptVisitor(TopRewriter.Instance, searchOptions)
+                                               .AcceptVisitor(TopRewriter.Instance, clonedSearchOptions)
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithResourceTableExpressions();
 
@@ -237,7 +298,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     _schemaInformation,
                     currentSearchParameterHash);
 
-                expression.AcceptVisitor(queryGenerator, searchOptions);
+                expression.AcceptVisitor(queryGenerator, clonedSearchOptions);
 
                 sqlCommandWrapper.CommandText = stringBuilder.ToString();
 
@@ -245,10 +306,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 using (var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    if (searchOptions.CountOnly)
+                    if (clonedSearchOptions.CountOnly)
                     {
                         await reader.ReadAsync(cancellationToken);
-                        var searchResult = new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
+                        var searchResult = new SearchResult(reader.GetInt32(0), clonedSearchOptions.UnsupportedSearchParams);
 
                         // call NextResultAsync to get the info messages
                         await reader.NextResultAsync(cancellationToken);
@@ -256,16 +317,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         return searchResult;
                     }
 
-                    var resources = new List<SearchResultEntry>(searchOptions.MaxItemCount);
+                    var resources = new List<SearchResultEntry>(sqlSearchOptions.MaxItemCount);
                     short? newContinuationType = null;
                     long? newContinuationId = null;
                     bool moreResults = false;
                     int matchCount = 0;
 
-                    // Currently we support only date time sort type.
-                    DateTime? sortValue = null;
-
+                    string sortValue = null;
                     var isResultPartial = false;
+                    int numberOfColumnsRead = 0;
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
@@ -282,10 +342,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             out bool isRawResourceMetaSet,
                             out string searchParameterHash,
                             out Stream rawResourceStream);
+                        numberOfColumnsRead = reader.FieldCount;
 
                         // If we get to this point, we know there are more results so we need a continuation token
                         // Additionally, this resource shouldn't be included in the results
-                        if (matchCount >= searchOptions.MaxItemCount && isMatch)
+                        if (matchCount >= clonedSearchOptions.MaxItemCount && isMatch)
                         {
                             moreResults = true;
 
@@ -304,11 +365,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             newContinuationType = resourceTypeId;
                             newContinuationId = resourceSurrogateId;
 
+                            // For normal queries, we select _defaultNumberOfColumnsReadFromResult number of columns.
+                            // If we have more, that means we have an extra column tracking sort value.
                             // Keep track of sort value if this is the last row.
-                            // if we have more than 10 columns, it means sort expressions were added.
-                            if (matchCount == searchOptions.MaxItemCount - 1 && reader.FieldCount > _resourceTableColumnCount + 1)
+                            if (matchCount == clonedSearchOptions.MaxItemCount - 1 && reader.FieldCount > _defaultNumberOfColumnsReadFromResult)
                             {
-                                sortValue = reader.GetValue(SortValueColumnName) as DateTime?;
+                                var tempSortValue = reader.GetValue(SortValueColumnName);
+                                if ((tempSortValue as DateTime?) != null)
+                                {
+                                    sortValue = (tempSortValue as DateTime?).Value.ToString("o");
+                                }
+                                else
+                                {
+                                    sortValue = tempSortValue.ToString();
+                                }
                             }
 
                             matchCount++;
@@ -340,12 +410,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     ContinuationToken continuationToken =
                         moreResults
                             ? new ContinuationToken(
-                                searchOptions.Sort.Select(s =>
+                                clonedSearchOptions.Sort.Select(s =>
                                     s.searchParameterInfo.Name switch
                                     {
                                         SearchParameterNames.ResourceType => (object)newContinuationType,
                                         SearchParameterNames.LastUpdated => newContinuationId,
-                                        _ => sortValue.Value.ToString("o"),
+                                        _ => sortValue,
                                     }).ToArray())
                             : null;
 
@@ -358,7 +428,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 Core.Resources.TruncatedIncludeMessage));
                     }
 
-                    return new SearchResult(resources, continuationToken?.ToJson(), originalSort, searchOptions.UnsupportedSearchParams);
+                    // If this is a sort query, lets keep track of whether we actually searched for sort values.
+                    if (clonedSearchOptions.Sort != null &&
+                        clonedSearchOptions.Sort.Count > 0 &&
+                        clonedSearchOptions.Sort[0].searchParameterInfo.Code != KnownQueryParameterNames.LastUpdated)
+                    {
+                        sqlSearchOptions.DidWeSearchForSortValue = numberOfColumnsRead > _defaultNumberOfColumnsReadFromResult;
+                    }
+
+                    // This value is set inside the SortRewriter. If it is set, we need to pass
+                    // this value back to the caller.
+                    if (clonedSearchOptions.IsSortWithFilter)
+                    {
+                        sqlSearchOptions.IsSortWithFilter = true;
+                    }
+
+                    return new SearchResult(resources, continuationToken?.ToJson(), originalSort, clonedSearchOptions.UnsupportedSearchParams);
                 }
             }
         }
@@ -372,41 +457,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// <param name="searchExpression">The searchExpression</param>
         /// <param name="sqlSearchType">The type of search being performed</param>
         /// <returns>If the sort needs to be updated, a new <see cref="SearchOptions"/> instance, otherwise, the same instance as <paramref name="searchOptions"/></returns>
-        private SearchOptions UpdateSort(SearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
+        private SqlSearchOptions UpdateSort(SqlSearchOptions searchOptions, Expression searchExpression, SqlSearchType sqlSearchType)
         {
+            SqlSearchOptions newSearchOptions = searchOptions;
             if (sqlSearchType == SqlSearchType.History)
             {
                 // history is always sorted by _lastUpdated.
-                searchOptions = searchOptions.Clone();
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
-                searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                 {
                     (_fakeLastUpdate, SortOrder.Ascending),
                 };
 
-                return searchOptions;
+                return newSearchOptions;
             }
 
             if (searchOptions.Sort.Count == 0)
             {
-                searchOptions = searchOptions.Clone();
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
+
                 if (_schemaInformation.Current < SchemaVersionConstants.PartitionedTables)
                 {
-                    searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                    newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                     {
                         (_fakeLastUpdate, SortOrder.Ascending),
                     };
                 }
                 else
                 {
-                    searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                    newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                     {
                         (SearchParameterInfo.ResourceTypeSearchParameter, SortOrder.Ascending),
                         (_fakeLastUpdate, SortOrder.Ascending),
                     };
                 }
 
-                return searchOptions;
+                return newSearchOptions;
             }
 
             if (searchOptions.Sort.Count == 1 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.ResourceType)
@@ -415,15 +502,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 // Add _lastUpdated to the sort list so that there is a deterministic key to sort on
 
-                searchOptions = searchOptions.Clone();
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
-                searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                 {
                     (SearchParameterInfo.ResourceTypeSearchParameter, searchOptions.Sort[0].sortOrder),
                     (_fakeLastUpdate, searchOptions.Sort[0].sortOrder),
                 };
 
-                return searchOptions;
+                return newSearchOptions;
             }
 
             if (searchOptions.Sort.Count == 1 && searchOptions.Sort[0].searchParameterInfo.Name == SearchParameterNames.LastUpdated && _schemaInformation.Current >= SchemaVersionConstants.PartitionedTables)
@@ -433,33 +520,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (singleAllowedTypeId != null && allowedTypes != null)
                 {
                     // this means that this search is over a single type.
-                    searchOptions = searchOptions.Clone();
+                    newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
-                    searchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
+                    newSearchOptions.Sort = new (SearchParameterInfo searchParameterInfo, SortOrder sortOrder)[]
                     {
                         (SearchParameterInfo.ResourceTypeSearchParameter, searchOptions.Sort[0].sortOrder),
                         (_fakeLastUpdate, searchOptions.Sort[0].sortOrder),
                     };
                 }
 
-                return searchOptions;
+                return newSearchOptions;
             }
 
             if (searchOptions.Sort[^1].searchParameterInfo.Name != SearchParameterNames.LastUpdated)
             {
                 // Make sure custom sort has _lastUpdated as the last sort parameter.
 
-                searchOptions = searchOptions.Clone();
+                newSearchOptions = searchOptions.CloneSqlSearchOptions();
 
-                searchOptions.Sort = new List<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(searchOptions.Sort)
+                newSearchOptions.Sort = new List<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(searchOptions.Sort)
                 {
                     (_fakeLastUpdate, SortOrder.Ascending),
                 };
 
-                return searchOptions;
+                return newSearchOptions;
             }
 
-            return searchOptions;
+            return newSearchOptions;
         }
 
         private void PopulateResourceTableColumnsToRead(
@@ -548,7 +635,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
-            return await SearchImpl(searchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
+            SqlSearchOptions sqlSearchOptions = new SqlSearchOptions(searchOptions);
+            return await SearchImpl(sqlSearchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
         }
     }
 }

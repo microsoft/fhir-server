@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -28,8 +29,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAStatusRegistry_WhenGettingStatuses_ThenTheStatusesAreRetrieved()
         {
-            IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses = await _fixture.FilebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
-            IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses();
+            IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses = await _fixture.FilebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
+            IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
             ValidateSearchParameterStatuses(expectedStatuses, actualStatuses);
         }
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(statusName2), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false,
             };
 
-            IReadOnlyCollection<ResourceSearchParameterStatus> readonlyStatusesBeforeUpsert = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses();
+            IReadOnlyCollection<ResourceSearchParameterStatus> readonlyStatusesBeforeUpsert = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
             var expectedStatuses = readonlyStatusesBeforeUpsert.ToList();
             expectedStatuses.Add(status1);
             expectedStatuses.Add(status2);
@@ -59,9 +60,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             try
             {
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statusesToUpsert);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statusesToUpsert, CancellationToken.None);
 
-                IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses();
+                IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
                 ValidateSearchParameterStatuses(expectedStatuses, actualStatuses);
             }
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAStatusRegistry_WhenUpsertingExistingStatuses_ThenTheExistingStatusesAreUpdated()
         {
-            IReadOnlyCollection<ResourceSearchParameterStatus> statusesBeforeUpdate = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses();
+            IReadOnlyCollection<ResourceSearchParameterStatus> statusesBeforeUpdate = await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
             // Get two existing statuses.
             ResourceSearchParameterStatus expectedStatus1 = statusesBeforeUpdate.First();
@@ -90,10 +91,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             try
             {
                 // Upsert the two existing, modified statuses.
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statusesToUpsert);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statusesToUpsert, CancellationToken.None);
 
                 IReadOnlyCollection<ResourceSearchParameterStatus> statusesAfterUpdate =
-                    await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses();
+                    await _fixture.SearchParameterStatusDataStore.GetSearchParameterStatuses(CancellationToken.None);
 
                 Assert.Equal(statusesBeforeUpdate.Count, statusesAfterUpdate.Count);
 
@@ -117,7 +118,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 statusesToUpsert = new List<ResourceSearchParameterStatus> { expectedStatus1, expectedStatus2 };
 
-                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statusesToUpsert);
+                await _fixture.SearchParameterStatusDataStore.UpsertStatuses(statusesToUpsert, CancellationToken.None);
             }
         }
 

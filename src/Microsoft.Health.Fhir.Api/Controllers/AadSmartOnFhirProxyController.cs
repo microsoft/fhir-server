@@ -294,7 +294,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             try
             {
                 EnsureArg.IsNotNull(grantType, nameof(grantType));
-                EnsureArg.IsNotNull(clientId, nameof(clientId));
             }
             catch (ArgumentNullException ex)
             {
@@ -303,6 +302,24 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 #pragma warning disable CA2000 //https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0#httpclient-and-lifetime-management
             var client = _httpClientFactory.CreateClient();
 #pragma warning restore CA2000
+
+            if (Request != null &&
+                string.IsNullOrEmpty(clientId) &&
+                Request.Headers.TryGetValue("Authorization", out var authHeaderValues))
+            {
+                var authHeader = authHeaderValues.ToString();
+                if (authHeader.Contains("Basic ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var basicTokenEncoded = authHeader.Remove(0, "Basic ".Length);
+                    var basicToken = Base64UrlEncoder.Decode(basicTokenEncoded);
+                    var basicTokenSplit = basicToken.Split(":");
+                    if (basicTokenSplit.Length == 2)
+                    {
+                        clientId = basicTokenSplit[0];
+                        clientSecret = basicTokenSplit[1];
+                    }
+                }
+            }
 
             // Azure AD supports client_credentials, etc.
             // These are used in tests and may have value even when SMART proxy is used.
@@ -335,6 +352,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 EnsureArg.IsNotNull(compoundCode, nameof(compoundCode));
                 EnsureArg.IsNotNull(redirectUri, nameof(redirectUri));
+                EnsureArg.IsNotNull(clientId, nameof(clientId));
             }
             catch (ArgumentNullException ex)
             {
@@ -356,16 +374,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             Uri callbackUrl = _urlResolver.ResolveRouteNameUrl(RouteNames.AadSmartOnFhirProxyCallback, new RouteValueDictionary { { "encodedRedirect", Base64UrlEncoder.Encode(redirectUri.ToString()) } });
 
-            // TODO: Deal with client secret in basic auth header
-            using var content = new FormUrlEncodedContent(
-                 new[]
-                 {
+            var formValues = new List<KeyValuePair<string, string>>(
+                new[]
+                {
                     new KeyValuePair<string, string>("grant_type", grantType),
                     new KeyValuePair<string, string>("code", code),
                     new KeyValuePair<string, string>("redirect_uri", callbackUrl.AbsoluteUri),
                     new KeyValuePair<string, string>("client_id", clientId),
-                    new KeyValuePair<string, string>("client_secret", clientSecret),
-                 });
+                });
+
+            if (!string.IsNullOrEmpty(clientSecret))
+            {
+                formValues.Add(new KeyValuePair<string, string>("client_secret", clientSecret));
+            }
+
+            using var content = new FormUrlEncodedContent(formValues);
 
             HttpResponseMessage response = await client.PostAsync(new Uri(_aadTokenEndpoint), content);
 

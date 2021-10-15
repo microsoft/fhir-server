@@ -3,14 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Azure.Cosmos;
-
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    public interface ICollectionUpdater
+    internal static class SqlSearchConstants
     {
-        Task ExecuteAsync(Container container, CancellationToken cancellationToken);
+        public const string SortSentinelValueForCt = "sentinelSortValue";
     }
 }

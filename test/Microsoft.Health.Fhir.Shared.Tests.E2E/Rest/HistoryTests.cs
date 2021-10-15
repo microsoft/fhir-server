@@ -372,7 +372,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// Find a time to use _since where there have been no results in history
         /// so we can start from clean start point
         /// </summary>
-        /// <returns>DateIimeOffset set to a good value for _since</returns>
+        /// <returns>DateTimeOffset set to a good value for _since</returns>
         private async Task<DateTimeOffset> GetStartTimeForHistoryTest(string tag)
         {
             Resource resource = Samples.GetDefaultPatient().ToPoco();

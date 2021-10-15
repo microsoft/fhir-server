@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                DateTimeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkDateTimeSearchParamTableTypeV1Row(0, 0, default(DateTimeOffset), default(DateTimeOffset), true));
+                DateTimeSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkDateTimeSearchParamTableTypeV2Row(0, 0, default(DateTimeOffset), default(DateTimeOffset), true, IsMin: true, IsMax: false));
             }
 
             return result;
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                StringSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkStringSearchParamTableTypeV1Row(0, 0, string.Empty, string.Empty));
+                StringSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkStringSearchParamTableTypeV2Row(0, 0, string.Empty, string.Empty, IsMin: true, IsMax: true));
             }
 
             return result;

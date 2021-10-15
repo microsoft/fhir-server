@@ -3,14 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Fhir.ValueSets;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
+namespace Microsoft.Health.Fhir.Core.Configs
 {
-    public interface ICollectionUpdater
+    public class VersioningConfiguration
     {
-        Task ExecuteAsync(Container container, CancellationToken cancellationToken);
+        public string Default { get; set; } = ResourceVersionPolicy.Versioned;
     }
 }
