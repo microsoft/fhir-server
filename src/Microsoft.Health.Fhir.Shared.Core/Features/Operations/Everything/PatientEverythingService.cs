@@ -183,6 +183,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             else
             {
                 nextContinuationToken = await CheckForNextSeeAlsoLinkAndSetToken(parentPatientId, token, !excludeLinks, cancellationToken);
+
+                // If the last phase returned no results and there are links to process
+                if (!searchResult.Results.Any() && nextContinuationToken != null)
+                {
+                    // Run patient $everything on links.
+                    return await SearchAsync(parentPatientId, start, end, since, type, excludeLinks, ContinuationTokenConverter.Encode(nextContinuationToken), cancellationToken);
+                }
             }
 
             return new SearchResult(searchResult.Results, nextContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
