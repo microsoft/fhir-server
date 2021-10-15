@@ -11,9 +11,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.SqlServer.Features.Schema;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
@@ -24,7 +22,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
     public class SqlServerFhirResourceChangeCaptureEnabledTests : IClassFixture<SqlServerFhirResourceChangeCaptureFixture>
     {
         private readonly SqlServerFhirResourceChangeCaptureFixture _fixture;
-        private readonly SchemaInformation _schemaInformation;
         private const byte ResourceChangeTypeCreated = 0; // 0 is for the resource creating.
         private const byte ResourceChangeTypeUpdated = 1; // 1 is for resource update.
         private const byte ResourceChangeTypeDeleted = 2; // 2 is for resource deletion.
@@ -32,8 +29,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         public SqlServerFhirResourceChangeCaptureEnabledTests(SqlServerFhirResourceChangeCaptureFixture fixture)
         {
             _fixture = fixture;
-            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            _schemaInformation.Current = SchemaVersionConstants.Max;
         }
 
         /// <summary>
@@ -48,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
             // get resource changes
-            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _schemaInformation);
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _fixture.SchemaInformation);
             var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
             Assert.NotNull(resourceChanges);
@@ -75,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var deserialized = updateResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
             // get resource changes
-            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _schemaInformation);
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _fixture.SchemaInformation);
             var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
             Assert.NotNull(resourceChanges);
@@ -102,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var deletedResourceKey = await _fixture.Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
             // get resource changes
-            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _schemaInformation);
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _fixture.SchemaInformation);
             var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
             Assert.NotNull(resourceChanges);
@@ -126,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
             // get resource types
-            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _schemaInformation);
+            var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(_fixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, _fixture.SchemaInformation);
             var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
             Assert.NotNull(resourceChanges);
