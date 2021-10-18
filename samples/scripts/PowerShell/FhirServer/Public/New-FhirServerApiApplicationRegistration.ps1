@@ -65,8 +65,8 @@ function New-FhirServerApiApplicationRegistration {
     }
 
     # Create the App Registration
-    $apiAppReg = New-AzADApplication -DisplayName $FhirServiceAudience -IdentifierUris $FhirServiceAudience -AppRoles $desiredAppRoles
-    New-AzAdServicePrincipal -AppId $apiAppReg.AppId | Out-Null
+    $apiAppReg = New-AzureADApplication -DisplayName $FhirServiceAudience -IdentifierUris $FhirServiceAudience -AppRoles $desiredAppRoles
+    New-AzAdServicePrincipal -ApplicationId $apiAppReg.AppId | Out-Null
 
     $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
     $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
