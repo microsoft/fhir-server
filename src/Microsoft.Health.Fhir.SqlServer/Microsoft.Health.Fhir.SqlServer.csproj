@@ -3,6 +3,16 @@
     <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Features\Schema\Migrations\19.diff.sql" />
+    <None Remove="Features\Schema\Migrations\19.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Features\Schema\Migrations\19.sql">
+      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
+      <MutableClassVersion>Latest</MutableClassVersion>
+      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Features\Schema\Migrations\19.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\4.diff.sql" />
