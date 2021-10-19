@@ -66,9 +66,9 @@ function New-FhirServerApiApplicationRegistration {
 
     # Create the App Registration
     Write-Host "Creating AAD App"
-    $apiAppReg = New-AzureADApplication -DisplayName $FhirServiceAudience -IdentifierUris $FhirServiceAudience -AppRoles $desiredAppRoles
+    $apiAppReg = New-AzureAdApplication -DisplayName $FhirServiceAudience -AppRoles $desiredAppRoles
     Write-Host "Creating service principal"
-    New-AzAdServicePrincipal -ApplicationId $apiAppReg.AppId | Out-Null
+    New-AzureAdServicePrincipal -ApplicationId $apiAppReg.AppId | Out-Null
     Write-Host "App and SP created"
 
     $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]

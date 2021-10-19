@@ -103,10 +103,7 @@ function Add-AadTestAuthEnvironment {
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 
     if (!$application) {
-        $newApplication = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience
-
-        # Change to use applicationId returned
-        $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
+        $application = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience
     }
 
     Write-Host "Setting roles on API Application"
