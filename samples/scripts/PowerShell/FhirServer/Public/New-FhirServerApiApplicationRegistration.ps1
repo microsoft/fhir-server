@@ -29,8 +29,9 @@ function New-FhirServerApiApplicationRegistration {
         [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience,
 
-        [Parameter(Mandatory = $false, ParameterSetName = 'ByFhirServiceName' )]
-        [String]$WebAppSuffix = "azurewebsites.net",
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByDicomServiceName' )]
+        [ValidateNotNullOrEmpty()]
+        [String]$TenantId,
 
         [Parameter(Mandatory = $false)]
         [String[]]$AppRoles = "admin"
@@ -47,7 +48,7 @@ function New-FhirServerApiApplicationRegistration {
     }
 
     if ([string]::IsNullOrEmpty($FhirServiceAudience)) {
-        $FhirServiceAudience = "https://$FhirServiceName.$WebAppSuffix"
+        $FhirServiceAudience = Get-ServiceAudience -ServiceName $FhirServiceName -TenantId $TenantId
     }
 
     $desiredAppRoles = @()
