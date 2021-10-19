@@ -73,7 +73,7 @@ function New-FhirServerClientApplicationRegistration {
     }
     else
     {
-        $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris $IdentifierUri -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl
+        $clientAppReg = New-AzureADApplication -DisplayName $DisplayName -RequiredResourceAccess $reqAad, $reqApi -ReplyUrls $ReplyUrl
     }
 
     # Create a client secret
