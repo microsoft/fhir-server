@@ -100,7 +100,7 @@ function Add-AadTestAuthEnvironment {
 
     $fhirServiceAudience = Get-ServiceAudience -EnvironmentName $EnvironmentName -WebAppSuffix $WebAppSuffix
 
-    $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
+    $application = Get-AzureAdApplicationByDisplayName $fhirServiceAudience
 
     if (!$application) {
         $application = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience

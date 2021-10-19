@@ -38,7 +38,7 @@ function Remove-AadTestAuthEnvironment {
 
     $fhirServiceAudience = Get-ServiceAudience -EnvironmentName $EnvironmentName -WebAppSuffix $WebAppSuffix
 
-    $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
+    $application = Get-AzureAdApplicationByDisplayName $fhirServiceAudience
 
     if ($application) {
         Write-Host "Removing API application $fhirServiceAudience"
