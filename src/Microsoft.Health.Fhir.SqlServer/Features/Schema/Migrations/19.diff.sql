@@ -23,31 +23,31 @@ BEGIN
 END; 
 
 IF (EXISTS(SELECT * FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
-	AND EXISTS(SELECT * FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp'))
+    AND EXISTS(SELECT * FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp'))
 BEGIN
    -- Creates initial partitions based on default 48-hour retention period.
     DECLARE @numberOfPartitions int = 48;
     DECLARE @rightPartitionBoundary datetime2(7);
     DECLARE @currentDateTime datetime2(7) = sysutcdatetime();
-		
-	-- There will be 51 partition boundaries and 52 partitions, 48 partitions for history,
+        
+    -- There will be 51 partition boundaries and 52 partitions, 48 partitions for history,
     -- one for the current hour, one for the next hour, and 2 partitions for start and end.
     WHILE @numberOfPartitions >= -1 
     BEGIN
         -- Rounds the start datetime to the hour.
         SET @rightPartitionBoundary = DATEADD(hour, DATEDIFF(hour, 0, @currentDateTime) - @numberOfPartitions, 0);
 
-		-- Checks if a partition exists.
-		IF NOT EXISTS (SELECT 1 value FROM sys.partition_range_values AS prv
-						JOIN sys.partition_functions AS pf
-							ON pf.function_id = prv.function_id
-					WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-						and CONVERT(datetime2(7), prv.value, 126) = @rightPartitionBoundary) 
-		BEGIN
-			-- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
-			ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
-			ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary);
-		END;
+        -- Checks if a partition exists.
+        IF NOT EXISTS (SELECT 1 value FROM sys.partition_range_values AS prv
+                        JOIN sys.partition_functions AS pf
+                            ON pf.function_id = prv.function_id
+                    WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                        and CONVERT(datetime2(7), prv.value, 126) = @rightPartitionBoundary) 
+        BEGIN
+            -- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
+            ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
+            ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary);
+        END;
             
         SET @numberOfPartitions -= 1;
     END;

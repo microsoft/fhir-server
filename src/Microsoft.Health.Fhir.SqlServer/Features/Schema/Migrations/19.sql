@@ -3528,7 +3528,7 @@ AS
 BEGIN
 
     SET NOCOUNT ON;
-	
+    
     -- Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
     -- using the Repeatable Read isolation level table hint to avoid skipping resource changes 
     -- due to interleaved transactions on the resource change data table.
@@ -3567,43 +3567,43 @@ CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
 AS
   BEGIN
 
-	--using XACT_ABORT to force a rollback on any error.
-	SET XACT_ABORT ON;
-	
-	BEGIN TRANSACTION
-				
-		/* Creates the partitions for future datetimes on the resource change data table. */	
-		
-		-- Rounds the current datetime to the hour.
-		DECLARE @partitionBoundary datetime2(7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
-		
-		-- Finds the highest boundary value.		
-		DECLARE @startingRightPartitionBoundary datetime2(7) = CAST((SELECT TOP (1) value
-							FROM sys.partition_range_values AS prv
-								JOIN sys.partition_functions AS pf
-									ON pf.function_id = prv.function_id
-							WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-							ORDER BY prv.boundary_id DESC) AS datetime2(7));
-							
-		-- Adds one due to starting from the current hour.
-		DECLARE @numberOfPartitionsToAdd int = @numberOfFuturePartitionsToAdd + 1;	
-		
-		WHILE @numberOfPartitionsToAdd > 0 
-		BEGIN
-			-- Checks if a partition exists.
-			IF (@startingRightPartitionBoundary < @partitionBoundary) 
-			BEGIN
-				-- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
-				ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [PRIMARY];
-				ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@partitionBoundary);
-			END;
-				
-			-- Adds one hour for the next partition.
-			SET @partitionBoundary = DATEADD(hour, 1, @partitionBoundary);
-			SET @numberOfPartitionsToAdd -= 1; 				
-		END;
+    --using XACT_ABORT to force a rollback on any error.
+    SET XACT_ABORT ON;
+    
+    BEGIN TRANSACTION
+                
+        /* Creates the partitions for future datetimes on the resource change data table. */    
+        
+        -- Rounds the current datetime to the hour.
+        DECLARE @partitionBoundary datetime2(7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
+        
+        -- Finds the highest boundary value.        
+        DECLARE @startingRightPartitionBoundary datetime2(7) = CAST((SELECT TOP (1) value
+                            FROM sys.partition_range_values AS prv
+                                JOIN sys.partition_functions AS pf
+                                    ON pf.function_id = prv.function_id
+                            WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                            ORDER BY prv.boundary_id DESC) AS datetime2(7));
+                            
+        -- Adds one due to starting from the current hour.
+        DECLARE @numberOfPartitionsToAdd int = @numberOfFuturePartitionsToAdd + 1;    
+        
+        WHILE @numberOfPartitionsToAdd > 0 
+        BEGIN
+            -- Checks if a partition exists.
+            IF (@startingRightPartitionBoundary < @partitionBoundary) 
+            BEGIN
+                -- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
+                ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [PRIMARY];
+                ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@partitionBoundary);
+            END;
+                
+            -- Adds one hour for the next partition.
+            SET @partitionBoundary = DATEADD(hour, 1, @partitionBoundary);
+            SET @numberOfPartitionsToAdd -= 1;                 
+        END;
 
-	COMMIT TRANSACTION
+    COMMIT TRANSACTION
 END;
 GO
 
@@ -3621,35 +3621,35 @@ CREATE PROCEDURE dbo.RemovePartitionFromResourceChanges
     @partitionBoundary datetime2(7) OUTPUT
 AS
   BEGIN
-	
-	--using XACT_ABORT to force a rollback on any error.
-	SET XACT_ABORT ON;
-	
-	BEGIN TRANSACTION
-	
-		-- Finds the lowest boundary value.
-		DECLARE @leftPartitionBoundary datetime2(7) = CAST((SELECT TOP (1) value
-							FROM sys.partition_range_values AS prv
-								JOIN sys.partition_functions AS pf
-									ON pf.function_id = prv.function_id
-							WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-							ORDER BY prv.boundary_id ASC) AS datetime2(7));
+    
+    --using XACT_ABORT to force a rollback on any error.
+    SET XACT_ABORT ON;
+    
+    BEGIN TRANSACTION
+    
+        -- Finds the lowest boundary value.
+        DECLARE @leftPartitionBoundary datetime2(7) = CAST((SELECT TOP (1) value
+                            FROM sys.partition_range_values AS prv
+                                JOIN sys.partition_functions AS pf
+                                    ON pf.function_id = prv.function_id
+                            WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                            ORDER BY prv.boundary_id ASC) AS datetime2(7));
 
-		-- Cleans up a staging table if there are existing rows.
-		TRUNCATE TABLE dbo.ResourceChangeDataStaging;
-		
-		-- Switches a partition to the staging table.
-		ALTER TABLE dbo.ResourceChangeData SWITCH PARTITION 2 TO dbo.ResourceChangeDataStaging;
-		
-		-- Merges range to move lower boundary one partition ahead.
-		ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() MERGE RANGE(@leftPartitionBoundary);
-		
-		-- Cleans up the staging table to purge resource changes.
-		TRUNCATE TABLE dbo.ResourceChangeDataStaging;
-		
-		SET @partitionBoundary = @leftPartitionBoundary
+        -- Cleans up a staging table if there are existing rows.
+        TRUNCATE TABLE dbo.ResourceChangeDataStaging;
+        
+        -- Switches a partition to the staging table.
+        ALTER TABLE dbo.ResourceChangeData SWITCH PARTITION 2 TO dbo.ResourceChangeDataStaging;
+        
+        -- Merges range to move lower boundary one partition ahead.
+        ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() MERGE RANGE(@leftPartitionBoundary);
+        
+        -- Cleans up the staging table to purge resource changes.
+        TRUNCATE TABLE dbo.ResourceChangeDataStaging;
+        
+        SET @partitionBoundary = @leftPartitionBoundary
 
-	COMMIT TRANSACTION
+    COMMIT TRANSACTION
 END;
 GO 
 
@@ -3669,40 +3669,40 @@ CREATE OR ALTER PROCEDURE dbo.AddPartitionOnResourceChanges
     @partitionBoundary datetime2(7) OUTPUT
 AS
   BEGIN
-	
-	--using XACT_ABORT to force a rollback on any error.
-	SET XACT_ABORT ON;
-	
-	BEGIN TRANSACTION
-			
-		-- Finds the highest boundary value
-		DECLARE @rightPartitionBoundary datetime2(7)= CAST((SELECT TOP (1) value
-							FROM sys.partition_range_values AS prv
-								JOIN sys.partition_functions AS pf
-									ON pf.function_id = prv.function_id
-							WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-							ORDER BY prv.boundary_id DESC) AS datetime2(7));
+    
+    --using XACT_ABORT to force a rollback on any error.
+    SET XACT_ABORT ON;
+    
+    BEGIN TRANSACTION
+            
+        -- Finds the highest boundary value
+        DECLARE @rightPartitionBoundary datetime2(7)= CAST((SELECT TOP (1) value
+                            FROM sys.partition_range_values AS prv
+                                JOIN sys.partition_functions AS pf
+                                    ON pf.function_id = prv.function_id
+                            WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                            ORDER BY prv.boundary_id DESC) AS datetime2(7));
 
-		-- Rounds the current datetime to the hour.
+        -- Rounds the current datetime to the hour.
         DECLARE @timestamp datetime2(7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
         
         -- Ensures the next boundary value is greater than the current datetime.
         IF (@rightPartitionBoundary < @timestamp) BEGIN
-	        SET @rightPartitionBoundary = @timestamp;
+            SET @rightPartitionBoundary = @timestamp;
         END;
-							
-		-- Adds one hour for the next partition.
-		SET @rightPartitionBoundary = DATEADD(hour, 1, @rightPartitionBoundary);
-		
-		-- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
-		ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
-		ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary);		
-		
-		SET @partitionBoundary = @rightPartitionBoundary
+                            
+        -- Adds one hour for the next partition.
+        SET @rightPartitionBoundary = DATEADD(hour, 1, @rightPartitionBoundary);
+        
+        -- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
+        ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
+        ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary);
+        
+        SET @partitionBoundary = @rightPartitionBoundary
 
-	COMMIT TRANSACTION
+    COMMIT TRANSACTION
 END;
-GO 
+GO
 
 /*************************************************************
     Event Agent checkpoint feature
