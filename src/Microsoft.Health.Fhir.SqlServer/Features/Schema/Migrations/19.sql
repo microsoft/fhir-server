@@ -12,7 +12,7 @@ BEGIN TRANSACTION
 
 INSERT INTO dbo.SchemaVersion
 VALUES
-    (18, 'started')
+    (19, 'started')
 
 GO
 

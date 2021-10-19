@@ -3,10 +3,6 @@
     <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Features\Schema\Migrations\19.diff.sql" />
-    <None Remove="Features\Schema\Migrations\19.sql" />
-  </ItemGroup>
-  <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\19.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
       <MutableClassVersion>Latest</MutableClassVersion>
@@ -66,7 +62,7 @@
     <EmbeddedResource Include="Features\Schema\Migrations\18.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
       <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
-      <MutableClassVersion>Latest</MutableClassVersion>
+      <MutableClassVersion>18</MutableClassVersion>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
