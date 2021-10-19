@@ -82,7 +82,7 @@ function New-FhirServerClientApplicationRegistration {
     # Create Service Principal
     New-AzureAdServicePrincipal -AppId $clientAppReg.AppId | Out-Null
 
-    $securityAuthenticationAudience = $apiAppReg.IdentifierUris[0]
+    $securityAuthenticationAudience = $apiAppReg.DisplayName
     $aadEndpoint = (Get-AzureADCurrentSessionInfo).Environment.Endpoints["ActiveDirectory"]
     $aadTenantId = (Get-AzureADCurrentSessionInfo).Tenant.Id.ToString()
     $securityAuthenticationAuthority = "$aadEndpoint$aadTenantId"
