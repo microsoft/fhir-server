@@ -57,7 +57,7 @@ function Get-ServiceAudience {
         [string]$WebAppSuffix
     )
  
-    return "https://$EnvironmentName.$WebAppSuffix/"
+    return "https://$EnvironmentName.$WebAppSuffix"
 }
 
 function Get-UserId { 
