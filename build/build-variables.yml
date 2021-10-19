@@ -23,7 +23,8 @@ variables:
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'Microsoft Health Open Source Subscription'
   WindowsVmImage: 'windows-latest'
-  LinuxVmImage: 'ubuntu-latest'
+  LinuxVmImage: 'ubuntu-latest'  
+  TestApplicationResource: 'https://$(DeploymentEnvironmentName).resoluteopensource.onmicrosoft.com'
   # The following is set by a build Pipeline variable:
   # DefaultLinuxPool: 'Azure Pipelines'
   # SharedLinuxPool: 'Azure Pipelines'
