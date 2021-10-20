@@ -49,5 +49,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 ValidateToken,
                 new Token("http://hl7.org/fhir/observation-status", "final"));
         }
+
+        [Fact]
+        public async Task GivenANullCode_WhenConverted_ThenNullValueReturned()
+        {
+            await Test(
+                code => code.Value = null,
+                ValidateNull,
+                new Code<ResourceType>(null));
+        }
     }
 }
