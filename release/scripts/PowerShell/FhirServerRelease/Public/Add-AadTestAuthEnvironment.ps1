@@ -27,8 +27,9 @@ function Add-AadTestAuthEnvironment {
         [ValidateNotNull()]
         [pscredential]$TenantAdminCredential,
 
-        [Parameter(Mandatory = $false )]
-        [String]$WebAppSuffix = "azurewebsites.net",
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [String]$TenantId,
 
         [Parameter(Mandatory = $false)]
         [string]$ResourceGroupName = $EnvironmentName,
@@ -98,7 +99,7 @@ function Add-AadTestAuthEnvironment {
 
     Write-Host "Ensuring API application exists"
 
-    $fhirServiceAudience = Get-ServiceAudience -EnvironmentName $EnvironmentName -WebAppSuffix $WebAppSuffix
+    $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
 
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 

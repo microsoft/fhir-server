@@ -179,7 +179,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
@@ -198,7 +198,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       reindexEnabled: true
@@ -217,7 +217,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
@@ -236,7 +236,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       reindexEnabled: true
@@ -255,7 +255,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
@@ -274,7 +274,7 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(ResourceGroupName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
       reindexEnabled: true
