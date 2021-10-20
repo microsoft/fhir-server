@@ -3560,7 +3560,7 @@ GO
 --
 -- PARAMETERS
 --     @numberOfFuturePartitionsToAdd
---         * The number of partitions to add for feature datetimes.
+--         * The number of partitions to add for future datetimes.
 --
 CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
     @numberOfFuturePartitionsToAdd int
