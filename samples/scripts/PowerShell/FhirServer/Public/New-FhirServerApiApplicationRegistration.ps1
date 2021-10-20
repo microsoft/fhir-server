@@ -29,7 +29,7 @@ function New-FhirServerApiApplicationRegistration {
         [ValidateNotNullOrEmpty()]
         [string]$FhirServiceAudience,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'ByDicomServiceName' )]
+        [Parameter(Mandatory = $true, ParameterSetName = 'TenantId' )]
         [ValidateNotNullOrEmpty()]
         [String]$TenantId,
 
