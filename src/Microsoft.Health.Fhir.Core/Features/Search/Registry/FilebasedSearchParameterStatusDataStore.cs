@@ -6,6 +6,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public delegate ISearchParameterStatusDataStore Resolver();
 
-        public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
+        public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {
             if (_statusResults == null)
             {
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(_statusResults);
         }
 
-        public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        public Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
             // File based registry does not persist runtime updates
             return Task.CompletedTask;

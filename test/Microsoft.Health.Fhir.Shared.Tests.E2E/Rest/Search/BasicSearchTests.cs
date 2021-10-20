@@ -894,6 +894,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAPostSearchRequestWithInvalidParameters_WhenHandled_ReturnsSearchResults()
+        {
+            string[] expectedDiagnostics =
+            {
+                string.Format(Core.Resources.SearchParameterNotSupported, "entry:[{", "Patient"),
+                string.Format(Core.Resources.SearchParameterNotSupported, "Ramen", "Patient"),
+            };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported, OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning, OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchPostAsync("Patient", default, ("entry:[{", string.Empty), ("Ramen", "Spicy"));
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+        }
+
+        [Fact]
         public async Task GivenASearchRequestWithInvalidParametersAndLenientHandling_WhenHandled_ReturnsSearchResults()
         {
             string[] expectedDiagnostics =

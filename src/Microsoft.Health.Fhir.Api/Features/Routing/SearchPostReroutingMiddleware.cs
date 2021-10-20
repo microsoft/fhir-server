@@ -42,6 +42,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         request.Query = new QueryCollection(dic);
                     }
 
+                    request.ContentType = null;
+                    request.Form = null;
                     request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
                     request.Method = "GET";
                 }

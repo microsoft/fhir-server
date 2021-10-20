@@ -11,7 +11,6 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
@@ -55,15 +54,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, null, pageSize, expectedResources);
         }
 
-        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, Tuple<string, string> customHeader, params Resource[] expectedResources)
-        {
-            Bundle bundle = await Client.SearchAsync(searchUrl, customHeader);
-
-            ValidateBundle(bundle, selfLink, true, expectedResources);
-
-            return bundle;
-        }
-
         protected async Task<Bundle> ExecuteAndValidateBundle(
             string searchUrl,
             string selfLink,
@@ -74,18 +64,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             Bundle firstBundle = await Client.SearchAsync(searchUrl, customHeader);
 
-            var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources.ToList().GetRange(0, pageSize).ToArray() : expectedResources;
+            var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources[0..pageSize] : expectedResources;
 
             ValidateBundle(firstBundle, selfLink, sort, expectedFirstBundle);
 
             var nextLink = firstBundle.NextLink?.ToString();
-            if (nextLink != null)
+            int pageNumber = 1;
+            bool checkedAllResources = false;
+            while (nextLink != null && !checkedAllResources)
             {
-                FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+                Bundle nextBundle = await Client.SearchAsync(nextLink);
 
                 // Truncating host and appending continuation token
                 nextLink = selfLink + nextLink.Substring(_continuationToken.Match(nextLink).Index);
-                ValidateBundle(secondBundle, nextLink, sort, expectedResources.ToList().GetRange(pageSize, expectedResources.Length - pageSize).ToArray());
+                var remainingResources = expectedResources[(pageSize * pageNumber)..];
+                if (remainingResources.Length > pageSize)
+                {
+                    remainingResources = remainingResources[..pageSize];
+                }
+                else
+                {
+                    checkedAllResources = true;
+                }
+
+                ValidateBundle(nextBundle, nextLink, sort, remainingResources);
+
+                nextLink = nextBundle.NextLink?.ToString();
+                pageNumber++;
             }
 
             return firstBundle;

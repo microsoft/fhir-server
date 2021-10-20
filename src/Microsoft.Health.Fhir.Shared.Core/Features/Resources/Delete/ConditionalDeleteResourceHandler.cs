@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 }
                 else
                 {
-                    matchedResults = Array.Empty<SearchResultEntry>();
+                    break;
                 }
             }
 
