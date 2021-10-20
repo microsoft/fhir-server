@@ -3512,7 +3512,7 @@ GO
 -- PARAMETERS
 --     @startId
 --         * The start id of resource change records to fetch.
---     @@lastProcessedDateTime
+--     @lastProcessedDateTime
 --         * The last checkpoint datetime.
 --     @pageSize
 --         * The page size for fetching resource change records.

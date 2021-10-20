@@ -30,6 +30,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
         private static readonly ConcurrentDictionary<short, string> ResourceTypeIdToTypeNameMap = new ConcurrentDictionary<short, string>();
+
+        // Partition anchor date time can be any past DateTime which is not in the retention period.
+        // So, January 1st, 1970 at 00:00:00 UTC is chosen as the initial partition anchor DateTime in the resouce change data partition function.
         private static readonly DateTime PartitionAnchorDateTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
         private readonly SchemaInformation _schemaInformation;
 

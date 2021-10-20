@@ -176,7 +176,7 @@ GO
 -- PARAMETERS
 --     @startId
 --         * The start id of resource change records to fetch.
---     @@lastProcessedDateTime
+--     @lastProcessedDateTime
 --         * The last checkpoint datetime.
 --     @pageSize
 --         * The page size for fetching resource change records.
@@ -208,7 +208,7 @@ BEGIN
       ResourceVersion,
       ResourceChangeTypeId
       FROM dbo.ResourceChangeData WITH (REPEATABLEREAD)
-    WHERE Timestamp >= @lastProcessedDateTime and Id >= @startId 
+    WHERE Timestamp >= @lastProcessedDateTime AND Id >= @startId 
     ORDER BY Timestamp ASC, Id ASC;
 END;
 GO
