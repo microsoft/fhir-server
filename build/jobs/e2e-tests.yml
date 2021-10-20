@@ -69,7 +69,7 @@ steps:
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreUri]$($integrationStoreUri)"
         Write-Host "##vso[task.setvariable variable=TestIntegrationStoreKey]$($integrationStoreKey.Value)"
 
-        Write-Host "##vso[task.setvariable variable=Resource]$(TestApplicationResource)"
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
  
