@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
                 "<div>\"><script>alert(\"XSS\")</script>&</div>",
                 "<div>\"><STYLE>@import\"javascript:alert('XSS')\";</ STYLE ></div>",
                 "<div>http://www.example.com/>\"><script>alert(\"XSS\")</script>&</div>",
+                "<div onmouseover=\"alert('gotcha');\">Hi!</div>",
             }.Select(x => new[] { x });
         }
     }

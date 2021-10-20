@@ -25,13 +25,12 @@ using Microsoft.Health.Fhir.TemplateManagement;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Test.Utilities;
 using Microsoft.Rest;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
     /// Tests using customized template set will not run without extra container registry info
@@ -138,8 +137,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await UploadBlob(acrClient, originalConfigStream, repository, originalConfigDigest);
 
             // Upload memory blob
-            var defaultTemplateResourceName = $"{typeof(OCIFileManager).Namespace}.Hl7v2DefaultTemplates.tar.gz";
-            using Stream byteStream = typeof(OCIFileManager).Assembly.GetManifestResourceStream(defaultTemplateResourceName);
+            var defaultTemplateResourceName = $"{typeof(OciFileManager).Namespace}.Hl7v2DefaultTemplates.tar.gz";
+            using Stream byteStream = typeof(OciFileManager).Assembly.GetManifestResourceStream(defaultTemplateResourceName);
             var blobLength = byteStream.Length;
             string blobDigest = ComputeDigest(byteStream);
             await UploadBlob(acrClient, byteStream, repository, blobDigest);

@@ -136,6 +136,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "&"));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+            Assert.Single(exception.OperationOutcome.Issue);
+            Assert.Equal(Core.Resources.ConditionalOperationNotSelectiveEnough, exception.OperationOutcome.Issue[0].Diagnostics);
         }
     }
 }

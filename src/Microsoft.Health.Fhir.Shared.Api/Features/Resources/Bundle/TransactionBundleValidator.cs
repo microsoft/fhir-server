@@ -117,8 +117,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)
         {
-            string requestUrl = entry.Request.Url;
-            HTTPVerb? requestMethod = entry.Request.Method;
+            string requestUrl = entry.Request?.Url;
+            HTTPVerb? requestMethod = entry.Request?.Method;
+
+            if (string.IsNullOrWhiteSpace(requestUrl))
+            {
+                throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntryRequestUrl));
+            }
 
             // Search operations using _search and POST endpoint is not supported for bundle.
             // Conditional Delete operation is also not currently not supported.

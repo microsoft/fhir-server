@@ -8,7 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -80,11 +82,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         public async Task GivenABatch_WhenInvokedAtCosmosDb_MetricNotificationsShouldBeEmitted()
         {
             _metricHandler?.ResetCount();
+            var requestBundle = Samples.GetDefaultBatch().ToPoco<Hl7.Fhir.Model.Bundle>();
 
             await ExecuteAndValidate(
-                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().TypeName),
-                (type: typeof(CosmosStorageRequestMetricsNotification), count: 10, resourceType: Samples.GetDefaultBatch().ToPoco().TypeName));
+                 async () =>
+                 {
+                     var result = await _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco());
+                     return result.Response;
+                 },
+                 (type: typeof(ApiResponseNotification), count: 1, resourceType: (string)null),
+                 (type: typeof(CosmosStorageRequestMetricsNotification), count: 11, resourceType: "Patient"));
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
@@ -96,8 +103,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _metricHandler?.ResetCount();
 
             await ExecuteAndValidate(
-                () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().TypeName));
+                async () =>
+                {
+                    var result = await _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco());
+                    return result.Response;
+                },
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: (string)null));
         }
 
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
@@ -111,8 +122,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry").ToPoco<Hl7.Fhir.Model.Bundle>();
 
             await ExecuteAndValidate(
-                () => _client.PostBundleAsync(requestBundle),
-                (type: typeof(ApiResponseNotification), count: 1, resourceType: requestBundle.TypeName));
+                async () =>
+                {
+                    var result = await _client.PostBundleAsync(requestBundle);
+                    return result.Response;
+                },
+                (type: typeof(ApiResponseNotification), count: 1, resourceType: (string)null));
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<T>> action, params (Type type, int count, string resourceType)[] expectedNotifications)
@@ -140,8 +155,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                     result.Headers.TryGetValues(CosmosDbHeaders.RequestCharge, out IEnumerable<string> values);
 
                     Assert.NotNull(values);
-
-                    Assert.Equal(expectedNotification.count, values.Count());
 
                     foreach (var notification in _metricHandler.NotificationMapping[expectedNotification.type])
                     {

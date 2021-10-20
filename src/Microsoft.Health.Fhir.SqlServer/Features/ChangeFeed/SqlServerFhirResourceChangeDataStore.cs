@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Data;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
 {
@@ -26,9 +27,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
         private static readonly ConcurrentDictionary<short, string> ResourceTypeIdToTypeNameMap = new ConcurrentDictionary<short, string>();
-
-        // dbnetlib error value for timeout expired
-        private const short TIMEOUTEXPIRED = -2;
 
         /// <summary>
         /// Creates a new instance of the <see cref="SqlServerFhirResourceChangeDataStore"/> class.
@@ -109,7 +107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             {
                 switch (ex.Number)
                 {
-                    case TIMEOUTEXPIRED:
+                    case SqlErrorCodes.TimeoutExpired:
                         throw new TimeoutException(ex.Message, ex);
                     default:
                         _logger.LogError(ex, string.Format(Resources.SqlExceptionOccurredWhenFetchingResourceChanges, ex.Number));

@@ -385,7 +385,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         COMMIT TRANSACTION";
 
                     IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
-                        .GetSearchParameterStatuses().GetAwaiter().GetResult();
+                        .GetSearchParameterStatuses(cancellationToken).GetAwaiter().GetResult();
 
                     var collection = new SearchParameterStatusCollection();
                     collection.AddRange(statuses);

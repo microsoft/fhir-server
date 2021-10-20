@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _configuration = configuration;
         }
 
-        public async Task ExecuteAsync(Container container)
+        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(container, nameof(container));
 
@@ -46,11 +47,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                     new QueryDefinition($"SELECT TOP 1 * FROM c where c.{KnownDocumentProperties.PartitionKey} = '{SearchParameterStatusWrapper.SearchParameterStatusPartitionKey}'"),
                     new QueryRequestOptions { PartitionKey = partitionKey }));
 
-            var results = await query.ExecuteNextAsync();
+            var results = await query.ExecuteNextAsync(cancellationToken);
 
             if (!results.Any())
             {
-                var statuses = await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
+                var statuses = await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
 
                 foreach (var status in statuses.Where(x => _configuration.InitialSortParameterUris.Contains(x.Uri.ToString())))
                 {
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                         transaction.CreateItem(status);
                     }
 
-                    await transaction.ExecuteAsync();
+                    await transaction.ExecuteAsync(cancellationToken);
                 }
             }
         }

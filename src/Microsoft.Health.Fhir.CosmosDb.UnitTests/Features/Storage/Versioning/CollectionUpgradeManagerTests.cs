@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             _client.GetItemQueryIterator<CollectionVersion>(Arg.Any<QueryDefinition>(), Arg.Any<string>(), Arg.Any<QueryRequestOptions>())
                 .Returns(collectionVersionWrappers);
 
-            collectionVersionWrappers.ReadNextAsync()
+            collectionVersionWrappers.ReadNextAsync(Arg.Any<CancellationToken>())
                 .Returns(Substitute.ForPartsOf<FeedResponse<CollectionVersion>>());
 
             var updaters = new ICollectionUpdater[] { new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance), };
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
         {
             await UpdateCollectionAsync();
 
-            await _client.Received(1).ReplaceContainerAsync(Arg.Any<ContainerProperties>());
+            await _client.Received(1).ReplaceContainerAsync(Arg.Any<ContainerProperties>(), null, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
             await UpdateCollectionAsync();
 
             await _client.Received(1)
-                .UpsertItemAsync(Arg.Is<CollectionVersion>(x => x.Version == _manager.CollectionSettingsVersion), Arg.Any<PartitionKey?>());
+                .UpsertItemAsync(Arg.Is<CollectionVersion>(x => x.Version == _manager.CollectionSettingsVersion), Arg.Any<PartitionKey?>(), null, Arg.Any<CancellationToken>());
         }
 
         [Fact]
