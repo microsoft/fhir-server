@@ -1260,7 +1260,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         // The ids aren't in the query parameters because of the reset
                         ids = new string[] { "1", "2", "3" };
-                        continuationTokenIndex = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2)).Substring(2));
+                        continuationTokenIndex = int.Parse(ContinuationTokenConverter.Decode(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2).Substring(2));
                     }
 
                     return CreateSearchResult(

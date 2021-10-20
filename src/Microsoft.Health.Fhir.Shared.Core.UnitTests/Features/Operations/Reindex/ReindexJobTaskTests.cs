@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
     [CollectionDefinition("ReindexTaskTests", DisableParallelization = true)]
     public class ReindexJobTaskTests : IClassFixture<SearchParameterFixtureData>, IAsyncLifetime
     {
-        private const string Base64EncodedToken = "dG9rZW4=";
+        private readonly string _base64EncodedToken = ContinuationTokenConverter.Encode("token");
         private const int _mockedSearchCount = 5;
 
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
@@ -184,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList.Keys.OrderBy(q => q.LastModified),
                 item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed),
-                item2 => Assert.True(item2.ContinuationToken == Base64EncodedToken && item2.Status == OperationStatus.Completed));
+                item2 => Assert.True(item2.ContinuationToken == _base64EncodedToken && item2.Status == OperationStatus.Completed));
 
             param.IsSearchable = true;
         }
@@ -253,7 +253,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(
                     l => l.Any(t => t.Item1 == "_type" && t.Item2 == "Appointment") &&
-                         l.Any(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == Base64EncodedToken)),
+                         l.Any(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == _base64EncodedToken)),
                 Arg.Is<string>("appointmentHash"),
                 false,
                 Arg.Any<CancellationToken>());
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(
                     l => l.Any(t => t.Item1 == "_type" && t.Item2 == "AppointmentResponse") &&
-                         l.Any(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == Base64EncodedToken)),
+                         l.Any(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == _base64EncodedToken)),
                 Arg.Is<string>("appointmentResponseHash"),
                 false,
                 Arg.Any<CancellationToken>());
@@ -279,8 +279,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(4, job.QueryList.Count);
             Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == null && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse");
             Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == null && item.Status == OperationStatus.Completed && item.ResourceType == "Appointment");
-            Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse");
-            Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed && item.ResourceType == "Appointment");
+            Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == _base64EncodedToken && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse");
+            Assert.Contains(job.QueryList.Keys, item => item.ContinuationToken == _base64EncodedToken && item.Status == OperationStatus.Completed && item.ResourceType == "Appointment");
 
             await _reindexUtilities.Received().UpdateSearchParameterStatus(
                 Arg.Is<IReadOnlyCollection<string>>(r => r.Any(s => s.Contains("Appointment")) && r.Any(s => s.Contains("AppointmentResponse"))),

@@ -84,6 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
+            var sqlSortingValidator = new SqlServerSortingValidator(schemaInformation);
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             SqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
@@ -122,10 +123,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGeneratorV6 = serviceProvider.GetRequiredService<V6.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertResourceTvpGeneratorV7 = serviceProvider.GetRequiredService<V7.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertResourceTvpGeneratorV13 = serviceProvider.GetRequiredService<V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var upsertResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var reindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var bulkReindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var reindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var bulkReindexResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
-            var reindexResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
-            var bulkReindexResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
 
@@ -137,8 +141,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertSearchParamsTvpGenerator,
                 () => _filebasedSearchParameterStatusDataStore,
                 schemaInformation,
-                new SqlServerSortingValidator(schemaInformation),
-                sqlServerFhirModel);
+                sqlSortingValidator,
+                sqlServerFhirModel,
+                _searchParameterDefinitionManager);
 
             IOptions<CoreFeatureConfiguration> options = coreFeatures ?? Options.Create(new CoreFeatureConfiguration());
 
@@ -148,9 +153,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertResourceTvpGeneratorV6,
                 upsertResourceTvpGeneratorV7,
                 upsertResourceTvpGeneratorV13,
+                upsertResourceTvpGeneratorV17,
                 upsertResourceTvpGeneratorVLatest,
-                reindexResourceTvpGenerator,
-                bulkReindexResourceTvpGenerator,
+                reindexResourceTvpGeneratorV17,
+                reindexResourceTvpGeneratorVLatest,
+                bulkReindexResourceTvpGeneratorV17,
+                bulkReindexResourceTvpGeneratorVLatest,
                 options,
                 SqlConnectionWrapperFactory,
                 new CompressedRawResourceConverter(),
@@ -171,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => searchableSearchParameterDefinitionManager,
                 options,
                 _fhirRequestContextAccessor,
-                Substitute.For<ISortingValidator>(),
+                sqlSortingValidator,
                 NullLogger<SearchOptionsFactory>.Instance);
 
             var searchParamTableExpressionQueryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);

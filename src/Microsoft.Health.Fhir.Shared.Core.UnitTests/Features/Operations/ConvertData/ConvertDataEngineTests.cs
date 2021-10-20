@@ -82,6 +82,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("1962-08-28", patient.BirthDate);
         }
 
+        [Fact]
+        public async Task GivenJsonConvertDataRequest_WithADefaultTemplates_CorrectResultShouldReturn()
+        {
+            var convertDataEngine = GetDefaultEngine();
+            var request = GetJsonRequestWithDefaultTemplates();
+            var response = await convertDataEngine.Process(request, CancellationToken.None);
+
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
+            var patient = parser.Parse<Patient>(response.Resource);
+
+            Assert.NotEmpty(patient.Id);
+            Assert.Equal("Smith", patient.Name.First().Family);
+            Assert.Equal("2001-01-10", patient.BirthDate);
+        }
+
         [Theory]
         [InlineData("fakeacr.azurecr.io/template:default")]
         [InlineData("test.azurecr-test.io/template:default")]
@@ -96,6 +116,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
             var ccdaRequest = GetCcdaRequestWithTemplateReference(templateReference);
             await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => convertDataEngine.Process(ccdaRequest, CancellationToken.None));
+
+            var jsonRequest = GetJsonRequestWithTemplateReference(templateReference);
+            await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => convertDataEngine.Process(jsonRequest, CancellationToken.None));
         }
 
         [Theory]
@@ -126,6 +149,19 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         [Theory]
         [InlineData("       ")]
+        [InlineData("Abc")]
+        [InlineData("¶Š™œãý£¾")]
+        [InlineData("{\"a\"}")]
+        public async Task GivenJsonConvertDataRequest_WithWrongInputData_ConvertDataFailedExceptionShouldBeThrown(string inputData)
+        {
+            var convertDataEngine = GetDefaultEngine();
+            var request = GetJsonRequestWithInputData(inputData);
+            var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
+            Assert.True(exception.InnerException is DataParseException);
+        }
+
+        [Theory]
+        [InlineData("       ")]
         [InlineData("ADT_A02")]
         [InlineData("¶Š™œãý£¾")]
         public async Task GivenHl7V2ConvertDataRequest_WithWrongRootTemplate_ConvertDataFailedExceptionShouldBeThrown(string rootTemplateName)
@@ -144,6 +180,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         {
             var convertDataEngine = GetDefaultEngine();
             var request = GetCcdaRequestWithRootTemplate(rootTemplateName);
+            var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
+            Assert.Equal($"Template '{rootTemplateName}' not found", exception.InnerException.Message);
+        }
+
+        [Theory]
+        [InlineData("       ")]
+        [InlineData("Example")]
+        [InlineData("¶Š™œãý£¾")]
+        public async Task GivenJsonConvertDataRequest_WithWrongRootTemplate_ConvertDataFailedExceptionShouldBeThrown(string rootTemplateName)
+        {
+            var convertDataEngine = GetDefaultEngine();
+            var request = GetJsonRequestWithRootTemplate(rootTemplateName);
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
             Assert.Equal($"Template '{rootTemplateName}' not found", exception.InnerException.Message);
         }
@@ -180,14 +228,35 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.True(exception.InnerException is PostprocessException);
         }
 
+        [Fact]
+        public async Task GivenJsonTemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrown()
+        {
+            var wrongTemplateCollection = new List<Dictionary<string, Template>>
+            {
+                new Dictionary<string, Template>
+                {
+                    { "ExamplePatient", Template.Parse(@"""a"":""b""") },
+                },
+            };
+            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var request = GetJsonRequestWithDefaultTemplates();
+            var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
+            Assert.True(exception.InnerException is PostprocessException);
+        }
+
         private static ConvertDataRequest GetHl7V2RequestWithDefaultTemplates()
         {
-            return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "ADT_A01");
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Hl7v2), "ADT_A01");
         }
 
         private static ConvertDataRequest GetCcdaRequestWithDefaultTemplates()
         {
-            return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
+            return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Ccda), "CCD");
+        }
+
+        private static ConvertDataRequest GetJsonRequestWithDefaultTemplates()
+        {
+            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient");
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithTemplateReference(string imageReference)
@@ -200,24 +269,39 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, imageReference.Split('/')[0], false, imageReference, "CCD");
         }
 
+        private static ConvertDataRequest GetJsonRequestWithTemplateReference(string imageReference)
+        {
+            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, imageReference.Split('/')[0], false, imageReference, "ExamplePatient");
+        }
+
         private static ConvertDataRequest GetHl7V2RequestWithInputData(string inputData)
         {
-            return new ConvertDataRequest(inputData, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "ADT_A01");
+            return new ConvertDataRequest(inputData, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Hl7v2), "ADT_A01");
         }
 
         private static ConvertDataRequest GetCcdaRequestWithInputData(string inputData)
         {
-            return new ConvertDataRequest(inputData, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
+            return new ConvertDataRequest(inputData, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Ccda), "CCD");
+        }
+
+        private static ConvertDataRequest GetJsonRequestWithInputData(string inputData)
+        {
+            return new ConvertDataRequest(inputData, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient");
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithRootTemplate(string rootTemplate)
         {
-            return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), rootTemplate);
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Hl7v2), rootTemplate);
         }
 
         private static ConvertDataRequest GetCcdaRequestWithRootTemplate(string rootTemplate)
         {
-            return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), rootTemplate);
+            return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Ccda), rootTemplate);
+        }
+
+        private static ConvertDataRequest GetJsonRequestWithRootTemplate(string rootTemplate)
+        {
+            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), rootTemplate);
         }
 
         private IConvertDataEngine GetDefaultEngine()
@@ -252,7 +336,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             return string.Empty;
         }
 
-        private static string GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType dataType)
+        private static string GetDefaultTemplateImageReferenceByDataType(DataType dataType)
         {
             return DefaultTemplateInfo.DefaultTemplateMap.Values.FirstOrDefault(value => value.DataType == dataType).ImageReference;
         }
