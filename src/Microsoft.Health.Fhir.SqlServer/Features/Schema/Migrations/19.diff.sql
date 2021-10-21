@@ -38,11 +38,11 @@ BEGIN
         SET @rightPartitionBoundary = DATEADD(hour, DATEDIFF(hour, 0, @currentDateTime) - @numberOfPartitions, 0);
 
         -- Checks if a partition exists.
-        IF NOT EXISTS (SELECT 1 value FROM sys.partition_range_values AS prv
+        IF NOT EXISTS (SELECT 1 FROM sys.partition_range_values AS prv
                         JOIN sys.partition_functions AS pf
                             ON pf.function_id = prv.function_id
                     WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                        and CONVERT(datetime2(7), prv.value, 126) = @rightPartitionBoundary) 
+                        and CAST(prv.value AS datetime2(7)) = @rightPartitionBoundary) 
         BEGIN
             -- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
             ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
