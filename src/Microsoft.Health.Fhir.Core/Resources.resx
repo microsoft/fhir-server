@@ -411,7 +411,7 @@
     <value>Sorting by the '{0}' parameter is not supported.</value>
   </data>
   <data name="ServerName" xml:space="preserve">
-    <value>Microsoft FHIR Server</value>
+    <value>FHIR Server for Azure</value>
   </data>
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>

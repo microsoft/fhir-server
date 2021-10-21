@@ -58,6 +58,8 @@ stages:
   displayName: 'Build images'
   dependsOn:
   - UpdateVersion
+  variables:
+    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
   jobs:
   - template: ./jobs/docker-build-all.yml
     parameters: 
