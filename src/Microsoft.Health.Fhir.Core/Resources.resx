@@ -607,4 +607,7 @@
     <value>Can't find '{0}' in type '{1}'</value>
     <comment>{0}: expression we trying to resolve, {1}: FHIR type</comment>
   </data>
+  <data name="CapabilityStatementNameFormat" xml:space="preserve">
+    <value>{0} {1} Capability Statement</value>
+  </data>
 </root>

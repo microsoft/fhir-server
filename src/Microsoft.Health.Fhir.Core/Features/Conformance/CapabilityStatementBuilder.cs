@@ -65,10 +65,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
 
             FileVersionInfo version = ProductVersionInfo.Version;
+            var versionString = $"{version.FileMajorPart}.{version.FileMinorPart}.{version.FileBuildPart}";
+
+            statement.Name = string.Format(Resources.CapabilityStatementNameFormat, configuration.Value.SoftwareName, versionString);
             statement.Software = new SoftwareComponent
             {
                 Name = configuration.Value.SoftwareName,
-                Version = $"{version.FileMajorPart}.{version.FileMinorPart}.{version.FileBuildPart}",
+                Version = versionString,
             };
 
             statement.FhirVersion = modelInfoProvider.SupportedVersion.ToString();
