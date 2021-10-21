@@ -5,9 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
@@ -64,10 +64,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             using var reader = new StreamReader(resourceStream);
             var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
 
+            FileVersionInfo version = ProductVersionInfo.Version;
             statement.Software = new SoftwareComponent
             {
                 Name = configuration.Value.SoftwareName,
-                Version = ProductVersionInfo.Version.FileVersion,
+                Version = $"{version.FileMajorPart}.{version.FileMinorPart}.{version.FileBuildPart}",
             };
 
             statement.FhirVersion = modelInfoProvider.SupportedVersion.ToString();
