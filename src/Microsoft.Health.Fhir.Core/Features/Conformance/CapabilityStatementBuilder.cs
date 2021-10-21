@@ -64,7 +64,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             using var reader = new StreamReader(resourceStream);
             var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
 
-            statement.Name = Resources.ServerName;
             statement.Software = new SoftwareComponent
             {
                 Name = configuration.Value.SoftwareName,
