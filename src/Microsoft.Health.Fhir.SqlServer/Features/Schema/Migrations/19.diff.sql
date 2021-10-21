@@ -87,15 +87,23 @@ GO
     
 IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
 BEGIN
-    -- Drops index.
-    ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData WITH (ONLINE = OFF);
+    -- Drops index. For reference, dropping index operation took around 10 mins for 53 million records
+    -- on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
+    -- "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+    -- During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+    -- This behavior enables queries or updates to the underlying table and indexes to continue.
+    ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData WITH (ONLINE = ON);
 END;
         
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
 BEGIN    
-    -- Adds primary key clustered index.
+    -- Adds primary key clustered index. For reference, adding index operation took around 10 mins for 53 million records
+    -- on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
+    -- "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+    -- During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+    -- This behavior enables queries or updates to the underlying table and indexes to continue.
     ALTER TABLE dbo.ResourceChangeData ADD CONSTRAINT PK_ResourceChangeData_TimestampId
-        PRIMARY KEY CLUSTERED(Timestamp ASC, Id ASC) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp)
+        PRIMARY KEY CLUSTERED(Timestamp ASC, Id ASC) WITH (ONLINE = ON) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp);
 END;
 GO
 
