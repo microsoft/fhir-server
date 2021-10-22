@@ -3381,22 +3381,22 @@ AS RANGE RIGHT FOR VALUES('1970-01-01T00:00:00.0000000');
 CREATE PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
 
 -- Creates initial partitions based on default 48-hour retention period.
-DECLARE @numberOfPartitions int = 48;
+DECLARE @numberOfHistoryPartitions int = 48;
 DECLARE @rightPartitionBoundary datetime2(7);
 DECLARE @currentDateTime datetime2(7) = sysutcdatetime();
 
 -- There will be 51 partition boundaries and 52 partitions, 48 partitions for history,
 -- one for the current hour, one for the next hour, and 2 partitions for start and end.
-WHILE @numberOfPartitions >= -1 
+WHILE @numberOfHistoryPartitions >= -1 
 BEGIN        
     -- Rounds the start datetime to the hour.
-    SET @rightPartitionBoundary = DATEADD(hour, DATEDIFF(hour, 0, @currentDateTime) - @numberOfPartitions, 0);
+    SET @rightPartitionBoundary = DATEADD(hour, DATEDIFF(hour, 0, @currentDateTime) - @numberOfHistoryPartitions, 0);
             
     -- Creates new empty partition by creating new boundary value and specifying NEXT USED file group.
     ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [Primary];
     ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() SPLIT RANGE(@rightPartitionBoundary); 
             
-    SET @numberOfPartitions -= 1;
+    SET @numberOfHistoryPartitions -= 1;
 END;
 
 -- Partitioned table that stores resource change information. 
@@ -3556,7 +3556,7 @@ GO
 --     ConfigurePartitionOnResourceChanges
 --
 -- DESCRIPTION
---     Creates initial partitions for future datetimes on the resource change data table.
+--     Creates initial partitions for future datetimes on the resource change data table if they do not already exist.
 --
 -- PARAMETERS
 --     @numberOfFuturePartitionsToAdd

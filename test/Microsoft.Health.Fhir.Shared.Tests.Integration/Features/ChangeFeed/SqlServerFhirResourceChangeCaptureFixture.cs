@@ -25,7 +25,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         private IOptions<CoreFeatureConfiguration> _coreFeatureConfigOptions;
         private readonly FhirStorageTestsFixture _storageFixture;
         private readonly SqlServerFhirStorageTestsFixture _sqlFixture;
-        private readonly SchemaInformation _schemaInformation;
         private string _databaseName;
 
         public SqlServerFhirResourceChangeCaptureFixture()
@@ -34,15 +33,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
             _coreFeatureConfigOptions = Options.Create(new CoreFeatureConfiguration() { SupportsResourceChangeCapture = true });
             _sqlFixture = new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, _databaseName, _coreFeatureConfigOptions);
             _storageFixture = new FhirStorageTestsFixture(_sqlFixture);
-            _schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-            _schemaInformation.Current = SchemaVersionConstants.Max;
         }
 
         public Mediator Mediator => _storageFixture.Mediator;
 
         public ISqlConnectionFactory SqlConnectionFactory => _sqlFixture.SqlConnectionFactory;
 
-        public SchemaInformation SchemaInformation => _schemaInformation;
+        public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 
         public async Task InitializeAsync()
         {

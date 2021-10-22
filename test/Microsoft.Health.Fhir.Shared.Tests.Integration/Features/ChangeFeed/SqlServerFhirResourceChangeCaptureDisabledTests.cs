@@ -43,8 +43,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 // this will either create the database or upgrade the schema.
                 var coreFeatureConfigOptions = Options.Create(new CoreFeatureConfiguration() { SupportsResourceChangeCapture = false });
                 var sqlFixture = new SqlServerFhirStorageTestsFixture(SchemaVersionConstants.Max, databaseName, coreFeatureConfigOptions);
-                var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
-                schemaInformation.Current = SchemaVersionConstants.Max;
 
                 fhirStorageTestsFixture = new FhirStorageTestsFixture(sqlFixture);
                 await fhirStorageTestsFixture.InitializeAsync();
@@ -65,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
                 var deletedResourceKey = await mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), DeleteOperation.SoftDelete);
 
                 // get resource changes
-                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(sqlFixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
+                var resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(sqlFixture.SqlConnectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, sqlFixture.SchemaInformation);
                 var resourceChanges = await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
 
                 Assert.NotNull(resourceChanges);
