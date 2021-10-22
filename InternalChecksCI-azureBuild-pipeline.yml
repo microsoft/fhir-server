@@ -8,8 +8,7 @@
 # Variable 'TestAadTenant' was defined in the Variables tab
 # Variable 'TestApiAadResourceId' was defined in the Variables tab
 # Variable 'UploadUrl' was defined in the Variables tab
-env:
-    MY_ACCESS_TOKEN: $(System.AccessToken)
+
 parameters:
 - name: BuildConfiguration
   default: release
@@ -97,6 +96,9 @@ jobs:
       outputFormat: sarif
       debugMode: false
       folderSuppression: false
+    env:
+      MY_ACCESS_TOKEN: $(System.AccessToken)
+
   - task: PoliCheck@1
     displayName: Run PoliCheck
     continueOnError: True
