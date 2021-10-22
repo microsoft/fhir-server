@@ -1,7 +1,17 @@
+# 'Allow scripts to access the OAuth token' was selected in pipeline.  Add the following YAML to any steps requiring access:
+#       env:
+#           MY_ACCESS_TOKEN: $(System.AccessToken)
+# Variable 'CrucibleEnvironmentUrl' was defined in the Variables tab
+# Variable 'NugetSecurityAnalysisWarningLevel' was defined in the Variables tab
+# Variable 'TestAadClientId' was defined in the Variables tab
 # Variable 'TestAadClientSecret' was defined in the Variables tab
 # Variable 'TestAadTenant' was defined in the Variables tab
 # Variable 'TestApiAadResourceId' was defined in the Variables tab
 # Variable 'UploadUrl' was defined in the Variables tab
+parameters:
+- name: BuildConfiguration
+  default: release
+
 trigger:
   branches:
     include:
@@ -57,7 +67,7 @@ jobs:
     displayName: dotnet build
     inputs:
       projects: '**/*.sln'
-      arguments: --configuration $(BuildConfiguration) --version-suffix $(build.buildnumber) /warnaserror
+      arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror
   - task: ComponentGovernanceComponentDetection@0
     displayName: Component Detection
   - task: AutoApplicability@1
