@@ -120,6 +120,8 @@ jobs:
   - task: PostAnalysis@1
     displayName: Post Analysis
     condition: succeededOrFailed()
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
     inputs:
       BinSkim: true
       CredScan: true
