@@ -54,8 +54,7 @@ jobs:
     displayName: Use .NET Core sdk
     inputs:
       version: 5.0.400
-      #useGlobalJson: true
-      #version: $(NetCoreVersion)
+
   - task: DotNetCoreCLI@2
     displayName: dotnet restore
     inputs:
@@ -90,12 +89,13 @@ jobs:
     inputs:
       Files: $(Build.SourcesDirectory)\**\*.dll
   - task: CredScan@2
-    displayName: Run CredScan
+    displayName: Run CredScan V2
     continueOnError: True
     inputs:
       outputFormat: sarif
       debugMode: false
       folderSuppression: false
+      toolMajorVersion: V2
     env:
       MY_ACCESS_TOKEN: $(System.AccessToken)
 
