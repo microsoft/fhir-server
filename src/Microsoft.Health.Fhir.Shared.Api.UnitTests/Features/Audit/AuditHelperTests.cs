@@ -12,6 +12,7 @@ using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
 
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
     public class AuditHelperTests
     {
-        private const string AuditEventType = "audit";
+        private const string AuditEventType = AuditEventSubType.Create;
         private const string CorrelationId = "correlation";
         private static readonly Uri Uri = new Uri("http://localhost/123");
         private static readonly IReadOnlyCollection<KeyValuePair<string, string>> Claims = new List<KeyValuePair<string, string>>();
@@ -68,6 +69,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 callerClaims: default);
         }
 
+        [Theory]
+        [InlineData(FhirAnonymousOperationType.Metadata)]
+        [InlineData(FhirAnonymousOperationType.Versions)]
+        public void GivenInvalidAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldNotBeLogged(string auditEventType)
+        {
+            _fhirRequestContext.AuditEventType.Returns(auditEventType);
+
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
+
+            _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
+                auditAction: default,
+                operation: default,
+                resourceType: default,
+                requestUri: default,
+                statusCode: default,
+                correlationId: default,
+                callerIpAddress: default,
+                callerClaims: default);
+        }
+
         [Fact]
         public void GivenAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
         {
@@ -90,6 +111,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         [Fact]
         public void GivenNoAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged()
         {
+            _auditHelper.LogExecuted(_httpContext, _claimsExtractor);
+
+            _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
+                auditAction: default,
+                operation: default,
+                resourceType: default,
+                requestUri: default,
+                statusCode: default,
+                correlationId: default,
+                callerIpAddress: default,
+                callerClaims: default);
+        }
+
+        [Theory]
+        [InlineData(FhirAnonymousOperationType.Metadata)]
+        [InlineData(FhirAnonymousOperationType.Versions)]
+        public void GivenInvalidAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged(string auditEventType)
+        {
+            _fhirRequestContext.AuditEventType.Returns(auditEventType);
+
             _auditHelper.LogExecuted(_httpContext, _claimsExtractor);
 
             _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
