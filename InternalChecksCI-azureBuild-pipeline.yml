@@ -8,6 +8,8 @@
 # Variable 'TestAadTenant' was defined in the Variables tab
 # Variable 'TestApiAadResourceId' was defined in the Variables tab
 # Variable 'UploadUrl' was defined in the Variables tab
+env:
+    MY_ACCESS_TOKEN: $(System.AccessToken)
 parameters:
 - name: BuildConfiguration
   default: release
