@@ -127,6 +127,8 @@ jobs:
       CredScan: true
   - task: uploadScanResults@1
     displayName: Upload Scan Results for Analysis
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
     inputs:
       areaPathParent: Health
       areaPathChild: Patient Engagement\Resolute
