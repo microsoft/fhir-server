@@ -3,13 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
@@ -21,6 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly IAuditHeaderReader _auditHeaderReader;
+        private static IList<string> _auditEventSubTypeList = new List<string>();
 
         public AuditHelper(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
@@ -34,6 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _auditLogger = auditLogger;
             _auditHeaderReader = auditHeaderReader;
+            _auditEventSubTypeList = GetConstants(typeof(AuditEventSubType));
         }
 
         /// <inheritdoc />
@@ -70,7 +77,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             string auditEventType = fhirRequestContext.AuditEventType;
 
             // Audit the call if an audit event type is associated with the action.
-            if (!string.IsNullOrEmpty(auditEventType))
+            // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType make sure we only log the AuditEventType
+            if (!string.IsNullOrEmpty(auditEventType) && _auditEventSubTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
                 _auditLogger.LogAudit(
                     auditAction,
@@ -83,6 +91,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext));
             }
+        }
+
+        /// <summary>
+        /// Return all the values of constants of the specified type
+        /// </summary>
+        /// <param name="type">Type to examine</param>
+        /// <returns>List of constant values</returns>
+        public static IList<string> GetConstants(System.Type type)
+        {
+            if (_auditEventSubTypeList.Count == 0)
+            {
+                FieldInfo[] fieldInfos = type.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+
+                // Go through the list and only pick out the constants
+                foreach (FieldInfo fi in fieldInfos)
+                {
+                    if (fi.IsLiteral && !fi.IsInitOnly)
+                    {
+                        _auditEventSubTypeList.Add(fi.Name);
+                    }
+                }
+            }
+
+            // Return an array of FieldInfos
+            return _auditEventSubTypeList;
         }
     }
 }
