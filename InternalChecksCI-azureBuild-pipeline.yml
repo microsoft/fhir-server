@@ -95,7 +95,7 @@ jobs:
       outputFormat: sarif
       debugMode: false
       folderSuppression: false
-      toolMajorVersion: CredScan V2
+      #toolMajorVersion: V2
     env:
       MY_ACCESS_TOKEN: $(System.AccessToken)
 
