@@ -89,13 +89,14 @@ jobs:
     inputs:
       Files: $(Build.SourcesDirectory)\**\*.dll
   - task: CredScan@2
-    displayName: Run CredScan V2
+    displayName: Run CredScan
     continueOnError: True
     inputs:
-      outputFormat: sarif
+      #outputFormat: sarif
       debugMode: false
       folderSuppression: false
       toolMajorVersion: V2
+      outputFormat: sarif
     env:
       MY_ACCESS_TOKEN: $(System.AccessToken)
 
