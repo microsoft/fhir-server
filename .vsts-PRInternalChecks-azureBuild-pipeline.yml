@@ -39,7 +39,7 @@ jobs:
     inputs:
       #useGlobalJson: true
       #version: $(NetCoreVersion)
-      version: '5.0.400'
+      version: 5.0.400
   - task: DotNetCoreCLI@2
     displayName: dotnet restore
     inputs:
