@@ -5,6 +5,9 @@
 # Variable 'TestAadTenant' was defined in the Variables tab
 # Variable 'TestApiAadResourceId' was defined in the Variables tab
 name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+parameters:
+- name: BuildConfiguration
+  default: release
 resources:
   repositories:
   - repository: self
@@ -34,8 +37,9 @@ jobs:
   - task: UseDotNet@2
     displayName: Use .NET Core sdk
     inputs:
-      useGlobalJson: true
-      version: $(NetCoreVersion)
+      #useGlobalJson: true
+      #version: $(NetCoreVersion)
+      version: 5.0.400
   - task: DotNetCoreCLI@2
     displayName: dotnet restore
     inputs:
@@ -50,7 +54,7 @@ jobs:
     displayName: dotnet build
     inputs:
       projects: '**/*.sln'
-      arguments: --configuration $(BuildConfiguration) --version-suffix $(build.buildnumber) /warnaserror
+      arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror
   - task: ComponentGovernanceComponentDetection@0
     displayName: Component Detection
     enabled: False
