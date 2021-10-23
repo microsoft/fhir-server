@@ -234,8 +234,8 @@ BEGIN
         AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
 END; 
 
-IF (EXISTS(SELECT * FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
-    AND EXISTS(SELECT * FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp'))
+IF (EXISTS(SELECT 1 FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
+    AND EXISTS(SELECT 1 FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp'))
 BEGIN
     /* Creates initial partitions based on default 48-hour retention period. */
     DECLARE @numberOfHistoryPartitions int = 48;
@@ -296,7 +296,7 @@ BEGIN
 END;
 GO
     
-IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
 BEGIN
     /* Drops index. For reference, dropping index operation took around 10 mins for 53 million records
        on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
@@ -306,7 +306,7 @@ BEGIN
     ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData WITH (ONLINE = ON);
 END;
         
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
 BEGIN    
     /* Adds primary key clustered index. For reference, adding index operation took around 10 mins for 53 million records
        on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
