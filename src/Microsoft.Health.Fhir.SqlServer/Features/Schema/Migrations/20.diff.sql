@@ -237,19 +237,24 @@ END;
 IF (EXISTS(SELECT 1 FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
     AND EXISTS(SELECT 1 FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp'))
 BEGIN
-    /* Creates initial partitions based on default 48-hour retention period. */
+    /* Creates initial partitions based on default 48-hour retention period and 1-month future partitions. */
     DECLARE @numberOfHistoryPartitions int = 48;
+
+    /* To have a buffer time when an error occurs related to partition creation, 
+       by default 720 hours of partitions for the future DateTime will be created in the resource change data table. 
+       The number of future partitions is 720 for 30 days. */
+    DECLARE @numberOfFuturePartitions int = 720;
     DECLARE @rightPartitionBoundary datetime2(7);
     DECLARE @currentDateTime datetime2(7) = sysutcdatetime();
-        
-    /* There will be 53 partitions, and 52 partition boundaries, one for partition anchor DateTime,
-       48 partition boundaries for history, one for the current hour, and two for the next hour.
-       Creates two partition boudaries for the next hour to mitigate risk to any data movement
-       if it is happened to be exactly during a change from one hour to the next.
-       Once a database is upgraded, a purge change data worker will be run hourly to maintain 
-       the number of partitions on resource change datatable.
-       Total number of partitions = the number of history partitions + one for the current hour + the number of future partitions. */
-    WHILE @numberOfHistoryPartitions >= -2 
+
+    /* There will be 771 partitions, and 770 partition boundaries, one for partition anchor DateTime,
+       48 partition boundaries for history, one for the current hour, and 720 for the future datetimes.
+       Creates 720 partition boudaries for the future to mitigate risk to any data movement
+       and have a buffer time to investigate an issue when an error occurs on partition creation.
+       Once a database is upgraded, a purge change data worker will be run hourly to maintain the number of partitions on resource change datatable. 
+       The partition anchor boundary will be removed at the very first run of the purge operation of the purge change data worker.
+       Total number of partition boundaries = the number of history partitions + one for the current hour + the number of future partitions. */
+    WHILE @numberOfHistoryPartitions >= -@numberOfFuturePartitions
     BEGIN
         /* Rounds the start datetime to the hour. */
         SET @rightPartitionBoundary = DATEADD(hour, DATEDIFF(hour, 0, @currentDateTime) - @numberOfHistoryPartitions, 0);
