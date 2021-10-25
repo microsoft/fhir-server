@@ -232,7 +232,7 @@ BEGIN
        and places partitions on the PRIMARY filegroup. */
     CREATE PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp
         AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
-END; 
+END;
 
 IF (EXISTS(SELECT 1 FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
     AND EXISTS(SELECT 1 FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp'))
@@ -274,6 +274,7 @@ BEGIN
         SET @numberOfHistoryPartitions -= 1;
     END;
 END;
+GO
 
 /* Creates a staging table. */
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ResourceChangeDataStaging')
@@ -315,6 +316,7 @@ BEGIN
        This behavior enables queries or updates to the underlying table and indexes to continue. */
     ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData WITH (ONLINE = ON);
 END;
+GO
         
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
 BEGIN    
