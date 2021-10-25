@@ -20,8 +20,7 @@ jobs:
   displayName: Phase 1
   cancelTimeoutInMinutes: 1
   pool:
-    vmImage: Hosted Windows 2019 with VS2019
-    #windows-2019
+    vmImage: windows-2019
   steps:
   - checkout: self
     clean: true
