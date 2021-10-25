@@ -242,9 +242,11 @@ BEGIN
     DECLARE @rightPartitionBoundary datetime2(7);
     DECLARE @currentDateTime datetime2(7) = sysutcdatetime();
         
-    /* There will be 51 partition boundaries and 52 partitions, 48 partitions for history,
-       one for the current hour, one for the next hour, and 2 partitions for start and end. */
-    WHILE @numberOfHistoryPartitions >= -1 
+    /* There will be 53 partitions, and 52 partition boundaries, one for partition anchor DateTime,
+       48 partition boundaries for history, one for the current hour, and two for the next hour.
+       Creates two partition boudaries for the next hour to mitigate risk to any data movement
+       if it is happened to be exactly during a change from one hour to the next. */
+    WHILE @numberOfHistoryPartitions >= -2 
     BEGIN
         /* Rounds the start datetime to the hour. */
         SET @rightPartitionBoundary = DATEADD(hour, DATEDIFF(hour, 0, @currentDateTime) - @numberOfHistoryPartitions, 0);
