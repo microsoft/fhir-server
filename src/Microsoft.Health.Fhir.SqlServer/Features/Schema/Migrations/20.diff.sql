@@ -245,7 +245,10 @@ BEGIN
     /* There will be 53 partitions, and 52 partition boundaries, one for partition anchor DateTime,
        48 partition boundaries for history, one for the current hour, and two for the next hour.
        Creates two partition boudaries for the next hour to mitigate risk to any data movement
-       if it is happened to be exactly during a change from one hour to the next. */
+       if it is happened to be exactly during a change from one hour to the next.
+       Once a database is upgraded, a purge change data worker will be run hourly to maintain 
+       the number of partitions on resource change datatable.
+       Total number of partitions = the number of history partitions + one for the current hour + the number of future partitions. */
     WHILE @numberOfHistoryPartitions >= -2 
     BEGIN
         /* Rounds the start datetime to the hour. */
