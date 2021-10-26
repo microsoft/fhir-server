@@ -18,7 +18,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
-using Microsoft.Health.SqlServer.Features.Schema;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
