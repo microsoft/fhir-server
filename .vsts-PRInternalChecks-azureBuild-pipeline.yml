@@ -31,7 +31,7 @@ jobs:
       versionSpec: 4.3.0
   - task: NuGetCommand@2
     displayName: NuGet restore
-    enabled: true
+    enabled: false
     inputs:
       selectOrConfig: config
       nugetConfigPath: nuget.config
