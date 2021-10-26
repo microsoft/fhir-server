@@ -4,7 +4,8 @@
 # Variable 'TestAadClientSecret' was defined in the Variables tab
 # Variable 'TestAadTenant' was defined in the Variables tab
 # Variable 'TestApiAadResourceId' was defined in the Variables tab
-name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+name: PRInternalChecks-azureBuild-pipeline
+#pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 parameters:
 - name: BuildConfiguration
   default: release
@@ -39,8 +40,6 @@ jobs:
   - task: UseDotNet@2
     displayName: Use .NET Core sdk
     inputs:
-      #useGlobalJson: true
-      #version: $(NetCoreVersion)
       version: 5.0.400
   - task: DotNetCoreCLI@2
     displayName: dotnet restore
