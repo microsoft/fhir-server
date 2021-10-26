@@ -49,7 +49,7 @@ jobs:
       projects: '**/*.sln'
       selectOrConfig: config
       feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
-      includeNuGetOrg: false
+      includeNuGetOrg: true
       nugetConfigPath: nuget.config
   - task: DotNetCoreCLI@1
     name: ''
