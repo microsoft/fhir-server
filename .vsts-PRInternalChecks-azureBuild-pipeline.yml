@@ -36,7 +36,7 @@ jobs:
     inputs:
       selectOrConfig: config
       nugetConfigPath: nuget.config
-      externalEndpoints: 72411e68-1d51-42d1-946e-de9a43613206,c9b861fe-6f8c-45cc-8417-8cefd3693e33,90fb2597-6bb3-4ba0-b3f6-9dd34b622006
+     # externalEndpoints: 72411e68-1d51-42d1-946e-de9a43613206,c9b861fe-6f8c-45cc-8417-8cefd3693e33,90fb2597-6bb3-4ba0-b3f6-9dd34b622006
   - task: UseDotNet@2
     displayName: Use .NET Core sdk
     inputs:
@@ -47,7 +47,7 @@ jobs:
       command: restore
       projects: '**/*.sln'
       selectOrConfig: config
-      feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
+      #feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
       includeNuGetOrg: false
       nugetConfigPath: nuget.config
   - task: DotNetCoreCLI@1
