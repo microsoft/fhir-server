@@ -411,7 +411,7 @@
     <value>Sorting by the '{0}' parameter is not supported.</value>
   </data>
   <data name="ServerName" xml:space="preserve">
-    <value>Microsoft FHIR Server</value>
+    <value>FHIR Server for Azure</value>
   </data>
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
@@ -606,5 +606,8 @@
   <data name="CantResolveExpressionForAType" xml:space="preserve">
     <value>Can't find '{0}' in type '{1}'</value>
     <comment>{0}: expression we trying to resolve, {1}: FHIR type</comment>
+  </data>
+  <data name="CapabilityStatementNameFormat" xml:space="preserve">
+    <value>{0} {1} Capability Statement</value>
   </data>
 </root>
