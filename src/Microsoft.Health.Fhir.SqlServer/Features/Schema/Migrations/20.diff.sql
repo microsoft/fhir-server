@@ -1,7 +1,7 @@
 /*************************************************************
     This migration introduces table partitioning by Timestamp on the ResourceChangeData table.
     The migration is "online" meaning the server is fully available during the upgrade, but it can be very time-consuming.
-    For reference, a resource change data table with 53 million records took around 20 minutes to complete 
+    For reference, a resource change data table with 52 million records took around 3 hours to complete 
     on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
 **************************************************************/
 
@@ -309,9 +309,7 @@ GO
     
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
 BEGIN
-    /* Drops index. For reference, dropping index operation took around 10 mins for 53 million records
-       on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
-       "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+    /* Drops index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
        This behavior enables queries or updates to the underlying table and indexes to continue. */
     ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData WITH (ONLINE = ON);
@@ -320,9 +318,7 @@ GO
         
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
 BEGIN    
-    /* Adds primary key clustered index. For reference, adding index operation took around 10 mins for 53 million records
-       on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
-       "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+    /* Adds primary key clustered index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
        This behavior enables queries or updates to the underlying table and indexes to continue. */
     ALTER TABLE dbo.ResourceChangeData ADD CONSTRAINT PK_ResourceChangeData_TimestampId
