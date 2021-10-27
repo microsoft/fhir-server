@@ -20,7 +20,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Everything
             PartialDateTime end = null,
             PartialDateTime since = null,
             string resourceTypes = null,
-            bool excludeLinks = false,
             string continuationToken = null,
             IReadOnlyList<Tuple<string, string>> unsupportedParameters = null)
         {
@@ -33,7 +32,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Everything
             End = end;
             Since = since;
             ResourceTypes = resourceTypes;
-            ExcludeLinks = excludeLinks;
             ContinuationToken = continuationToken;
             UnsupportedParameters = unsupportedParameters;
         }
@@ -49,8 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Everything
         public PartialDateTime Since { get; }
 
         public string ResourceTypes { get; }
-
-        public bool ExcludeLinks { get; }
 
         public string ContinuationToken { get; }
 

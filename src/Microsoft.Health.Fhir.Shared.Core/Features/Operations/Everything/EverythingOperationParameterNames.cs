@@ -13,7 +13,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         public const string Start = "start";
 
         public const string End = "end";
-
-        public const string ExcludeLinks = "excludeLinks";
     }
 }
