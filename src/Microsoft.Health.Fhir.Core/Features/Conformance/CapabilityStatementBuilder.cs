@@ -5,9 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Version;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
@@ -62,8 +63,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             using Stream resourceStream = modelInfoProvider.OpenVersionedFileStream("BaseCapabilities.json");
             using var reader = new StreamReader(resourceStream);
             var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
+
+            FileVersionInfo version = ProductVersionInfo.Version;
+            var versionString = $"{version.FileMajorPart}.{version.FileMinorPart}.{version.FileBuildPart}";
+
+            statement.Name = string.Format(Resources.CapabilityStatementNameFormat, configuration.Value.SoftwareName, versionString);
+            statement.Software = new SoftwareComponent
+            {
+                Name = configuration.Value.SoftwareName,
+                Version = versionString,
+            };
+
             statement.FhirVersion = modelInfoProvider.SupportedVersion.ToString();
-            statement.Date = File.GetCreationTime(Assembly.GetExecutingAssembly().Location).ToUniversalTime().ToString("O");
+            statement.Date = ProductVersionInfo.CreationTime.ToString("O");
             return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager, configuration, supportedProfiles);
         }
 
