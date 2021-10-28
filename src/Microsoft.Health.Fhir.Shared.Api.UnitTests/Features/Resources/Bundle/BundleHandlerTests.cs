@@ -304,6 +304,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(exception.Message, expectedMessage);
         }
 
+        [Fact]
+        public async Task GivenABundleWithAnExportPost_WhenProcessed_ThenItIsProcessedCorrectly()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.POST, Url = "/$export" } },
+                },
+            };
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, CancellationToken.None);
+
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
+            Assert.Single(bundleResource.Entry);
+        }
+
         private void RouteAsyncFunction(CallInfo callInfo)
         {
             var routeContext = callInfo.Arg<RouteContext>();
