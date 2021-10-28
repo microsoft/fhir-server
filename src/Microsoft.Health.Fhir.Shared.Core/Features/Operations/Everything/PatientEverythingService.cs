@@ -38,7 +38,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     /// "seealso" links point to another patient resource that contains data about the same person. We follow "seealso"
     /// links and run Patient $everything on them, returning information in phases as we did for the parent patient. We
     /// only do this once, so we do not follow the "seealso" links of a "seealso" link.
-    /// Link processing can be disabled using the exclude links parameter.
     /// </summary>
     public class PatientEverythingService : IPatientEverythingService
     {
