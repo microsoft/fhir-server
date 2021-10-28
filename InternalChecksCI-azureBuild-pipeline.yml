@@ -42,7 +42,6 @@ jobs:
   cancelTimeoutInMinutes: 1
   pool:
     name: $(vmImage_1)
-    #name: Hosted Windows 2019 with VS2019
   steps:
   - checkout: self
     persistCredentials: True
@@ -100,10 +99,8 @@ jobs:
       outputFormat: sarif
       debugMode: false
       folderSuppression: false
-      #toolMajorVersion: V2
     env:
-      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-
+      MY_ACCESS_TOKEN: $(System.AccessToken)
   - task: PoliCheck@1
     displayName: Run PoliCheck
     continueOnError: True
@@ -126,14 +123,14 @@ jobs:
     displayName: Post Analysis
     condition: succeededOrFailed()
     env:
-      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      MY_ACCESS_TOKEN: $(System.AccessToken)
     inputs:
       BinSkim: true
       CredScan: true
   - task: uploadScanResults@1
     displayName: Upload Scan Results for Analysis
     env:
-      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      MY_ACCESS_TOKEN: $(System.AccessToken)
     inputs:
       areaPathParent: Health
       areaPathChild: Patient Engagement\Resolute
