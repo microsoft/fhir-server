@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -39,17 +40,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             _logger = logger;
         }
 
-        public async Task ExecuteAsync(Container container)
+        public async Task ExecuteAsync(Container container, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(container, nameof(container));
 
-            var thisVersion = await GetLatestCollectionVersion(container);
+            var thisVersion = await GetLatestCollectionVersion(container, cancellationToken);
 
             if (thisVersion.Version < CollectionSettingsVersion)
             {
                 _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}");
 
-                var containerResponse = await container.ReadContainerAsync();
+                var containerResponse = await container.ReadContainerAsync(cancellationToken: cancellationToken);
 
                 // For more information on setting indexing policies refer to:
                 // https://docs.microsoft.com/en-us/azure/cosmos-db/how-to-manage-indexing-policy
@@ -69,14 +70,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                 // See: https://docs.microsoft.com/en-us/azure/cosmos-db/time-to-live
                 containerResponse.Resource.DefaultTimeToLive = -1;
 
-                await container.ReplaceContainerAsync(containerResponse);
+                await container.ReplaceContainerAsync(containerResponse, cancellationToken: cancellationToken);
 
                 thisVersion.Version = CollectionSettingsVersion;
-                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey));
+                await container.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey), cancellationToken: cancellationToken);
             }
         }
 
-        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container container)
+        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container container, CancellationToken cancellationToken)
         {
             FeedIterator<CollectionVersion> query = container.GetItemQueryIterator<CollectionVersion>(
                 new QueryDefinition("SELECT * FROM root r"),
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                     PartitionKey = new PartitionKey(CollectionVersion.CollectionVersionPartition),
                 });
 
-            FeedResponse<CollectionVersion> result = await query.ReadNextAsync();
+            FeedResponse<CollectionVersion> result = await query.ReadNextAsync(cancellationToken);
 
             return result.FirstOrDefault() ?? new CollectionVersion();
         }

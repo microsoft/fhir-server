@@ -70,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
                     exceptionNotification.OuterMethod = exception.TargetSite?.Name;
                     exceptionNotification.IsRequestEntityTooLarge = exception.IsRequestEntityTooLarge();
                     exceptionNotification.IsRequestRateExceeded = exception.IsRequestRateExceeded();
+                    exceptionNotification.BaseException = exception;
 
                     await _mediator.Publish(exceptionNotification, CancellationToken.None);
                 }

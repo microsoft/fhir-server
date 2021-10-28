@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 // Once the SearchParameter resource is removed from the data store, we can update the in
                 // memory SearchParameterDefinitionManager, and remove the status metadata from the data store
-                await _searchParameterOperations.DeleteSearchParameterAsync(searchParamResource.RawResource);
+                await _searchParameterOperations.DeleteSearchParameterAsync(searchParamResource.RawResource, cancellationToken);
             }
 
             return response;

@@ -22,10 +22,10 @@ Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameter
 
 | Parameter Name      | Description | Accepted values |
 | ----------- | ----------- | ----------- |
-| inputData      | Data to be converted. | A valid JSON String|
+| inputData      | Data to be converted. | For `Hl7v2`: string <br> For `Ccda`: XML|
 | inputDataType   | Data type of input. | ```HL7v2```, ``Ccda`` |
-| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | ```microsofthealth/fhirconverter:default``` or ``microsofthealth/hl7v2templates:default`` for input data type ``Hl7v2``, ``microsofthealth/ccdatemplates:default`` for input data type ``C-CDA``, \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
-| rootTemplate | The root template to use while transforming the data. | ```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04``` for input data type ``Hl7v2``, ``CCD`` for input data type ``Ccda`` |
+| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | For default templates:<br> For `Hl7v2`: ```microsofthealth/fhirconverter:default``` or ``microsofthealth/hl7v2templates:default`` <br> For `Ccda`: ``microsofthealth/ccdatemplates:default`` <br><br> For customized templates: <br> \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
+| rootTemplate | The root template to use while transforming the data. | For **HL7v2**:<br>```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04```<br><br> For **C-CDA**:<br>```CCD```, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` |
 
 **Sample request:**
 ```json

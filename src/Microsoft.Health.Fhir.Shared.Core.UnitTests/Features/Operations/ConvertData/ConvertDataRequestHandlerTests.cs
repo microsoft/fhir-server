@@ -14,7 +14,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
-using Microsoft.Health.Fhir.Liquid.Converter.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -66,6 +65,25 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             Assert.Equal("1962-08-28", patient.BirthDate);
         }
 
+        [Fact]
+        public async Task GivenAJsonConvertRequest_WhenConvertData_CorrectResponseShouldReturn()
+        {
+            var convertDataRequestHandler = GetRequestHandler();
+            var response = await convertDataRequestHandler.Handle(GetSampleJsonRequest(), default);
+
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
+            var patient = parser.Parse<Patient>(response.Resource);
+
+            Assert.NotEmpty(patient.Id);
+            Assert.Equal("Smith", patient.Name.First().Family);
+            Assert.Equal("2001-01-10", patient.BirthDate);
+        }
+
         private ConvertDataRequestHandler GetRequestHandler()
         {
             var convertDataConfig = new ConvertDataConfiguration
@@ -98,15 +116,20 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private static ConvertDataRequest GetSampleHl7v2Request()
         {
-            return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Hl7v2), "ADT_A01");
+            return new ConvertDataRequest(Samples.SampleHl7v2Message, DataType.Hl7v2, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Hl7v2), "ADT_A01");
         }
 
         private static ConvertDataRequest GetSampleCcdaRequest()
         {
-            return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType.Ccda), "CCD");
+            return new ConvertDataRequest(Samples.SampleCcdaMessage, DataType.Ccda, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Ccda), "CCD");
         }
 
-        private static string GetDefaultTemplateImageReferenceByDataType(Liquid.Converter.Models.DataType dataType)
+        private static ConvertDataRequest GetSampleJsonRequest()
+        {
+            return new ConvertDataRequest(Samples.SampleJsonMessage, DataType.Json, "microsofthealth", true, GetDefaultTemplateImageReferenceByDataType(DataType.Json), "ExamplePatient");
+        }
+
+        private static string GetDefaultTemplateImageReferenceByDataType(DataType dataType)
         {
             return DefaultTemplateInfo.DefaultTemplateMap.Values.FirstOrDefault(value => value.DataType == dataType).ImageReference;
         }

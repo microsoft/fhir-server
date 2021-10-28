@@ -11,12 +11,16 @@ test/
 tools/
 .git/
 
+# files
+Dockerfile*
+**/*.md
+
 # keep minimal git info for SourceLink
 !.git/HEAD
 !.git/config
 !.git/refs/
 !.git/objects
 
-# files
-Dockerfile*
-**/*.md
+# Other required exceptions
+!tools/FhirAnalyzer
+!THIRDPARTYNOTICES.md

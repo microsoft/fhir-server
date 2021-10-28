@@ -53,7 +53,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             if (context.ActionDescriptor is ControllerActionDescriptor controllerActionDescriptor)
             {
-                fhirRequestContext.AuditEventType = _auditEventTypeMapping.GetAuditEventType(
+                // if controllerActionDescriptor.ActionName is CustomError then retain the AuditEventType from previous context
+                // e.g. In case of 500 error - we want to make sure we log the AuditEventType of the original request for which the error occurred in RequestMetric.
+                fhirRequestContext.AuditEventType = KnownRoutes.CustomError.Contains(controllerActionDescriptor.ActionName, StringComparison.OrdinalIgnoreCase) ? fhirRequestContext.AuditEventType : _auditEventTypeMapping.GetAuditEventType(
                     controllerActionDescriptor.ControllerName,
                     controllerActionDescriptor.ActionName);
 
