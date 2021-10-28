@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class PreferHeaderExtensions
     {
-        internal static bool GetIsStrictHandlingEnabled(RequestContextAccessor<IFhirRequestContext> contextAccessor)
+        internal static bool GetIsStrictHandlingEnabled(this RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             bool isStrictHandlingEnabled = false;
 

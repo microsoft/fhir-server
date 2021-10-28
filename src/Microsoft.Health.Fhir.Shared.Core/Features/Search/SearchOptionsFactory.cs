@@ -305,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (unsupportedSearchParameters.Any())
             {
-                if (PreferHeaderExtensions.GetIsStrictHandlingEnabled(_contextAccessor))
+                if (_contextAccessor.GetIsStrictHandlingEnabled())
                 {
                     throw new BadRequestException(string.Format(
                             Core.Resources.SearchParameterNotSupported,

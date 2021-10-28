@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                         Uri url = _urlResolver.ResolveOperationResultUrl(OperationsConstants.PatientEverything, referenceSearchValue.ResourceId);
 
                         // If the prefer header is set to handling=strict
-                        if (PreferHeaderExtensions.GetIsStrictHandlingEnabled(_contextAccessor))
+                        if (_contextAccessor.GetIsStrictHandlingEnabled())
                         {
                             throw new EverythingOperationException(
                                 string.Format(
