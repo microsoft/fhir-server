@@ -100,7 +100,7 @@ jobs:
       debugMode: false
       folderSuppression: false
     env:
-      MY_ACCESS_TOKEN: $(System.AccessToken)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
   - task: PoliCheck@1
     displayName: Run PoliCheck
     continueOnError: True
@@ -123,14 +123,14 @@ jobs:
     displayName: Post Analysis
     condition: succeededOrFailed()
     env:
-      MY_ACCESS_TOKEN: $(System.AccessToken)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
     inputs:
       BinSkim: true
       CredScan: true
   - task: uploadScanResults@1
     displayName: Upload Scan Results for Analysis
     env:
-      MY_ACCESS_TOKEN: $(System.AccessToken)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
     inputs:
       areaPathParent: Health
       areaPathChild: Patient Engagement\Resolute
