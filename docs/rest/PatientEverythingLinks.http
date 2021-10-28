@@ -599,22 +599,6 @@ GET <paste next link here>
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
-# Run Patient $everything on the Patient "mum" but do not follow its links.
-# This should return:
-# - The Patient "mum" resource and the HL7 organization that it references directly
-# - The patient's compartment resources: the cashew allergy intolerance and the appendectomy procedure
-# - The device-mum device
-GET https://{{hostname}}/Patient/{{mum.response.body.id}}/$everything?excludeLinks=true
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-
-###
-# Paste the "next" link below
-GET <paste next link here>
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-
-###
 # Run Patient $everything, but only request Device resources.
 # This should return:
 # - The device-mum device
@@ -630,7 +614,8 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 ###
 # Create a patient to run the Patient $everything operation on that
 # has a "replaced-by" link.
-# An error should be returned when the operation is run.
+# "replaced-by" links indicate that the current patient is out of
+# date and has been replaced by the patient pointed to by the link.
 # @name replacedby
 PUT https://{{hostname}}/Patient/replaced-by-link
 Content-Type: application/json
@@ -666,10 +651,20 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ###
-# An operation outcome should be returned.
+# When running $everything on a Patient with a "replaced-by" link and no
+# Prefer header is specified (or when the Prefer header is set to 
+# "handling=lenient"), an operation outcome indicating that the current
+# patient is out of date is returned within the search bundle.
+GET https://{{hostname}}/Patient/{{replacedby.response.body.id}}/$everything
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# When running $everything on a Patient with a "replaced-by" link the 
+# Prefer header is set to "handling=strict" an error is returned.
 # The url to the correct request should be in the content location header.
 GET https://{{hostname}}/Patient/{{replacedby.response.body.id}}/$everything
 Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: handling=strict
 
 ###
 # Paste the response's content location header below

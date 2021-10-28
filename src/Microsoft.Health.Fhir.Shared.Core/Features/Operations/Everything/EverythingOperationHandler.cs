@@ -56,7 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 request.End,
                 request.Since,
                 request.ResourceTypes,
-                request.ExcludeLinks,
                 request.ContinuationToken,
                 cancellationToken);
 

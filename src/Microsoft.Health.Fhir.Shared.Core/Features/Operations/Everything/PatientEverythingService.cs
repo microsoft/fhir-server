@@ -5,15 +5,20 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -33,7 +38,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
     /// "seealso" links point to another patient resource that contains data about the same person. We follow "seealso"
     /// links and run Patient $everything on them, returning information in phases as we did for the parent patient. We
     /// only do this once, so we do not follow the "seealso" links of a "seealso" link.
-    /// Link processing can be disabled using the exclude links parameter.
     /// </summary>
     public class PatientEverythingService : IPatientEverythingService
     {
@@ -45,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IUrlResolver _urlResolver;
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
+        private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
 
         private IReadOnlyList<string> _includes = new[] { "general-practitioner", "organization" };
         private readonly (string resourceType, string searchParameterName) _revinclude = new("Device", "patient");
@@ -57,7 +62,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             IReferenceSearchValueParser referenceSearchValueParser,
             IResourceDeserializer resourceDeserializer,
             IUrlResolver urlResolver,
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory)
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
+            RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
@@ -67,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
 
             _searchServiceFactory = searchServiceFactory;
             _searchOptionsFactory = searchOptionsFactory;
@@ -76,6 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             _resourceDeserializer = resourceDeserializer;
             _urlResolver = urlResolver;
             _fhirDataStoreFactory = fhirDataStoreFactory;
+            _contextAccessor = contextAccessor;
         }
 
         public async Task<SearchResult> SearchAsync(
@@ -84,7 +92,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             PartialDateTime end,
             PartialDateTime since,
             string type,
-            bool excludeLinks,
             string continuationToken,
             CancellationToken cancellationToken)
         {
@@ -114,7 +121,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             {
                 // Phase 0 gets the patient and any resources it references directly.
                 case 0:
-                    searchResult = await SearchIncludes(resourceId, parentPatientId, since, types, token, !excludeLinks, cancellationToken);
+                    searchResult = await SearchIncludes(resourceId, parentPatientId, since, types, token, cancellationToken);
 
                     if (!searchResult.Results.Any())
                     {
@@ -182,13 +189,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             }
             else
             {
-                nextContinuationToken = await CheckForNextSeeAlsoLinkAndSetToken(parentPatientId, token, !excludeLinks, cancellationToken);
+                nextContinuationToken = await CheckForNextSeeAlsoLinkAndSetToken(parentPatientId, token, cancellationToken);
 
                 // If the last phase returned no results and there are links to process
                 if (!searchResult.Results.Any() && nextContinuationToken != null)
                 {
                     // Run patient $everything on links.
-                    return await SearchAsync(parentPatientId, start, end, since, type, excludeLinks, ContinuationTokenConverter.Encode(nextContinuationToken), cancellationToken);
+                    return await SearchAsync(parentPatientId, start, end, since, type, ContinuationTokenConverter.Encode(nextContinuationToken), cancellationToken);
                 }
             }
 
@@ -201,7 +208,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             PartialDateTime since,
             IReadOnlyList<string> types,
             EverythingOperationContinuationToken token,
-            bool linkProcessingEnabled,
             CancellationToken cancellationToken)
         {
             using IScoped<ISearchService> search = _searchServiceFactory.Invoke();
@@ -221,7 +227,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             searchResultEntries.AddRange(searchResult.Results.Select(x => new SearchResultEntry(x.Resource)));
 
             // If we are currently processing the parent patient
-            if (linkProcessingEnabled && !token.IsProcessingSeeAlsoLink)
+            if (!token.IsProcessingSeeAlsoLink)
             {
                 SearchResultEntry parentPatientResource = searchResultEntries.FirstOrDefault(s =>
                     string.Equals(s.Resource.ResourceTypeName, KnownResourceTypes.Patient, StringComparison.Ordinal));
@@ -278,16 +284,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                 {
                     ReferenceSearchValue referenceSearchValue = _referenceSearchValueParser.Parse(link.Other.Reference);
 
-                    // Specify the url that must be used instead.
-                    Uri url = _urlResolver.ResolveOperationResultUrl(OperationsConstants.PatientEverything, referenceSearchValue.ResourceId);
+                    // Ignore RelatedPerson "replaced-by" links, since we can only direct users to run the $everything operation on Patient resources.
+                    if (string.Equals(referenceSearchValue.ResourceType, KnownResourceTypes.Patient, StringComparison.Ordinal))
+                    {
+                        // Specify the url that must be used instead.
+                        Uri url = _urlResolver.ResolveOperationResultUrl(OperationsConstants.PatientEverything, referenceSearchValue.ResourceId);
 
-                    throw new EverythingOperationException(
-                        string.Format(
-                            Core.Resources.EverythingOperationResourceIrrelevant,
-                            parentPatientId,
-                            referenceSearchValue.ResourceId),
-                        HttpStatusCode.MovedPermanently,
-                        url.ToString());
+                        // If the prefer header is set to handling=strict
+                        if (_contextAccessor.GetIsStrictHandlingEnabled())
+                        {
+                            throw new EverythingOperationException(
+                                string.Format(
+                                    Core.Resources.EverythingOperationResourceIrrelevant,
+                                    parentPatientId,
+                                    referenceSearchValue.ResourceId),
+                                HttpStatusCode.MovedPermanently,
+                                url.ToString());
+                        }
+                        else
+                        {
+                            // If it isn't set to anything, or if it is set to handling=lenient, return an operation outcome within the search bundle.
+                            // This will still allow the patient $everything results to be returned.
+                            _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.Conflict,
+                                string.Format(CultureInfo.InvariantCulture, Core.Resources.EverythingOperationResourceIrrelevant, parentPatientId, referenceSearchValue.ResourceId)));
+                        }
+                    }
                 }
             }
         }
@@ -303,14 +326,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
         private async Task<string> CheckForNextSeeAlsoLinkAndSetToken(
             string parentPatientId,
             EverythingOperationContinuationToken token,
-            bool linkProcessingEnabled,
             CancellationToken cancellationToken)
         {
-            if (!linkProcessingEnabled)
-            {
-                return null;
-            }
-
             ResourceWrapper parentPatientResource;
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory.Invoke())

@@ -50,7 +50,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 end: PartialDateTime.Parse("2020"),
                 since: PartialDateTime.Parse("2021"),
                 type: ResourceType.Observation.ToString(),
-                excludeLinks: false,
                 ct: null) as FhirResult;
 
             await _mediator.Received().Send(
