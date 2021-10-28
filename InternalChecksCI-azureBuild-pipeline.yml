@@ -39,7 +39,7 @@ jobs:
   displayName: Phase 1
   cancelTimeoutInMinutes: 1
   pool:
-    vmImage: $(vmImage)
+    name: $(vmImage)
     #name: Hosted Windows 2019 with VS2019
   steps:
   - checkout: self
