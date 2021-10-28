@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
     {
 #if !Stu3
         [Fact]
-        public void GivenAnInvalidResourceResourc_WhenValidatingMemberMatch_ThenInvalidShouldBeReturned()
+        public void GivenAnInvalidResource_WhenValidatingMemberMatch_ThenInvalidShouldBeReturned()
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
