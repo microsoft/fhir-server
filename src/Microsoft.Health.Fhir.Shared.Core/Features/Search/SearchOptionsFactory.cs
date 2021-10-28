@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -304,31 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (unsupportedSearchParameters.Any())
             {
-                bool throwForUnsupported = false;
-                if (_contextAccessor.RequestContext?.RequestHeaders != null &&
-                    _contextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var values))
-                {
-                    var handlingValue = values.FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));
-                    if (handlingValue != default)
-                    {
-                        handlingValue = handlingValue.Substring("handling=".Length);
-
-                        if (string.IsNullOrWhiteSpace(handlingValue) || !Enum.TryParse<SearchParameterHandling>(handlingValue, true, out var handling))
-                        {
-                            throw new BadRequestException(string.Format(
-                                Core.Resources.InvalidHandlingValue,
-                                handlingValue,
-                                string.Join(",", Enum.GetNames<SearchParameterHandling>())));
-                        }
-
-                        if (handling == SearchParameterHandling.Strict)
-                        {
-                            throwForUnsupported = true;
-                        }
-                    }
-                }
-
-                if (throwForUnsupported)
+                if (PreferHeaderExtensions.GetIsStrictHandlingEnabled(_contextAccessor))
                 {
                     throw new BadRequestException(string.Format(
                             Core.Resources.SearchParameterNotSupported,

@@ -203,38 +203,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             return new SearchResult(searchResult.Results, nextContinuationToken, searchResult.SortOrder, searchResult.UnsupportedSearchParameters);
         }
 
-        // TODO: can this be made common code between this service and the search options factory?
-        private bool GetIsStrictHandlingEnabled()
-        {
-            bool isStrictHandlingEnabled = false;
-
-            if (_contextAccessor.RequestContext?.RequestHeaders != null &&
-                _contextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out StringValues values))
-            {
-                var handlingValue = values.FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));
-                if (handlingValue != default)
-                {
-                    handlingValue = handlingValue.Substring("handling=".Length);
-
-                    if (string.IsNullOrWhiteSpace(handlingValue) ||
-                        !Enum.TryParse(handlingValue, true, out SearchParameterHandling handling))
-                    {
-                        throw new BadRequestException(string.Format(
-                            Core.Resources.InvalidHandlingValue,
-                            handlingValue,
-                            string.Join(",", Enum.GetNames<SearchParameterHandling>())));
-                    }
-
-                    if (handling == SearchParameterHandling.Strict)
-                    {
-                        isStrictHandlingEnabled = true;
-                    }
-                }
-            }
-
-            return isStrictHandlingEnabled;
-        }
-
         private async Task<SearchResult> SearchIncludes(
             string resourceId,
             string parentPatientId,
@@ -324,7 +292,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                         Uri url = _urlResolver.ResolveOperationResultUrl(OperationsConstants.PatientEverything, referenceSearchValue.ResourceId);
 
                         // If the prefer header is set to handling=strict
-                        if (GetIsStrictHandlingEnabled())
+                        if (PreferHeaderExtensions.GetIsStrictHandlingEnabled(_contextAccessor))
                         {
                             throw new EverythingOperationException(
                                 string.Format(
