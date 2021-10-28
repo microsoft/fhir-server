@@ -14,8 +14,10 @@ parameters:
   default: release
 
 variables:
-- name: vmImage
+- name: vmImage_1
   value: Hosted Windows 2019 with VS2019
+- name: vmImage_2
+  value: windows-2019
 
 trigger:
   branches:
@@ -39,7 +41,7 @@ jobs:
   displayName: Phase 1
   cancelTimeoutInMinutes: 1
   pool:
-    name: $(vmImage)
+    name: $(vmImage_1)
     #name: Hosted Windows 2019 with VS2019
   steps:
   - checkout: self
@@ -95,10 +97,10 @@ jobs:
     displayName: Run CredScan
     continueOnError: True
     inputs:
-      #outputFormat: sarif
+      outputFormat: sarif
       debugMode: false
       folderSuppression: false
-      toolMajorVersion: V2
+      #toolMajorVersion: V2
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
@@ -140,7 +142,7 @@ jobs:
   cancelTimeoutInMinutes: 1
   dependsOn: Phase_1
   pool:
-    vmImage: windows-2019
+    vmImage: $(vmImage_2)
   steps:
   - checkout: self
   - task: DownloadBuildArtifacts@0
