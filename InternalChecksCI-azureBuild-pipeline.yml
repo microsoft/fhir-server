@@ -95,7 +95,7 @@ jobs:
     displayName: Run CredScan
     continueOnError: True
     inputs:
-      outputFormat: sarif
+      #outputFormat: sarif
       debugMode: false
       folderSuppression: false
       toolMajorVersion: V2
