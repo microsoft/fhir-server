@@ -11,6 +11,9 @@ parameters:
   default: release
 - name: NugetSecurityAnalysisWarningLevel
   default: warn   
+variables:
+- name: vmImage
+  value: windows-2019
 resources:
   repositories:
   - repository: self
@@ -21,7 +24,7 @@ jobs:
   displayName: Phase 1
   cancelTimeoutInMinutes: 1
   pool:
-    vmImage: windows-2019
+    vmImage: $(vmImage)
   steps:
   - checkout: self
     clean: true
@@ -47,7 +50,7 @@ jobs:
       command: restore
       projects: '**/*.sln'
       selectOrConfig: config
-      #feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
+      feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
       includeNuGetOrg: false
       nugetConfigPath: nuget.config
   - task: DotNetCoreCLI@1
@@ -114,7 +117,7 @@ jobs:
   cancelTimeoutInMinutes: 1
   dependsOn: Phase_1
   pool:
-    vmImage: windows-2019
+    vmImage: $(vmImage)
   steps:
   - checkout: self
     clean: true
