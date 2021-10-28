@@ -203,6 +203,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = healthExceptionResult;
                 context.ExceptionHandled = true;
             }
+            else if (context.Exception is FormatException formatException)
+            {
+                context.Result = CreateOperationOutcomeResult(formatException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
+                context.ExceptionHandled = true;
+            }
             else if (context.Exception.InnerException != null)
             {
                 Exception outerException = context.Exception;
