@@ -4,15 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public interface ISearchParameterStatusDataStore
     {
-        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses();
+        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken);
 
-        Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses);
+        Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken);
 
         void SyncStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses);
     }

@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -33,6 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         private readonly SchemaInformation _schemaInformation;
         private readonly SqlServerSortingValidator _sortingValidator;
         private readonly ISqlServerFhirModel _fhirModel;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public SqlServerSearchParameterStatusDataStore(
             Func<IScoped<SqlConnectionWrapperFactory>> scopedSqlConnectionWrapperFactory,
@@ -40,7 +42,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             SchemaInformation schemaInformation,
             SqlServerSortingValidator sortingValidator,
-            ISqlServerFhirModel fhirModel)
+            ISqlServerFhirModel fhirModel,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
             EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
@@ -48,6 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(fhirModel, nameof(fhirModel));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
             _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
@@ -55,29 +59,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _schemaInformation = schemaInformation;
             _sortingValidator = sortingValidator;
             _fhirModel = fhirModel;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        // TODO: Make cancellation token an input.
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {
             // If the search parameter table in SQL does not yet contain status columns
             if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
             {
                 // Get status information from file.
-                return await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
+                return await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
             }
 
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.GetSearchParamStatuses.PopulateCommand(sqlCommandWrapper);
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    while (await sqlDataReader.ReadAsync())
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         short id;
                         string uri;
@@ -140,13 +144,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             };
                         }
 
-                        if (_sortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
+                        if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
                         {
-                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
+                            // For schema versions starting from AddMinMaxForDateAndStringSearchParamVersion we will check
+                            // whether the corresponding type of the search parameter is supported.
+                            SearchParameterInfo paramInfo = null;
+                            try
+                            {
+                                paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri);
+                            }
+                            catch (SearchParameterNotSupportedException)
+                            {
+                            }
+
+                            if (paramInfo != null && SqlServerSortingValidator.SupportedSortParamTypes.Contains(paramInfo.Type))
+                            {
+                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
+                            }
+                            else
+                            {
+                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
+                            }
                         }
                         else
                         {
-                            resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
+                            if (_sortingValidator.SupportedParameterUris.Contains(resourceSearchParameterStatus.Uri))
+                            {
+                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Enabled;
+                            }
+                            else
+                            {
+                                resourceSearchParameterStatus.SortStatus = SortParameterStatus.Disabled;
+                            }
                         }
 
                         parameterStatuses.Add(resourceSearchParameterStatus);
@@ -157,8 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
-        // TODO: Make cancellation token an input.
-        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -173,14 +201,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
 
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
-            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
 
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
-                    while (await sqlDataReader.ReadAsync())
+                    while (await sqlDataReader.ReadAsync(cancellationToken))
                     {
                         // The upsert procedure returns the search parameters that were new.
                         (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);

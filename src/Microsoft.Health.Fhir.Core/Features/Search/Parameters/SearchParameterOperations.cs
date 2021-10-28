@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _logger = logger;
         }
 
-        public async Task AddSearchParameterAsync(ITypedElement searchParam)
+        public async Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
         {
             try
             {
@@ -80,7 +80,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 _logger.LogTrace("Adding the search parameter '{url}'", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement> { searchParam });
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url });
+
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string> { searchParameterWrapper.Url }, cancellationToken);
             }
             catch (FhirException fex)
             {
@@ -103,14 +104,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task DeleteSearchParameterAsync(RawResource searchParamResource)
+        public async Task DeleteSearchParameterAsync(RawResource searchParamResource, CancellationToken cancellationToken)
         {
             try
             {
                 // We need to make sure we have the latest search parameters before trying to delete
                 // existing search parameter. This is to avoid trying to update a search parameter that
                 // was recently added and that hasn't propogated to all fhir-server instances.
-                await GetAndApplySearchParameterUpdates(CancellationToken.None);
+                await GetAndApplySearchParameterUpdates(cancellationToken);
 
                 var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
                 var searchParameterUrl = searchParam.GetStringScalar("url");
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
                 _logger.LogTrace("Deleting the search parameter '{url}'", searchParameterUrl);
-                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterUrl);
+                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
             }
             catch (FhirException fex)
@@ -143,14 +144,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam)
+        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource previousSearchParam, CancellationToken cancellationToken)
         {
             try
             {
                 // We need to make sure we have the latest search parameters before trying to update
                 // existing search parameter. This is to avoid trying to update a search parameter that
                 // was recently added and that hasn't propogated to all fhir-server instances.
-                await GetAndApplySearchParameterUpdates(CancellationToken.None);
+                await GetAndApplySearchParameterUpdates(cancellationToken);
 
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
                 var searchParameterInfo = new SearchParameterInfo(searchParameterWrapper);
@@ -174,12 +175,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 // the most reliable method of updating the SearchParameter is to delete the previous
                 // data and insert the updated version
                 _logger.LogTrace("Deleting the search parameter '{url}' (update step 1/2)", prevSearchParamUrl);
-                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl);
+                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamUrl, cancellationToken);
                 _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
 
                 _logger.LogTrace("Adding the search parameter '{url}' (update step 2/2)", searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url }, cancellationToken);
             }
             catch (FhirException fex)
             {
@@ -209,9 +210,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A task.</returns>
-        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken)
+        public async Task GetAndApplySearchParameterUpdates(CancellationToken cancellationToken = default)
         {
-            var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates();
+            var updatedSearchParameterStatus = await _searchParameterStatusManager.GetSearchParameterStatusUpdates(cancellationToken);
 
             // first process any deletes, then we will do any adds or updates
             // this way any deleted params which might have the same code or name as a new
