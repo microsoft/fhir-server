@@ -1,0 +1,147 @@
+name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+parameters:
+- name: BuildConfiguration
+  default: release
+- name: NugetSecurityAnalysisWarningLevel
+  default: warn   
+variables:
+- name: vmImage
+  value: windows-2019
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: main
+jobs:
+
+- job: Phase_1
+  displayName: PR Internal Checks - build and restore phase
+  cancelTimeoutInMinutes: 1
+  pool:
+    vmImage: $(vmImage)
+
+  steps:
+  - checkout: self
+    clean: true
+  - task: NuGetToolInstaller@0
+    displayName: Use NuGet 4.3.0
+    enabled: False
+    inputs:
+      versionSpec: 4.3.0
+
+  - task: NuGetCommand@2
+    displayName: NuGet restore
+    enabled: False
+    inputs:
+      selectOrConfig: config
+      nugetConfigPath: nuget.config
+
+  - task: UseDotNet@2
+    displayName: Use .NET Core sdk
+    inputs:
+      version: 5.0.400
+
+  - task: DotNetCoreCLI@2
+    displayName: dotnet restore
+    inputs:
+      command: restore
+      projects: '**/*.sln'
+      selectOrConfig: config
+      feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
+      nugetConfigPath: nuget.config
+
+  - task: DotNetCoreCLI@1
+    name: ''
+    displayName: dotnet build
+    inputs:
+      projects: '**/*.sln'
+      arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror
+
+  - task: ComponentGovernanceComponentDetection@0
+    displayName: Component Detection
+
+  - task: AutoApplicability@1
+    displayName: Run AutoApplicability
+    continueOnError: True
+    inputs:
+      ExternalRelease: true
+      IsService: true
+
+  - task: BinSkim@3
+    displayName: 'Run BinSkim '
+    continueOnError: True
+    inputs:
+      InputType: Basic
+      AnalyzeTarget: $(Build.SourcesDirectory)\Microsoft.Health.*.dll;$(Build.SourcesDirectory)\Microsoft.Health.*.exe
+
+  - task: CodeMetrics@1
+    displayName: 'Run CodeMetrics '
+    continueOnError: True
+    inputs:
+      Files: $(Build.SourcesDirectory)\**\*.dll
+
+  - task: CredScan@2
+    displayName: Run CredScan
+    continueOnError: True
+    inputs:
+      toolVersionV2: LatestPreRelease
+      debugMode: false
+      folderSuppression: false
+
+  - task: PoliCheck@1
+    displayName: Run PoliCheck
+    continueOnError: True
+
+  - task: VulnerabilityAssessment@0
+    displayName: Run Vulnerability Assessment
+    continueOnError: True
+
+  - task: SdtReport@1
+    displayName: Create Security Analysis Report
+    condition: succeededOrFailed()
+    continueOnError: True
+    inputs:
+      BinSkim: true
+      CredScan: true
+
+  - task: PublishSecurityAnalysisLogs@2
+    displayName: Publish Security Analysis Logs
+    condition: succeededOrFailed()
+    continueOnError: True
+
+  - task: PostAnalysis@1
+    displayName: Post Analysis
+    condition: succeededOrFailed()
+    inputs:
+      BinSkim: true
+      CredScan: true
+
+- job: Phase_2
+  displayName: Anti-malware Phase
+  cancelTimeoutInMinutes: 1
+  dependsOn: Phase_1
+  pool:
+    vmImage: $(vmImage)
+
+  steps:
+  - checkout: self
+    clean: true
+  - task: DownloadBuildArtifacts@0
+    displayName: Download Nuget Artifacts
+    enabled: False
+    inputs:
+      buildVersionToDownload: specific
+      artifactName: nuget
+
+  - task: AntiMalware@3
+    displayName: Run MpCmdRun.exe
+    enabled: False
+    inputs:
+      FileDirPath: $(System.ArtifactsDirectory)
+
+  - task: PublishSecurityAnalysisLogs@2
+    displayName: Publish Security Analysis Logs
+    enabled: False
+    inputs:
+      ArtifactName: CodeAnalysisLogs - Antimalware
+...
