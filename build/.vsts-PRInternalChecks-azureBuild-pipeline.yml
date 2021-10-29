@@ -15,7 +15,7 @@ resources:
 jobs:
 
 - job: Phase_1
-  displayName: PR Internal Checks - build and restore phase
+  displayName: PR Internal Checks for fhir-server - build and restore phase
   cancelTimeoutInMinutes: 1
   pool:
     vmImage: $(vmImage)
