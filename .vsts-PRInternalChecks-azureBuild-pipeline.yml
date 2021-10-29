@@ -4,8 +4,7 @@
 # Variable 'TestAadClientSecret' was defined in the Variables tab
 # Variable 'TestAadTenant' was defined in the Variables tab
 # Variable 'TestApiAadResourceId' was defined in the Variables tab
-name: PRInternalChecks-azureBuild-pipeline
-#pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 parameters:
 - name: BuildConfiguration
   default: release

@@ -144,7 +144,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManage
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManagement.UnitTests", "src\Microsoft.Health.TaskManagement.UnitTests\Microsoft.Health.TaskManagement.UnitTests.csproj", "{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "infrastructure", "infrastructure", "{B0A8D9F3-9D8D-4592-8447-3545055935B3}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{09E7BB7C-9780-411A-9710-50F843D042D3}"
 	ProjectSection(SolutionItems) = preProject
 		.vsts-PRInternalChecks-azureBuild-pipeline.yml = .vsts-PRInternalChecks-azureBuild-pipeline.yml
 	EndProjectSection
@@ -443,7 +443,7 @@ Global
 		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D} = {7457B218-2651-49B5-BED8-22233889516A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 EndGlobal
