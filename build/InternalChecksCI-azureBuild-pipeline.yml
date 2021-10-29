@@ -1,3 +1,5 @@
+name: fhir-ci-$(Date:yyyyMMdd)$(Rev:-r)
+
 parameters:
 - name: BuildConfiguration
   default: release
@@ -20,8 +22,6 @@ trigger:
     - /build
     - /docs
   batch: True
-
-name: fhir-ci-$(Date:yyyyMMdd)$(Rev:-r)
 
 resources:
   repositories:
