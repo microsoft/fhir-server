@@ -67,16 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 {
                     if (_listedCapabilityStatement == null)
                     {
-                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles)
-                          .Apply(x =>
-                          {
-                              x.FhirVersion = _modelInfoProvider.SupportedVersion.ToString();
-                              x.Software = new SoftwareComponent
-                              {
-                                  Name = Resources.ServerName,
-                                  Version = Assembly.GetExecutingAssembly().GetName().Version.ToString(),
-                              };
-                          });
+                        _builder = CapabilityStatementBuilder.Create(_modelInfoProvider, _searchParameterDefinitionManager, _configuration, _supportedProfiles);
 
                         using (IScoped<IEnumerable<IProvideCapability>> providerFactory = _capabilityProviders())
                         {

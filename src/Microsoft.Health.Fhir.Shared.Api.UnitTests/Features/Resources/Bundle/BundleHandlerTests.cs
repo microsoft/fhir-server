@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -225,6 +226,34 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
+        public async Task GivenATransactionBundleRequestWithNullUrl_WhenProcessing_ReturnsABadRequest()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Transaction,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent
+                    {
+                        Request = new RequestComponent
+                        {
+                            Method = HTTPVerb.PUT,
+                            Url = null,
+                        },
+                        Resource = new Basic { Id = "test"},
+                    },
+                },
+            };
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(RouteAsyncFunction);
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _bundleHandler.Handle(bundleRequest, default));
+        }
+
+        [Fact]
         public async Task GivenABundle_WhenProcessed_CertainResponseHeadersArePropagatedToOuterResponse()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
@@ -302,6 +331,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var exception = await Assert.ThrowsAsync<BundleEntryLimitExceededException>(async () => await _bundleHandler.Handle(bundleRequest, CancellationToken.None));
             Assert.Equal(exception.Message, expectedMessage);
+        }
+
+        [Fact]
+        public async Task GivenABundleWithAnExportPost_WhenProcessed_ThenItIsProcessedCorrectly()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.POST, Url = "/$export" } },
+                },
+            };
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+
+            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, CancellationToken.None);
+
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Equal(BundleType.BatchResponse, bundleResource.Type);
+            Assert.Single(bundleResource.Entry);
         }
 
         private void RouteAsyncFunction(CallInfo callInfo)

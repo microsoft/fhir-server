@@ -20,7 +20,9 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: $(composeLocation)
-      dockerComposeFileArgs: FHIR_VERSION=${{parameters.version}}
+      dockerComposeFileArgs: |
+        FHIR_VERSION=${{parameters.version}}
+        ASSEMBLY_VER=$(assemblySemFileVer)
       projectName: ${{parameters.version}}
       additionalImageTags: ${{parameters.tag}}
 
@@ -31,6 +33,8 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: $(composeLocation)
-      dockerComposeFileArgs: FHIR_VERSION=${{parameters.version}}
+      dockerComposeFileArgs: |
+        FHIR_VERSION=${{parameters.version}}
+        ASSEMBLY_VER=$(assemblySemFileVer)
       projectName: ${{parameters.version}}
       additionalImageTags: ${{parameters.tag}}

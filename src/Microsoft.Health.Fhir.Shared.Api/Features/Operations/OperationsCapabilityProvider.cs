@@ -54,6 +54,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 builder.Apply(AddReindexDetails);
             }
 
+            if (_operationConfiguration.ConvertData.Enabled)
+            {
+                builder.Apply(AddConvertDataDetails);
+            }
+
             if (_featureConfiguration.SupportsAnonymizedExport)
             {
                 builder.Apply(AddAnonymizedExportDetails);
@@ -103,6 +108,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddAnonymizedExportDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.AnonymizedExport);
+        }
+
+        public void AddConvertDataDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ConvertData);
         }
 
         public void AddReindexDetails(ListedCapabilityStatement capabilityStatement)

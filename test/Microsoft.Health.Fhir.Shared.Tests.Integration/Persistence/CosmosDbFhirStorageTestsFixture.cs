@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
 
         private Container _container;
         private CosmosFhirDataStore _fhirDataStore;
@@ -90,14 +91,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             optionsMonitor.Get(CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
-            var fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
-            fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+            _fhirRequestContextAccessor.RequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
+            _fhirRequestContextAccessor.RequestContext.RouteName.Returns("routeName");
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
             await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
-            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, fhirRequestContextAccessor);
+            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CosmosDbSearchParameterStatusInitializer(
                     () => _filebasedSearchParameterStatusDataStore,
                     new CosmosQueryFactory(
-                        new CosmosResponseProcessor(fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
+                        new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance),
                         NullFhirCosmosQueryLogger.Instance),
                     _cosmosDataStoreConfiguration),
             };
@@ -122,9 +123,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
-            var responseProcessor = new CosmosResponseProcessor(fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
-            var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, fhirRequestContextAccessor, responseProcessor);
-            var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, fhirRequestContextAccessor);
+            var responseProcessor = new CosmosResponseProcessor(_fhirRequestContextAccessor, mediator, Substitute.For<ICosmosQueryLogger>(), NullLogger<CosmosResponseProcessor>.Instance);
+            var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, _fhirRequestContextAccessor, responseProcessor);
+            var retryExceptionPolicyFactory = new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, _fhirRequestContextAccessor);
             var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, () => new[] { handler }, retryExceptionPolicyFactory, NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
             var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration, _cosmosDataStoreConfiguration, upgradeManager, retryExceptionPolicyFactory, testProvider, NullLogger<CollectionInitializer>.Instance);
@@ -172,9 +173,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CosmosQueryFactory(responseProcessor, new NullFhirCosmosQueryLogger()),
                 NullLogger<CosmosFhirOperationDataStore>.Instance);
 
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(fhirRequestContextAccessor));
+            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(_fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
-            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, fhirRequestContextAccessor, Substitute.For<ISortingValidator>(), NullLogger<SearchOptionsFactory>.Instance);
+            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => searchableSearchParameterDefinitionManager, options, _fhirRequestContextAccessor, Substitute.For<ISortingValidator>(), NullLogger<SearchOptionsFactory>.Instance);
 
             ICosmosDbCollectionPhysicalPartitionInfo cosmosDbPhysicalPartitionInfo = Substitute.For<ICosmosDbCollectionPhysicalPartitionInfo>();
             cosmosDbPhysicalPartitionInfo.PhysicalPartitionCount.Returns(1);
@@ -183,7 +184,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 searchOptionsFactory,
                 _fhirDataStore,
                 new QueryBuilder(),
-                fhirRequestContextAccessor,
+                _fhirRequestContextAccessor,
                 _cosmosDataStoreConfiguration,
                 cosmosDbPhysicalPartitionInfo,
                 new QueryPartitionStatisticsCache(),
@@ -264,6 +265,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(SearchParameterStatusManager))
             {
                 return _searchParameterStatusManager;
+            }
+
+            if (serviceType == typeof(RequestContextAccessor<IFhirRequestContext>))
+            {
+                return _fhirRequestContextAccessor;
             }
 
             return null;
