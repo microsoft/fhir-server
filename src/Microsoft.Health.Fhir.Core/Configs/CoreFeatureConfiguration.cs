@@ -14,6 +14,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class CoreFeatureConfiguration
     {
         /// <summary>
+        /// Defines CapabilityStatement.name
+        /// </summary>
+        public string SoftwareName { get; set; } = Resources.ServerName;
+
+        /// <summary>
         /// Gets or sets a value indicating whether Batch is enabled or not.
         /// </summary>
         public bool SupportsBatch { get; set; }

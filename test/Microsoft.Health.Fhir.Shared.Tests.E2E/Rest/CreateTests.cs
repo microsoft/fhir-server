@@ -184,6 +184,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnInvalidDateTime_WhenPostingToHttp_ThenTheServerShouldRespondWithBadRequestResponse()
+        {
+            Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Effective = new FhirDateTime("2021-10-13+02:00");
+
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(observation));
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            Assert.Contains("format", ex.Message);
+        }
+
         [Theory]
         [MemberData(nameof(AllXssStrings))]
         [Trait(Traits.Priority, Priority.One)]

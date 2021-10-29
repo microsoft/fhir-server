@@ -219,6 +219,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenAFormatException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new FormatException("Invalid format"), HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
         public void GivenAnUnrecognizedException_WhenExecutingAnAction_ThenNoResponseShouldBeCreated()
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
