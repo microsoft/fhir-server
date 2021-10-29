@@ -1,9 +1,3 @@
-# Variable 'CrucibleEnvironmentUrl' was defined in the Variables tab
-# Variable 'NugetSecurityAnalysisWarningLevel' was defined in the Variables tab
-# Variable 'TestAadClientId' was defined in the Variables tab
-# Variable 'TestAadClientSecret' was defined in the Variables tab
-# Variable 'TestAadTenant' was defined in the Variables tab
-# Variable 'TestApiAadResourceId' was defined in the Variables tab
 name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 parameters:
 - name: BuildConfiguration
