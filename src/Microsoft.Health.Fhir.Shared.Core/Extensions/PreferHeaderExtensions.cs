@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -18,6 +19,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         internal static bool GetIsStrictHandlingEnabled(this RequestContextAccessor<IFhirRequestContext> contextAccessor)
         {
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+
             bool isStrictHandlingEnabled = false;
 
             if (contextAccessor.RequestContext?.RequestHeaders != null &&

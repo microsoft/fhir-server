@@ -168,7 +168,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
                     searchResult = await SearchRevinclude(resourceId, since, types, encodedInternalContinuationToken, cancellationToken);
                     break;
                 default:
-                    // This should never happen.
                     throw new EverythingOperationException(string.Format(Core.Resources.InvalidEverythingOperationPhase, phase), HttpStatusCode.BadRequest);
             }
 
