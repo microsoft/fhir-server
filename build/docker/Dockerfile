@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:5.0.400-alpine3.13 AS build
 
 ARG FHIR_VERSION
+ARG ASSEMBLY_VER
 
 WORKDIR /repo
 
@@ -11,6 +12,7 @@ COPY .editorconfig \
      global.json \
      nuget.config \
      stylecop.json \
+     THIRDPARTYNOTICES.md \
      ./
 
 # Copy csproj and projitem files first, then do a dotnet restore. These layers are only invalidated
@@ -70,13 +72,18 @@ COPY ./src/Microsoft.Health.Fhir.Import.Shared.Core/Microsoft.Health.Fhir.Import
 COPY ./src/Microsoft.Health.Fhir.Import.DataStore.SqlServer/Microsoft.Health.Fhir.Import.DataStore.SqlServer.csproj \
      ./src/Microsoft.Health.Fhir.Import.DataStore.SqlServer/Microsoft.Health.Fhir.Import.DataStore.SqlServer.csproj
 	 
+COPY ./tools/FhirAnalyzer/FhirAnalyzer.csproj \
+     ./tools/FhirAnalyzer/FhirAnalyzer.csproj
+
+RUN dotnet restore ./tools/FhirAnalyzer/FhirAnalyzer.csproj
 RUN dotnet restore ./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj
 
 # now copy over everything else and publish
 
 COPY . .
 
-RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore
+RUN dotnet build /repo/tools/FhirAnalyzer/FhirAnalyzer.csproj
+RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore -p:AssemblyVersion="${ASSEMBLY_VER}" -p:FileVersion="${ASSEMBLY_VER}"  -p:Version="${ASSEMBLY_VER}"
 
 FROM mcr.microsoft.com/dotnet/aspnet:5.0.9-alpine3.13 AS runtime
 

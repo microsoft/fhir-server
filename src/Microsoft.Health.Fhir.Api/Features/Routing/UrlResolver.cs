@@ -254,6 +254,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case ImportConstants.Import:
                     routeName = RouteNames.GetImportStatusById;
                     break;
+                case OperationsConstants.PatientEverything:
+                    routeName = RouteNames.PatientEverythingById;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }

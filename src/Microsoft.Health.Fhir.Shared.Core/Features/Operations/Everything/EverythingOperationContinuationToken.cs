@@ -3,42 +3,69 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Text.Json;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
 {
-    public class EverythingOperationContinuationToken
+    internal class EverythingOperationContinuationToken
     {
-        public EverythingOperationContinuationToken(int phase, string internalContinuationToken)
+        // The $everything operation continuation token is used to retrieve the next phase of results when running the
+        // Patient $everything operation. The information stored in this class is serialized, encoded and returned as
+        // part of the "next" URL in the result set bundle.
+        // The length of the serialized token must not exceed the limit of the URL (2083 characters), so we need to
+        // avoid using the continuation token to store large amounts of data. This is why we only store the current
+        // "seealso" link id in the token (opposed to all "seealso" links).
+        [JsonConstructor]
+        internal EverythingOperationContinuationToken()
         {
-            Phase = phase;
-            InternalContinuationToken = internalContinuationToken;
+            Phase = 0;
+            InternalContinuationToken = null;
         }
 
-        public int Phase { get; private set; }
+        [JsonProperty]
+        internal int Phase { get; set; }
 
-        public string InternalContinuationToken { get; private set; }
+        [JsonProperty]
+        internal string InternalContinuationToken { get; set; }
 
-        public static string ToString(int phase, string internalContinuationToken)
+        [JsonProperty]
+        internal string CurrentSeeAlsoLinkId { get; set; }
+
+        [JsonProperty]
+        internal string ParentPatientVersionId { get; set; }
+
+        internal bool IsProcessingSeeAlsoLink
         {
-            return JsonSerializer.Serialize(new EverythingOperationContinuationToken(phase, internalContinuationToken));
+            get
+            {
+                return CurrentSeeAlsoLinkId != null;
+            }
         }
 
-        public static EverythingOperationContinuationToken FromString(string json)
+        public string ToJson()
+        {
+            return JsonConvert.SerializeObject(this);
+        }
+
+        internal static EverythingOperationContinuationToken FromJson(string json)
         {
             if (string.IsNullOrEmpty(json))
             {
                 return null;
             }
 
+            EverythingOperationContinuationToken token;
+
             try
             {
-                return JsonSerializer.Deserialize<EverythingOperationContinuationToken>(json);
+                token = JsonConvert.DeserializeObject<EverythingOperationContinuationToken>(json);
             }
             catch (JsonException)
             {
                 return null;
             }
+
+            return token;
         }
     }
 }

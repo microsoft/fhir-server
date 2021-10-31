@@ -7,7 +7,7 @@
     <PackageReference Include="Ensure.That" Version="10.1.0" />
     <PackageReference Include="FluentValidation" Version="10.3.3" />
     <PackageReference Include="MediatR" Version="9.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="5.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="5.0.11" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(RuntimePackageVersion)" />
