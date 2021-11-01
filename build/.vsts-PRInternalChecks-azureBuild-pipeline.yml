@@ -40,6 +40,7 @@ jobs:
     displayName: Use .NET Core sdk
     inputs:
       inputs:
+      version: 5.0.x
       useGlobalJson: true
       installationPath: $(Agent.ToolsDirectory)/dotnet
 
