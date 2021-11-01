@@ -39,7 +39,10 @@ jobs:
   - task: UseDotNet@2
     displayName: Use .NET Core sdk
     inputs:
-      version: 5.0.400
+      inputs:
+      useGlobalJson: true
+      packageType: $(Parameters.packageType)
+      installationPath: $(Agent.ToolsDirectory)/dotnet
 
   - task: DotNetCoreCLI@2
     displayName: dotnet restore
