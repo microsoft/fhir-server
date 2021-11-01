@@ -456,9 +456,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
         [Consumes("application/fhir+json")]
-        public async Task<IActionResult> PatchFhir(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> PatchFhir(string typeParameter, string idParameter, [FromBody] Resource fhirJson, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
-            return BadRequest();
+            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), fhirJson, ifMatchHeader, HttpContext.RequestAborted);
+            return ToSaveOutcomeResult(response.Outcome);
         }
 
         /// <summary>
@@ -471,7 +472,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.ConditionalPatch)]
         [Consumes("application/fhir+json")]
-        public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] Resource fhirJson, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             return BadRequest();
         }

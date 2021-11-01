@@ -74,7 +74,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return result;
         }
+        public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, Resource fhirJson, WeakETag weakETag = null, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(key, nameof(key));
 
+            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest(key, fhirJson, weakETag), cancellationToken);
+
+            return result;
+        }
         public static async Task<ResourceElement> SearchResourceAsync(this IMediator mediator, string type, IReadOnlyList<Tuple<string, string>> queries, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
