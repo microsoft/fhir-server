@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
@@ -74,12 +75,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return result;
         }
-        public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, Resource fhirJson, WeakETag weakETag = null, CancellationToken cancellationToken = default)
+        public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, Parameters paramsResource, WeakETag weakETag = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(key, nameof(key));
 
-            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest(key, fhirJson, weakETag), cancellationToken);
+            UpsertResourceResponse result = await mediator.Send(new FhirPatchResourceRequest(key, paramsResource, weakETag), cancellationToken);
 
             return result;
         }
