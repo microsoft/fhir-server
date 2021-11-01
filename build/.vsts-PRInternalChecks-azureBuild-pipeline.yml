@@ -41,7 +41,6 @@ jobs:
     inputs:
       inputs:
       useGlobalJson: true
-      packageType: $(Parameters.packageType)
       installationPath: $(Agent.ToolsDirectory)/dotnet
 
   - task: DotNetCoreCLI@2
