@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hl7.Fhir.ElementModel" Version="3.4.0" />
+    <PackageReference Include="Hl7.Fhir.R4" Version="3.4.0" />
+    <PackageReference Include="Hl7.Fhir.Support" Version="3.4.0" />
+    <PackageReference Include="Hl7.FhirPath" Version="3.4.0" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Helpers\" />
+  </ItemGroup>
+   <PropertyGroup>
+    <CodeAnalysisRuleSet>FhirPathPatch.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+
+
+</Project>
