@@ -153,6 +153,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             goto default;
                         case SqlErrorCodes.MethodNotAllowed:
                             throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                        case SqlErrorCodes.TimeoutExpired:
+                            throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
                         default:
                             _logger.LogError(e, "Error from SQL database on upsert");
                             throw;

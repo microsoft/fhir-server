@@ -166,6 +166,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case MemberMatchMatchingException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.UnprocessableEntity;
                         break;
+                    case RequestTimeoutException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.RequestTimeout;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;
