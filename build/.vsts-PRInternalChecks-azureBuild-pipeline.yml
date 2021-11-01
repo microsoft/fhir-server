@@ -6,7 +6,7 @@ parameters:
   default: warn   
 variables:
 - name: vmImage
-  value: windows-2019
+  value: windows-latest
 resources:
   repositories:
   - repository: self
@@ -40,9 +40,7 @@ jobs:
     displayName: Use .NET Core sdk
     inputs:
       inputs:
-      version: 5.0.x
       useGlobalJson: true
-      installationPath: $(Agent.ToolsDirectory)/dotnet
 
   - task: DotNetCoreCLI@2
     displayName: dotnet restore
@@ -147,4 +145,4 @@ jobs:
     enabled: False
     inputs:
       ArtifactName: CodeAnalysisLogs - Antimalware
-...
+
