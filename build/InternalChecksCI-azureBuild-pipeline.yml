@@ -55,7 +55,7 @@ jobs:
     inputs:
       useGlobalJson: true
       packageType: $(Parameters.packageType)
-      version: $(NetCoreVersion)
+      version: 5.0.x
       installationPath: $(Agent.ToolsDirectory)/dotnet
 
   - task: DotNetCoreCLI@2
