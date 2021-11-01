@@ -138,7 +138,7 @@ jobs:
     displayName: Upload Scan Results for Analysis
     inputs:
       areaPathParent: Health
-      areaPathChild: Patient Engagement\Resolute
+      areaPathChild: Olympus
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
@@ -172,4 +172,3 @@ jobs:
     enabled: False
     inputs:
       ArtifactName: CodeAnalysisLogs - Antimalware
-...
