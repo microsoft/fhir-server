@@ -5,10 +5,8 @@ parameters:
   default: release
 
 variables:
-- name: vmImage_1
-  value: Hosted Windows 2019 with VS2019
-- name: vmImage_2
-  value: windows-2019
+- name: vmImage
+  value: windows-latest 
 
 trigger:
 
@@ -35,7 +33,7 @@ jobs:
   displayName: Internal Checks CI - build and restore
   cancelTimeoutInMinutes: 1
   pool:
-    name: $(vmImage_1)
+    name: $(vmImage)
   steps:
   - checkout: self
     persistCredentials: True
@@ -52,10 +50,9 @@ jobs:
       nugetConfigPath: nuget.config
 
   - task: UseDotNet@2
+    displayName: Use .NET Core sdk
     inputs:
-      version: 5.0.x
       useGlobalJson: true
-      installationPath: $(Agent.ToolsDirectory)/dotnet
 
   - task: DotNetCoreCLI@2
     displayName: dotnet restore
@@ -148,7 +145,7 @@ jobs:
   cancelTimeoutInMinutes: 1
   dependsOn: Phase_1
   pool:
-    vmImage: $(vmImage_2)
+    vmImage: $(vmImage)
 
   steps:
   - checkout: self
