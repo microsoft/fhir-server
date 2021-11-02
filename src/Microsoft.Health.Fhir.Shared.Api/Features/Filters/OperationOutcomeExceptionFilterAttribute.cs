@@ -11,6 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
@@ -36,12 +37,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         private const string ValidateController = "Validate";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly ILogger<OperationOutcomeExceptionFilterAttribute> _logger;
 
-        public OperationOutcomeExceptionFilterAttribute(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        public OperationOutcomeExceptionFilterAttribute(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, ILogger<OperationOutcomeExceptionFilterAttribute> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _logger = logger;
         }
 
         public override void OnActionExecuted(ActionExecutedContext context)
@@ -60,6 +64,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     {
                         Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                         Issue = fhirException.Issues.Select(x => x.ToPoco()).ToList(),
+                        Meta = new Meta()
+                        {
+                            LastUpdated = DateTimeOffset.UtcNow,
+                        },
                     },
                     HttpStatusCode.BadRequest);
 
@@ -206,6 +214,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             new OperationOutcome
                             {
                                 Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
+                                Meta = new Meta()
+                                {
+                                    LastUpdated = DateTimeOffset.UtcNow,
+                                },
                             },
                             HttpStatusCode.InternalServerError);
                         break;
@@ -235,6 +247,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         context.Exception = outerException;
                     }
                 }
+
+                return;
+            }
+            else
+            {
+                context.Result = new OperationOutcomeResult(
+                    new OperationOutcome
+                    {
+                        Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
+                        Meta = new Meta()
+                        {
+                            LastUpdated = DateTimeOffset.UtcNow,
+                        },
+                    },
+                    HttpStatusCode.InternalServerError);
+                context.ExceptionHandled = true;
+            }
+
+            if (context.ExceptionHandled)
+            {
+                HttpStatusCode? statusCode = (context.Result as OperationOutcomeResult).StatusCode;
+                if (statusCode != null && statusCode >= HttpStatusCode.InternalServerError)
+                {
+                    _logger.LogError(_fhirRequestContextAccessor.RequestContext.CorrelationId, context.Exception);
+                }
             }
         }
 
@@ -252,6 +289,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             Code = issueType,
                             Diagnostics = message,
                         },
+                    },
+                    Meta = new Meta()
+                    {
+                        LastUpdated = DateTimeOffset.UtcNow,
                     },
                 },
                 httpStatusCode);
