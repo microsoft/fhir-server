@@ -1,17 +1,21 @@
 name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+
 parameters:
 - name: BuildConfiguration
   default: release
 - name: NugetSecurityAnalysisWarningLevel
   default: warn   
+
 variables:
 - name: vmImage
   value: windows-latest
+
 resources:
   repositories:
   - repository: self
     type: git
     ref: main
+
 jobs:
 
 - job: Phase_1
@@ -144,4 +148,3 @@ jobs:
     enabled: False
     inputs:
       ArtifactName: CodeAnalysisLogs - Antimalware
-
