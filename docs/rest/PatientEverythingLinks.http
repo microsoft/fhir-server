@@ -1,0 +1,671 @@
+# This test flow confirms the Patient $everything operation's behaviour
+# when a patient's links are populated. We can expect different
+# behaviour depending on the type of the link:
+# - "seealso": Patient $everything is run on this patient as well
+# - "replaced-by": An operation outcome is returned
+# - "replaces"/"refer": These links are ignored
+#
+# This test assumes you are running the FHIR server locally with R4
+
+@hostname = localhost:44348
+
+###
+# Get the bearer token if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+# Create a patient to run the Patient $everything operation on.
+# This patient directly references HL7 as its managing organization.
+# It also has two "seealso" links: one to a RelatedPerson and one
+# to another Patient resource.
+# Finally, it has a "replaces" link and a "refer" link. These
+# should be ignored by the Patient $everything operation.
+# @name mum
+PUT https://{{hostname}}/Patient/mum
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "mum",
+  "meta": {
+    "lastUpdated": "2012-05-29T23:45:32Z"
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: mom</p><p><b>meta</b>: </p><p><b>identifier</b>: Social Security number = 444222222</p><p><b>active</b>: true</p><p><b>name</b>: Eve Everywoman (OFFICIAL)</p><p><b>telecom</b>: ph: 555-555-2003(WORK)</p><p><b>gender</b>: female</p><p><b>birthDate</b>: 31/05/1973</p><p><b>address</b>: 2222 Home Street (HOME)</p><p><b>managingOrganization</b>: <a>Organization/hl7</a></p><h3>Links</h3><table><tr><td>-</td><td><b>Other</b></td><td><b>Type</b></td></tr><tr><td>*</td><td><a>RelatedPerson/newborn-mom</a></td><td>seealso</td></tr></table></div>"
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "SS"
+          }
+        ]
+      },
+      "system": "http://hl7.org/fhir/sid/us-ssn",
+      "value": "444222222"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "family": "Everywoman",
+      "given": [
+        "Eve"
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "555-555-2003",
+      "use": "work"
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1973-05-31",
+  "address": [
+    {
+      "use": "home",
+      "line": [
+        "2222 Home Street"
+      ]
+    }
+  ],
+  "managingOrganization": {
+    "reference": "Organization/hl7"
+  },
+  "link": [
+    {
+      "other": {
+        "reference": "RelatedPerson/newborn-mom"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "Patient/mother"
+      },
+      "type": "seealso"
+    },
+    {
+      "other": {
+        "reference": "RelatedPerson/newborn-mom-1"
+      },
+      "type": "replaces"
+    },
+    {
+      "other": {
+        "reference": "RelatedPerson/newborn-mom-2"
+      },
+      "type": "refer"
+    }
+  ]
+}
+
+###
+# Create the Organization resource directly referenced by Patient "mum".
+# This will be picked up by the Patient $everything operation.
+PUT https://{{hostname}}/Organization/hl7
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Organization",
+  "id": "hl7",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      Health Level Seven International\n      <br/>\n\t\t\t\t3300 Washtenaw Avenue, Suite 227\n      <br/>\n\t\t\t\tAnn Arbor, MI 48104\n      <br/>\n\t\t\t\tUSA\n      <br/>\n\t\t\t\t(+1) 734-677-7777 (phone)\n      <br/>\n\t\t\t\t(+1) 734-677-6622 (fax)\n      <br/>\n\t\t\t\tE-mail:  \n      <a href=\"mailto:hq@HL7.org\">hq@HL7.org</a>\n    \n    </div>"
+  },
+  "name": "Health Level Seven International",
+  "alias": [
+    "HL7 International"
+  ],
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "(+1) 734-677-7777"
+    },
+    {
+      "system": "fax",
+      "value": "(+1) 734-677-6622"
+    },
+    {
+      "system": "email",
+      "value": "hq@HL7.org"
+    }
+  ],
+  "address": [
+    {
+      "line": [
+        "3300 Washtenaw Avenue, Suite 227"
+      ],
+      "city": "Ann Arbor",
+      "state": "MI",
+      "postalCode": "48104",
+      "country": "USA"
+    }
+  ],
+  "endpoint": [
+    {
+      "reference": "Endpoint/example"
+    }
+  ]
+}
+
+###
+# Create the Patient resource referenced by Patient "mum".
+# Since this is linked as "seealso" in "mum", this will be picked up by
+# the Patient $everything operation.
+# The Patient $everything operation will be run on this Patient as well.
+PUT https://{{hostname}}/Patient/mother
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "mother",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: mother</p><p><b>gender</b>: female</p><p><b>birthDate</b>: 1973/05/31</p></div>"
+  },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/patient-mothersMaidenName",
+      "valueString": "Everywoman"
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1973-05-31",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "1973-05-31T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+
+###
+# Create the RelatedPerson resource referenced by Patient "mum".
+# Even though this is linked as "seealso" in "mum", this will not be picked
+# up by the Patient $everything operation because it is not a Patient resource.
+PUT https://{{hostname}}/RelatedPerson/newborn-mom
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "RelatedPerson",
+  "id": "newborn-mom",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn-mom</p><p><b>identifier</b>: Social Security number = 444222222</p><p><b>active</b>: true</p><p><b>patient</b>: <a>Patient/newborn</a></p><p><b>relationship</b>: Natural Mother <span>(Details : {http://terminology.hl7.org/CodeSystem/v3-RoleCode code 'NMTH' = 'natural mother', given as 'natural mother'})</span></p><p><b>name</b>: Eve Everywoman (OFFICIAL)</p><p><b>telecom</b>: ph: 555-555-2003(WORK)</p><p><b>gender</b>: female</p><p><b>birthDate</b>: 31/05/1973</p><p><b>address</b>: 2222 Home Street (HOME)</p></div>"
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "SS"
+          }
+        ]
+      },
+      "system": "http://hl7.org/fhir/sid/us-ssn",
+      "value": "444222222"
+    }
+  ],
+  "active": true,
+  "patient": {
+    "reference": "Patient/newborn"
+  },
+  "relationship": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-RoleCode",
+          "code": "NMTH",
+          "display": "natural mother"
+        }
+      ],
+      "text": "Natural Mother"
+    }
+  ],
+  "name": [
+    {
+      "use": "official",
+      "family": "Everywoman",
+      "given": [
+        "Eve"
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "system": "phone",
+      "value": "555-555-2003",
+      "use": "work"
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1973-05-31",
+  "address": [
+    {
+      "use": "home",
+      "line": [
+        "2222 Home Street"
+      ]
+    }
+  ]
+}
+
+###
+# Create a procedure that references Patient "mum".
+# This will be apart of Patient "mum"'s patient compartment and will be picked
+# up by the Patient $everything operation.
+PUT https://{{hostname}}/Procedure/appendectomy
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Procedure",
+  "id": "appendectomy",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Routine Appendectomy</div>"
+  },
+  "status": "completed",
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "80146002",
+        "display": "Appendectomy (Procedure)"
+      }
+    ],
+    "text": "Appendectomy"
+  },
+  "subject": {
+    "reference": "Patient/mum"
+  },
+  "recorder": {
+    "reference": "Practitioner/dude",
+    "display": "Dr Adam Careful"
+  },
+  "performer": [
+    {
+      "actor": {
+        "reference": "Practitioner/dude",
+        "display": "Dr Adam Careful"
+      }
+    }
+  ],
+  "followUp": [
+    {
+      "text": "ROS 5 days  - 2013-04-10"
+    }
+  ],
+  "note": [
+    {
+      "text": "Routine Appendectomy. Appendix was inflamed and in retro-caecal position"
+    }
+  ]
+}
+
+###
+# Create an allergy intolerance that references Patient "mum".
+# This will be apart of Patient "mum"'s patient compartment and will be picked
+# up by the Patient $everything operation.
+PUT https://{{hostname}}/AllergyIntolerance/cashews
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "AllergyIntolerance",
+  "id": "cashews",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: cashews</p><p><b>identifier</b>: 49476534</p><p><b>clinicalStatus</b>: Active <span>(Details : {http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical code 'active' = 'Active', given as 'Active'})</span></p><p><b>verificationStatus</b>: Confirmed <span>(Details : {http://terminology.hl7.org/CodeSystem/allergyintolerance-verification code 'confirmed' = 'Confirmed', given as 'Confirmed'})</span></p><p><b>type</b>: allergy</p><p><b>category</b>: food</p><p><b>criticality</b>: high</p><p><b>code</b>: Cashew nuts <span>(Details : {SNOMED CT code '227493005' = 'Cashew nuts', given as 'Cashew nuts'})</span></p><p><b>patient</b>: <a>Patient/example</a></p><p><b>onset</b>: 01/01/2004</p><p><b>recordedDate</b>: 09/10/2014 2:58:00 PM</p><p><b>recorder</b>: <a>Practitioner/example</a></p><p><b>asserter</b>: <a>Patient/example</a></p><p><b>lastOccurrence</b>: 01/06/2012</p><p><b>note</b>: The criticality is high becasue of the observed anaphylactic reaction when challenged with cashew extract.</p><blockquote><p><b>reaction</b></p><p><b>substance</b>: cashew nut allergenic extract Injectable Product <span>(Details : {RxNorm code '1160593' = 'cashew nut allergenic extract Injectable Product', given as 'cashew nut allergenic extract Injectable Product'})</span></p><p><b>manifestation</b>: Anaphylactic reaction <span>(Details : {SNOMED CT code '39579001' = 'Anaphylaxis', given as 'Anaphylactic reaction'})</span></p><p><b>description</b>: Challenge Protocol. Severe reaction to subcutaneous cashew extract. Epinephrine administered</p><p><b>onset</b>: 12/06/2012</p><p><b>severity</b>: severe</p><p><b>exposureRoute</b>: Subcutaneous route <span>(Details : {SNOMED CT code '34206005' = 'Subcutaneous route', given as 'Subcutaneous route'})</span></p></blockquote><blockquote><p><b>reaction</b></p><p><b>manifestation</b>: Urticaria <span>(Details : {SNOMED CT code '64305001' = 'Urticaria', given as 'Urticaria'})</span></p><p><b>onset</b>: 01/01/2004</p><p><b>severity</b>: moderate</p><p><b>note</b>: The patient reports that the onset of urticaria was within 15 minutes of eating cashews.</p></blockquote></div>"
+  },
+  "identifier": [
+    {
+      "system": "http://acme.com/ids/patients/risks",
+      "value": "49476534"
+    }
+  ],
+  "clinicalStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical",
+        "code": "active",
+        "display": "Active"
+      }
+    ]
+  },
+  "verificationStatus": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/allergyintolerance-verification",
+        "code": "confirmed",
+        "display": "Confirmed"
+      }
+    ]
+  },
+  "type": "allergy",
+  "category": [
+    "food"
+  ],
+  "criticality": "high",
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "227493005",
+        "display": "Cashew nuts"
+      }
+    ]
+  },
+  "patient": {
+    "reference": "Patient/mum"
+  },
+  "onsetDateTime": "2004",
+  "recordedDate": "2014-10-09T14:58:00+11:00",
+  "recorder": {
+    "reference": "Practitioner/dude"
+  },
+  "asserter": {
+    "reference": "Patient/mum"
+  },
+  "lastOccurrence": "2012-06",
+  "note": [
+    {
+      "text": "The criticality is high becasue of the observed anaphylactic reaction when challenged with cashew extract."
+    }
+  ],
+  "reaction": [
+    {
+      "substance": {
+        "coding": [
+          {
+            "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+            "code": "1160593",
+            "display": "cashew nut allergenic extract Injectable Product"
+          }
+        ]
+      },
+      "manifestation": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "39579001",
+              "display": "Anaphylactic reaction"
+            }
+          ]
+        }
+      ],
+      "description": "Challenge Protocol. Severe reaction to subcutaneous cashew extract. Epinephrine administered",
+      "onset": "2012-06-12",
+      "severity": "severe",
+      "exposureRoute": {
+        "coding": [
+          {
+            "system": "http://snomed.info/sct",
+            "code": "34206005",
+            "display": "Subcutaneous route"
+          }
+        ]
+      }
+    },
+    {
+      "manifestation": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "64305001",
+              "display": "Urticaria"
+            }
+          ]
+        }
+      ],
+      "onset": "2004",
+      "severity": "moderate",
+      "note": [
+        {
+          "text": "The patient reports that the onset of urticaria was within 15 minutes of eating cashews."
+        }
+      ]
+    }
+  ]
+}
+
+###
+# Create the practitioner that will be referenced by the two other resources
+# above: the Procedure "appendectomy" and the AllergyIntollerance "cashews"
+# This will not be picked up by the Patient $everything operation because
+# it does not live in the patient compartment and it is not referenced by
+# the patient directly.
+PUT https://{{hostname}}/Practitioner/dude
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Practitioner",
+  "id": "dude",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      <p>Dr Adam Careful is a Referring Practitioner for Acme Hospital from 1-Jan 2012 to 31-Mar\n        2012</p>\n    </div>"
+  },
+  "identifier": [
+    {
+      "system": "http://www.acme.org/practitioners",
+      "value": "23"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Careful",
+      "given": [
+        "Adam"
+      ],
+      "prefix": [
+        "Dr"
+      ]
+    }
+  ],
+  "address": [
+    {
+      "use": "home",
+      "line": [
+        "534 Erewhon St"
+      ],
+      "city": "PleasantVille",
+      "state": "Vic",
+      "postalCode": "3999"
+    }
+  ],
+  "qualification": [
+    {
+      "identifier": [
+        {
+          "system": "http://example.org/UniversityIdentifier",
+          "value": "12345"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0360/2.7",
+            "code": "BS",
+            "display": "Bachelor of Science"
+          }
+        ],
+        "text": "Bachelor of Science"
+      },
+      "period": {
+        "start": "1995"
+      },
+      "issuer": {
+        "display": "Example University"
+      }
+    }
+  ]
+}
+
+###
+# Create a device that references Patient "mum".
+# This will be picked up by the Patient $everything operation.
+PUT https://{{hostname}}/Device/device-mum
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Device",
+  "id": "device-mum",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: device-mum</p><p><b>identifier</b>: 345675</p></div>"
+  },
+  "identifier": [
+    {
+      "system": "http://goodcare.org/devices/id",
+      "value": "345675"
+    }
+  ],
+  "patient" : {
+    "reference": "Patient/mum"
+  }
+}
+
+
+###
+# Create a device that references Patient "mother".
+# This will be picked up when the Patient $everything operation considers
+# the "seealso" link to Patient "mother"
+PUT https://{{hostname}}/Device/device-mother
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Device",
+  "id": "device-mother",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: device-mother</p><p><b>identifier</b>: 345675</p></div>"
+  },
+  "identifier": [
+    {
+      "system": "http://goodcare.org/devices/id",
+      "value": "345675"
+    }
+  ],
+  "patient" : {
+    "reference": "Patient/mother"
+  }
+}
+
+###
+# Run Patient $everything on the Patient "mum" and continue to follow the "next" link
+# in the returned bundles to retrieve all the results.
+# This should return:
+# - The Patient "mum" resource and the HL7 organization that it references directly
+# - The patient's compartment resources: the cashew allergy intolerance and the appendectomy procedure
+# - The device-mum device
+# Then, it should run Patient $everything on the Patient "mother", which should return:
+# - The Patient "mother" resource
+# - The device-mother device
+GET https://{{hostname}}/Patient/{{mum.response.body.id}}/$everything
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+
+###
+# Paste the "next" link below
+GET <paste next link here>
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Run Patient $everything, but only request Device resources.
+# This should return:
+# - The device-mum device
+# - The device-mother device
+GET https://{{hostname}}/Patient/{{mum.response.body.id}}/$everything?_type=Device
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Paste the "next" link below
+GET <paste next link here>
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Create a patient to run the Patient $everything operation on that
+# has a "replaced-by" link.
+# "replaced-by" links indicate that the current patient is out of
+# date and has been replaced by the patient pointed to by the link.
+# @name replacedby
+PUT https://{{hostname}}/Patient/replaced-by-link
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "replaced-by-link",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: test</p><p><b>meta</b>: </p><p><b>identifier</b>: Social Security number = 444222222</p><p><b>active</b>: true</p><p><b>name</b>: Eve Everywoman (OFFICIAL)</p><p><b>telecom</b>: ph: 555-555-2003(WORK)</p><p><b>gender</b>: female</p><p><b>birthDate</b>: 31/05/1973</p><p><b>address</b>: 2222 Home Street (HOME)</p><p><b>managingOrganization</b>: <a>Organization/hl7</a></p><h3>Links</h3><table><tr><td>-</td><td><b>Other</b></td><td><b>Type</b></td></tr><tr><td>*</td><td><a>RelatedPerson/newborn-mom</a></td><td>seealso</td></tr></table></div>"
+  },
+  "active": true,
+  "name": [
+    {
+      "use": "official",
+      "family": "Test",
+      "given": [
+        "Test"
+      ]
+    }
+  ],
+  "gender": "female",
+  "birthDate": "1973-05-31",
+  "link": [
+    {
+      "other": {
+        "reference": "Patient/mother"
+      },
+      "type": "replaced-by"
+    }
+  ]
+}
+
+###
+# When running $everything on a Patient with a "replaced-by" link and no
+# Prefer header is specified (or when the Prefer header is set to 
+# "handling=lenient"), an operation outcome indicating that the current
+# patient is out of date is returned within the search bundle.
+GET https://{{hostname}}/Patient/{{replacedby.response.body.id}}/$everything
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# When running $everything on a Patient with a "replaced-by" link the 
+# Prefer header is set to "handling=strict" an error is returned.
+# The url to the correct request should be in the content location header.
+GET https://{{hostname}}/Patient/{{replacedby.response.body.id}}/$everything
+Authorization: Bearer {{bearer.response.body.access_token}}
+Prefer: handling=strict
+
+###
+# Paste the response's content location header below
+GET <paste content location header here>

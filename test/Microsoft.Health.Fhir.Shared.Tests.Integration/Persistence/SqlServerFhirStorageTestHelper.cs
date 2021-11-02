@@ -94,18 +94,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
-            {
-                await connection.OpenAsync(cancellationToken);
-                SqlConnection.ClearAllPools();
-
-                using (SqlCommand command = connection.CreateCommand())
+            await Policy.Handle<SqlException>()
+                .WaitAndRetryAsync(3, retry => TimeSpan.FromSeconds(retry * 10))
+                .ExecuteAsync(async () =>
                 {
-                    command.CommandTimeout = 600;
-                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                    await command.ExecuteNonQueryAsync(cancellationToken);
-                }
-            }
+                    using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
+                    {
+                        await connection.OpenAsync(cancellationToken);
+                        SqlConnection.ClearAllPools();
+
+                        using (SqlCommand command = connection.CreateCommand())
+                        {
+                            command.CommandTimeout = 600;
+                            command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                            await command.ExecuteNonQueryAsync(cancellationToken);
+                        }
+                    }
+                });
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
