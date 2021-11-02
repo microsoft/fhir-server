@@ -7,8 +7,12 @@ using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
+    /// <summary>
+    /// This handles patching an object that requires adding an element from the resource.
+    /// </summary>
     public class OperationDelete : OperationBase, IOperation
     {
+        /// <inheritdoc/>
         public OperationDelete(Resource resource)
             : base(resource) { }
 

@@ -5,8 +5,12 @@ using Hl7.Fhir.Model;
 
 namespace FhirPathPatch.Operations
 {
+    /// <summary>
+    /// This handles patching an object that requires adding a new element.
+    /// </summary>
     public class OperationAdd : OperationBase, IOperation
     {
+        /// <inheritdoc/>
         public OperationAdd(Resource resource)
             : base(resource) { }
 
