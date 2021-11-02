@@ -33,7 +33,7 @@ jobs:
   displayName: Internal Checks CI - build and restore
   cancelTimeoutInMinutes: 1
   pool:
-    name: $(vmImage)
+    vmImage: $(vmImage)
   steps:
   - checkout: self
     persistCredentials: True
