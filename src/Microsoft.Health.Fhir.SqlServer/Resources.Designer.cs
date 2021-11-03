@@ -79,6 +79,25 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The exection timeout expired from SQL Server..
+        /// </summary>
+        internal static string ExecutionTimeoutExpired {
+            get {
+                return ResourceManager.GetString("ExecutionTimeoutExpired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to import resource with duplicated resource id {0}, line: {1}.
+        ///   Looks up a localized string similar to An error occurred when fetching resource changes from SQL database..
+        /// </summary>
+        internal static string FailedToImportForDuplicatedResource {
+            get {
+                return ResourceManager.GetString("FailedToImportForDuplicatedResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {
