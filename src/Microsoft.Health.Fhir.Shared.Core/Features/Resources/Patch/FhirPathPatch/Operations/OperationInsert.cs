@@ -11,8 +11,12 @@ using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
+    /// <summary>
+    /// This class handles the Insert operation for FHIR Patch.
+    /// </summary>
     public class OperationInsert : OperationBase, IOperation
     {
+        /// <inheritdoc/>
         public OperationInsert(Resource resource)
             : base(resource) { }
 

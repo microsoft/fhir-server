@@ -4,8 +4,12 @@ using Hl7.Fhir.Model;
 
 namespace FhirPathPatch.Operations
 {
+    /// <summary>
+    /// This handles patching an object that requires replacing an element from the resource.
+    /// </summary>
     public class OperationReplace : OperationBase, IOperation
     {
+        /// <inheritdoc/>
         public OperationReplace(Resource resource)
             : base(resource) { }
 

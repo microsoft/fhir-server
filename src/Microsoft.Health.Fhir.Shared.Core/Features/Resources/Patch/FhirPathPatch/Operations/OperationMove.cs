@@ -8,8 +8,12 @@ using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
+    /// <summary>
+    /// This handles patching an object that requires moving an element from the resource to a new path.
+    /// </summary>
     public class OperationMove : OperationBase, IOperation
     {
+        /// <inheritdoc/>
         public OperationMove(Resource resource)
             : base(resource) { }
 
