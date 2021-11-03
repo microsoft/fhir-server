@@ -3547,8 +3547,10 @@ BEGIN
        In Repeatable Read, the select query execution will be blocked until other open transactions are completed
        for rows that match the search condition of the select statement. 
        A write transaction (update/delete) on the rows that match 
-       the search condition of the select statement will wait until the read transaction is completed. 
-       But, other transactions can insert new rows. */
+       the search condition of the select statement will wait until the current transaction is completed. 
+       Other transactions can insert new rows that match the search conditions of statements issued by the current transaction.
+       But, other transactions will be blocked to insert new rows during the execution of the select query, 
+       and wait until the execution completes. */
     SELECT TOP(@pageSize) Id,
       Timestamp,
       ResourceId,
