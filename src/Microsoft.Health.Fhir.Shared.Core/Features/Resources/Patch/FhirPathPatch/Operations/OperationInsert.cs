@@ -11,12 +11,8 @@ using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
-    /// <summary>
-    /// This class handles the Insert operation for FHIR Patch.
-    /// </summary>
     public class OperationInsert : OperationBase, IOperation
     {
-        /// <inheritdoc/>
         public OperationInsert(Resource resource)
             : base(resource) { }
 
@@ -36,12 +32,18 @@ namespace FhirPathPatch.Operations
             var targetElement = this.ResourceElement.Find(operation.Path);
             var targetParent = targetElement.Parent;
             var name = targetElement.Name;
+            var listElements = targetParent.Children(name).ToList()
+                                              .Select(x => x as ElementNode)
+                                              .Select((value, index) => (value, index))
+                                              .ToList();
+
+            // Ensure index is in bounds
+            if (operation.Index < 0 || operation.Index > listElements.Count)
+                throw new InvalidOperationException("Insert index out of bounds of target list");
 
             // There is no easy "insert" operation in the FHIR library, so we must
             // iterate over the list and recreate it.
-            foreach (var child in targetParent.Children(name).ToList()
-                                              .Select(x => x as ElementNode)
-                                              .Select((value, index) => (value, index)))
+            foreach (var child in listElements)
             {
                 // Add the new item at the correct index
                 if (operation.Index == child.index)

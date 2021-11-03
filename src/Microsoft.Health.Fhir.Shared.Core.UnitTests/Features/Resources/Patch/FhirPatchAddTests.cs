@@ -5,9 +5,9 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Xunit;
 
-namespace FhirPathPatch.UnitTests
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
 {
-    public class AddTest
+    public class FhirPatchAddTests
     {
         // HL7 published tests
 

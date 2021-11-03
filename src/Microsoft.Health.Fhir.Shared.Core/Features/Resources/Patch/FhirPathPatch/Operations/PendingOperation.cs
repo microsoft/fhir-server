@@ -64,6 +64,7 @@ namespace FhirPathPatch.Operations
             var path = component.Part.First(x => x.Name == "path").Value.ToString();
             var name = component.Part.FirstOrDefault(x => x.Name == "name")?.Value.ToString();
 
+            // #TODO - Isolate Operation.Value from Parameter object
             object value = component.Part.FirstOrDefault(x => x.Name == "value")?.Value;
             if (value is null)
                 value = component.Part.FirstOrDefault(x => x.Name == "value")?.Part[0];

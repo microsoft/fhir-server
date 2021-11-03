@@ -8,12 +8,8 @@ using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
-    /// <summary>
-    /// This handles patching an object that requires moving an element from the resource to a new path.
-    /// </summary>
     public class OperationMove : OperationBase, IOperation
     {
-        /// <inheritdoc/>
         public OperationMove(Resource resource)
             : base(resource) { }
 
@@ -33,8 +29,15 @@ namespace FhirPathPatch.Operations
         {
             // Setup
             var targetElement = this.ResourceElement.Find(operation.Path);
-            var targetParent = this.ResourceElement.Parent;
-            var name = this.ResourceElement.Name;
+            var targetParent = targetElement.Parent;
+            var name = targetElement.Name;
+
+            // Check indexes
+            var targetLen = targetParent.Children(name).Count();
+            if (operation.Source < 0 || operation.Source >= targetLen)
+                throw new InvalidOperationException("Move source index out of bounds of target list");
+            if (operation.Destination < 0 || operation.Destination >= targetLen)
+                throw new InvalidOperationException("Move destination index out of bounds of target list");
 
             // Remove specified element from the list
             var elementToMove = targetParent.AtIndex(name, operation.Source ?? -1);
@@ -44,12 +47,12 @@ namespace FhirPathPatch.Operations
             // There is no easy "move" operation in the FHIR library, so we must
             // iterate over the list to reconstruct it.
             foreach (var child in targetParent.Children(name).ToList()
-                                            .Select(x => x as ElementNode)
+                                            .Select(x => x.ToElementNode())
                                             .Select((value, index) => (value, index)))
             {
                 // Add the new item at the correct index
                 if (operation.Destination == child.index)
-                    targetParent.Add(this.PocoProvider, operation.Value.ToElementNode(), name);
+                    targetParent.Add(this.PocoProvider, elementToMove, name);
 
                 // Remove the old element from the list so the new order is used
                 if (!targetParent.Remove(child.value))

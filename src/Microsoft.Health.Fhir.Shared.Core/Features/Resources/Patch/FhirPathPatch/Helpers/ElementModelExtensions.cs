@@ -17,8 +17,14 @@ namespace FhirPathPatch.Helpers
             ((ScopedNode)element.Select(pathExpression).First()).Current as ElementNode;
 
         internal static ElementNode AtIndex(this ElementNode element, string elementName, int index) =>
-            ((ScopedNode)element.Children(elementName).ElementAt(index)).Current as ElementNode;
+            element.Children(elementName).ElementAt(index).ToElementNode();
 
+        internal static ElementNode ToElementNode(this ITypedElement element)
+        {
+            if (element is ElementNode) return element as ElementNode;
+            return ElementNode.FromElement(element);
+        }
+        
         internal static ElementNode ToElementNode(this DataType data) =>
             ElementNode.FromElement(TypedSerialization.ToTypedElement(data));
 
