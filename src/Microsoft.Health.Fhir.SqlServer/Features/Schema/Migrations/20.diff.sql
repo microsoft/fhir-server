@@ -8,7 +8,7 @@
 EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 20.';
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Adding and updating stored procedures for purging resource changes.';
+EXEC dbo.LogSchemaMigrationProgress 'Adding or updating stored procedures for purging resource changes.';
 GO
 
 /*************************************************************
@@ -216,7 +216,7 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Creating partition function, and scheme for resource change data table.';
+EXEC dbo.LogSchemaMigrationProgress 'Creating PartitionFunction_ResourceChangeData_Timestamp and PartitionScheme_ResourceChangeData_Timestamp.';
 GO
 
 /*************************************************************
@@ -245,7 +245,7 @@ BEGIN
         AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
 END;
 
-EXEC dbo.LogSchemaMigrationProgress 'Creating initial partitions for resource change data table.';
+EXEC dbo.LogSchemaMigrationProgress 'Creating initial partitions on PartitionFunction_ResourceChangeData_Timestamp and PartitionScheme_ResourceChangeData_Timestamp.';
 GO
 
 IF (EXISTS(SELECT 1 FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
@@ -290,7 +290,7 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Creating a staging table for resource change data table.';
+EXEC dbo.LogSchemaMigrationProgress 'Creating ResourceChangeDataStaging table.';
 GO
 
 /* Creates a staging table. */
@@ -324,7 +324,7 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Dropping the old primary key clustered index from resource change data table.';
+EXEC dbo.LogSchemaMigrationProgress 'Dropping PK_ResourceChangeData from ResourceChangeData table.';
 GO
 
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
@@ -336,7 +336,7 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Creating the primary key clustered index on resource change data table.';
+EXEC dbo.LogSchemaMigrationProgress 'Creating PK_ResourceChangeData_TimestampId on ResourceChangeData table.';
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
