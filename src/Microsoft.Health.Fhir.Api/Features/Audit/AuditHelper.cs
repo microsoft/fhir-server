@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
         private readonly IAuditLogger _auditLogger;
         private readonly IAuditHeaderReader _auditHeaderReader;
-        private static IList<string> _auditEventSubTypeList = new List<string>();
+        private static IList<string> _fhirAnonymousOperationTypeList = new List<string>();
 
         public AuditHelper(
             RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor,
@@ -40,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _auditLogger = auditLogger;
             _auditHeaderReader = auditHeaderReader;
-            _auditEventSubTypeList = GetConstants(typeof(AuditEventSubType));
+            _fhirAnonymousOperationTypeList = GetConstants(typeof(FhirAnonymousOperationType));
         }
 
         /// <inheritdoc />
@@ -76,9 +77,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
             string auditEventType = fhirRequestContext.AuditEventType;
 
+            // We are retaining AuditEventType when CustomError occurs. Below check ensures that the audit log is not entered for the custom error request
+            httpContext.Request.RouteValues.TryGetValue("action", out object actionName);
+            if (!string.IsNullOrEmpty(actionName?.ToString()) && KnownRoutes.CustomError.Contains(actionName?.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             // Audit the call if an audit event type is associated with the action.
-            // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType make sure we only log the AuditEventType
-            if (!string.IsNullOrEmpty(auditEventType) && _auditEventSubTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
+            // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType ensure that we only log the AuditEventType
+            if (!string.IsNullOrEmpty(auditEventType) && !_fhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
             {
                 _auditLogger.LogAudit(
                     auditAction,
@@ -100,7 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// <returns>List of constant values</returns>
         public static IList<string> GetConstants(System.Type type)
         {
-            if (_auditEventSubTypeList.Count == 0)
+            if (_fhirAnonymousOperationTypeList.Count == 0)
             {
                 FieldInfo[] fieldInfos = type.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
 
@@ -109,13 +117,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 {
                     if (fi.IsLiteral && !fi.IsInitOnly)
                     {
-                        _auditEventSubTypeList.Add(fi.Name);
+                        _fhirAnonymousOperationTypeList.Add(fi.Name);
                     }
                 }
             }
 
             // Return an array of FieldInfos
-            return _auditEventSubTypeList;
+            return _fhirAnonymousOperationTypeList;
         }
     }
 }
