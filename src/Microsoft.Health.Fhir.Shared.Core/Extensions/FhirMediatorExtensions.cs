@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
 using EnsureThat;
 using MediatR;
 using Microsoft.AspNetCore.JsonPatch;
@@ -20,7 +21,6 @@ using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
-using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
@@ -75,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return result;
         }
+
         public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, Parameters paramsResource, WeakETag weakETag = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -84,6 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return result;
         }
+
         public static async Task<ResourceElement> SearchResourceAsync(this IMediator mediator, string type, IReadOnlyList<Tuple<string, string>> queries, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));

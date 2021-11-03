@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
 
-            Validate(resourceToPatch, weakETag, patchDocument);
+            Validate(resourceToPatch, weakETag, paramsResource);
 
             var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
 
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ITypedElement resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
             (string path, object result)[] preState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
-            Resource patchedResource = GetPatchedJsonResource(node, patchDocument);
+            Resource patchedResource = paramsResource;
 
             (string path, object result)[] postState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
             if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             return patchedResource.ToResourceElement();
         }
 
-        private static void Validate(ResourceWrapper currentDoc, WeakETag eTag, Parameter paramsResource)
+        private static void Validate(ResourceWrapper currentDoc, WeakETag eTag, Parameters paramsResource)
         {
             if (currentDoc.IsHistory)
             {
@@ -74,43 +74,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             {
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, eTag.VersionId));
             }
-
-            foreach (var operation in paramsResource.Operations)
+            var context = new System.ComponentModel.DataAnnotations.ValidationContext(currentDoc);
+            var results = paramsResource.Validate(context);
+            foreach(var result in results)
             {
-                if (operation.OperationType == AspNetCore.JsonPatch.Operations.OperationType.Invalid)
+                if(result.ErrorMessage != null)
                 {
-                    throw new BadRequestException($"{operation.op} is invalid.");
+                    throw new BadRequestException($"{result.MemberNames} is invalid.");
                 }
             }
         }
 
-        private Resource GetPatchedJsonResource(FhirJsonNode node, Parameter paramsResource)
-        {
-            try
-            {
-                operations.ApplyTo(node.JsonObject);
-            }
-            catch (JsonPatchException e)
-            {
-                throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
-            }
-            catch (ArgumentNullException e)
-            {
-                throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
-            }
-
-            Resource resourcePoco;
-            try
-            {
-                var resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
-                resourcePoco = resource.ToPoco<Resource>();
-            }
-            catch (Exception e)
-            {
-                throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, e.Message));
-            }
-
-            return resourcePoco;
-        }
     }
 }
