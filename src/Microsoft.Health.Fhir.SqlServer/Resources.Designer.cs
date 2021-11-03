@@ -89,7 +89,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         
         /// <summary>
         ///   Looks up a localized string similar to Failed to import resource with duplicated resource id {0}, line: {1}.
-        ///   Looks up a localized string similar to An error occurred when fetching resource changes from SQL database..
         /// </summary>
         internal static string FailedToImportForDuplicatedResource {
             get {
