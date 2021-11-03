@@ -5,6 +5,12 @@
     on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
 **************************************************************/
 
+EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 20.';
+GO
+
+EXEC dbo.LogSchemaMigrationProgress 'Adding and updating stored procedures for purging resource changes.';
+GO
+
 /*************************************************************
     Purge partition feature for resource change data
 **************************************************************/
@@ -210,6 +216,9 @@ BEGIN
 END;
 GO
 
+EXEC dbo.LogSchemaMigrationProgress 'Creating partition function, and scheme for resource change data table.';
+GO
+
 /*************************************************************
     Create partition function, scheme, and clustered index to migrate data on resource change data table.
 **************************************************************/
@@ -235,6 +244,9 @@ BEGIN
     CREATE PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp
         AS PARTITION PartitionFunction_ResourceChangeData_Timestamp ALL TO([PRIMARY]);
 END;
+
+EXEC dbo.LogSchemaMigrationProgress 'Creating initial partitions for resource change data table.';
+GO
 
 IF (EXISTS(SELECT 1 FROM sys.partition_functions WHERE name = 'PartitionFunction_ResourceChangeData_Timestamp')
     AND EXISTS(SELECT 1 FROM sys.partition_schemes WHERE name = 'PartitionScheme_ResourceChangeData_Timestamp'))
@@ -278,6 +290,9 @@ BEGIN
 END;
 GO
 
+EXEC dbo.LogSchemaMigrationProgress 'Creating a staging table for resource change data table.';
+GO
+
 /* Creates a staging table. */
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ResourceChangeDataStaging')
 BEGIN
@@ -309,27 +324,30 @@ BEGIN
 END;
 GO
 
-/* Uses XACT_ABORT to force a rollback on any error. */
-SET XACT_ABORT ON;
+EXEC dbo.LogSchemaMigrationProgress 'Dropping the old primary key clustered index from resource change data table.';
+GO
 
-BEGIN TRANSACTION
-    
-    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
-    BEGIN
-        /* Drops index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
-           During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
-           This behavior enables queries or updates to the underlying table and indexes to continue. */
-        ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData WITH (ONLINE = ON);
-    END;
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
+BEGIN
+    /* Drops index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+        This behavior enables queries or updates to the underlying table and indexes to continue. */
+    ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData WITH (ONLINE = ON);
+END;
+GO
 
-    IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
-    BEGIN
-        /* Adds primary key clustered index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
-           During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
-           This behavior enables queries or updates to the underlying table and indexes to continue. */
-        ALTER TABLE dbo.ResourceChangeData ADD CONSTRAINT PK_ResourceChangeData_TimestampId
-            PRIMARY KEY CLUSTERED(Timestamp ASC, Id ASC) WITH (ONLINE = ON) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp);
-    END;
+EXEC dbo.LogSchemaMigrationProgress 'Creating the primary key clustered index on resource change data table.';
+GO
 
-COMMIT TRANSACTION;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
+BEGIN
+    /* Adds primary key clustered index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+        This behavior enables queries or updates to the underlying table and indexes to continue. */
+    ALTER TABLE dbo.ResourceChangeData ADD CONSTRAINT PK_ResourceChangeData_TimestampId
+        PRIMARY KEY CLUSTERED(Timestamp ASC, Id ASC) WITH (ONLINE = ON) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp);
+END;
+GO
+
+EXEC dbo.LogSchemaMigrationProgress 'Completed migration to version 20.'
 GO
