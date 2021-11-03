@@ -324,7 +324,7 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Dropping PK_ResourceChangeData from ResourceChangeData table.';
+EXEC dbo.LogSchemaMigrationProgress 'Deleting PK_ResourceChangeData from ResourceChangeData table.';
 GO
 
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
