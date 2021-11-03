@@ -77,13 +77,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
             string auditEventType = fhirRequestContext.AuditEventType;
 
-            // We are retaining AuditEventType when CustomError occurs. Below check ensures that the audit log is not entered for the custom error request
-            httpContext.Request.RouteValues.TryGetValue("action", out object actionName);
-            if (!string.IsNullOrEmpty(actionName?.ToString()) && KnownRoutes.CustomError.Contains(actionName?.ToString(), StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
             // Audit the call if an audit event type is associated with the action.
             // Since AuditEventType holds value for both AuditEventType and FhirAnonymousOperationType ensure that we only log the AuditEventType
             if (!string.IsNullOrEmpty(auditEventType) && !_fhirAnonymousOperationTypeList.Contains(auditEventType, StringComparer.OrdinalIgnoreCase))
