@@ -397,6 +397,10 @@
     <value>SearchParameter[{0}].resource.expression is null or empty.</value>
     <comment>{0} Is the Uri Identifying the SearchParameter</comment>
   </data>
+  <data name="ValueCannotBeNull" xml:space="preserve">
+    <value>Value cannot be null.  Parameter name: {0}.</value>
+    <comment>Error message for missing query parameter, {0} is the parameter name</comment>
+  </data>
   <data name="SearchParameterDefinitionInvalidResource" xml:space="preserve">
     <value>Entry {0} is not a SearchParameter resource.</value>
     <comment>{0} Index of the processed element in the ennumeration</comment>

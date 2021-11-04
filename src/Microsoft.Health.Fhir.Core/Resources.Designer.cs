@@ -1403,6 +1403,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Value cannot be null.  Parameter name: {0}..
+        /// </summary>
+        internal static string ValueCannotBeNull {
+            get {
+                return ResourceManager.GetString("ValueCannotBeNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to VersionId should not be in the weak ETag format..
         /// </summary>
         internal static string VersionIdFormatNotETag {

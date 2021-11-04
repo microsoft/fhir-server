@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -22,8 +22,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="value">The searchable value.</param>
         public SearchIndexEntry(SearchParameterInfo searchParameter, ISearchValue value)
         {
-            EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
-            EnsureArg.IsNotNull(value, nameof(value));
+            if (searchParameter is null)
+            {
+                throw new BadRequestException(string.Format(Resources.ValueCannotBeNull, "Search Parameter"));
+            }
+
+            if (value is null)
+            {
+                throw new BadRequestException(string.Format(Resources.ValueCannotBeNull, searchParameter.Expression));
+            }
 
             SearchParameter = searchParameter;
             Value = value;
