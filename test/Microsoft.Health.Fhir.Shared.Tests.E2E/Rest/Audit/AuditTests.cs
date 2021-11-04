@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.Empty(_auditLogger.GetAuditEntriesByCorrelationId(correlationId));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAResource_WhenCreated_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.Created);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAnExistingResource_WhenRead_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenANonExistingResource_WhenRead_ThenAuditLogEntriesShouldBeCreated()
         {
             // TODO: The resource type being logged here is incorrect. The issue is tracked by https://github.com/Microsoft/fhir-server/issues/334.
@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.NotFound);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAnExistingResource_WhenReadAVersion_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAnExistingResource_WhenUpdated_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, "delete", ResourceType.Patient, expectedUri, HttpStatusCode.NoContent, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByResourceHistory_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "Observation/_history";
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByHistory_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "_history";
@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByResourceInstance_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByCompartment_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "Patient/123/Condition";
@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByResourceType_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "Observation?_tag=123";
@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByResourceTypeUsingPost_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearched_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "?_tag=123";
@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedUsingPost_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -292,7 +292,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenARequest_WhenNoAuthorizationTokenIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 expectedAppId: null);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenARequest_WhenInvalidAuthorizationTokenIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -324,7 +324,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 expectedAppId: null);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenARequest_WhenValidAuthorizationTokenWithInvalidAudienceIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 expectedAppId: null);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASmartOnFhirRequest_WhenAuthorizeIsCalled_TheAuditLogEntriesShouldBeCreated()
         {
             const string pathSegment = "AadSmartOnFhirProxy/authorize?client_id=1234&response_type=json&redirect_uri=httptest&aud=localhost";
@@ -346,7 +346,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 "client_id");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASmartOnFhirRequest_WhenCallbackIsCalled_TheAuditLogEntriesShouldBeCreated()
         {
             const string pathSegment = "AadSmartOnFhirProxy/callback/aHR0cHM6Ly9sb2NhbGhvc3Q=?code=1234&state=1234&session_state=1234";
@@ -359,7 +359,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 null);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASmartOnFhirRequest_WhenTokenIsCalled_TheAuditLogEntriesShouldBeCreated()
         {
             const string pathSegment = "AadSmartOnFhirProxy/token";
@@ -384,7 +384,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 new Dictionary<string, string>() { [KnownHeaders.CustomAuditHeaderPrefix + "test"] = "test" });
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAResource_WhenNotAuthorized_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -394,7 +394,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.All)]
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Batch)]
         public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
@@ -427,7 +427,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.All)]
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
         [Trait(Traits.Category, Categories.Batch)]
@@ -509,7 +509,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 inspectors.ToArray());
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         [Trait(Traits.Category, Categories.Transaction)]
         [Trait(Traits.Priority, Priority.One)]
@@ -538,7 +538,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                TestApplications.GlobalAdminServicePrincipal.ClientId);
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         [Trait(Traits.Category, Categories.Transaction)]
         [Trait(Traits.Priority, Priority.One)]
