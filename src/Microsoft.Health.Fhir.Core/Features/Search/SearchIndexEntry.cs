@@ -18,6 +18,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexEntry"/> class.
         /// </summary>
+        /// <remarks>
+        /// searchParameter and value parameters should not have a null value
+        /// But if the input json is not in the correct format then we are parsing the body here <see cref="FhirJsonInputFormatter"/> and passing the initial validations for required fields here <see cref="ModelAttributeValidator"/>
+        /// e.g. If the body contains Coverage.status = "", then after parsing Coverage.status = null & Coverage.statusElement = null, resulting into minimum cardinality error as expected
+        /// If the body contains Coverage.status = , then after parsing Coverage.status = null & Coverage.statusElement = {value=null}, which passes the Firely validation and CodeToTokenSearchValueConverter returns null
+        /// In this case return BadRequestException with a valid message instead of 500
+        /// </remarks>
         /// <param name="searchParameter">The search parameter</param>
         /// <param name="value">The searchable value.</param>
         public SearchIndexEntry(SearchParameterInfo searchParameter, ISearchValue value)

@@ -68,6 +68,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var test = _searchIndexer.Extract(coverageResource.ToResourceElement());
         }
 
+#if !Stu3
+        // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields
         [Fact]
         public void GivenAnInValidResource_WhenExtract_ThenExceptionIsThrown()
         {
@@ -99,5 +101,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Assert.Equal(errorMessage, exception.Issues.First().Diagnostics);
             }
         }
+#endif
     }
 }
