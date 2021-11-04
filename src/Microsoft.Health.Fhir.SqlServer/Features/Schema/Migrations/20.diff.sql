@@ -330,8 +330,8 @@ GO
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData')
 BEGIN
     /* Drops index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
-        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
-        This behavior enables queries or updates to the underlying table and indexes to continue. */
+       During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+       This behavior enables queries or updates to the underlying table and indexes to continue. */
     ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData WITH (ONLINE = ON);
 END;
 GO
@@ -342,8 +342,8 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
 BEGIN
     /* Adds primary key clustered index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
-        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
-        This behavior enables queries or updates to the underlying table and indexes to continue. */
+       During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+       This behavior enables queries or updates to the underlying table and indexes to continue. */
     ALTER TABLE dbo.ResourceChangeData ADD CONSTRAINT PK_ResourceChangeData_TimestampId
         PRIMARY KEY CLUSTERED(Timestamp ASC, Id ASC) WITH (ONLINE = ON) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp);
 END;
