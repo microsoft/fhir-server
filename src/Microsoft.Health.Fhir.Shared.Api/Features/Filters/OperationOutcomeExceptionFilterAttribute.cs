@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         Issue = fhirException.Issues.Select(x => x.ToPoco()).ToList(),
                         Meta = new Meta()
                         {
-                            LastUpdated = DateTimeOffset.UtcNow,
+                            LastUpdated = Clock.UtcNow,
                         },
                     },
                     HttpStatusCode.BadRequest);
@@ -216,7 +217,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                 Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                                 Meta = new Meta()
                                 {
-                                    LastUpdated = DateTimeOffset.UtcNow,
+                                    LastUpdated = Clock.UtcNow,
                                 },
                             },
                             HttpStatusCode.InternalServerError);
@@ -258,7 +259,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                         Meta = new Meta()
                         {
-                            LastUpdated = DateTimeOffset.UtcNow,
+                            LastUpdated = Clock.UtcNow,
                         },
                     },
                     HttpStatusCode.InternalServerError);
@@ -270,7 +271,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 HttpStatusCode? statusCode = (context.Result as OperationOutcomeResult).StatusCode;
                 if (statusCode != null && statusCode >= HttpStatusCode.InternalServerError)
                 {
-                    _logger.LogError(_fhirRequestContextAccessor.RequestContext.CorrelationId, context.Exception);
+                    _logger.LogError(context.Exception, "5xx error returned");
                 }
             }
         }
@@ -292,7 +293,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     },
                     Meta = new Meta()
                     {
-                        LastUpdated = DateTimeOffset.UtcNow,
+                        LastUpdated = Clock.UtcNow,
                     },
                 },
                 httpStatusCode);
