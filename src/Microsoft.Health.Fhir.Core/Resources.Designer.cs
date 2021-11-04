@@ -295,6 +295,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;seealso&apos; link id cannot be null when a &apos;seealso&apos; link is being processed..
+        /// </summary>
+        internal static string CurrentSeeAlsoLinkIdShouldNotBeNull {
+            get {
+                return ResourceManager.GetString("CurrentSeeAlsoLinkIdShouldNotBeNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
         /// </summary>
         internal static string CustomHeaderPrefixCannotBeEmpty {
@@ -391,6 +400,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ErrorValidatingRoles {
             get {
                 return ResourceManager.GetString("ErrorValidatingRoles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The patient with id `{0}` is no longer relevant. Use patient with id `{1}` instead..
+        /// </summary>
+        internal static string EverythingOperationResourceIrrelevant {
+            get {
+                return ResourceManager.GetString("EverythingOperationResourceIrrelevant", resourceCulture);
             }
         }
         
