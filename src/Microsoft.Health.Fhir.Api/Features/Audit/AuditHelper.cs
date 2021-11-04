@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _auditLogger = auditLogger;
             _auditHeaderReader = auditHeaderReader;
-            _fhirAnonymousOperationTypeList = GetConstants(typeof(FhirAnonymousOperationType));
+            _fhirAnonymousOperationTypeList = GetConstants();
         }
 
         /// <inheritdoc />
@@ -96,13 +96,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         /// <summary>
         /// Return all the values of constants of the specified type
         /// </summary>
-        /// <param name="type">Type to examine</param>
         /// <returns>List of constant values</returns>
-        public static IList<string> GetConstants(System.Type type)
+        public static IList<string> GetConstants()
         {
             if (_fhirAnonymousOperationTypeList.Count == 0)
             {
-                FieldInfo[] fieldInfos = type.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                FieldInfo[] fieldInfos = typeof(FhirAnonymousOperationType).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
 
                 // Go through the list and only pick out the constants
                 foreach (FieldInfo fi in fieldInfos)
