@@ -44,9 +44,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 }
             }
 
-            // Do not return null when code and system are null/empty
             if (string.IsNullOrEmpty(code) && string.IsNullOrEmpty(system))
             {
+                yield return null;
                 yield break;
             }
 
