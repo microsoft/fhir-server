@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var patients = await CreatePatients(tag);
             OperationOutcome expectedOperationOutcome = OperationOutcome.ForMessage(
                 string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, _unsupportedSortParam),
-                OperationOutcome.IssueType.NotSupported,
+                OperationOutcome.IssueType.Invalid,
                 OperationOutcome.IssueSeverity.Error);
 
             await ExecuteAndValidateErrorOperationOutcomeAsync(

@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl, customHeader));
             Assert.Equal(expectedStatusCode, ex.StatusCode);
             ex.OperationOutcome.Id = null;
-            Assert.True(expectedOperationOutcome.IsExactly(expectedOperationOutcome), "Deep compare detected expected and actual OperationOutcome mismatch.");
+            Assert.True(expectedOperationOutcome.IsExactly(ex.OperationOutcome), "Deep compare detected expected and actual OperationOutcome mismatch.");
             return ex.OperationOutcome;
         }
 
