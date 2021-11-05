@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} {1} Capability Statement.
+        ///   Looks up a localized string similar to {0} {1} {2} Capability Statement.
         /// </summary>
         internal static string CapabilityStatementNameFormat {
             get {

@@ -515,22 +515,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundleWithValidEntries_WhenSuccessfulPost_ThenAuditLogEntriesShouldBeCreated()
         {
-            Patient existingPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
-            existingPatient.Id = "123";
+            var requestBundle = Samples.GetTransactionBundleWithValidEntries();
+            var batch = requestBundle.ToPoco<Bundle>();
 
-            await _client.UpdateAsync<Patient>(existingPatient);
+            await _client.UpdateAsync<Patient>(batch.Entry[2].Resource as Patient);
 
             // Even entries are audit executed entry and odd entries are audit executing entry
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("transaction", string.Empty, HttpStatusCode.OK, null),
-                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
-                ("conditional-create", "Patient", HttpStatusCode.OK, ResourceType.Patient),
-                ("update", $"Patient/{existingPatient.Id}", HttpStatusCode.OK, ResourceType.Patient),
-                ("conditional-update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.OK, ResourceType.Patient),
+                ("create", batch.Entry[0].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("conditional-create", batch.Entry[1].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("update", batch.Entry[2].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
+                ("conditional-update", batch.Entry[3].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
             };
-
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
             await ExecuteAndValidateBundle(
                () => _client.PostBundleAsync(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()),

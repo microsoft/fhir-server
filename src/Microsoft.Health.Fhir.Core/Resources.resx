@@ -608,7 +608,7 @@
     <comment>{0}: expression we trying to resolve, {1}: FHIR type</comment>
   </data>
   <data name="CapabilityStatementNameFormat" xml:space="preserve">
-    <value>{0} {1} Capability Statement</value>
+    <value>{0} {1} {2} Capability Statement</value>
   </data>
   <data name="EverythingOperationResourceIrrelevant" xml:space="preserve">
     <value>The patient with id `{0}` is no longer relevant. Use patient with id `{1}` instead.</value>
