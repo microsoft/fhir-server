@@ -1,5 +1,4 @@
-name: migrate-pr-internal-checks
-#pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 
 parameters:
 - name: BuildConfiguration
