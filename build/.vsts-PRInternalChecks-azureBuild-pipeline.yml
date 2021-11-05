@@ -91,32 +91,3 @@ jobs:
     inputs:
       BinSkim: true
       CredScan: true
-
-- job: Phase_2
-  displayName: Anti-malware Phase
-  cancelTimeoutInMinutes: 1
-  dependsOn: Phase_1
-  pool:
-    vmImage: $(vmImage)
-
-  steps:
-  - checkout: self
-    clean: true
-  - task: DownloadBuildArtifacts@0
-    displayName: Download Nuget Artifacts
-    enabled: False
-    inputs:
-      buildVersionToDownload: specific
-      artifactName: nuget
-
-  - task: AntiMalware@3
-    displayName: Run MpCmdRun.exe
-    enabled: False
-    inputs:
-      FileDirPath: $(System.ArtifactsDirectory)
-
-  - task: PublishSecurityAnalysisLogs@2
-    displayName: Publish Security Analysis Logs
-    enabled: False
-    inputs:
-      ArtifactName: CodeAnalysisLogs - Antimalware
