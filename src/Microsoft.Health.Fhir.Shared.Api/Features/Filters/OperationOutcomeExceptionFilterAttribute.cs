@@ -146,8 +146,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case FetchTemplateCollectionFailedException _:
                     case ConvertDataUnhandledException _:
-                    case EverythingOperationException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
+                    case EverythingOperationException everythingOperationException:
+                        operationOutcomeResult.StatusCode = everythingOperationException.ResponseStatusCode;
+
+                        if (!string.IsNullOrEmpty(everythingOperationException.ContentLocationHeaderValue))
+                        {
+                            operationOutcomeResult.Headers.Add(HeaderNames.ContentLocation, everythingOperationException.ContentLocationHeaderValue);
+                        }
+
                         break;
                     case ConvertDataTimeoutException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.GatewayTimeout;
@@ -157,6 +165,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case MemberMatchMatchingException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.UnprocessableEntity;
+                        break;
+                    case RequestTimeoutException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.RequestTimeout;
                         break;
                 }
 
@@ -201,6 +212,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 }
 
                 context.Result = healthExceptionResult;
+                context.ExceptionHandled = true;
+            }
+            else if (context.Exception is FormatException formatException)
+            {
+                context.Result = CreateOperationOutcomeResult(formatException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
                 context.ExceptionHandled = true;
             }
             else if (context.Exception.InnerException != null)

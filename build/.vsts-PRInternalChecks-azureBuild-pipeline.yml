@@ -9,7 +9,7 @@ parameters:
 variables:
 - name: vmImage
   value: windows-latest
-
+  
 jobs:
 
 - job: Phase_1
@@ -21,7 +21,7 @@ jobs:
   steps:
   - checkout: self
     clean: true
-
+    
   - task: UseDotNet@2
     displayName: Use .NET Core sdk
     inputs:
@@ -42,14 +42,14 @@ jobs:
     inputs:
       projects: '**/*.sln'
       arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror
-
+      
   - task: AutoApplicability@1
     displayName: Run AutoApplicability
     continueOnError: True
     inputs:
       ExternalRelease: true
       IsService: true
-
+      
   - task: CodeMetrics@1
     displayName: 'Run CodeMetrics '
     continueOnError: True
