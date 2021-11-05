@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IClaimsExtractor, PrincipalClaimsExtractor>();
 
-            ModelExtensions.SetModelInfoProvider();
+            FhirModelExtensions.SetModelInfoProvider();
             services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();
 
             // Register a factory to resolve a scope that returns all components that provide capabilities

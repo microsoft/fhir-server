@@ -82,6 +82,28 @@ namespace Microsoft.Health.Fhir.Core
             return sourceNode.ToTypedElement(StructureDefinitionSummaryProvider);
         }
 
+        public ITypedElement ToTypedElement(Base poco)
+        {
+            EnsureArg.IsNotNull(poco);
+
+            return poco.ToTypedElement();
+        }
+
+        public Base ToPoco(ITypedElement typedElement)
+        {
+            EnsureArg.IsNotNull(typedElement);
+
+            return typedElement.ToPoco();
+        }
+
+        public T ToPoco<T>(ITypedElement typedElement)
+            where T : Base
+        {
+            EnsureArg.IsNotNull(typedElement);
+
+            return typedElement.ToPoco<T>();
+        }
+
         public ITypedElement ToTypedElement(RawResource rawResource)
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));

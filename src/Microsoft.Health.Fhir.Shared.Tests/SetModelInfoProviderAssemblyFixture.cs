@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
     {
         public SetModelInfoProviderAssemblyFixture()
         {
-            ModelExtensions.SetModelInfoProvider();
+            FhirModelExtensions.SetModelInfoProvider();
         }
     }
 }

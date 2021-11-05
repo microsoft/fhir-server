@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -49,20 +48,6 @@ namespace Microsoft.Health.Fhir.Core
             EnsureArg.IsNotNull(reference, nameof(reference));
 
             return string.IsNullOrWhiteSpace(reference.Reference);
-        }
-
-        /// <summary>
-        /// Checks whether the resource referenced by <paramref name="reference"/> is type of <paramref name="resourceType"/>.
-        /// </summary>
-        /// <param name="reference">The reference to check.</param>
-        /// <param name="resourceType">The resource type to match.</param>
-        /// <returns><c>true</c> if the resource referenced by <paramref name="reference"/> is type of <paramref name="resourceType"/>; <c>false</c> otherwise.</returns>
-        public static bool IsReferenceTypeOf(this ResourceReference reference, FHIRAllTypes resourceType)
-        {
-            EnsureArg.IsNotNull(reference, nameof(reference));
-
-            // TODO: This does not work with external reference.
-            return reference?.Reference?.StartsWith(ModelInfo.FhirTypeToFhirTypeName(resourceType), StringComparison.Ordinal) ?? false;
         }
 
         /// <summary>

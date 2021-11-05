@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -37,5 +38,12 @@ namespace Microsoft.Health.Fhir.Core.Models
         ITypedElement ToTypedElement(ISourceNode sourceNode);
 
         ITypedElement ToTypedElement(RawResource rawResource);
+
+        ITypedElement ToTypedElement(Base poco);
+
+        Base ToPoco(ITypedElement typedElement);
+
+        T ToPoco<T>(ITypedElement typedElement)
+            where T : Base;
     }
 }

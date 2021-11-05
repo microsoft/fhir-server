@@ -114,10 +114,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             ValidateSearchParameters(
                 searchParametersDictionary,
-                ("_type", SearchParamType.Token, "Resource.type().name"),
-                ("_id", SearchParamType.Token, "Resource.id"),
-                ("balance", SearchParamType.Quantity, "Account.balance"),
-                ("identifier", SearchParamType.Token, "Account.identifier"));
+                ("_type", ValueSets.SearchParamType.Token, "Resource.type().name"),
+                ("_id", ValueSets.SearchParamType.Token, "Resource.id"),
+                ("balance", ValueSets.SearchParamType.Quantity, "Account.balance"),
+                ("identifier", ValueSets.SearchParamType.Token, "Account.identifier"));
         }
 
         [Theory]
@@ -139,9 +139,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
             ValidateSearchParameters(
                 searchParametersDictionary,
-                ("_type", SearchParamType.Token, "Resource.type().name"),
-                ("_id", SearchParamType.Token, "Resource.id"),
-                ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
+                ("_type", ValueSets.SearchParamType.Token, "Resource.type().name"),
+                ("_id", ValueSets.SearchParamType.Token, "Resource.id"),
+                ("identifier", ValueSets.SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
         }
 
         private void BuildAndVerify(string filename, string expectedIssue)
@@ -163,16 +163,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 
         private void ValidateSearchParameters(
             IDictionary<string, SearchParameterInfo> searchParametersDictionary,
-            params (string, SearchParamType, string)[] expectedEntries)
+            params (string, ValueSets.SearchParamType, string)[] expectedEntries)
         {
             Assert.Equal(expectedEntries.Length, searchParametersDictionary.Count);
 
-            foreach ((string code, SearchParamType searchParameterType, string expression) in expectedEntries)
+            foreach ((string code, ValueSets.SearchParamType searchParameterType, string expression) in expectedEntries)
             {
                 Assert.True(searchParametersDictionary.TryGetValue(code, out SearchParameterInfo searchParameter));
 
                 Assert.Equal(code, searchParameter.Code);
-                Assert.Equal(searchParameterType.ToValueSet(), searchParameter.Type);
+                Assert.Equal(searchParameterType, searchParameter.Type);
                 Assert.Equal(expression, searchParameter.Expression);
             }
         }

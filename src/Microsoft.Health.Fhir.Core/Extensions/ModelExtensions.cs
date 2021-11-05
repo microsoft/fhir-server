@@ -7,9 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -17,14 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ModelExtensions
     {
-        /// <summary>
-        /// This method provides temporary compatibility while STU3/R4 compatibility is added
-        /// </summary>
-        public static void SetModelInfoProvider()
-        {
-            ModelInfoProvider.SetProvider(new VersionSpecificModelInfoProvider());
-        }
-
         public static OperationOutcome.IssueComponent ToPoco(this OperationOutcomeIssue issue)
         {
             EnsureArg.IsNotNull(issue, nameof(issue));
@@ -125,27 +115,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             var poco = resource.ToPoco();
             poco.Meta.LastUpdated = lastUpdated;
             return poco.ToResourceElement();
-        }
-
-        public static SearchParameterInfo ToInfo(this SearchParameter searchParam)
-        {
-            EnsureArg.IsNotNull(searchParam, nameof(searchParam));
-
-            return new SearchParameterInfo(
-                searchParam.Name,
-                searchParam.Code,
-                Enum.Parse<ValueSets.SearchParamType>(searchParam.Type?.ToString()),
-                string.IsNullOrEmpty(searchParam.Url) ? null : new Uri(searchParam.Url),
-                searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri(), x.Expression)).ToArray(),
-                searchParam.Expression,
-                searchParam.Target?.Select(x => x?.ToString()).ToArray(),
-                searchParam.Base?.Select(x => x?.ToString()).ToArray(),
-                searchParam.Description?.Value);
-        }
-
-        public static ValueSets.SearchParamType ToValueSet(this SearchParamType searchParam)
-        {
-            return Enum.Parse<ValueSets.SearchParamType>(searchParam.ToString());
         }
     }
 }

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Introspection;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
 
@@ -98,6 +99,22 @@ namespace Microsoft.Health.Fhir.Core.Models
             {
                 throw new ArgumentException(string.Format(Resources.ResourceNotSupported, resourceName), parameterName);
             }
+        }
+
+        public static ITypedElement ToTypedElement(this Base poco)
+        {
+            return Instance.ToTypedElement(poco);
+        }
+
+        public static Base ToPoco(this ITypedElement typedElement)
+        {
+            return Instance.ToPoco(typedElement);
+        }
+
+        public static T ToPoco<T>(this ITypedElement typedElement)
+            where T : Base
+        {
+            return Instance.ToPoco<T>(typedElement);
         }
     }
 }

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             _context = new Lazy<EvaluationContext>(() => new EvaluationContext(instance));
         }
 
-        internal ResourceElement(ITypedElement instance, object resourceInstance)
+        internal ResourceElement(ITypedElement instance, Resource resourceInstance)
             : this(instance)
         {
             EnsureArg.IsNotNull(resourceInstance, nameof(resourceInstance));
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public string InstanceType => Instance.InstanceType;
 
-        internal object ResourceInstance { get; }
+        internal Resource ResourceInstance { get; }
 
         public ITypedElement Instance { get; }
 
