@@ -12,9 +12,11 @@ using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -33,6 +35,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private const string ObservationStausExpression = "Observation.status";
         private const string ClaimUseExpression = "Claim.use";
 
+        private static SearchParameterInfo statusSearchParameterInfo;
+
         public TypedElementSearchIndexerTests()
         {
             var supportedSearchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
@@ -45,9 +49,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             List<string> baseResourceTypes = new List<string>() { "Resource" };
             List<string> targetResourceTypes = new List<string>() { "Coverage", "Observation", "Claim" };
+            statusSearchParameterInfo = new SearchParameterInfo("_status", "_status", (ValueSets.SearchParamType)SearchParamType.Token, new Uri(ResourceStaus), expression: CoverageStausExpression, targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes);
             var searchParameterInfos = new[]
             {
-                new SearchParameterInfo("_status", "_status", (ValueSets.SearchParamType)SearchParamType.Token, new Uri(ResourceStaus), expression: CoverageStausExpression, targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
+                statusSearchParameterInfo,
                 new SearchParameterInfo("_status", "_status", (ValueSets.SearchParamType)SearchParamType.Token, new Uri(ResourceStaus), expression: ObservationStausExpression, targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
                 new SearchParameterInfo("_use", "_use", (ValueSets.SearchParamType)SearchParamType.Token, new Uri(ResourceUse), expression: ClaimUseExpression, targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
             };
@@ -64,8 +69,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAValidResource_WhenExtract_ThenValidSearchIndexEntriesAreCreated()
         {
             var coverageResource = Samples.GetDefaultCoverage().ToPoco<Coverage>();
+            var expectedTokenSearchValue = new TokenSearchValue("testStatus", "active", null);
 
-            var test = _searchIndexer.Extract(coverageResource.ToResourceElement());
+            var serachIndexEntry = _searchIndexer.Extract(coverageResource.ToResourceElement());
+            Assert.NotEmpty(serachIndexEntry);
+
+            var tokenSearchValue = serachIndexEntry.First().Value as TokenSearchValue;
+            Assert.NotNull(tokenSearchValue);
+
+            Assert.Equal(expectedTokenSearchValue.Code, tokenSearchValue.Code);
         }
 
 #if !Stu3
@@ -73,24 +85,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenAnInValidResource_WhenExtract_ThenExceptionIsThrown()
         {
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidBundleEntry").ToPoco<Bundle>();
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithInvalidBundleEntry");
 
-            foreach (var entry in requestBundle.Entry)
+            foreach (var entry in new BundleWrapper(requestBundle.Instance).Entries)
             {
                 ResourceElement resourceElement = null;
                 string errorMessage = null;
-                switch (entry.Resource.TypeName)
+                switch (entry.Resource.InstanceType)
                 {
                     case "Coverage":
-                        resourceElement = ((Coverage)entry.Resource).ToResourceElement();
+                        resourceElement = entry.Resource.ToPoco<Coverage>().ToResourceElement();
                         errorMessage = string.Format(Core.Resources.ValueCannotBeNull, CoverageStausExpression);
                         break;
                     case "Observation":
-                        resourceElement = ((Observation)entry.Resource).ToResourceElement();
+                        resourceElement = entry.Resource.ToPoco<Observation>().ToResourceElement();
                         errorMessage = string.Format(Core.Resources.ValueCannotBeNull, ObservationStausExpression);
                         break;
                     case "Claim":
-                        resourceElement = ((Claim)entry.Resource).ToResourceElement();
+                        resourceElement = entry.Resource.ToPoco<Claim>().ToResourceElement();
                         errorMessage = string.Format(Core.Resources.ValueCannotBeNull, ClaimUseExpression);
                         break;
                     default: break;
