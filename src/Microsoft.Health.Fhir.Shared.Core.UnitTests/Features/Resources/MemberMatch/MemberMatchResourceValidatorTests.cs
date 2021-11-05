@@ -15,56 +15,82 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Resources.Create;
+using Microsoft.Health.Fhir.Core.Features.Resources.MemberMatch;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
-using Microsoft.Health.Fhir.Core.Messages.Create;
+using Microsoft.Health.Fhir.Core.Messages.MemberMatch;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.MemberMatch
 {
-    public class CreateResourceValidatorTests : NarrativeDataTestBase
+    public class MemberMatchResourceValidatorTests : NarrativeDataTestBase
     {
-        [Theory]
-        [InlineData("", nameof(XssStrings))]
-        [InlineData("1+1", nameof(XssStrings))]
-        [InlineData("11|", nameof(XssStrings))]
-        [InlineData("00000000000000000000000000000000000000000000000000000000000000065", nameof(XssStrings))]
-        public void GivenAResourceWithInvalidId_WhenValidatingUpsert_ThenInvalidShouldBeReturned(string id, string maliciousNarrative)
+#if !Stu3
+        [Fact]
+        public void GivenAnInvalidResource_WhenValidatingMemberMatch_ThenInvalidShouldBeReturned()
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
             var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
             config.Value.Returns(new CoreFeatureConfiguration());
             contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
-            var validator = new CreateResourceValidator(
+            var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
                 config);
 
-            var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
-            defaultObservation.Text.Div = maliciousNarrative;
-
+            var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
             var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            defaultCoverage.Status = null;
+            var createMemberMatchRequest = new MemberMatchRequest(defaultPatient.ToResourceElement(), defaultCoverage.ToResourceElement());
+            var result = validator.Validate(createMemberMatchRequest);
+            Assert.False(result.IsValid);
+            Assert.True(result.Errors.Count >= 1);
+            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("min. cardinality 1 cannot be null")));
+        }
+#endif
+
+        [Theory]
+        [InlineData("", nameof(XssStrings))]
+        [InlineData("1+1", nameof(XssStrings))]
+        [InlineData("11|", nameof(XssStrings))]
+        [InlineData("00000000000000000000000000000000000000000000000000000000000000065", nameof(XssStrings))]
+        public void GivenAResourceWithInvalidId_WhenValidatingMemberMatch_ThenInvalidShouldBeReturned(string id, string maliciousNarrative)
+        {
+            var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
+            var profileValidator = Substitute.For<IProfileValidator>();
+            var config = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            config.Value.Returns(new CoreFeatureConfiguration());
+            contextAccessor.RequestContext.RequestHeaders.Returns(new Dictionary<string, StringValues>());
+            var validator = new MemberMatchResourceValidator(
+                new ModelAttributeValidator(),
+                new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
+                profileValidator,
+                contextAccessor,
+                config);
+
+            var defaultCoverage = Samples.GetDefaultCoverage().ToPoco<Coverage>();
+            var defaultPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            defaultCoverage.Text.Div = maliciousNarrative;
             defaultPatient.Text.Div = maliciousNarrative;
 
-            var bundle = new Bundle();
-            bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultObservation });
-            bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultPatient });
-
-            var resource = bundle.ToResourceElement()
+            var coverageResource = defaultCoverage.ToResourceElement()
                             .UpdateId(id);
 
-            var createResourceRequest = new CreateResourceRequest(resource);
+            var patientResource = defaultPatient.ToResourceElement()
+                            .UpdateId(id);
+
+            var createResourceRequest = new MemberMatchRequest(patientResource, coverageResource);
             var result = validator.Validate(createResourceRequest);
             Assert.False(result.IsValid);
-            Assert.True(result.Errors.Count >= 3);
-            Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("min. cardinality 1 cannot be null")));
+            Assert.True(result.Errors.Count >= 2);
             Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("XHTML content should be contained within a single <div> element")));
             Assert.NotEmpty(result.Errors.Where(e => e.ErrorMessage.Contains("Id must be any combination of upper or lower case ASCII letters")));
         }
@@ -76,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
         [InlineData(false, false, false)]
         [InlineData(false, true, true)]
         [Theory]
-        public void GivenConfigOrHeader_WhenValidatingCreate_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
+        public void GivenConfigOrHeader_WhenValidatingMemberMatch_ThenProfileValidationShouldOrShouldntBeCalled(bool configValue, bool? headerValue, bool shouldCallProfileValidation)
         {
             var contextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
             var profileValidator = Substitute.For<IProfileValidator>();
@@ -89,16 +115,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Create
             }
 
             contextAccessor.RequestContext.RequestHeaders.Returns(headers);
-            var validator = new CreateResourceValidator(
+            var validator = new MemberMatchResourceValidator(
                 new ModelAttributeValidator(),
                 new NarrativeHtmlSanitizer(NullLogger<NarrativeHtmlSanitizer>.Instance),
                 profileValidator,
                 contextAccessor,
                 config);
-            var resource = Samples.GetDefaultObservation();
 
-            var createResourceRequest = new CreateResourceRequest(resource);
-            validator.Validate(createResourceRequest);
+            var createMemberMatchRequest = new MemberMatchRequest(Samples.GetDefaultCoverage().ToPoco<Coverage>().ToResourceElement(), Samples.GetDefaultPatient().ToPoco<Patient>().ToResourceElement());
+            validator.Validate(createMemberMatchRequest);
 
             if (shouldCallProfileValidation)
             {

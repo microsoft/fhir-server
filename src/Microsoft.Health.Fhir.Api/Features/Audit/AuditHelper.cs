@@ -3,12 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
@@ -68,6 +70,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
             string auditEventType = fhirRequestContext.AuditEventType;
+
+            // We are retaining AuditEventType when CustomError occurs. Below check ensures that the audit log is not entered for the custom error request
+            httpContext.Request.RouteValues.TryGetValue("action", out object actionName);
+            if (!string.IsNullOrEmpty(actionName?.ToString()) && KnownRoutes.CustomError.Contains(actionName?.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
 
             // Audit the call if an audit event type is associated with the action.
             if (!string.IsNullOrEmpty(auditEventType))
