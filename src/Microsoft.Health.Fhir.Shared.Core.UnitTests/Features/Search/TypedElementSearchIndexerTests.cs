@@ -69,7 +69,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAValidResource_WhenExtract_ThenValidSearchIndexEntriesAreCreated()
         {
             var coverageResource = Samples.GetDefaultCoverage().ToPoco<Coverage>();
-            var expectedTokenSearchValue = new TokenSearchValue("testStatus", "active", null);
 
             var serachIndexEntry = _searchIndexer.Extract(coverageResource.ToResourceElement());
             Assert.NotEmpty(serachIndexEntry);
@@ -77,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var tokenSearchValue = serachIndexEntry.First().Value as TokenSearchValue;
             Assert.NotNull(tokenSearchValue);
 
-            Assert.Equal(expectedTokenSearchValue.Code, tokenSearchValue.Code);
+            Assert.True(coverageResource.Status.Value.ToString().Equals(tokenSearchValue.Code, StringComparison.CurrentCultureIgnoreCase));
         }
 
 #if !Stu3
