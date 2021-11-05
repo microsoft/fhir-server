@@ -1,27 +1,54 @@
-name: pr$(System.PullRequest.PullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+name: fhir-ci-$(Date:yyyyMMdd)$(Rev:-r)
 
 parameters:
 - name: BuildConfiguration
   default: release
-- name: NugetSecurityAnalysisWarningLevel
-  default: warn   
 
 variables:
 - name: vmImage
-  value: windows-latest
-  
+  value: windows-latest 
+
+trigger:
+
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - /
+    exclude:
+    - /build
+    - /docs
+  batch: True
+
+resources:
+  repositories:
+  - repository: self
+    type: git
+    ref: main
+
 jobs:
 
 - job: Phase_1
-  displayName: PR Internal Checks for fhir-server - build and restore phase
+  displayName: Internal Checks CI - build and restore
   cancelTimeoutInMinutes: 1
   pool:
     vmImage: $(vmImage)
-
   steps:
   - checkout: self
-    clean: true
-    
+    persistCredentials: True
+  - task: NuGetToolInstaller@0
+    displayName: Use NuGet 4.3.0
+    inputs:
+      versionSpec: 4.3.0
+
+  - task: NuGetCommand@2
+    displayName: NuGet restore
+    enabled: False
+    inputs:
+      selectOrConfig: config
+      nugetConfigPath: nuget.config
+
   - task: UseDotNet@2
     displayName: Use .NET Core sdk
     inputs:
@@ -32,27 +59,36 @@ jobs:
     inputs:
       command: restore
       projects: '**/*.sln'
-      selectOrConfig: config
       feedRestore: d67b3357-eb1a-41c0-b5d2-52cd6271d320
-      nugetConfigPath: nuget.config
-
+      
   - task: DotNetCoreCLI@1
     name: ''
     displayName: dotnet build
     inputs:
       projects: '**/*.sln'
       arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror
-      
+
+  - task: ComponentGovernanceComponentDetection@0
+    displayName: Component Detection
+
   - task: AutoApplicability@1
     displayName: Run AutoApplicability
     continueOnError: True
     inputs:
       ExternalRelease: true
       IsService: true
-      
+
+  - task: BinSkim@3
+    displayName: 'Run BinSkim '
+    continueOnError: True
+    inputs:
+      InputType: Basic
+      AnalyzeTarget: $(Build.SourcesDirectory)\Microsoft.Health.*.dll
+
   - task: CodeMetrics@1
     displayName: 'Run CodeMetrics '
     continueOnError: True
+    enabled: False
     inputs:
       Files: $(Build.SourcesDirectory)\**\*.dll
 
@@ -60,14 +96,16 @@ jobs:
     displayName: Run CredScan
     continueOnError: True
     inputs:
-      toolVersionV2: LatestPreRelease
+      outputFormat: sarif
       debugMode: false
       folderSuppression: false
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
   - task: PoliCheck@1
     displayName: Run PoliCheck
     continueOnError: True
-
+   
   - task: VulnerabilityAssessment@0
     displayName: Run Vulnerability Assessment
     continueOnError: True
@@ -88,9 +126,19 @@ jobs:
   - task: PostAnalysis@1
     displayName: Post Analysis
     condition: succeededOrFailed()
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
     inputs:
       BinSkim: true
       CredScan: true
+
+  - task: uploadScanResults@1
+    displayName: Upload Scan Results for Analysis
+    inputs:
+      areaPathParent: Health
+      areaPathChild: Olympus
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
 - job: Phase_2
   displayName: Anti-malware Phase
@@ -101,7 +149,6 @@ jobs:
 
   steps:
   - checkout: self
-    clean: true
   - task: DownloadBuildArtifacts@0
     displayName: Download Nuget Artifacts
     enabled: False
@@ -114,6 +161,9 @@ jobs:
     enabled: False
     inputs:
       FileDirPath: $(System.ArtifactsDirectory)
+      EnableServices: true
+      SignatureFreshness: OneDay
+      TreatStaleSignatureAs: Warning
 
   - task: PublishSecurityAnalysisLogs@2
     displayName: Publish Security Analysis Logs
