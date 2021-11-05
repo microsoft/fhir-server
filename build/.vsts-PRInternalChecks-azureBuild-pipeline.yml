@@ -44,9 +44,6 @@ jobs:
       projects: '**/*.sln'
       arguments: --configuration ${{ parameters.BuildConfiguration }} --version-suffix $(build.buildnumber) /warnaserror
 
-  - task: ComponentGovernanceComponentDetection@0
-    displayName: Component Detection
-
   - task: AutoApplicability@1
     displayName: Run AutoApplicability
     continueOnError: True
