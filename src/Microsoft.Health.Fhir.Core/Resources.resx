@@ -414,7 +414,7 @@
     <value>Sorting by the '{0}' parameter is not supported.</value>
   </data>
   <data name="ServerName" xml:space="preserve">
-    <value>Microsoft FHIR Server</value>
+    <value>FHIR Server for Azure</value>
   </data>
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
@@ -609,5 +609,14 @@
   <data name="CantResolveExpressionForAType" xml:space="preserve">
     <value>Can't find '{0}' in type '{1}'</value>
     <comment>{0}: expression we trying to resolve, {1}: FHIR type</comment>
+  </data>
+  <data name="CapabilityStatementNameFormat" xml:space="preserve">
+    <value>{0} {1} {2} Capability Statement</value>
+  </data>
+  <data name="EverythingOperationResourceIrrelevant" xml:space="preserve">
+    <value>The patient with id `{0}` is no longer relevant. Use patient with id `{1}` instead.</value>
+  </data>
+  <data name="CurrentSeeAlsoLinkIdShouldNotBeNull" xml:space="preserve">
+    <value>The 'seealso' link id cannot be null when a 'seealso' link is being processed.</value>
   </data>
 </root>

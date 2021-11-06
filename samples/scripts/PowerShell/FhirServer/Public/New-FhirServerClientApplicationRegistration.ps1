@@ -30,7 +30,7 @@ function New-FhirServerClientApplicationRegistration {
         [string]$ReplyUrl = "https://www.getpostman.com/oauth2/callback",
 
         [Parameter(Mandatory = $false)]
-        [string]$IdentifierUri = "https://$DisplayName",
+        [string]$IdentifierUri = "api://$DisplayName",
 
         [Parameter(Mandatory = $false)]
         [switch]$PublicClient

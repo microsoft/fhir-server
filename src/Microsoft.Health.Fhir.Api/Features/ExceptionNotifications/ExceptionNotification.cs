@@ -94,5 +94,10 @@ namespace Microsoft.Health.Fhir.Api.Features.ExceptionNotifications
         /// The IsRequestRateExceeded extension property for the exception.
         /// </summary>
         public bool IsRequestRateExceeded { get; set; }
+
+        /// <summary>
+        /// Exception that can be handled downstream for additional properties for a specific exception type.
+        /// </summary>
+        public Exception BaseException { get; set; }
     }
 }

@@ -19,11 +19,13 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Api.Features.AnonymousOperation;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionConstraints;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.AnonymousOperations;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -513,7 +515,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// what FHIR features are supported by this implementation.
         /// </summary>
         [HttpGet]
-        [AllowAnonymous]
+        [FhirAnonymousOperation(FhirAnonymousOperationType.Metadata)]
         [Route(KnownRoutes.Metadata, Name = RouteNames.Metadata)]
         public async Task<IActionResult> Metadata()
         {
@@ -526,7 +528,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Returns the list of versions the server supports along with the default version it will use if no fhirVersion parameter is present.
         /// </summary>
         [HttpGet]
-        [AllowAnonymous]
+        [FhirAnonymousOperation(FhirAnonymousOperationType.Versions)]
         [Route(KnownRoutes.Versions)]
         public async Task<IActionResult> Versions()
         {
