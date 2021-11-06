@@ -3,7 +3,7 @@
 
 variables:
   buildConfiguration: 'Release' 
-  azureSubscriptionEndpoint: 'docker-build'
+  azureSubscriptionEndpoint: 'Microsoft Health Open Source Subscription'
   azureContainerRegistryName: 'healthplatformregistry'
   azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
   composeLocation: 'build/docker/docker-compose.yaml'
