@@ -51,11 +51,35 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
+        public async Task GivenStartImportRequestWithPrefix_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
+        {
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Path = "/prefix/$import";
+            httpContext.Request.Method = HttpMethods.Post.ToString();
+            await middleware.Invoke(httpContext);
+
+            Assert.Equal(200, httpContext.Response.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenCancelImportRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
             httpContext.Request.Path = "/_operations/import/abc";
+            httpContext.Request.Method = HttpMethods.Delete.ToString();
+            await middleware.Invoke(httpContext);
+
+            Assert.Equal(200, httpContext.Response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenCancelImportRequestWithPrefix_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
+        {
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Path = "/prefix/_operations/import/abc";
             httpContext.Request.Method = HttpMethods.Delete.ToString();
             await middleware.Invoke(httpContext);
 
