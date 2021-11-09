@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -20,7 +21,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     errorMessage));
         }
 
-        public BadRequestException(IEnumerable<string> errorMessages)
+        /// <summary>
+        /// Constructor creates BadRequestException from collection of error strings.
+        /// </summary>
+        /// <param name="errorMessages">Collection of error strings that are used to initialize OperationOutcomeIssue collection.
+        /// Must be non-null and non-empty</param>
+        public BadRequestException(ICollection<string> errorMessages)
+            : base((errorMessages.Count < 2) ? errorMessages.First() : "Multiple bad request errors.")
         {
             foreach (string errorMessage in errorMessages)
             {
