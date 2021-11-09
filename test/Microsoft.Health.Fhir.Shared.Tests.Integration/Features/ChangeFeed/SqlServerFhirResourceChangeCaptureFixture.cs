@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
@@ -37,6 +38,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
         public Mediator Mediator => _storageFixture.Mediator;
 
         public ISqlConnectionFactory SqlConnectionFactory => _sqlFixture.SqlConnectionFactory;
+
+        public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 
         public async Task InitializeAsync()
         {
