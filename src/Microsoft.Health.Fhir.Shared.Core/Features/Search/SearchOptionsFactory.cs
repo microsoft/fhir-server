@@ -386,6 +386,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString))));
                 }
 
+                /*if (unsupportedSearchParameters.Any())
+                {
+                    string error = string.Format(
+                            Core.Resources.SearchParameterNotSupported,
+                            string.Join(",", unsupportedSearchParameters.Select(x => x.Item1)),
+                            string.Join(",", resourceTypesString));
+
+                    _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Warning,
+                            OperationOutcomeConstants.IssueType.NotSupported,
+                            error));
+                }*/
+
                 foreach (string unsupported in searchSortErrors)
                 {
                     _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
