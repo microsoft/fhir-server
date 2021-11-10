@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         [Theory]
         [InlineData("       ")]
-        [InlineData("ADT_A02")]
+        [InlineData("ADT")]
         [InlineData("¶Š™œãý£¾")]
         public async Task GivenHl7V2ConvertDataRequest_WithWrongRootTemplate_ConvertDataFailedExceptionShouldBeThrown(string rootTemplateName)
         {
