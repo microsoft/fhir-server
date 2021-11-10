@@ -2,6 +2,13 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
+
+  <!-- Properties used by sql task to generate full script-->
+  <PropertyGroup>
+    <LatestSchemaVersion>20</LatestSchemaVersion>
+    <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
+    <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
+  </PropertyGroup>
   
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
@@ -26,15 +33,14 @@
   </ItemGroup>
   <!-- If this sql needs to be in a transaction, tag it TSqlScript otherwise use SqlScript -->
   <ItemGroup>
-    <SqlScript Include="Features\Schema\Sql\Scripts\FullText.sql" />
     <SqlScript Include="Features\Schema\Sql\Sprocs\*.sql" />
   </ItemGroup>
 
   <ItemGroup>
-    <TSqlScript Include="Features\Schema\Sql\Scripts\Sequences.sql" />
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
     <TSqlScript Include="Features\Schema\Sql\Types\*.sql" />
   </ItemGroup>
+  
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
@@ -52,13 +58,11 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-  
-  <!-- Properties used by sql task to generate full script-->
-  <PropertyGroup>
-    <LatestSchemaVersion>20</LatestSchemaVersion>
-    <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
-  </PropertyGroup>
 
+  <ItemGroup>
+    <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheck.sql" />
+  </ItemGroup>
+  
   <!-- Target contains sql build tasks -->
   <Import Project="$(NuGetPackageRoot)microsoft.health.tools.sql.tasks\$(HealthcareSharedPackageVersion)\build\Sql.targets" />
 
