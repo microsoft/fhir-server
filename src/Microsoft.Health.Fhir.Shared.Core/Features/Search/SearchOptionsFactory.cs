@@ -357,54 +357,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
             }
 
-            // Processing of parameters is finished. If any of the parameters are unsupported warning is put into the bundle or error is returned,
+            // Processing of parameters is finished. If any of the parameters are unsupported warning is put into the bundle or exception is thrown,
             // depending on the state of the "Prefer" header.
             if (unsupportedSearchParameters.Any() || searchSortErrors.Any())
             {
+                // Put all errors into a set to avoid duplicate error messages, because search code and sort code may generate same error string.
+                // For example if non-searchable parameter is used both as a search and as a sort parameter then two same "non-searchable error" strings will be generated.
+                var allErrors = new SortedSet<string>();
+                foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
+                {
+                    allErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString)));
+                }
+
+                allErrors.UnionWith(searchSortErrors);
+
                 if (_contextAccessor.GetIsStrictHandlingEnabled())
                 {
-                    var errors = new List<string>();
-                    if (unsupportedSearchParameters.Any())
-                    {
-                        errors.Add(string.Format(
-                                Core.Resources.SearchParameterNotSupported,
-                                string.Join(",", unsupportedSearchParameters.Select(x => x.Item1)),
-                                string.Join(",", resourceTypesString)));
-                    }
-
-                    errors.AddRange(searchSortErrors);
-
-                    throw new BadRequestException(errors);
+                    throw new BadRequestException(allErrors);
                 }
 
                 // There is no "Prefer" header with handling value, or handling value is valid and not set to "Prefer: handling=strict".
-                foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
+                foreach (string error in allErrors)
                 {
-                    _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Warning,
-                            OperationOutcomeConstants.IssueType.NotSupported,
-                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString))));
-                }
-
-                /*if (unsupportedSearchParameters.Any())
-                {
-                    string error = string.Format(
-                            Core.Resources.SearchParameterNotSupported,
-                            string.Join(",", unsupportedSearchParameters.Select(x => x.Item1)),
-                            string.Join(",", resourceTypesString));
-
                     _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Warning,
                             OperationOutcomeConstants.IssueType.NotSupported,
                             error));
-                }*/
-
-                foreach (string unsupported in searchSortErrors)
-                {
-                    _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Warning,
-                            OperationOutcomeConstants.IssueType.NotSupported,
-                            unsupported));
                 }
             }
 
