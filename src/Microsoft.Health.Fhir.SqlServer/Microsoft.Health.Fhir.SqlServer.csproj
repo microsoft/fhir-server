@@ -37,6 +37,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <TSqlScript Include="Features\Schema\Sql\Scripts\Sequence.sql" />
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
     <TSqlScript Include="Features\Schema\Sql\Types\*.sql" />
   </ItemGroup>
@@ -60,7 +61,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheck.sql" />
+    <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
   </ItemGroup>
   
   <!-- Target contains sql build tasks -->
