@@ -1,6 +1,6 @@
 # Convert Data operation
 
-FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently it supports HL7v2 to FHIR conversion. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project. 
+FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently, the $convert-data operation supports three types of conversions: **HL7v2 to FHIR**, **C-CDA to FHIR**, **JSON to FHIR**. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project that define mappings between the input data format and FHIR resource structure. 
 
 ## How to use $convert-data
 
@@ -23,11 +23,11 @@ Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameter
 | Parameter Name      | Description | Accepted values |
 | ----------- | ----------- | ----------- |
 | inputData      | Data to be converted. | For `Hl7v2`: string <br> For `Ccda`: XML|
-| inputDataType   | Data type of input. | ```HL7v2```, ``Ccda`` |
-| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | For default templates:<br> For `Hl7v2`: ```microsofthealth/fhirconverter:default``` or ``microsofthealth/hl7v2templates:default`` <br> For `Ccda`: ``microsofthealth/ccdatemplates:default`` <br><br> For customized templates: <br> \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
-| rootTemplate | The root template to use while transforming the data. | For **HL7v2**:<br>```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04```<br><br> For **C-CDA**:<br>```CCD```, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` |
+| inputDataType   | Data type of input. | ```Hl7v2```, ``Ccda``, ``Json`` |
+| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | For default templates:<br> For `Hl7v2`: ```microsofthealth/fhirconverter:default``` or ``microsofthealth/hl7v2templates:default`` <br> For `Ccda`: ``microsofthealth/ccdatemplates:default`` <br> For `Json`: ``microsofthealth/jsontemplates:default`` <br><br> For customized templates: <br> \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
+| rootTemplate | The root template to use while transforming the data. | For **HL7v2**:<br>```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04```<br><br> For **C-CDA**:<br>```CCD```, `ConsultationNote`, `DischargeSummary`, `HistoryandPhysical`, `OperativeNote`, `ProcedureNote`, `ProgressNote`, `ReferralNote`, `TransferSummary` <br> For **JSON**:<br> `Stu3ChargeItem`, `ExamplePatient` |
 
-**Sample request:**
+**Sample request for HL7v2 input data:**
 ```json
 {
     "resourceType": "Parameters",
@@ -52,7 +52,7 @@ Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameter
 }
 ```
 
-**Sample response:**
+**Sample response for HL7v2 data:**
 
 Note the Content-Type is the response header is set to `text/plain` because the output format is determined by the mapping definition from your templates.
 
