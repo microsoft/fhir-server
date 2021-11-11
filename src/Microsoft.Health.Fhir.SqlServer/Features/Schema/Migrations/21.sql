@@ -3623,7 +3623,7 @@ END;
 GO
 
 -- STORED PROCEDURE
---     RemovePartitionFromResourceChanges
+--     RemovePartitionFromResourceChanges_2
 --
 -- DESCRIPTION
 --     Switches a partition from a resource change data table to a staging table.
@@ -3635,7 +3635,7 @@ GO
 --     @partitionBoundaryToMerge
 --         * The partition boundary value to merge.
 --
-CREATE PROCEDURE dbo.RemovePartitionFromResourceChanges
+CREATE PROCEDURE dbo.RemovePartitionFromResourceChanges_2
     @partitionNumberToSwitchOut int,
     @partitionBoundaryToMerge datetime2(7)
 AS
