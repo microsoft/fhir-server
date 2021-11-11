@@ -2,6 +2,7 @@
     Sequence for generating unique 12.5ns "tick" components that are added
     to a base ID based on the timestamp to form a unique resource surrogate ID
 **************************************************************/
+GO
 
 CREATE SEQUENCE dbo.ResourceSurrogateIdUniquifierSequence
         AS int
