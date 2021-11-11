@@ -4,6 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\21.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\21.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\4.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\4.sql" />
