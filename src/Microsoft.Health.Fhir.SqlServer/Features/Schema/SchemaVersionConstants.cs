@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int SupportsResourceChangeCaptureSchemaVersion = (int)SchemaVersion.V14;
         public const int BulkReindexReturnsFailuresVersion = (int)SchemaVersion.V16;
         public const int AddMinMaxForDateAndStringSearchParamVersion = (int)SchemaVersion.V18;
-        public const int SupportsPartitionedResourceChangeDataVersion = (int)SchemaVersion.V21;
+        public const int SupportsPartitionedResourceChangeDataVersion = (int)SchemaVersion.V20;
+        public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;
     }
 }
