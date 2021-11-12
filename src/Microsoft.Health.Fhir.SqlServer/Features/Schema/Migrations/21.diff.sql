@@ -20,24 +20,16 @@ CREATE OR ALTER PROCEDURE dbo.RemovePartitionFromResourceChanges_2
     @partitionBoundaryToMerge datetime2(7)
 AS
   BEGIN
-    
-    /* using XACT_ABORT to force a rollback on any error. */
-    SET XACT_ABORT ON;
-    
-    BEGIN TRANSACTION
-
-        /* Cleans up a staging table if there are existing rows. */
-        TRUNCATE TABLE dbo.ResourceChangeDataStaging;
+    /* Cleans up a staging table if there are existing rows. */
+    TRUNCATE TABLE dbo.ResourceChangeDataStaging;
         
-        /* Switches a partition to the staging table. */
-        ALTER TABLE dbo.ResourceChangeData SWITCH PARTITION @partitionNumberToSwitchOut TO dbo.ResourceChangeDataStaging;
+    /* Switches a partition to the staging table. */
+    ALTER TABLE dbo.ResourceChangeData SWITCH PARTITION @partitionNumberToSwitchOut TO dbo.ResourceChangeDataStaging;
         
-        /* Merges range to move boundary one partition ahead. */
-        ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() MERGE RANGE(@partitionBoundaryToMerge);
+    /* Merges range to move boundary one partition ahead. */
+    ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() MERGE RANGE(@partitionBoundaryToMerge);
         
-        /* Cleans up the staging table to purge resource changes. */
-        TRUNCATE TABLE dbo.ResourceChangeDataStaging;
-
-    COMMIT TRANSACTION;
+    /* Cleans up the staging table to purge resource changes. */
+    TRUNCATE TABLE dbo.ResourceChangeDataStaging;
 END;
 GO 
