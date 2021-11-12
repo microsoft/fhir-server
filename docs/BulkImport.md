@@ -17,7 +17,7 @@ Here are the high-level steps to use $import. Rest of the document describes som
 
 1. [Deploy a new fhir server](#deploy-a-fhir-server) if needed. Ensure that _Enable Import_ is set to _True_ during the installation.
 1. [Check and set up the configuration](#check-and-set-up-configuration) check the configruation needed for import is set correctly, if not set it as indicated.
-If your fhir server is new deployed through [setp 1](#deploy-a-fhir-server), you can skip this stage. 
+If your fhir server is new deployed through [step 1](#deploy-a-fhir-server), you can skip this stage. 
 1. [Set init import mode](#change-init-import-mode-on-the-fhir-server) on the FHIR server. Setting this mode also suspends write operations (POST, PUT) on the FHIR server.
 1. Upload your NDJSON files to a container in the storage location associated with your FHIR server. You may want to use  [_Azure storage explorer_](https://docs.microsoft.com/en-us/azure/vs-azure-tools-storage-manage-with-storage-explorer?tabs=windows) or [_Az_copy_](https://docs.microsoft.com/en-us/azure/storage/common/storage-ref-azcopy) to upload your data.
 1. Ensure that the storage available on your Azure SQL is at least 3 times that of the sum of your NDJSON files.

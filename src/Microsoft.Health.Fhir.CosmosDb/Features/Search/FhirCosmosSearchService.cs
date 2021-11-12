@@ -183,6 +183,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             chainedOptions.CountOnly = false;
             chainedOptions.MaxItemCount = _chainedSearchMaxSubqueryItemLimit;
             chainedOptions.MaxItemCountSpecifiedByClient = false;
+            chainedOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
 
             // Loop over all chained expressions in the search query and pass them into the local recursion function
             foreach (ChainedExpression item in chainedExpressions)
