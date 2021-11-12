@@ -37,11 +37,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <TSqlScript Include="Features\Schema\Sql\Scripts\Sequence.sql" />
+    <TSqlScript Include="Features\Schema\Sql\Scripts\Functions.sql" />
+    <TSqlScript Include="Features\Schema\Sql\Scripts\Sequences.sql" />
     <TSqlScript Include="Features\Schema\Sql\Types\*.sql" />
     <TSqlScript Include="Features\Schema\Sql\Tables\*.sql" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
