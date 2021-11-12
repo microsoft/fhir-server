@@ -3635,7 +3635,7 @@ GO
 --     @partitionBoundaryToMerge
 --         * The partition boundary value to merge.
 --
-CREATE OR ALTER PROCEDURE dbo.RemovePartitionFromResourceChanges_2
+CREATE PROCEDURE dbo.RemovePartitionFromResourceChanges_2
     @partitionNumberToSwitchOut int,
     @partitionBoundaryToMerge datetime2(7)
 AS
