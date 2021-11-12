@@ -22,7 +22,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class SortTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
-        private static readonly string _unsupportedSortParam = "link"; // Link parameter is of reference type so sorting by link will always fail.
+        private static readonly string _unsupportedSearchAndSortParam = "abcd1234"; // Parameter is invalid search parameter, therefore it is invalid sort parameter as well.
+        private static readonly string _unsupportedSortParam = "link"; // Parameter "link" is of reference type so sorting by link will always fail.
 
         public SortTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
@@ -155,6 +156,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatients_WhenSearchedWithInvalidSerchAndSortParamsAndHandlingLenient_ThenPatientsAreReturnedUnsortedWithWarning()
+        {
+            var tag = Guid.NewGuid().ToString();
+            Patient[] patients = await CreatePatients(tag);
+            Resource[] expectedResources = new Resource[patients.Length + 1];
+            expectedResources[0] = OperationOutcome.ForMessage(
+                string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, _unsupportedSearchAndSortParam, "Patient"),
+                OperationOutcome.IssueType.NotSupported,
+                OperationOutcome.IssueSeverity.Warning);
+            patients.Cast<Resource>().ToArray().CopyTo(expectedResources, 1);
+
+            await ExecuteAndValidateBundle(
+                $"Patient?_tag={tag}&_sort={_unsupportedSearchAndSortParam}",
+                true, // Server sort will fail, so sort expected result and actual result before comparing.
+                true, // Turn on test logic for invalid sort parameter.
+                new Tuple<string, string>("Prefer", "handling=lenient"),
+                expectedResources);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenPatients_WhenSearchedWithInvalidSortParamsAndHandlingStrict_ThenErrorReturnedWithMessage()
         {
             var tag = Guid.NewGuid().ToString();
@@ -166,6 +188,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             await ExecuteAndValidateErrorOperationOutcomeAsync(
                 $"Patient?_tag={tag}&_sort={_unsupportedSortParam}",
+                new Tuple<string, string>("Prefer", "handling=strict"),
+                HttpStatusCode.BadRequest,
+                expectedOperationOutcome);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatients_WhenSearchedWithInvalidSearchAndSortParamsAndHandlingStrict_ThenErrorReturnedWithMessage()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePatients(tag);
+            OperationOutcome expectedOperationOutcome = OperationOutcome.ForMessage(
+                string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, _unsupportedSearchAndSortParam, "Patient"),
+                OperationOutcome.IssueType.Invalid,
+                OperationOutcome.IssueSeverity.Error);
+
+            await ExecuteAndValidateErrorOperationOutcomeAsync(
+                $"Patient?_tag={tag}&_sort={_unsupportedSearchAndSortParam}",
                 new Tuple<string, string>("Prefer", "handling=strict"),
                 HttpStatusCode.BadRequest,
                 expectedOperationOutcome);

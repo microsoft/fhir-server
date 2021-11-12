@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="errorMessages">Collection of error strings that are used to initialize OperationOutcomeIssue collection.
         /// Must be non-null and non-empty</param>
         public BadRequestException(ICollection<string> errorMessages)
-            : base((errorMessages.Count < 2) ? errorMessages.First() : "Multiple bad request errors.")
+            : base((errorMessages == null || errorMessages.Count < 2) ? errorMessages.First() : "Multiple bad request errors.")
         {
             foreach (string errorMessage in errorMessages)
             {
