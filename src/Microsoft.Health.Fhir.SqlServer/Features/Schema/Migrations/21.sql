@@ -51,14 +51,14 @@ AS PARTITION PartitionFunction_ResourceTypeId ALL TO ([PRIMARY]);
 CREATE TABLE dbo.SearchParam
 (
     SearchParamId smallint IDENTITY(1,1) NOT NULL, 
-    CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED (SearchParamId),
+    CONSTRAINT PK_SearchParam PRIMARY KEY NONCLUSTERED (SearchParamId),
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NULL,
     LastUpdated datetimeoffset(7) NULL,
     IsPartiallySupported bit NULL
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_SearchParam ON dbo.SearchParam
+CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam ON dbo.SearchParam
 (
     Uri
 )
@@ -66,11 +66,11 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_SearchParam ON dbo.SearchParam
 CREATE TABLE dbo.ResourceType
 (
     ResourceTypeId smallint IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (ResourceTypeId),
+    CONSTRAINT PK_ResourceType PRIMARY KEY NONCLUSTERED (ResourceTypeId),
     Name nvarchar(50) COLLATE Latin1_General_100_CS_AS  NOT NULL
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_ResourceType on dbo.ResourceType
+CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType on dbo.ResourceType
 (
     Name
 )
@@ -80,11 +80,11 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_ResourceType on dbo.ResourceType
 CREATE TABLE dbo.System
 (
     SystemId int IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PKC_System PRIMARY KEY CLUSTERED (SystemId),
+    CONSTRAINT PK_System PRIMARY KEY NONCLUSTERED (SystemId),
     Value nvarchar(256) NOT NULL,
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_System ON dbo.System
+CREATE UNIQUE CLUSTERED INDEX IXC_System ON dbo.System
 (
     Value
 )
@@ -92,11 +92,11 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_System ON dbo.System
 CREATE TABLE dbo.QuantityCode
 (
     QuantityCodeId int IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PKC_QuantityCode PRIMARY KEY CLUSTERED (QuantityCodeId),
+    CONSTRAINT PK_QuantityCode PRIMARY KEY NONCLUSTERED (QuantityCodeId),
     Value nvarchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_QuantityCode on dbo.QuantityCode
+CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode on dbo.QuantityCode
 (
     Value
 )
@@ -165,11 +165,11 @@ ON [Primary]
 CREATE TABLE dbo.ClaimType
 (
     ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED (ClaimTypeId),
+    CONSTRAINT PK_ClaimType PRIMARY KEY NONCLUSTERED (ClaimTypeId),
     Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_Claim on dbo.ClaimType
+CREATE UNIQUE CLUSTERED INDEX IXC_Claim on dbo.ClaimType
 (
     Name
 )
@@ -201,11 +201,11 @@ CREATE CLUSTERED INDEX IXC_ResourceWriteClaim on dbo.ResourceWriteClaim
 CREATE TABLE dbo.CompartmentType
 (
     CompartmentTypeId tinyint IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED (CompartmentTypeId),
+    CONSTRAINT PK_CompartmentType PRIMARY KEY NONCLUSTERED (CompartmentTypeId),
     Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_CompartmentType on dbo.CompartmentType
+CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
 (
     Name
 )
@@ -268,7 +268,7 @@ CREATE TABLE dbo.ReferenceSearchParam
     ReferenceResourceTypeId smallint NULL,
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL,
-    CONSTRAINT PKC_ReferenceSearchParam PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, ReferenceResourceId)
+    CONSTRAINT PK_ReferenceSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, ReferenceResourceId)
     WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
@@ -276,7 +276,7 @@ CREATE TABLE dbo.ReferenceSearchParam
 
 ALTER TABLE dbo.ReferenceSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam
+CREATE CLUSTERED INDEX IXC_ReferenceSearchParam
 ON dbo.ReferenceSearchParam
 (
     ResourceTypeId,
@@ -325,7 +325,7 @@ CREATE TABLE dbo.TokenSearchParam
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_TokenSearchParam PRIMARY KEY CLUSTERED (ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
+    CONSTRAINT PK_TokenSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
     WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
@@ -333,7 +333,7 @@ CREATE TABLE dbo.TokenSearchParam
 
 ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_TokenSearchParam
+CREATE CLUSTERED INDEX IXC_TokenSearchParam
 ON dbo.TokenSearchParam
 (
     ResourceTypeId,
@@ -378,7 +378,7 @@ CREATE TABLE dbo.TokenText
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL,
-    CONSTRAINT PKC_TokenText PRIMARY KEY CLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
+    CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
     WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
@@ -386,7 +386,7 @@ CREATE TABLE dbo.TokenText
 
 ALTER TABLE dbo.TokenText SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_TokenText
+CREATE CLUSTERED INDEX IXC_TokenText
 ON dbo.TokenText
 (
     ResourceTypeId,
@@ -418,7 +418,7 @@ CREATE TABLE dbo.StringSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
-    CONSTRAINT PKC_StringSearchParam PRIMARY KEY CLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
+    CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
     WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
@@ -429,7 +429,7 @@ CREATE TABLE dbo.StringSearchParam
 
 ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_StringSearchParam
+CREATE CLUSTERED INDEX IXC_StringSearchParam
 ON dbo.StringSearchParam
 (
     ResourceTypeId,
@@ -493,7 +493,7 @@ CREATE TABLE dbo.UriSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_UriSearchParam PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
+    CONSTRAINT PK_UriSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
     WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
@@ -501,7 +501,7 @@ CREATE TABLE dbo.UriSearchParam
 
 ALTER TABLE dbo.UriSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_UriSearchParam
+CREATE CLUSTERED INDEX IXC_UriSearchParam
 ON dbo.UriSearchParam
 (
     ResourceTypeId,
@@ -817,7 +817,7 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_ReferenceTokenCompositeSearchParam PRIMARY KEY CLUSTERED (ResourceTypeId, SearchParamId, ReferenceResourceId1, Code2, ResourceSurrogateId)
+    CONSTRAINT PK_ReferenceTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, ReferenceResourceId1, Code2, ResourceSurrogateId)
     WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
@@ -825,7 +825,7 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
 
 ALTER TABLE dbo.ReferenceTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam
+CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
 ON dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceTypeId,
@@ -879,7 +879,7 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_TokenTokenCompositeSearchParam PRIMARY KEY CLUSTERED(ResourceTypeId, SearchParamId, Code1, Code2, ResourceSurrogateId)
+    CONSTRAINT PK_TokenTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, Code2, ResourceSurrogateId)
 	WITH (DATA_COMPRESSION = PAGE) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
@@ -887,7 +887,7 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_TokenTokenCompositeSearchParam
+CREATE CLUSTERED INDEX IXC_TokenTokenCompositeSearchParam
 ON dbo.TokenTokenCompositeSearchParam
 (
     ResourceSurrogateId,
@@ -941,7 +941,7 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
-    CONSTRAINT PKC_TokenDateTimeCompositeSearchParam PRIMARY KEY CLUSTERED(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
+    CONSTRAINT PK_TokenDateTimeCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
 	WITH (DATA_COMPRESSION = PAGE) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
@@ -949,7 +949,7 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_TokenDateTimeCompositeSearchParam
+CREATE CLUSTERED INDEX IXC_TokenDateTimeCompositeSearchParam
 ON dbo.TokenDateTimeCompositeSearchParam
 (
     ResourceTypeId,
@@ -1066,7 +1066,7 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,
-    CONSTRAINT PKC_TokenQuantityCompositeSearchParam PRIMARY KEY CLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Code1)
+    CONSTRAINT PK_TokenQuantityCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Code1)
 	WITH (DATA_COMPRESSION = PAGE) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
@@ -1074,7 +1074,7 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam
+CREATE CLUSTERED INDEX IXC_TokenQuantityCompositeSearchParam
 ON dbo.TokenQuantityCompositeSearchParam
 (
     ResourceTypeId,
@@ -1167,7 +1167,7 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_CI_AI NOT NULL,
-    CONSTRAINT PKC_TokenStringCompositeSearchParam PRIMARY KEY CLUSTERED(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
+    CONSTRAINT PK_TokenStringCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
 	WITH (DATA_COMPRESSION = PAGE) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NULL,
@@ -1176,7 +1176,7 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
 
 ALTER TABLE dbo.TokenStringCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam
+CREATE CLUSTERED INDEX IXC_TokenStringCompositeSearchParam
 ON dbo.TokenStringCompositeSearchParam
 (
     ResourceSurrogateId,
@@ -1254,7 +1254,7 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_TokenNumberNumberCompositeSearchParam PRIMARY KEY CLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Code1)
+    CONSTRAINT PK_TokenNumberNumberCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Code1)
 	WITH (DATA_COMPRESSION = PAGE) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     SingleValue2 decimal(18,6) NULL,
@@ -1269,7 +1269,7 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
 
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
 
-CREATE NONCLUSTERED INDEX IX_TokenNumberNumberCompositeSearchParam
+CREATE CLUSTERED INDEX IXC_TokenNumberNumberCompositeSearchParam
 ON dbo.TokenNumberNumberCompositeSearchParam
 (
     ResourceTypeId,
