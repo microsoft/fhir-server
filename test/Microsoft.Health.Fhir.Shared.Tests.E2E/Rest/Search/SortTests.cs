@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatients_WhenSearchedWithInvalidSerchAndSortParamsAndHandlingLenient_ThenPatientsAreReturnedUnsortedWithWarning()
+        public async Task GivenPatients_WhenSearchedWithInvalidSearchAndSortParamsAndHandlingLenient_ThenPatientsAreReturnedUnsortedWithWarning()
         {
             var tag = Guid.NewGuid().ToString();
             Patient[] patients = await CreatePatients(tag);
