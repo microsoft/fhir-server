@@ -32,7 +32,7 @@ AS
         /* Switches a partition to the staging table. */
         ALTER TABLE dbo.ResourceChangeData SWITCH PARTITION @partitionNumberToSwitchOut TO dbo.ResourceChangeDataStaging;
         
-        /* Merges range to move lower boundary one partition ahead. */
+        /* Merges range to move boundary one partition ahead. */
         ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() MERGE RANGE(@partitionBoundaryToMerge);
         
         /* Cleans up the staging table to purge resource changes. */
