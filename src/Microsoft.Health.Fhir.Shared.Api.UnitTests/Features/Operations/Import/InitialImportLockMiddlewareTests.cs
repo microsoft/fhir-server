@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
-        public async Task GivenStartImportRequestWithPrefix_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
+        public async Task GivenImportRequestWithPrefix_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
             HttpContext httpContext = new DefaultHttpContext();
