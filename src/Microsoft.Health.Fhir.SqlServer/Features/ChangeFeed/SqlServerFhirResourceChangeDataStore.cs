@@ -139,6 +139,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     }
                 }
             }
+            catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation(ex.Message);
+                return listResourceChangeData;
+            }
             catch (SqlException ex)
             {
                 switch (ex.Number)
