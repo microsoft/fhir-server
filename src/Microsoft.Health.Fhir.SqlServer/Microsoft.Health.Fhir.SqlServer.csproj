@@ -10,6 +10,8 @@
     <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
   </PropertyGroup>
   
+    <EmbeddedResource Include="Features\Schema\Migrations\21.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\21.sql">
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
     <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
