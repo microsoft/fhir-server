@@ -5,13 +5,11 @@
 
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>20</LatestSchemaVersion>
+    <LatestSchemaVersion>21</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
   </PropertyGroup>
   
-    <EmbeddedResource Include="Features\Schema\Migrations\21.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\21.sql">
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
     <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
