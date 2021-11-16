@@ -397,6 +397,10 @@
     <value>SearchParameter[{0}].resource.expression is null or empty.</value>
     <comment>{0} Is the Uri Identifying the SearchParameter</comment>
   </data>
+  <data name="ValueCannotBeNull" xml:space="preserve">
+    <value>Value cannot be null.  Parameter name: {0}.</value>
+    <comment>Error message for missing query parameter, {0} is the parameter name</comment>
+  </data>
   <data name="SearchParameterDefinitionInvalidResource" xml:space="preserve">
     <value>Entry {0} is not a SearchParameter resource.</value>
     <comment>{0} Index of the processed element in the ennumeration</comment>
@@ -619,5 +623,8 @@
   <data name="SortParameterValueIsNotValidSearchParameter" xml:space="preserve">
     <value>Sort parameter value '{0}' is invalid, must be a subset of valid search parameters for resource type '{1}'.</value>
     <comment>Clarifies confusing situation when sort parameter value is not a valid search parameter (do we return search parameter or sort parameter value error).</comment>
+  </data>
+  <data name="SearchParameterDefinitionNullorEmptyCodeValue" xml:space="preserve">
+    <value>Code value cannot be null or empty</value>
   </data>
 </root>

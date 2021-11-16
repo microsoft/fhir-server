@@ -96,6 +96,24 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return batch.ToResourceElement();
         }
 
+        public static ResourceElement GetTransactionBundleWithValidEntries()
+        {
+            var batch = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry").ToPoco<Bundle>();
+
+            // Make the criteria unique so that the tests behave consistently
+            var createGuid = Guid.NewGuid().ToString();
+            batch.Entry[1].Request.IfNoneExist = batch.Entry[1].Request.IfNoneExist + createGuid;
+            var createPatient = (Patient)batch.Entry[1].Resource;
+            createPatient.Identifier[0].Value = createPatient.Identifier[0].Value + createGuid;
+
+            var updateIdentifierGuid = Guid.NewGuid().ToString();
+            batch.Entry[3].Request.Url = batch.Entry[3].Request.Url + updateIdentifierGuid;
+            var updatePatient = (Patient)batch.Entry[3].Resource;
+            updatePatient.Identifier[0].Value = updatePatient.Identifier[0].Value + updateIdentifierGuid;
+
+            return batch.ToResourceElement();
+        }
+
         public static ResourceElement GetDefaultTransaction()
         {
             return GetJsonSample("Bundle-Transaction");
