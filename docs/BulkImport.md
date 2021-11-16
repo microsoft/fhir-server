@@ -56,7 +56,7 @@ The FHIR server must have _init import mode_ set to _True_ for $import to work. 
 FhirServer__Operations__Import__InitImportMode: True
 ```
 
-After the FHIR server app is ready, navigate to app service portal and click **Configuration**. Create the *FhirServer:Operations:Import:InitImportMode* setting if needed by clicking **New application setting**. Set the value to _True_ or _False_ as needed.
+After the FHIR server app is ready, navigate to app service portal and click **Configuration**. Create the *FhirServer:Operations:Import:InitialImportMode* setting if needed by clicking **New application setting**. Set the value to _True_ or _False_ as needed. (Note: the image below shows FhirServer:Operations:Import:*Init*ialImportMode, but the correct variable name is FhirServer:Operations:Import:*Initial*ImportMode.)
 
 Click **OK** then **Save**. Click **Continue** when prompted to restart the app and make the changes take effect.
 
