@@ -236,7 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SchemaInitializer CreateSchemaInitializer(string testConnectionString, int maxSupportedSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions });
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
