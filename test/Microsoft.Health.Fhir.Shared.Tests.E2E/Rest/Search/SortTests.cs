@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await CreatePatients(tag);
             Resource[] expectedResources = new Resource[patients.Length + 1];
             expectedResources[0] = OperationOutcome.ForMessage(
-                string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, _unsupportedSearchAndSortParam, "Patient"),
+                string.Format(CultureInfo.InvariantCulture, Core.Resources.SortParameterValueIsNotValidSearchParameter, _unsupportedSearchAndSortParam, "Patient"),
                 OperationOutcome.IssueType.NotSupported,
                 OperationOutcome.IssueSeverity.Warning);
             patients.Cast<Resource>().ToArray().CopyTo(expectedResources, 1);
@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreatePatients(tag);
             OperationOutcome expectedOperationOutcome = OperationOutcome.ForMessage(
-                string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, _unsupportedSearchAndSortParam, "Patient"),
+                string.Format(CultureInfo.InvariantCulture, Core.Resources.SortParameterValueIsNotValidSearchParameter, _unsupportedSearchAndSortParam, "Patient"),
                 OperationOutcome.IssueType.Invalid,
                 OperationOutcome.IssueSeverity.Error);
 

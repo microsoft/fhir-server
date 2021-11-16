@@ -311,7 +311,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
                 bool sortingsValid = true;
 
-                // Only parameters that are valid for searching can also be used for sorting. Therefore first check if sort parameters are valid as search parameters.
+                // Only parameters that are valid for searching can also be used as sort parameter values. Therefore first check if the sort parameter values are valid as search parameters.
                 foreach ((string, Hl7.Fhir.Rest.SortOrder) sorting in searchParams.Sort)
                 {
                     try
@@ -322,11 +322,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (SearchParameterNotSupportedException)
                     {
                         sortingsValid = false;
-                        searchSortErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, string.Join(", ", resourceTypesString)));
+                        searchSortErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SortParameterValueIsNotValidSearchParameter, sorting.Item1, string.Join(", ", resourceTypesString)));
                     }
                 }
 
-                // Sort parameters are valid search parameters. Now verify that sort parameters are also valid for sorting.
+                // Sort parameter values are valid search parameters. Now verify that sort paremeter values are also valid for sorting.
                 if (sortingsValid)
                 {
                     if (!_sortingValidator.ValidateSorting(sortings, out IReadOnlyList<string> errorMessages))
