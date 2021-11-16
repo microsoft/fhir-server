@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                 }
 
-                // Sort parameter values are valid search parameters. Now verify that sort paremeter values are also valid for sorting.
+                // Sort parameter values are valid search parameters. Now verify that sort parameter values are also valid for sorting.
                 if (sortingsValid)
                 {
                     if (!_sortingValidator.ValidateSorting(sortings, out IReadOnlyList<string> errorMessages))
