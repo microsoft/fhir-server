@@ -13,6 +13,7 @@ using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -166,7 +167,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchParameter.Expression,
                 context))
             {
-                yield return new SearchIndexEntry(searchParameterInfo, searchValue);
+                if (searchValue != null)
+                {
+                    yield return new SearchIndexEntry(searchParameterInfo, searchValue);
+                }
+                else
+                {
+                    /// <remarks>
+                    /// searchValue should not have a null value
+                    /// But if the input json is not in the correct format then we are parsing the body here <see cref="FhirJsonInputFormatter"/> and passing the initial validations for required fields here <see cref="ModelAttributeValidator"/>
+                    /// e.g. If the body contains Coverage.status = "", then after parsing Coverage.status = null & Coverage.statusElement = null, resulting into minimum cardinality error as expected
+                    /// If the body contains Coverage.status = , then after parsing Coverage.status = null & Coverage.statusElement = {value=null}, which passes the Firely validation and CodeToTokenSearchValueConverter returns null
+                    /// In this case return BadRequestException with a valid message instead of 500
+                    /// </remarks>
+                    throw new BadRequestException(string.Format(Resources.ValueCannotBeNull, searchParameter.Expression));
+                }
             }
         }
 

@@ -133,7 +133,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             // Ensure the search parameter's code value does not already exist for its base type(s)
             foreach (ResourceType? baseType in searchParam.Base)
             {
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
+                if (searchParam.Code is null)
+                {
+                    validationFailures.Add(
+                        new ValidationFailure(
+                            nameof(searchParam.Code),
+                            string.Format(Resources.SearchParameterDefinitionNullorEmptyCodeValue, searchParam.Code, baseType.ToString())));
+                }
+                else if (_searchParameterDefinitionManager.TryGetSearchParameter(baseType.ToString(), searchParam.Code, out _))
                 {
                     // The search parameter's code value conflicts with an existing one
                     validationFailures.Add(

@@ -22,7 +22,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="3.0.0.33" />
-    <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />
+    <PackageReference Include="System.Collections.Immutable" Version="6.0.0" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
 

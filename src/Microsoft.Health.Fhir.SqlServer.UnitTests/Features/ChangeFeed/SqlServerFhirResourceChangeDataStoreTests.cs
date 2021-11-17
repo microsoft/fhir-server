@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
 
         public SqlServerFhirResourceChangeDataStoreTests()
         {
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = string.Empty });
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = string.Empty, StatementTimeout = TimeSpan.FromMinutes(10) });
             var connectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var connectionFactory = new DefaultSqlConnectionFactory(connectionStringProvider);
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);

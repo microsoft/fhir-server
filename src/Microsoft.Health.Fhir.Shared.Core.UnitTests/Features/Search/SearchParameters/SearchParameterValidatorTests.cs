@@ -81,6 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var brokenUrl = new SearchParameter { Url = "BrokenUrl" };
             var uniqueUrl = new SearchParameter { Url = "http://unique" };
             var duplicateCode = new SearchParameter { Url = "http://unique", Code = "duplicate", Base = new[] { ResourceType.Patient as ResourceType? } };
+            var nullCode = new SearchParameter { Url = "http://unique", Code = null, Base = new[] { ResourceType.Patient as ResourceType? } };
 
             var data = new List<object[]>();
             data.Add(new object[] { missingUrl, "POST" });
@@ -90,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             data.Add(new object[] { uniqueUrl, "DELETE" });
             data.Add(new object[] { duplicateCode, "POST" });
             data.Add(new object[] { duplicateCode, "PUT" });
+            data.Add(new object[] { nullCode, "POST" });
 
             return data;
         }
