@@ -1,10 +1,12 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using System;
-using System.Linq;
 using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Hl7.FhirPath;
-using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
@@ -13,9 +15,10 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public class OperationDelete : OperationBase, IOperation
     {
-        /// <inheritdoc/>
         public OperationDelete(Resource resource)
-            : base(resource) { }
+            : base(resource)
+        {
+        }
 
         /// <summary>
         /// Executes a FHIRPath Patch Delete operation. Delete operations will

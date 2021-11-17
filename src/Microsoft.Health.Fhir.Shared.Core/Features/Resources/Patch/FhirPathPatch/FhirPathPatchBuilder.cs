@@ -1,4 +1,9 @@
-﻿using System;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
 using System.Collections.Generic;
 using FhirPathPatch.Operations;
 using Hl7.Fhir.Model;
@@ -73,10 +78,10 @@ namespace FhirPathPatch
             return workingResource;
         }
 
-        // <summary>
+        /// <summary>
         /// Handles the add operation.
         /// </summary>
-        /// <param type="ParameterComponent"> The operation to execute.</param>
+        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
         /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
         public FhirPathPatchBuilder Add(ParameterComponent op)
         {
@@ -88,7 +93,7 @@ namespace FhirPathPatch
         /// <summary>
         /// Handles the insert operation.
         /// </summary>
-        /// <param type="ParameterComponent"> The operation to execute.</param>
+        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
         /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
         public FhirPathPatchBuilder Insert(ParameterComponent op)
         {
@@ -100,7 +105,7 @@ namespace FhirPathPatch
         /// <summary>
         /// Handles the delete operation.
         /// </summary>
-        /// <param type="ParameterComponent"> The operation to execute.</param>
+        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
         /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
         public FhirPathPatchBuilder Delete(ParameterComponent op)
         {
@@ -112,7 +117,7 @@ namespace FhirPathPatch
         /// <summary>
         /// Handles the Replace operation.
         /// </summary>
-        /// <param type="ParameterComponent"> The operation to execute.</param>
+        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
         /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
         public FhirPathPatchBuilder Replace(ParameterComponent op)
         {
@@ -124,11 +129,10 @@ namespace FhirPathPatch
         /// <summary>
         /// Handles the Move operation.
         /// </summary>
-        /// <param type="ParameterComponent"> The operation to execute.</param>
+        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
         /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
         public FhirPathPatchBuilder Move(ParameterComponent op)
         {
-
             this.operations.Add(PendingOperation.FromParameterComponent(op));
 
             return this;
@@ -137,11 +141,13 @@ namespace FhirPathPatch
         /// <summary>
         /// Builds the list of operations to execute
         /// </summary>
-        /// <param type="parameters">The parameters to build the chain of the builder.</param>
+        /// <param type="parameters" name="parameters">The parameters to build the chain of the builder.</param>
         public FhirPathPatchBuilder Build(Parameters parameters)
         {
             foreach (var param in parameters.Parameter)
+            {
                 this.operations.Add(PendingOperation.FromParameterComponent(param));
+            }
 
             return this;
         }

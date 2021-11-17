@@ -1,4 +1,9 @@
-﻿using System;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
 using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -21,10 +26,14 @@ namespace FhirPathPatch.Helpers
 
         internal static ElementNode ToElementNode(this ITypedElement element)
         {
-            if (element is ElementNode) return element as ElementNode;
+            if (element is ElementNode)
+            {
+                return element as ElementNode;
+            }
+
             return ElementNode.FromElement(element);
         }
-        
+
         internal static ElementNode ToElementNode(this DataType data) =>
             ElementNode.FromElement(TypedSerialization.ToTypedElement(data));
 
@@ -32,18 +41,20 @@ namespace FhirPathPatch.Helpers
         internal static ElementNode ToElementNode(this object data)
         {
             if (data is DataType dataType)
+            {
                 return dataType.ToElementNode();
+            }
 
             if (data is ParameterComponent dataComponent)
             {
                 var provider = new PocoStructureDefinitionSummaryProvider();
-                var node = ElementNode.Root(provider, "");
+                var node = ElementNode.Root(provider, string.Empty);
                 node.Add(provider, dataComponent.Value.ToElementNode(), dataComponent.Name);
 
                 return node;
             }
 
-            throw new Exception();
+            throw new ArgumentException("Input data must be of type DataType or ParameterComponent.");
         }
     }
 }

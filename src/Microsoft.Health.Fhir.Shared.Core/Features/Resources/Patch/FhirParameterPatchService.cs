@@ -74,16 +74,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             {
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, eTag.VersionId));
             }
+
             var context = new System.ComponentModel.DataAnnotations.ValidationContext(currentDoc);
             var results = paramsResource.Validate(context);
-            foreach(var result in results)
+
+            foreach (var result in results)
             {
-                if(result.ErrorMessage != null)
+                if (result.ErrorMessage != null)
                 {
                     throw new BadRequestException($"{result.MemberNames} is invalid.");
                 }
             }
         }
-
     }
 }

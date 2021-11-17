@@ -1,9 +1,12 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using System;
+using System.Globalization;
 using System.Linq;
 using static Hl7.Fhir.Model.Parameters;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.ElementModel;
-using FhirPathPatch.Helpers;
 
 namespace FhirPathPatch.Operations
 {
@@ -60,18 +63,21 @@ namespace FhirPathPatch.Operations
         /// <returns>PendingOperation.</returns>
         public static PendingOperation FromParameterComponent(ParameterComponent component)
         {
-            var operationType = component.Part.First(x => x.Name == "type").Value.ToString().ToUpper();
+            var c = new CultureInfo("en-US", false);
+            var operationType = component.Part.First(x => x.Name == "type").Value.ToString().ToUpper(c);
             var path = component.Part.First(x => x.Name == "path").Value.ToString();
             var name = component.Part.FirstOrDefault(x => x.Name == "name")?.Value.ToString();
 
             // #TODO - Isolate Operation.Value from Parameter object
             object value = component.Part.FirstOrDefault(x => x.Name == "value")?.Value;
             if (value is null)
+            {
                 value = component.Part.FirstOrDefault(x => x.Name == "value")?.Part[0];
+            }
 
-            int? index = int.TryParse(component.Part.FirstOrDefault(x => x.Name == "index")?.Value.ToString(), out int itmp) ? (int?)itmp : null;
-            int? source = int.TryParse(component.Part.FirstOrDefault(x => x.Name == "source")?.Value.ToString(), out int stmp) ? (int?)stmp : null;
-            int? destination = int.TryParse(component.Part.FirstOrDefault(x => x.Name == "destination")?.Value.ToString(), out int dtmp) ? (int?)dtmp : null;
+            int? index = int.TryParse(component.Part.FirstOrDefault(x => x.Name == "index")?.Value.ToString(), out int itmp) ? itmp : null;
+            int? source = int.TryParse(component.Part.FirstOrDefault(x => x.Name == "source")?.Value.ToString(), out int stmp) ? stmp : null;
+            int? destination = int.TryParse(component.Part.FirstOrDefault(x => x.Name == "destination")?.Value.ToString(), out int dtmp) ? dtmp : null;
 
             return new PendingOperation
             {

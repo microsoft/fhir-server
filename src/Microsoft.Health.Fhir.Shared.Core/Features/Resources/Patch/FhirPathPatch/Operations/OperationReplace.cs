@@ -1,3 +1,8 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -9,9 +14,10 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public class OperationReplace : OperationBase, IOperation
     {
-        /// <inheritdoc/>
         public OperationReplace(Resource resource)
-            : base(resource) { }
+            : base(resource)
+        {
+        }
 
         /// <summary>
         /// Executes a FHIRPath Patch Replace operation. Add operations will

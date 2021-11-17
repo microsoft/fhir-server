@@ -1,13 +1,14 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
-using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
-using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
@@ -16,9 +17,10 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public class OperationInsert : OperationBase, IOperation
     {
-        /// <inheritdoc/>
         public OperationInsert(Resource resource)
-            : base(resource) { }
+            : base(resource)
+        {
+        }
 
         /// <summary>
         /// Executes a FHIRPath Patch Insert operation. Insert operations will
@@ -43,7 +45,9 @@ namespace FhirPathPatch.Operations
 
             // Ensure index is in bounds
             if (operation.Index < 0 || operation.Index > listElements.Count)
+            {
                 throw new InvalidOperationException("Insert index out of bounds of target list");
+            }
 
             // There is no easy "insert" operation in the FHIR library, so we must
             // iterate over the list and recreate it.
@@ -51,11 +55,15 @@ namespace FhirPathPatch.Operations
             {
                 // Add the new item at the correct index
                 if (operation.Index == child.index)
+                {
                     targetParent.Add(this.PocoProvider, operation.Value.ToElementNode(), name);
+                }
 
                 // Remove the old element from the list so the new order is used
                 if (!targetParent.Remove(child.value))
+                {
                     throw new InvalidOperationException();
+                }
 
                 // Add the old element back to the list
                 targetParent.Add(this.PocoProvider, child.value, name);

@@ -1,10 +1,13 @@
+// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
 using System;
 using System.Linq;
 using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Specification;
-using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
@@ -13,9 +16,10 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public class OperationMove : OperationBase, IOperation
     {
-        /// <inheritdoc/>
         public OperationMove(Resource resource)
-            : base(resource) { }
+            : base(resource)
+        {
+        }
 
         /// <summary>
         /// Executes a FHIRPath Patch Move operation. Move operations will
@@ -39,14 +43,21 @@ namespace FhirPathPatch.Operations
             // Check indexes
             var targetLen = targetParent.Children(name).Count();
             if (operation.Source < 0 || operation.Source >= targetLen)
+            {
                 throw new InvalidOperationException("Move source index out of bounds of target list");
+            }
+
             if (operation.Destination < 0 || operation.Destination >= targetLen)
+            {
                 throw new InvalidOperationException("Move destination index out of bounds of target list");
+            }
 
             // Remove specified element from the list
             var elementToMove = targetParent.AtIndex(name, operation.Source ?? -1);
             if (!targetParent.Remove(elementToMove))
+            {
                 throw new InvalidOperationException();
+            }
 
             // There is no easy "move" operation in the FHIR library, so we must
             // iterate over the list to reconstruct it.
@@ -56,11 +67,15 @@ namespace FhirPathPatch.Operations
             {
                 // Add the new item at the correct index
                 if (operation.Destination == child.index)
+                {
                     targetParent.Add(this.PocoProvider, elementToMove, name);
+                }
 
                 // Remove the old element from the list so the new order is used
                 if (!targetParent.Remove(child.value))
+                {
                     throw new InvalidOperationException();
+                }
 
                 // Add the old element back to the list
                 targetParent.Add(this.PocoProvider, child.value, name);
