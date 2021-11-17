@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             if (context.ExceptionHandled)
             {
-                HttpStatusCode? statusCode = (context.Result as OperationOutcomeResult).StatusCode;
+                HttpStatusCode? statusCode = (context.Result as OperationOutcomeResult)?.StatusCode;
                 if (statusCode != null && statusCode >= HttpStatusCode.InternalServerError)
                 {
                     _logger.LogError(context.Exception, "5xx error returned");
