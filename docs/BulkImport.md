@@ -29,11 +29,11 @@ If your fhir server is new deployed through [step 1](#deploy-a-fhir-server), you
 
 Follow the guide [_QuickstartDeployPortal_](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployPortal.md) to deploy a new fhir server. Use the following guideline for parameter values while installing the server.
 
-- *Number Of Instances*: **>1**.
-- *Solution type*: **FhirServerSqlServer**.
-- *Sql Admin Password*: Set a strong password.
-- *Sql Schema Automatic Updates Enabled*: **auto**.
-- *Enable Import*: **true**.
+- ***Number of instances***: ***>=2***
+- *Solution type*: FhirServerSqlServer
+- *Sql Admin Password*: Set a strong password
+- *Sql Schema Automatic Updates Enabled*: auto
+- *Enable Import*: true
     ![arm-template-portal](./images/bulk-import/arm-template-portal.png)
 
 ### Check and set up configuration
@@ -43,9 +43,9 @@ Make sure the following settings are set correctly in your fhir server:
 - *FhirServer__Operations__Import__Enabled*: **True**.
 - *TaskHosting__Enabled*: **True**.
 - *FhirServer__Operations__Import__MaxRunningProcessingTaskCount*: **Not set as default or have value >0, we suggest it has value >= instance count for performance**.
-- *FhirServer__Operations__IntegrationDataStore__StorageAccountUri*: **The url of azure storage account used as data source, eg. https://<accountName>.blob.core.windows.net/**.
-   *or  FhirServer__Operations__IntegrationDataStore__StorageAccountConnection*: **The connection string of azure storage account used as data source**.
-
+- *FhirServer__Operations__IntegrationDataStore__StorageAccountUri*: **The url of azure storage account used as data source, eg. https://<accountName>.blob.core.windows.net/**.<br>
+                        ***OR***
+- *FhirServer__Operations__IntegrationDataStore__StorageAccountConnection*: **The connection string of azure storage account used as data source**.
 ---
 **NOTE**
 
@@ -55,7 +55,7 @@ The other option would be to use the `FhirServer:Operations:Export:StorageAccoun
 
 ---
 
-| :zap:        ! If you aren't using containerized deployment change the *__* in each configuration to *:*, e.g. *FhirServer__Operations__Import__Enabled* $\longrightarrow$  *FhirServer:Operations:Import:Enabled*. |
+| :zap:!If you aren't using containerized deployment change the '__' in each configuration to ':' <br> e.g.  *FhirServer__Operations__Import__Enabled* --->  *FhirServer:Operations:Import:Enabled*. |
 |-----------------------------------------|
 
 ### Change _initial import mode_ on the FHIR server
