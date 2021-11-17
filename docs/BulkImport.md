@@ -18,12 +18,12 @@ Here are the high-level steps to use $import. Rest of the document describes som
 1. [Deploy a new fhir server](#deploy-a-fhir-server) if needed. Ensure that _Enable Import_ is set to _True_ during the installation.
 1. [Check and set up the configuration](#check-and-set-up-configuration) check the configruation needed for import is set correctly, if not set it as indicated.
 If your fhir server is new deployed through [step 1](#deploy-a-fhir-server), you can skip this stage. 
-1. [Set init import mode](#change-init-import-mode-on-the-fhir-server) on the FHIR server. Setting this mode also suspends write operations (POST, PUT) on the FHIR server.
+1. [Set initial import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. Setting this mode also suspends write operations (POST, PUT) on the FHIR server.
 1. Upload your NDJSON files to a container in the storage location associated with your FHIR server. You may want to use  [_Azure storage explorer_](https://docs.microsoft.com/en-us/azure/vs-azure-tools-storage-manage-with-storage-explorer?tabs=windows) or [_Az_copy_](https://docs.microsoft.com/en-us/azure/storage/common/storage-ref-azcopy) to upload your data.
 1. Ensure that the storage available on your Azure SQL is at least 3 times that of the sum of your NDJSON files.
 1. Make the [$import API](#call-import) call.
 1. Periodically [check the status](#check-import-status) of import.
-1. [Unset init import mode](#change-init-import-mode-on-the-fhir-server) on the FHIR server. This step removes the suspension of the write operations on the FHIR server.
+1. [Unset initial import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. This step removes the suspension of the write operations on the FHIR server.
 
 ### Deploy a FHIR server
 
@@ -44,23 +44,33 @@ Make sure the following settings are set correctly in your fhir server:
 - *TaskHosting__Enabled*: **True**.
 - *FhirServer__Operations__Import__MaxRunningProcessingTaskCount*: **Not set as default or have value >0, we suggest it has value >= instance count for performance**.
 - *FhirServer__Operations__IntegrationDataStore__StorageAccountUri*: **The url of azure storage account used as data source, eg. https://<accountName>.blob.core.windows.net/**.
+   *or  FhirServer__Operations__IntegrationDataStore__StorageAccountConnection*: **The connection string of azure storage account used as data source**.
 
-| :zap:        !  Currently, for source blob, we don't support connection string authenication. And we assume that the fhir-server has permissions to read data from the corresponding storage account. One way to achieve this (assuming you are running the fhir-server code in App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Reader` permissions for the storage account of your choice |
+---
+**NOTE**
+
+There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer:Operations:Import:StorageAccountConnection` setting. The fhir-server will use the connection string to connect to the storage account and import data.
+
+The other option would be to use the `FhirServer:Operations:Export:StorageAccountUri` setting with the uri of the storage account. For this option, we assume that the fhir-server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the fhir-server code in App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
+
+---
+
+| :zap:        ! If you aren't using containerized deployment change the *__* in each configuration to *:*, e.g. *FhirServer__Operations__Import__Enabled* $\longrightarrow$  *FhirServer:Operations:Import:Enabled*. |
 |-----------------------------------------|
 
-### Change _init import mode_ on the FHIR server
+### Change _initial import mode_ on the FHIR server
 
-The FHIR server must have _init import mode_ set to _True_ for $import to work. Setting the value to _True_ also suspends the write operations (PUT, POST) on the FHIR server, and must be reverted to _False_ to resume the write operations.
+The FHIR server must have _initial import mode_ set to _True_ for $import to work. Setting the value to _True_ also suspends the write operations (PUT, POST) on the FHIR server, and must be reverted to _False_ to resume the write operations.
 
 ```
-FhirServer__Operations__Import__InitImportMode: True
+FhirServer__Operations__Import__InitialImportMode: True
 ```
 
-After the FHIR server app is ready, navigate to app service portal and click **Configuration**. Create the *FhirServer:Operations:Import:InitImportMode* setting if needed by clicking **New application setting**. Set the value to _True_ or _False_ as needed.
+After the FHIR server app is ready, navigate to app service portal and click **Configuration**. Create the *FhirServer:Operations:Import:InitialImportMode* setting if needed by clicking **New application setting**. Set the value to _True_ or _False_ as needed.
 
 Click **OK** then **Save**. Click **Continue** when prompted to restart the app and make the changes take effect.
 
-![set-initmode](./images/bulk-import/set-initmode.png)
+![set-initial-import-mode](./images/bulk-import/set-initial-import-mode.png)
 
 ### Call $import
 
@@ -199,7 +209,7 @@ Below are some errors you may encounter:
     "issue": [
         {
             "severity": "error",
-            "details": {
+            "details": {1
                 "text": "Given conditional reference '{0}' does not resolve to a resource."
             },
             "diagnostics": "Failed to process resource at line: {1}"
