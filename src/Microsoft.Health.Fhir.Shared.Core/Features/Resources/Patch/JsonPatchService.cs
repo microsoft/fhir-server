@@ -20,31 +20,18 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    internal sealed class JsonPatchService
+    internal sealed class JsonPatchService : AbstractPatchService<JsonPatchDocument>
     {
-        private readonly IModelInfoProvider _modelInfoProvider;
-
-        private readonly ISet<string> _immutableProperties = new HashSet<string>
-        {
-            "Resource.id",
-            "Resource.meta.lastUpdated",
-            "Resource.meta.versionId",
-            "Resource.text.div",
-            "Resource.text.status",
-        };
-
         public JsonPatchService(IModelInfoProvider modelInfoProvider)
+            : base(modelInfoProvider)
         {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-
-            _modelInfoProvider = modelInfoProvider;
         }
 
-        public ResourceElement Patch(ResourceWrapper resourceToPatch, JsonPatchDocument patchDocument, WeakETag weakETag)
+        public override ResourceElement Patch(ResourceWrapper resourceToPatch, JsonPatchDocument paramsResource, WeakETag weakETag)
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
 
-            Validate(resourceToPatch, weakETag, patchDocument);
+            Validate(resourceToPatch, weakETag, paramsResource);
 
             var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
 
@@ -52,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ITypedElement resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
             (string path, object result)[] preState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
-            Resource patchedResource = GetPatchedJsonResource(node, patchDocument);
+            Resource patchedResource = GetPatchedJsonResource(node, paramsResource);
 
             (string path, object result)[] postState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
             if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))
@@ -84,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
         }
 
-        private Resource GetPatchedJsonResource(FhirJsonNode node, JsonPatchDocument operations)
+        protected override Resource GetPatchedJsonResource(FhirJsonNode node, JsonPatchDocument operations)
         {
             try
             {
