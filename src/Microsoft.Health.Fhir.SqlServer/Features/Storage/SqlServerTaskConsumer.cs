@@ -148,12 +148,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
-            catch (SqlException ex)
+            catch (SqlException e) when (e.Message.Contains("Could not find stored procedure", StringComparison.OrdinalIgnoreCase))
             {
-                if (ex.Message.StartsWith("Could not find stored procedure", StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.LogWarning(ex, "Schema is not initialized - {ex.Message}", ex.Message);
-                }
+                _logger.LogWarning(e, "Schema is not initialized - {ex.Message}", e.Message);
             }
 
             return output;
