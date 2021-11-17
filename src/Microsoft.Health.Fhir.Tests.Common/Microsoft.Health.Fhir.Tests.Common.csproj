@@ -116,6 +116,7 @@
     <None Remove="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithConditionalUpdateAndReference.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidBundleEntry.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidResourceType.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
@@ -279,6 +280,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalUpdateAndReference.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidBundleEntry.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidResourceType.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />

@@ -84,6 +84,13 @@ jobs:
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "${{parameters.schemaAutomaticUpdatesEnabled}}"
         }
 
+        Write-Host "Check for keyvaults in removed state..."
+        if (Get-AzKeyVault -VaultName $webAppName -Location $(ResourceGroupRegion) -InRemovedState)
+        {
+            Remove-AzKeyVault -VaultName $webAppName -InRemovedState -Location $(ResourceGroupRegion) -Force
+            Write-Host "Deleted KeyVault in RemovedState."
+        }
+
         Write-Host "Provisioning Resource Group"
         Write-Host $webAppName
         Write-Host "${{ parameters.resourceGroup }}"

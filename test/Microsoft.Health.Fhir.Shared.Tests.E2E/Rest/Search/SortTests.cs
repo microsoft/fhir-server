@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
@@ -645,6 +648,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var response = await Client.SearchAsync($"Patient?_tag={tag}&_sort=family&_total=accurate");
             Assert.Equal(7, response.Resource.Total);
+        }
+
+        [SkippableFact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPatientWithManagingOrg_WhenSearchedWithOrgIdentifierAndSorted_ThenPatientsAreReturned()
+        {
+            // Arrange Patients with linked Managing Organization
+            var tag = Guid.NewGuid().ToString();
+
+            var org = Samples.GetDefaultOrganization().ToPoco<Organization>();
+            org.Identifier.Add(new Identifier("http://e2etest", tag));
+            var orgResponse = await Client.CreateAsync(org);
+
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.ManagingOrganization = new ResourceReference($"{KnownResourceTypes.Organization}/{orgResponse.Resource.Id}");
+
+            var patients = new List<Patient>();
+
+            SetPatientInfo(patient, "Seattle", "Robinson", tag);
+            patients.Add((await Client.CreateAsync(patient)).Resource);
+
+            SetPatientInfo(patient, "Portland", "Williams", tag);
+            patients.Add((await Client.CreateAsync(patient)).Resource);
+
+            // Uses both chained search + sort
+            await ExecuteAndValidateBundle(
+                $"Patient?organization.identifier={tag}&_sort=-family",
+                false,
+                patients.OrderByDescending(x => x.Name.Max(n => n.Family)).Cast<Resource>().ToArray());
         }
 
         private async Task<Patient[]> CreatePatients(string tag)

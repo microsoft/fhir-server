@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} {1} Capability Statement.
+        ///   Looks up a localized string similar to {0} {1} {2} Capability Statement.
         /// </summary>
         internal static string CapabilityStatementNameFormat {
             get {
@@ -295,6 +295,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;seealso&apos; link id cannot be null when a &apos;seealso&apos; link is being processed..
+        /// </summary>
+        internal static string CurrentSeeAlsoLinkIdShouldNotBeNull {
+            get {
+                return ResourceManager.GetString("CurrentSeeAlsoLinkIdShouldNotBeNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
         /// </summary>
         internal static string CustomHeaderPrefixCannotBeEmpty {
@@ -391,6 +400,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ErrorValidatingRoles {
             get {
                 return ResourceManager.GetString("ErrorValidatingRoles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The patient with id `{0}` is no longer relevant. Use patient with id `{1}` instead..
+        /// </summary>
+        internal static string EverythingOperationResourceIrrelevant {
+            get {
+                return ResourceManager.GetString("EverythingOperationResourceIrrelevant", resourceCulture);
             }
         }
         
@@ -1196,6 +1214,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Code value cannot be null or empty.
+        /// </summary>
+        internal static string SearchParameterDefinitionNullorEmptyCodeValue {
+            get {
+                return ResourceManager.GetString("SearchParameterDefinitionNullorEmptyCodeValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search parameter &apos;{0}&apos; is not common for &apos;{1}&apos; and &apos;{2}&apos;..
         /// </summary>
         internal static string SearchParameterMustBeCommon {
@@ -1381,6 +1408,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ValidationPassed {
             get {
                 return ResourceManager.GetString("ValidationPassed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value cannot be null.  Parameter name: {0}..
+        /// </summary>
+        internal static string ValueCannotBeNull {
+            get {
+                return ResourceManager.GetString("ValueCannotBeNull", resourceCulture);
             }
         }
         
