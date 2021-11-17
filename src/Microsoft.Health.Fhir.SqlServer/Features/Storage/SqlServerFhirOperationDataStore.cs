@@ -192,11 +192,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
-            catch (Exception ex)
+            catch (SqlException ex)
             {
-                if (string.Equals(ex.Message, string.Format(Core.Resources.CurrentSchemaVersionStoredProcedureNotFound, "dbo.AcquireExportJobs"), StringComparison.OrdinalIgnoreCase))
+                if (ex.Message.StartsWith("Could not find stored procedure", StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogWarning("Schema is not initialized - {ex.Message}", ex.Message);
+                    _logger.LogWarning(ex, "Schema is not initialized - {ex.Message}", ex.Message);
                 }
             }
 
