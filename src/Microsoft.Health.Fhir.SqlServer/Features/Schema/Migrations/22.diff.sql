@@ -17,7 +17,7 @@
 -- RETURN VALUE
 --     The updated jobs that are now running.
 --
-ALTER PROCEDURE dbo.AcquireExportJobs
+CREATE OR ALTER PROCEDURE dbo.AcquireExportJobs
     @jobHeartbeatTimeoutThresholdInSeconds bigint,
     @maximumNumberOfConcurrentJobsAllowed int
 AS
@@ -92,7 +92,7 @@ GO
 -- RETURN VALUE
 --     The updated jobs that are now running.
 --
-ALTER PROCEDURE dbo.AcquireReindexJobs
+CREATE OR ALTER PROCEDURE dbo.AcquireReindexJobs
     @jobHeartbeatTimeoutThresholdInSeconds bigint,
     @maximumNumberOfConcurrentJobsAllowed int
 AS
@@ -163,7 +163,7 @@ GO
 --     @partitionBoundary
 --         * The output parameter to stores the added partition boundary.
 --
-ALTER PROCEDURE dbo.AddPartitionOnResourceChanges
+CREATE OR ALTER PROCEDURE dbo.AddPartitionOnResourceChanges
     @partitionBoundary datetime2(7) OUTPUT
 AS
 BEGIN
@@ -223,7 +223,7 @@ GO
 --         * The end ResourceSurrogateId
 --     @batchSize
 --         * Max batch size for delete operation
-ALTER PROCEDURE dbo.BatchDeleteResourceParams
+CREATE OR ALTER PROCEDURE dbo.BatchDeleteResourceParams
     @tableName nvarchar(128),
     @resourceTypeId smallint,
     @startResourceSurrogateId bigint,
@@ -264,7 +264,7 @@ GO
 --         * The end ResourceSurrogateId
 --     @batchSize
 --         * Max batch size for delete operation
-ALTER PROCEDURE dbo.BatchDeleteResources
+CREATE OR ALTER PROCEDURE dbo.BatchDeleteResources
     @resourceTypeId smallint,
     @startResourceSurrogateId bigint,
     @endResourceSurrogateId bigint,
@@ -299,7 +299,7 @@ GO
 --         * The end ResourceSurrogateId
 --     @batchSize
 --         * Max batch size for delete operation
-ALTER PROCEDURE dbo.BatchDeleteResourceWriteClaims
+CREATE OR ALTER PROCEDURE dbo.BatchDeleteResourceWriteClaims
     @startResourceSurrogateId bigint,
     @endResourceSurrogateId bigint,
     @batchSize int
@@ -364,7 +364,7 @@ GO
 -- RETURN VALUE
 --     The number of resources that failed to reindex due to versioning conflicts.
 --
-ALTER PROCEDURE dbo.BulkReindexResources_2
+CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_2
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
@@ -748,7 +748,7 @@ GO
 --     @taskId
 --         * The ID of the task record
 --
-ALTER PROCEDURE [dbo].[CancelTask]
+CREATE OR ALTER PROCEDURE [dbo].[CancelTask]
     @taskId varchar(64)
 AS
 SET NOCOUNT ON;
@@ -807,7 +807,7 @@ GO
 -- RETURN VALUE
 --     It does not return a value.
 --
-ALTER PROCEDURE dbo.CaptureResourceChanges
+CREATE OR ALTER PROCEDURE dbo.CaptureResourceChanges
     @isDeleted bit,
     @version int,
     @resourceId varchar(64),
@@ -855,7 +855,7 @@ GO
 --     @runId
 --         * Current runId for this exuction of the task
 --
-ALTER PROCEDURE [dbo].[CompleteTask]
+CREATE OR ALTER PROCEDURE [dbo].[CompleteTask]
     @taskId varchar(64),
     @taskResult varchar(max),
     @runId varchar(50)
@@ -911,7 +911,7 @@ GO
 --     @numberOfFuturePartitionsToAdd
 --         * The number of partitions to add for future datetimes.
 --
-ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
+CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
     @numberOfFuturePartitionsToAdd int
 AS
 BEGIN
@@ -977,7 +977,7 @@ GO
 -- RETURN VALUE
 --     The row version of the created export job.
 --
-ALTER PROCEDURE dbo.CreateExportJob
+CREATE OR ALTER PROCEDURE dbo.CreateExportJob
     @id varchar(64),
     @hash varchar(64),
     @status varchar(10),
@@ -1014,7 +1014,7 @@ GO
 -- RETURN VALUE
 --     The row version of the created reindex job.
 --
-ALTER PROCEDURE dbo.CreateReindexJob
+CREATE OR ALTER PROCEDURE dbo.CreateReindexJob
     @id varchar(64),
     @status varchar(10),
     @rawJobRecord varchar(max)
@@ -1053,7 +1053,7 @@ GO
 --     @isUniqueTaskByType
 --         * Only create task if there's no other active task with same task type id
 --
-ALTER PROCEDURE [dbo].[CreateTask_2]
+CREATE OR ALTER PROCEDURE [dbo].[CreateTask_2]
     @taskId varchar(64),
     @queueId varchar(64),
     @taskTypeId smallint,
@@ -1124,7 +1124,7 @@ GO
 --         * index table name
 --     @indexName
 --         * index name
-ALTER PROCEDURE [dbo].[DisableIndex]
+CREATE OR ALTER PROCEDURE [dbo].[DisableIndex]
     @tableName nvarchar(128),
     @indexName nvarchar(128)
 AS
@@ -1166,7 +1166,7 @@ GO
 --         * Batch count for tasks list
 --     @taskHeartbeatTimeoutThresholdInSeconds
 --         * Timeout threshold in seconds for heart keep alive
-ALTER PROCEDURE [dbo].[GetNextTask_2]
+CREATE OR ALTER PROCEDURE [dbo].[GetNextTask_2]
     @queueId varchar(64),
     @count smallint,
     @taskHeartbeatTimeoutThresholdInSeconds int = 600
@@ -1252,7 +1252,7 @@ GO
 --     @keepCurrentVersion
 --         * When 1, the current resource version kept, else all data is removed.
 --
-ALTER PROCEDURE dbo.HardDeleteResource_2
+CREATE OR ALTER PROCEDURE dbo.HardDeleteResource_2
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @keepCurrentVersion smallint
@@ -1349,7 +1349,7 @@ Go
 --         * index table name
 --     @indexName
 --         * index name
-ALTER PROCEDURE [dbo].[RebuildIndex]
+CREATE OR ALTER PROCEDURE [dbo].[RebuildIndex]
     @tableName nvarchar(128),
     @indexName nvarchar(128)
 AS
@@ -1426,7 +1426,7 @@ GO
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-ALTER PROCEDURE dbo.ReindexResource_2
+CREATE OR ALTER PROCEDURE dbo.ReindexResource_2
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
@@ -1696,7 +1696,7 @@ GO
 --     @runId
 --         * Current runId for this exuction of the task
 --
-ALTER PROCEDURE [dbo].[ResetTask]
+CREATE OR ALTER PROCEDURE [dbo].[ResetTask]
     @taskId varchar(64),
     @runId varchar(50),
     @result varchar(max)
@@ -1773,7 +1773,7 @@ GO
 --     @runId
 --         * Current runId for this exuction of the task
 --
-ALTER PROCEDURE [dbo].[TaskKeepAlive]
+CREATE OR ALTER PROCEDURE [dbo].[TaskKeepAlive]
     @taskId varchar(64),
     @runId varchar(50)
 AS
@@ -1835,7 +1835,7 @@ GO
 -- RETURN VALUE
 --     The row version of the updated export job.
 --
-ALTER PROCEDURE dbo.UpdateExportJob
+CREATE OR ALTER PROCEDURE dbo.UpdateExportJob
     @id varchar(64),
     @status varchar(10),
     @rawJobRecord varchar(max),
@@ -1894,7 +1894,7 @@ GO
 -- RETURN VALUE
 --     The row version of the updated reindex job.
 --
-ALTER PROCEDURE dbo.UpdateReindexJob
+CREATE OR ALTER PROCEDURE dbo.UpdateReindexJob
     @id varchar(64),
     @status varchar(10),
     @rawJobRecord varchar(max),
@@ -1948,7 +1948,7 @@ GO
 --     @runId
 --         * Current runId for this exuction of the task
 --
-ALTER PROCEDURE [dbo].[UpdateTaskContext]
+CREATE OR ALTER PROCEDURE [dbo].[UpdateTaskContext]
     @taskId varchar(64),
     @taskContext varchar(max),
     @runId varchar(50)
@@ -2061,7 +2061,7 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-ALTER PROCEDURE dbo.UpsertResource_5
+CREATE OR ALTER PROCEDURE dbo.UpsertResource_5
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -2468,7 +2468,7 @@ GO
 -- RETURN VALUE
 --     The IDs and URIs of the search parameters that were inserted (not updated).
 --
-ALTER PROCEDURE dbo.UpsertSearchParams
+CREATE OR ALTER PROCEDURE dbo.UpsertSearchParams
     @searchParams dbo.SearchParamTableType_1 READONLY
 AS
 SET NOCOUNT ON;
