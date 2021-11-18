@@ -361,15 +361,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // depending on the state of the "Prefer" header.
             if (unsupportedSearchParameters.Any() || searchSortErrors.Any())
             {
-                // Put all errors into a set to avoid duplicate error messages, because search code and sort code may generate same error string.
-                // For example if non-searchable parameter is used both as a search and as a sort parameter then two same "non-searchable error" strings will be generated.
-                var allErrors = new SortedSet<string>();
+                var allErrors = new List<string>();
                 foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
                 {
                     allErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString)));
                 }
 
-                allErrors.UnionWith(searchSortErrors);
+                allErrors.AddRange(searchSortErrors);
 
                 if (_contextAccessor.GetIsStrictHandlingEnabled())
                 {
