@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
@@ -295,7 +296,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     .Select(g =>
                         Expression.And(
                             Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, g.Key)),
-                            Expression.Or(g.Select(m => Expression.SearchParameter(_resourceIdSearchParameter, Expression.Equals(FieldName.TokenCode, null, m.ResourceId))).ToList())));
+                            Expression.SearchParameter(_resourceIdSearchParameter, new InExpression(FieldName.TokenCode, null, g.Select(x => x.ResourceId)))));
 
                 return typeAndResourceExpressions.Count() == 1 ? typeAndResourceExpressions.First() : Expression.Or(typeAndResourceExpressions.ToArray());
             }
@@ -311,7 +312,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         .Select(g =>
                             Expression.And(
                                 Expression.Equals(FieldName.ReferenceResourceType, null, g.Key),
-                                Expression.Or(g.Select(m => Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId)).ToList()))).ToList()));
+                                new InExpression(FieldName.ReferenceResourceId, null, g.Select(x => x.ResourceId)))).ToList()));
         }
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(
@@ -702,7 +703,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         break;
                 }
 
-                if (includes.Count >= maxCount)
+                if (includes.Count > maxCount)
                 {
                     int toRemove = includes.Count - maxCount;
                     includes.RemoveRange(includes.Count - toRemove, toRemove);
