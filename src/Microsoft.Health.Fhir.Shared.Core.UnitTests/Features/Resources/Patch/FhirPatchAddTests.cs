@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                                 Given = new List<string> { "a" },
                                 Family = "name",
                                 Text = "a name",
-                                Period = new Period { End = "2020-01-02" },
+                                Period = new Period { End = "2020-01-01" },
                             },
                         },
                     },
