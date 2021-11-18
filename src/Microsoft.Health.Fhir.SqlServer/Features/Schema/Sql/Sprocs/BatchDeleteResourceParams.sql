@@ -26,26 +26,17 @@ CREATE PROCEDURE dbo.BatchDeleteResourceParams
     @endResourceSurrogateId bigint,
     @batchSize int
 AS
-    SET XACT_ABORT ON
-
-    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-    BEGIN TRANSACTION
-
-    DECLARE @Sql NVARCHAR(MAX);
-    DECLARE @ParmDefinition NVARCHAR(512);
-
-    IF OBJECT_ID(@tableName) IS NOT NULL BEGIN
-        SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName + N' WITH (TABLOCK) WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam'
-        SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint'; 
-
-        EXECUTE sp_executesql @sql, @parmDefinition,
-                                @BatchSizeParam = @batchSize,
-                                @ResourceTypeIdParam = @resourceTypeId,
-                                @StartResourceSurrogateIdParam = @startResourceSurrogateId,
-                                @EndResourceSurrogateIdParam = @endResourceSurrogateId
+SET XACT_ABORT ON;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN TRANSACTION;
+DECLARE @Sql AS NVARCHAR (MAX);
+DECLARE @ParmDefinition AS NVARCHAR (512);
+IF OBJECT_ID(@tableName) IS NOT NULL
+    BEGIN
+        SET @sql = N'DELETE TOP(@BatchSizeParam) FROM ' + @tableName + N' WITH (TABLOCK) WHERE ResourceTypeId = @ResourceTypeIdParam AND ResourceSurrogateId >= @StartResourceSurrogateIdParam AND ResourceSurrogateId < @EndResourceSurrogateIdParam';
+        SET @parmDefinition = N'@BatchSizeParam int, @ResourceTypeIdParam smallint, @StartResourceSurrogateIdParam bigint, @EndResourceSurrogateIdParam bigint';
+        EXECUTE sp_executesql @sql, @parmDefinition, @BatchSizeParam = @batchSize, @ResourceTypeIdParam = @resourceTypeId, @StartResourceSurrogateIdParam = @startResourceSurrogateId, @EndResourceSurrogateIdParam = @endResourceSurrogateId;
     END
-
-    COMMIT TRANSACTION
-
-    return @@rowcount
+COMMIT TRANSACTION;
+RETURN @@rowcount;
 GO

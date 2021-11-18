@@ -24,19 +24,12 @@ CREATE PROCEDURE dbo.CreateReindexJob
     @status varchar(10),
     @rawJobRecord varchar(max)
 AS
-    SET NOCOUNT ON
-
-    SET XACT_ABORT ON
-    BEGIN TRANSACTION
-
-    DECLARE @heartbeatDateTime datetime2(7) = SYSUTCDATETIME()
-
-    INSERT INTO dbo.ReindexJob
-        (Id, Status, HeartbeatDateTime, RawJobRecord)
-    VALUES
-        (@id, @status, @heartbeatDateTime, @rawJobRecord)
-
-    SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
-
-    COMMIT TRANSACTION
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+DECLARE @heartbeatDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+INSERT  INTO dbo.ReindexJob (Id, Status, HeartbeatDateTime, RawJobRecord)
+VALUES                     (@id, @status, @heartbeatDateTime, @rawJobRecord);
+SELECT CAST (MIN_ACTIVE_ROWVERSION() AS INT);
+COMMIT TRANSACTION;
 GO

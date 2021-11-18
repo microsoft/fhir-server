@@ -19,6 +19,7 @@ https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Conv
 - Update csproj with new `SqlScript` or `TSqlScript` file element
 
 ### Common
+- Update TransactionCheckWithInitialiScript file with LatestSchemaVersion
 - Update csproj prop
     -  `<LatestSchemaVersion>` with latest version
     -  `EmbeddedResource` to generate the latest c# models 
