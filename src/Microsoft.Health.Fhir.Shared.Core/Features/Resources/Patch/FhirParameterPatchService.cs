@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using FhirPathPatch;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -20,27 +21,14 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    internal sealed class FhirParameterPatchService
+    internal sealed class FhirParameterPatchService : AbstractPatchService<Parameters>
     {
-        private readonly IModelInfoProvider _modelInfoProvider;
-
-        private readonly ISet<string> _immutableProperties = new HashSet<string>
-        {
-            "Resource.id",
-            "Resource.meta.lastUpdated",
-            "Resource.meta.versionId",
-            "Resource.text.div",
-            "Resource.text.status",
-        };
-
         public FhirParameterPatchService(IModelInfoProvider modelInfoProvider)
+            : base(modelInfoProvider)
         {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-
-            _modelInfoProvider = modelInfoProvider;
         }
 
-        public ResourceElement Patch(ResourceWrapper resourceToPatch, Parameters paramsResource, WeakETag weakETag)
+        public override ResourceElement Patch(ResourceWrapper resourceToPatch, Parameters paramsResource, WeakETag weakETag)
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
 
@@ -52,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ITypedElement resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
             (string path, object result)[] preState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
-            Resource patchedResource = paramsResource;
+            Resource patchedResource = GetPatchedJsonResource(node, paramsResource);
 
             (string path, object result)[] postState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
             if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))
@@ -85,6 +73,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                     throw new BadRequestException($"{result.MemberNames} is invalid.");
                 }
             }
+        }
+
+        protected override Resource GetPatchedJsonResource(FhirJsonNode node, Parameters operations)
+        {
+            Resource resourcePoco;
+            try
+            {
+                var resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+                resourcePoco = resource.ToPoco<Resource>();
+            }
+            catch (Exception e)
+            {
+                throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, e.Message));
+            }
+
+            var builder = new FhirPathPatchBuilder(resourcePoco, operations);
+            return builder.Apply();
         }
     }
 }
