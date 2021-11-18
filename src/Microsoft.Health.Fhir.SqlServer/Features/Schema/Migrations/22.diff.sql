@@ -163,7 +163,7 @@ GO
 --     @partitionBoundary
 --         * The output parameter to stores the added partition boundary.
 --
-CREATE OR ALTER PROCEDURE dbo.AddPartitionOnResourceChanges
+ALTER PROCEDURE dbo.AddPartitionOnResourceChanges
     @partitionBoundary datetime2(7) OUTPUT
 AS
 BEGIN
@@ -911,7 +911,7 @@ GO
 --     @numberOfFuturePartitionsToAdd
 --         * The number of partitions to add for future datetimes.
 --
-CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
+ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
     @numberOfFuturePartitionsToAdd int
 AS
 BEGIN
@@ -1333,46 +1333,6 @@ WHERE  ResourceTypeId = @resourceTypeId
                                    FROM   @resourceSurrogateIds);
 COMMIT TRANSACTION;
 Go
-
-/*************************************************************
-    Stored procedures for rebuild index
-**************************************************************/
---
--- STORED PROCEDURE
---     RebuildIndex
---
--- DESCRIPTION
---     Stored procedures for rebuild index
---
--- PARAMETERS
---     @tableName
---         * index table name
---     @indexName
---         * index name
-ALTER PROCEDURE [dbo].[RebuildIndex]
-    @tableName nvarchar(128),
-    @indexName nvarchar(128)
-AS
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
-DECLARE @IsExecuted AS INT;
-SET @IsExecuted = 0;
-BEGIN TRANSACTION;
-IF EXISTS (SELECT *
-           FROM   [sys].[indexes]
-           WHERE  name = @indexName
-                  AND object_id = OBJECT_ID(@tableName)
-                  AND is_disabled = 1)
-    BEGIN
-        DECLARE @Sql AS NVARCHAR (MAX);
-        SET @Sql = N'ALTER INDEX ' + QUOTENAME(@indexName) + N' on ' + @tableName + ' Rebuild';
-        EXECUTE sp_executesql @Sql;
-        SET @IsExecuted = 1;
-    END
-COMMIT TRANSACTION;
-RETURN @IsExecuted;
-GO
 
 /*************************************************************
     Stored procedures for rebuild index
@@ -2489,4 +2449,53 @@ IF (@isResourceChangeCaptureEnabled = 1)
     END
 COMMIT TRANSACTION;
 
+GO
+
+/*************************************************************
+    Stored procedures - UpsertSearchParams
+**************************************************************/
+--
+-- STORED PROCEDURE
+--     UpsertSearchParams
+--
+-- DESCRIPTION
+--     Given a set of search parameters, creates or updates the parameters.
+--
+-- PARAMETERS
+--     @searchParams
+--         * The updated existing search parameters or the new search parameters
+--
+-- RETURN VALUE
+--     The IDs and URIs of the search parameters that were inserted (not updated).
+--
+ALTER PROCEDURE dbo.UpsertSearchParams
+    @searchParams dbo.SearchParamTableType_1 READONLY
+AS
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+BEGIN TRANSACTION;
+DECLARE @lastUpdated AS DATETIMEOFFSET (7) = SYSDATETIMEOFFSET();
+DECLARE @summaryOfChanges TABLE (
+    Uri    VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Action VARCHAR (20)  NOT NULL);
+
+-- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
+MERGE INTO dbo.SearchParam WITH (TABLOCKX)
+ AS target
+USING @searchParams AS source ON target.Uri = source.Uri
+WHEN MATCHED THEN UPDATE 
+SET Status               = source.Status,
+    LastUpdated          = @lastUpdated,
+    IsPartiallySupported = source.IsPartiallySupported
+WHEN NOT MATCHED BY TARGET THEN INSERT (Uri, Status, LastUpdated, IsPartiallySupported) VALUES (source.Uri, source.Status, @lastUpdated, source.IsPartiallySupported)
+OUTPUT source.Uri, $ACTION INTO @summaryOfChanges;
+SELECT SearchParamId,
+       SearchParam.Uri
+FROM   dbo.SearchParam AS searchParam
+       INNER JOIN
+       @summaryOfChanges AS upsertedSearchParam
+       ON searchParam.Uri = upsertedSearchParam.Uri
+WHERE  upsertedSearchParam.Action = 'INSERT';
+COMMIT TRANSACTION;
 GO

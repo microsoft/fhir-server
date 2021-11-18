@@ -13,6 +13,7 @@ https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Conv
 
 ### Existing sql file
 - Edit the changes in the existing sql file
+- Updating Stored proc - Ensure to follow correct SQL formatting
 
 ### New table/sproc
 - Add a new sql file in the corresponding folder in `Sql` folder
@@ -25,6 +26,11 @@ https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Conv
     -  `EmbeddedResource` to generate the latest c# models 
 - Full schema is auto generated from the Sql target build task
 - Migration diff script is manually generated and should follow recommedations [here](https://github.com/microsoft/healthcare-shared-components/tree/master/src/Microsoft.Health.SqlServer/SqlSchemaScriptsGuidelines.md)
+
+## Testing changes
+
+- Ensure to run SqlServerSchemaUpgradeTests
+- Make sure yours scripts are consistent with Full script SQL formatting. Test - GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent, covers the validation for any differences between snapshot and diff databases.
 
 ## Performance Checklist
 
