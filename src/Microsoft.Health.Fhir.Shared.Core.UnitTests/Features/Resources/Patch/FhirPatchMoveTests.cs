@@ -1,11 +1,15 @@
-﻿using System;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using FhirPathPatch;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
+namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchMoveTests
     {
@@ -26,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
-                    }
+                    },
             };
 
             // Act
@@ -42,9 +46,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 4" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
@@ -64,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
-                    }
+                    },
             };
 
             // Act
@@ -80,9 +83,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
@@ -102,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
-                    }
+                    },
             };
 
             // Act
@@ -118,9 +120,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
@@ -140,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
-                    }
+                    },
             };
 
             // Act
@@ -156,9 +157,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
                         new Identifier { System = "http://example.org", Value = "value 1" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
-                    }
+                    },
             };
 
             // Act
@@ -199,9 +199,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
@@ -224,7 +223,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 4" },
-                    }
+                    },
             };
 
             // Act
@@ -243,13 +242,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 1" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
-        // Move with a path that doesn't resolve should throw an exception
+        /// Move with a path that doesn't resolve should throw an exception
         /// </summary>
         [Fact]
         public void MoveInvalidPath()
@@ -290,8 +288,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     {
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
-                        new Identifier { System = "http://example.org", Value = "value 3" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 3" },
+                    },
             };
 
             // Act / Assert
@@ -313,8 +311,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     {
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
-                        new Identifier { System = "http://example.org", Value = "value 3" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 3" },
+                    },
             };
 
             // Act / Assert
@@ -336,8 +334,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     {
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
-                        new Identifier { System = "http://example.org", Value = "value 3" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 3" },
+                    },
             };
 
             // Act / Assert
@@ -359,8 +357,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     {
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
-                        new Identifier { System = "http://example.org", Value = "value 3" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 3" },
+                    },
             };
 
             // Act / Assert

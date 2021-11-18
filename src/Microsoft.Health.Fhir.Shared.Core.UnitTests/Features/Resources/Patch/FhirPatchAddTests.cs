@@ -1,11 +1,15 @@
-﻿using System;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using FhirPathPatch;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
+namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchAddTests
     {
@@ -28,9 +32,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
-                    BirthDate = "1930-01-01"
-                }
-            ));
+                    BirthDate = "1930-01-01",
+                }));
         }
 
         /// <summary>
@@ -47,8 +50,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             {
                 Contact = new List<Patient.ContactComponent>
                 {
-                    new Patient.ContactComponent { Name = new HumanName() { Text = "a name" } }
-                }
+                    new Patient.ContactComponent { Name = new HumanName() { Text = "a name" } },
+                },
             };
 
             // Act
@@ -60,13 +63,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 {
                     Contact = new List<Patient.ContactComponent>
                     {
-                        new Patient.ContactComponent {
+                        new Patient.ContactComponent
+                        {
                             Name = new HumanName { Text = "a name" },
-                            Gender = AdministrativeGender.Male
-                        }
-                    }
-                }
-            ));
+                            Gender = AdministrativeGender.Male,
+                        },
+                    },
+                }));
         }
 
         /// <summary>
@@ -86,9 +89,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
-                    MaritalStatus = new CodeableConcept { Text = "married" }
-                }
-            ));
+                    MaritalStatus = new CodeableConcept { Text = "married" },
+                }));
         }
 
         /// <summary>
@@ -110,10 +112,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         Name = "name",
                         Value = new HumanName
                         {
-                            Text = "a name"
-                        }
-                    }
-                }
+                            Text = "a name",
+                        },
+                    },
+                },
             };
 
             // Act
@@ -129,12 +131,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         {
                             Name = new HumanName
                             {
-                                Text = "a name"
-                            }
-                        }
-                    }
-                }
-            ));
+                                Text = "a name",
+                            },
+                        },
+                    },
+                }));
         }
 
         // Custom Tests
@@ -150,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official')", "period", new Period { EndElement = new FhirDateTime(now) });
             var patientResource = new Patient
             {
-                Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123" } }
+                Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123" } },
             };
 
             // Act
@@ -160,9 +161,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
-                    Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123", Period = new Period { EndElement = new FhirDateTime(now) } } }
-                }
-            ));
+                    Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123", Period = new Period { EndElement = new FhirDateTime(now) } } },
+                }));
         }
 
         /// <summary>
@@ -174,10 +174,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             // Arrange
             var patientResource = new Patient
             {
-                Name = {
+                Name =
+                {
                     new HumanName { Given = new[] { "Chad" }, Family = "Johnson", Use = HumanName.NameUse.Old },
-                    new HumanName { Given = new[] { "Chad" }, Family = "Ochocinco", Use = HumanName.NameUse.Old }
-                }
+                    new HumanName { Given = new[] { "Chad" }, Family = "Ochocinco", Use = HumanName.NameUse.Old },
+                },
             };
             var newName = new HumanName { Given = new[] { "Chad", "Ochocinco" }, Family = "Johnson", Use = HumanName.NameUse.Usual };
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "name", newName);
@@ -189,13 +190,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
-                    Name = {
+                    Name =
+                    {
                         new HumanName { Given = new[] { "Chad" }, Family = "Johnson", Use = HumanName.NameUse.Old },
                         new HumanName { Given = new[] { "Chad" }, Family = "Ochocinco", Use = HumanName.NameUse.Old },
-                        new HumanName { Given = new[] { "Chad", "Ochocinco" }, Family = "Johnson", Use = HumanName.NameUse.Usual }
-                    }
-                }
-            ));
+                        new HumanName { Given = new[] { "Chad", "Ochocinco" }, Family = "Johnson", Use = HumanName.NameUse.Usual },
+                    },
+                }));
         }
 
         /// <summary>
@@ -219,10 +220,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                             Given = new List<string> { "a" },
                             Family = "name",
                             Text = "a name",
-                            Period = new Period { End = "2020-01-01" }
-                        }
-                    }
-                }
+                            Period = new Period { End = "2020-01-01" },
+                        },
+                    },
+                },
             };
 
             // Act
@@ -241,36 +242,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                                 Given = new List<string> { "a" },
                                 Family = "name",
                                 Text = "a name",
-                                Period = new Period { End = "2020-01-02" }
-                            }
-                        }
-                    }
-                }
-            ));
+                                Period = new Period { End = "2020-01-02" },
+                            },
+                        },
+                    },
+                }));
         }
 
-        // Proper handling of this use case unclear. Commenting out until more clairty is obtained.
-        //[Fact]
-        //public void AddNestedPrimativeNullObject()
-        //{
-        //    // Arrange
-        //    var now = DateTimeOffset.Now;
-        //    var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official').period", "end", new FhirDateTime(now));
-        //    var patientResource = new Patient
-        //    {
-        //        Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123" } }
-        //    };
+       /* Proper handling of this use case unclear.Commenting out until more clairty is obtained.
 
-        //    // Act
-        //    Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+       [Fact]
+        public void AddNestedPrimativeNullObject()
+        {
+            // Arrange
+            var now = DateTimeOffset.Now;
+            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official').period", "end", new FhirDateTime(now));
+            var patientResource = new Patient
+            {
+                Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123" } }
+            };
 
-        //    // Assert
-        //    Assert.True(patchedPatientResource.Matches(
-        //        new Patient
-        //        {
-        //            Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123", Period = new Period { EndElement = new FhirDateTime(now) }}}
-        //        }
-        //    ));
-        //}
+            // Act
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+
+            // Assert
+            Assert.True(patchedPatientResource.Matches(
+                new Patient
+                {
+                    Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123", Period = new Period { EndElement = new FhirDateTime(now) } } }
+                }
+            ));
+        } */
     }
 }

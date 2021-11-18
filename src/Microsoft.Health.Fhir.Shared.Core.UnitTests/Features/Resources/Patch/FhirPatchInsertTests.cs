@@ -1,10 +1,15 @@
-﻿using System;
-using System.Linq;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+using System;
+using System.Collections.Generic;
+using FhirPathPatch;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
+namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchInsertTests
     {
@@ -24,8 +29,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 Identifier = new List<Identifier>
                     {
                         new Identifier { System = "http://example.org", Value = "value 1" },
-                        new Identifier { System = "http://example.org", Value = "value 2" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 2" },
+                    },
             };
 
             // Act
@@ -40,9 +45,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
@@ -59,8 +63,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 Identifier = new List<Identifier>
                     {
                         new Identifier { System = "http://example.org", Value = "value 1" },
-                        new Identifier { System = "http://example.org", Value = "value 2" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 2" },
+                    },
             };
 
             // Act
@@ -75,9 +79,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
@@ -94,8 +97,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 Identifier = new List<Identifier>
                     {
                         new Identifier { System = "http://example.org", Value = "value 1" },
-                        new Identifier { System = "http://example.org", Value = "value 2" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 2" },
+                    },
             };
 
             // Act
@@ -110,13 +113,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 3" },
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
-                    }
-                }
-            ));
+                    },
+                }));
         }
 
         /// <summary>
-        // Insert with a path that doesn't resolve should throw an exception
+        /// Insert with a path that doesn't resolve should throw an exception
         /// </summary>
         [Fact]
         public void InsertInvalidPath()
@@ -129,32 +131,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
 
-        // Commented out until proper behavior is found.
-        //
+        /* Commented out until proper behavior is found.
         /// <summary>
         /// Insert into a list that hasnt been initialized on the resource
         /// </summary>
-        //[Fact]
-        //public void InsertToListThatDoesntExist()
-        //{
-        //    // Arrange
-        //    var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new Identifier { System = "http://example.org", Value = "value 3" }, 2);
-        //    var patientResource = new Patient();
+        [Fact]
+        public void InsertToListThatDoesntExist()
+        {
+            // Arrange
+            var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new Identifier { System = "http://example.org", Value = "value 3" }, 2);
+            var patientResource = new Patient();
 
-        //    // Act
-        //    Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Build(patchParam).Apply();
+            // Act
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Build(patchParam).Apply();
 
-        //    // Assert
-        //    Assert.True(patchedPatientResource.Matches(
-        //        new Patient
-        //        {
-        //            Identifier = new List<Identifier>
-        //            {
-        //                new Identifier { System = "http://example.org", Value = "value 3" },
-        //            }
-        //        }
-        //    ));
-        //}
+            // Assert
+            Assert.True(patchedPatientResource.Matches(
+                new Patient
+                {
+                    Identifier = new List<Identifier>
+                    {
+                        new Identifier { System = "http://example.org", Value = "value 3" },
+                    }
+                }
+            ));
+        } */
 
         /// <summary>
         /// Tests insert with index > list length throws exception
@@ -168,8 +169,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             {
                 Identifier = new List<Identifier>
                     {
-                        new Identifier { System = "http://example.org", Value = "value 1" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 1" },
+                    },
             };
 
             // Act / Assert
@@ -189,8 +190,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             {
                 Identifier = new List<Identifier>
                     {
-                        new Identifier { System = "http://example.org", Value = "value 1" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 1" },
+                    },
             };
 
             // Act / Assert
@@ -198,26 +199,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
 
-        // Not sure how this should be handled.
+        /* Not sure how this should be handled.
         /// <summary>
         /// Tests insert with non-matching data types
         /// </summary>
-        //[Fact]
-        //public void InsertNonMatchingTypes()
-        //{
-        //    // Arrange
-        //    var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new FhirDecimal(-42), 0);
-        //    var patientResource = new Patient
-        //    {
-        //        Identifier = new List<Identifier>
-        //            {
-        //                new Identifier { System = "http://example.org", Value = "value 1" }
-        //            }
-        //    };
 
-        //    // Act / Assert
-        //    var builder = new FhirPathPatchBuilder(patientResource).Build(patchParam);
-        //    Assert.Throws<InvalidOperationException>(builder.Apply);
-        //}
+       [Fact]
+        public void InsertNonMatchingTypes()
+        {
+            // Arrange
+            var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new FhirDecimal(-42), 0);
+            var patientResource = new Patient
+            {
+                Identifier = new List<Identifier>
+                    {
+                        new Identifier { System = "http://example.org", Value = "value 1" }
+                    }
+            };
+
+            // Act / Assert
+            var builder = new FhirPathPatchBuilder(patientResource).Build(patchParam);
+            Assert.Throws<InvalidOperationException>(builder.Apply);
+        } */
     }
 }

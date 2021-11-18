@@ -1,11 +1,14 @@
-﻿using System;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
 using System.Collections.Generic;
-using System.Linq;
+using FhirPathPatch;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
+namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchDeleteTests
     {
@@ -48,11 +51,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         {
                             Name = new HumanName
                             {
-                                Text = "a name"
+                                Text = "a name",
                             },
-                            Gender = AdministrativeGender.Male
-                        }
-                    }
+                            Gender = AdministrativeGender.Male,
+                        },
+                    },
                 }).Add(patchParam.Parameter[0]).Apply();
 
             // Assert
@@ -65,12 +68,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         {
                             Name = new HumanName
                             {
-                                Text = "a name"
-                            }
-                        }
-                    }
-                }
-            ));
+                                Text = "a name",
+                            },
+                        },
+                    },
+                }));
         }
 
         /// <summary>
@@ -93,11 +95,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         {
                             Name = new HumanName
                             {
-                                Text = "a name"
+                                Text = "a name",
                             },
-                            Gender = AdministrativeGender.Male
-                        }
-                    }
+                            Gender = AdministrativeGender.Male,
+                        },
+                    },
                 }).Add(patchParam.Parameter[0]).Apply();
 
             // Assert
@@ -108,11 +110,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     {
                         new Patient.ContactComponent
                         {
-                            Gender = AdministrativeGender.Male
-                        }
-                    }
-                }
-            ));
+                            Gender = AdministrativeGender.Male,
+                        },
+                    },
+                }));
         }
 
         /// <summary>
@@ -127,15 +128,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
 
             // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(
-                new Patient {
-                    MaritalStatus = new CodeableConcept { Text = "married" }
+                new Patient
+                {
+                    MaritalStatus = new CodeableConcept { Text = "married" },
                 }).Add(patchParam.Parameter[0]).Apply();
 
             // Assert
             Assert.True(patchedPatientResource.Matches(new Patient()));
         }
 
-        // <summary>
+        /// <summary>
         /// Implements test case at:
         /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L494
         /// </summary>
@@ -155,17 +157,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         {
                             Name = new HumanName
                             {
-                                Text = "a name"
-                            }
-                        }
-                    }
+                                Text = "a name",
+                            },
+                        },
+                    },
                 }).Add(patchParam.Parameter[0]).Apply();
 
             // Assert
             Assert.True(patchedPatientResource.Matches(new Patient()));
         }
 
-        // <summary>
+        /// <summary>
         /// Implements test case at:
         /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L790
         /// </summary>
@@ -181,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
-                    }
+                    },
             };
 
             // Act
@@ -194,11 +196,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 {
                     new Identifier { System = "http://example.org", Value = "value 2" },
                     new Identifier { System = "http://example.org", Value = "value 3" },
-                }
+                },
             }));
         }
 
-        // <summary>
+        /// <summary>
         /// Implements test case at:
         /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L836
         /// </summary>
@@ -214,7 +216,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
-                    }
+                    },
             };
 
             // Act
@@ -227,11 +229,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 {
                     new Identifier { System = "http://example.org", Value = "value 1" },
                     new Identifier { System = "http://example.org", Value = "value 3" },
-                }
+                },
             }));
         }
 
-        // <summary>
+        /// <summary>
         /// Implements test case at:
         /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L882
         /// </summary>
@@ -247,7 +249,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                         new Identifier { System = "http://example.org", Value = "value 1" },
                         new Identifier { System = "http://example.org", Value = "value 2" },
                         new Identifier { System = "http://example.org", Value = "value 3" },
-                    }
+                    },
             };
 
             // Act
@@ -260,7 +262,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 {
                     new Identifier { System = "http://example.org", Value = "value 1" },
                     new Identifier { System = "http://example.org", Value = "value 2" },
-                }
+                },
             }));
         }
 
@@ -278,7 +280,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.nothing");
             var patchPatient = new Patient
             {
-                BirthDate = "1920-01-01"
+                BirthDate = "1920-01-01",
             };
 
             // Act
@@ -298,7 +300,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             var patchParam = new Parameters().AddDeletePatchParameter("Contact.name");
             var patchPatient = new Patient
             {
-                BirthDate = "1920-01-01"
+                BirthDate = "1920-01-01",
             };
 
             // Act

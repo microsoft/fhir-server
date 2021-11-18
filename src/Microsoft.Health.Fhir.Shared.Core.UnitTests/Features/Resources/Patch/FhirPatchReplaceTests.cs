@@ -1,11 +1,15 @@
-﻿using System;
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using FhirPathPatch;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
+namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchReplaceTests
     {
@@ -29,9 +33,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
-                    BirthDate = "1930-01-01"
-                }
-            ));
+                    BirthDate = "1930-01-01",
+                }));
         }
 
         /// <summary>
@@ -51,11 +54,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     {
                         Name = new HumanName
                         {
-                            Text = "a name"
+                            Text = "a name",
                         },
-                        Gender = AdministrativeGender.Male
-                    }
-                }
+                        Gender = AdministrativeGender.Male,
+                    },
+                },
             };
 
             // Act
@@ -65,18 +68,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.True(patchedPatientResource.Matches(
                  new Patient
                  {
-                     Contact = new List<Patient.ContactComponent> {
+                     Contact = new List<Patient.ContactComponent>
+                     {
                         new Patient.ContactComponent
                         {
                             Name = new HumanName
                             {
-                                Text = "a name"
+                                Text = "a name",
                             },
-                            Gender = AdministrativeGender.Female
-                        }
-                    }
-                 }
-            ));
+                            Gender = AdministrativeGender.Female,
+                        },
+                     },
+                 }));
         }
 
         /// <summary>
@@ -96,11 +99,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     {
                         Name = new HumanName
                         {
-                            Text = "a name"
+                            Text = "a name",
                         },
-                        Gender = AdministrativeGender.Male
-                    }
-                }
+                        Gender = AdministrativeGender.Male,
+                    },
+                },
             };
 
             // Act
@@ -110,18 +113,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
-                    Contact = new List<Patient.ContactComponent> {
+                    Contact = new List<Patient.ContactComponent>
+                    {
                         new Patient.ContactComponent
                         {
                             Name = new HumanName
                             {
-                                Text = "the name"
+                                Text = "the name",
                             },
-                            Gender = AdministrativeGender.Male
-                        }
-                    }
-                }
-            ));
+                            Gender = AdministrativeGender.Male,
+                        },
+                    },
+                }));
         }
 
         /// <summary>
@@ -138,8 +141,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 MaritalStatus = new CodeableConcept
                 {
                     ElementId = "1",
-                    Text = "married"
-                }
+                    Text = "married",
+                },
             };
 
             // Act
@@ -152,10 +155,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     MaritalStatus = new CodeableConcept
                     {
                         ElementId = "2",
-                        Text = "not married"
-                    }
-                }
-            ));
+                        Text = "not married",
+                    },
+                }));
         }
 
         /// <summary>
@@ -174,8 +176,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 Identifier = new List<Identifier>
                     {
                         new Identifier { ElementId = "a", System = "http://example.org", Value = "value 1" },
-                        new Identifier { ElementId = "b", System = "http://example.org", Value = "value 2" }
-                    }
+                        new Identifier { ElementId = "b", System = "http://example.org", Value = "value 2" },
+                    },
             };
 
             // Act
@@ -191,10 +193,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     Identifier = new List<Identifier>
                     {
                         new Identifier { ElementId = "a", System = "http://example.org", Value = "value 2" },
-                        new Identifier { ElementId = "b", System = "http://example.org", Value = "value 1" }
-                    }
-                }
-            ));
+                        new Identifier { ElementId = "b", System = "http://example.org", Value = "value 1" },
+                    },
+                }));
         }
 
         // Other tests
@@ -214,8 +215,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                 Identifier = new List<Identifier>
                     {
                         new Identifier { ElementId = "a", System = "http://example.org", Value = "value 1" },
-                        new Identifier { ElementId = "b", System = "http://example.org", Value = "value 2" }
-                    }
+                        new Identifier { ElementId = "b", System = "http://example.org", Value = "value 2" },
+                    },
             };
 
             // Act
@@ -231,10 +232,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
                     Identifier = new List<Identifier>
                     {
                         new Identifier { ElementId = "a", System = "http://example.org", Value = "value 2" },
-                        new Identifier { ElementId = "b", System = "http://example.org", Value = "value 1" }
-                    }
-                }
-            ));
+                        new Identifier { ElementId = "b", System = "http://example.org", Value = "value 1" },
+                    },
+                }));
         }
 
         /// <summary>
@@ -251,29 +251,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources.Patch
             Assert.Throws<InvalidOperationException>(patchOperation.Apply);
         }
 
-        // Unsure of proper behavior
+        /* Unsure of proper behavior
         /// <summary>
         /// Tests replace operation when a non-matching data type is given.
         /// </summary>
-        //[Fact]
-        //public void ReplaceDifferentDataType()
-        //{
-        //    // Arrange
-        //    var patchParam = new Parameters().AddReplacePatchParameter("Patient.name[0].text", new FhirDecimal(-1));
-        //    var patchPatient = new Patient
-        //    {
-        //        Name = new List<HumanName>
-        //        {
-        //            new HumanName
-        //            {
-        //                Text = "a name"
-        //            }
-        //        }
-        //    };
+        [Fact]
+        public void ReplaceDifferentDataType()
+        {
+            // Arrange
+            var patchParam = new Parameters().AddReplacePatchParameter("Patient.name[0].text", new FhirDecimal(-1));
+            var patchPatient = new Patient
+            {
+                Name = new List<HumanName>
+                {
+                    new HumanName
+                    {
+                        Text = "a name"
+                    }
+                }
+            };
 
-        //    // Act / Assert
-        //    var patchOperation = new FhirPathPatchBuilder(patchPatient).Add(patchParam.Parameter[0]);
-        //    Assert.Throws<InvalidOperationException>(patchOperation.Apply);
-        //}
+            // Act / Assert
+            var patchOperation = new FhirPathPatchBuilder(patchPatient).Add(patchParam.Parameter[0]);
+            Assert.Throws<InvalidOperationException>(patchOperation.Apply);
+        } */
     }
 }
