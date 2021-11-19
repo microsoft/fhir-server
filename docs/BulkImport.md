@@ -55,7 +55,7 @@ The other option would be to use the `FhirServer__Operations__IntegrationDataSto
 
 ---
 
-| :zap:! If you are doing custom deployments neither as a Linux app service or a custom Linux container, any nested JSON key structure in the app setting name like ApplicationInsights__InstrumentationKey needs to be configured in App Service as ApplicationInsights:InstrumentationKey for the key name. In other words, any __(double underscore) should be replaced by :. |
+| :zap:! If you are doing custom deployments neither as a Linux app service or a custom Linux container, any nested JSON key structure in the app setting name like TaskHosting__Enabled needs to be configured in App Service as TaskHosting:Enabled for the key name. In other words, any __(double underscore) should be replaced by :(colon). |
 |-----------------------------------------|
 
 ### Change _initial import mode_ on the FHIR server
