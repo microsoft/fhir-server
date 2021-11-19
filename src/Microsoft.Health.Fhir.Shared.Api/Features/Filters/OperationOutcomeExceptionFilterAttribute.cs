@@ -211,16 +211,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.RequestHeaderFieldsTooLarge);
                         break;
                     default:
-                        healthExceptionResult = new OperationOutcomeResult(
-                            new OperationOutcome
-                            {
-                                Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
-                                Meta = new Meta()
-                                {
-                                    LastUpdated = Clock.UtcNow,
-                                },
-                            },
-                            HttpStatusCode.InternalServerError);
+                        healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
                         break;
                 }
 
@@ -253,16 +244,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
             else
             {
-                context.Result = new OperationOutcomeResult(
-                    new OperationOutcome
-                    {
-                        Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
-                        Meta = new Meta()
-                        {
-                            LastUpdated = Clock.UtcNow,
-                        },
-                    },
-                    HttpStatusCode.InternalServerError);
+                context.Result = CreateOperationOutcomeResult(context.Exception.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
                 context.ExceptionHandled = true;
             }
 
