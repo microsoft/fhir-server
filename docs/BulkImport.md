@@ -49,13 +49,13 @@ Make sure the following settings are set correctly in your fhir server:
 ---
 **NOTE**
 
-There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer:Operations:Import:StorageAccountConnection` setting. The fhir-server will use the connection string to connect to the storage account and import data.
+There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection` setting. The fhir-server will use the connection string to connect to the storage account and import data.
 
-The other option would be to use the `FhirServer:Operations:Export:StorageAccountUri` setting with the uri of the storage account. For this option, we assume that the fhir-server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the fhir-server code in App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
+The other option would be to use the `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` setting with the uri of the storage account. For this option, we assume that the fhir-server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the fhir-server code in App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
 
 ---
 
-| :zap:!If you aren't using containerized deployment change the '__' in each configuration to ':' <br> e.g.  *FhirServer__Operations__Import__Enabled* --->  *FhirServer:Operations:Import:Enabled*. |
+| :zap:! If you are doing custom deployments neither as a Linux app service or a custom Linux container, any nested JSON key structure in the app setting name like ApplicationInsights__InstrumentationKey needs to be configured in App Service as ApplicationInsights:InstrumentationKey for the key name. In other words, any __(double underscore) should be replaced by :. |
 |-----------------------------------------|
 
 ### Change _initial import mode_ on the FHIR server
