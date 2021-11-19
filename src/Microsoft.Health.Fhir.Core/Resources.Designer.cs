@@ -1286,6 +1286,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Sort parameter value &apos;{0}&apos; is invalid, must be a subset of valid search parameters for resource type &apos;{1}&apos;..
+        /// </summary>
+        internal static string SortParameterValueIsNotValidSearchParameter {
+            get {
+                return ResourceManager.GetString("SortParameterValueIsNotValidSearchParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Include result was truncated.
         /// </summary>
         internal static string TruncatedIncludeMessage {
