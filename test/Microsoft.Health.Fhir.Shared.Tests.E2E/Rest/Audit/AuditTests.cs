@@ -44,14 +44,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             _auditLogger = _fixture.AuditLogger;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenMetadata_WhenRead_ThenAuditLogEntriesShouldNotBeCreated()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline
-                return;
-            }
+            // This test only works with the in-proc server with customized middleware pipeline
+            Skip.If(!_fixture.IsUsingInProcTestServer);
 
             using FhirResponse response = await _client.ReadAsync<CapabilityStatement>("metadata");
 
@@ -62,7 +59,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.Empty(_auditLogger.GetAuditEntriesByCorrelationId(correlationId));
         }
 
-        [Fact]
+        [SkippableFact]
+        public async Task GivenVersions_WhenRead_ThenAuditLogEntriesShouldNotBeCreated()
+        {
+            // This test only works with the in-proc server with customized middleware pipeline
+            Skip.If(!_fixture.IsUsingInProcTestServer);
+
+            using FhirResponse response = await _client.ReadAsync<Parameters>("$versions");
+
+            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
+
+            Assert.NotNull(correlationId);
+
+            Assert.Empty(_auditLogger.GetAuditEntriesByCorrelationId(correlationId));
+        }
+
+        [SkippableFact]
         public async Task GivenAResource_WhenCreated_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -73,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.Created);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAnExistingResource_WhenRead_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -89,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenANonExistingResource_WhenRead_ThenAuditLogEntriesShouldBeCreated()
         {
             // TODO: The resource type being logged here is incorrect. The issue is tracked by https://github.com/Microsoft/fhir-server/issues/334.
@@ -121,7 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.NotFound);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAnExistingResource_WhenReadAVersion_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -137,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAnExistingResource_WhenUpdated_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -155,14 +167,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAnExistingResource_WhenDeleted_ThenAuditLogEntriesShouldBeCreated()
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline
-                return;
-            }
+            // This test only works with the in-proc server with customized middleware pipeline
+            Skip.If(!_fixture.IsUsingInProcTestServer);
 
             using FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
 
@@ -180,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, "delete", ResourceType.Patient, expectedUri, HttpStatusCode.NoContent, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByResourceHistory_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "Observation/_history";
@@ -193,7 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByHistory_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "_history";
@@ -206,7 +215,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByResourceInstance_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -222,7 +231,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByCompartment_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "Patient/123/Condition";
@@ -235,7 +244,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByResourceType_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "Observation?_tag=123";
@@ -248,7 +257,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedByResourceTypeUsingPost_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -259,7 +268,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearched_ThenAuditLogEntriesShouldBeCreated()
         {
             const string url = "?_tag=123";
@@ -272,7 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAServer_WhenSearchedUsingPost_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -283,7 +292,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 HttpStatusCode.OK);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenARequest_WhenNoAuthorizationTokenIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -299,7 +308,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 expectedAppId: null);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenARequest_WhenInvalidAuthorizationTokenIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -315,7 +324,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 expectedAppId: null);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenARequest_WhenValidAuthorizationTokenWithInvalidAudienceIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -324,7 +333,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 expectedAppId: null);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASmartOnFhirRequest_WhenAuthorizeIsCalled_TheAuditLogEntriesShouldBeCreated()
         {
             const string pathSegment = "AadSmartOnFhirProxy/authorize?client_id=1234&response_type=json&redirect_uri=httptest&aud=localhost";
@@ -337,7 +346,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 "client_id");
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASmartOnFhirRequest_WhenCallbackIsCalled_TheAuditLogEntriesShouldBeCreated()
         {
             const string pathSegment = "AadSmartOnFhirProxy/callback/aHR0cHM6Ly9sb2NhbGhvc3Q=?code=1234&state=1234&session_state=1234";
@@ -350,7 +359,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 null);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASmartOnFhirRequest_WhenTokenIsCalled_TheAuditLogEntriesShouldBeCreated()
         {
             const string pathSegment = "AadSmartOnFhirProxy/token";
@@ -375,7 +384,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 new Dictionary<string, string>() { [KnownHeaders.CustomAuditHeaderPrefix + "test"] = "test" });
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAResource_WhenNotAuthorized_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
@@ -385,7 +394,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.All)]
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Batch)]
         public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
@@ -418,7 +427,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.All)]
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
         [Trait(Traits.Category, Categories.Batch)]
@@ -467,11 +476,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         private async Task ExecuteAndValidateBundle<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList, string expectedAppId)
             where T : Resource
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline.
-                return;
-            }
+            // This test only works with the in-proc server with customized middleware pipeline
+            Skip.If(!_fixture.IsUsingInProcTestServer);
 
             using FhirResponse<T> response = await action();
 
@@ -503,28 +509,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 inspectors.ToArray());
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         [Trait(Traits.Category, Categories.Transaction)]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundleWithValidEntries_WhenSuccessfulPost_ThenAuditLogEntriesShouldBeCreated()
         {
-            Patient existingPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
-            existingPatient.Id = "123";
+            var requestBundle = Samples.GetTransactionBundleWithValidEntries();
+            var batch = requestBundle.ToPoco<Bundle>();
 
-            await _client.UpdateAsync<Patient>(existingPatient);
+            await _client.UpdateAsync<Patient>(batch.Entry[2].Resource as Patient);
 
             // Even entries are audit executed entry and odd entries are audit executing entry
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("transaction", string.Empty, HttpStatusCode.OK, null),
-                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
-                ("conditional-create", "Patient", HttpStatusCode.OK, ResourceType.Patient),
-                ("update", $"Patient/{existingPatient.Id}", HttpStatusCode.OK, ResourceType.Patient),
-                ("conditional-update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.OK, ResourceType.Patient),
+                ("create", batch.Entry[0].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("conditional-create", batch.Entry[1].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("update", batch.Entry[2].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
+                ("conditional-update", batch.Entry[3].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
             };
-
-            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
             await ExecuteAndValidateBundle(
                () => _client.PostBundleAsync(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()),
@@ -532,7 +536,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                TestApplications.GlobalAdminServicePrincipal.ClientId);
         }
 
-        [Fact]
+        [SkippableFact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         [Trait(Traits.Category, Categories.Transaction)]
         [Trait(Traits.Priority, Priority.One)]
@@ -561,11 +565,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType? expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
             where T : Resource
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline.
-                return;
-            }
+            // This test only works with the in-proc server with customized middleware pipeline
+            Skip.If(!_fixture.IsUsingInProcTestServer);
 
             using FhirResponse<T> response = await action();
 
@@ -585,11 +586,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         private async Task ExecuteAndValidate(Func<Task<HttpResponseMessage>> action, string expectedAction, string expectedPathSegment, HttpStatusCode expectedStatusCode, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
-            if (!_fixture.IsUsingInProcTestServer)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline
-                return;
-            }
+            // This test only works with the in-proc server with customized middleware pipeline
+            Skip.If(!_fixture.IsUsingInProcTestServer);
 
             HttpResponseMessage response = await action();
 
@@ -607,11 +605,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         private async Task ExecuteAndValidate(Func<TestFhirClient> createClient, HttpStatusCode expectedStatusCode, string expectedAppId)
         {
-            if (!_fixture.IsUsingInProcTestServer || _fixture.TestFhirServer.SecurityEnabled == false)
-            {
-                // This test only works with the in-proc server with customized middleware pipeline and when security is enabled.
-                return;
-            }
+            // This test only works with the in-proc server with customized middleware pipeline
+            Skip.If(!_fixture.IsUsingInProcTestServer);
 
             const string url = "Patient/123";
 

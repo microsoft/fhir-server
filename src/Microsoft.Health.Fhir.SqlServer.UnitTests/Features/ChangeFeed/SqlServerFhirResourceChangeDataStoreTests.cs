@@ -9,8 +9,10 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
@@ -24,10 +26,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
 
         public SqlServerFhirResourceChangeDataStoreTests()
         {
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = string.Empty });
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = string.Empty, StatementTimeout = TimeSpan.FromMinutes(10) });
             var connectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var connectionFactory = new DefaultSqlConnectionFactory(connectionStringProvider);
-            resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(connectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance);
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            schemaInformation.Current = SchemaVersionConstants.Max;
+            resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(connectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
         }
 
         [Fact]

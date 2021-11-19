@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [Fact(Skip = "Re-enable this test when https://microsofthealth.visualstudio.com/Health/_boards/board/t/Olympus/Stories/?workitem=83531 is fixed")]
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToSameListOfResourceTypes_ThenSearchParametersMarkedFullyIndexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
