@@ -80,6 +80,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         /// <returns>Resource change data rows.</returns>
         /// <exception cref="System.ArgumentOutOfRangeException">Thrown if startId or pageSize is less than zero.</exception>
         /// <exception cref="System.InvalidOperationException">Thrown when a method call is invalid for the object's current state.</exception>
+        /// <exception cref="System.OperationCanceledException">Thrown when the operation is canceled.</exception>
+        /// <exception cref="System.Threading.Tasks.TaskCanceledException">Thrown when the task is canceled.</exception>
         /// <exception cref="Microsoft.Data.SqlClient.SqlException">Thrown when SQL Server returns a warning or error.</exception>
         /// <exception cref="System.TimeoutException">Thrown when the time allotted for a process or operation has expired.</exception>
         /// <exception cref="System.Exception">Thrown when errors occur during execution.</exception>
@@ -141,8 +143,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation(ex.Message);
-                return listResourceChangeData;
+                _logger.LogInformation(string.Format(Resources.GetRecordsAsyncOperationIsCanceled));
+                throw;
             }
             catch (SqlException ex)
             {

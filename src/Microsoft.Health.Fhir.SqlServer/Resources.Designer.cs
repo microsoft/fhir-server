@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The operation to get resource changes has been canceled.
+        /// </summary>
+        internal static string GetRecordsAsyncOperationIsCanceled {
+            get {
+                return ResourceManager.GetString("GetRecordsAsyncOperationIsCanceled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {
