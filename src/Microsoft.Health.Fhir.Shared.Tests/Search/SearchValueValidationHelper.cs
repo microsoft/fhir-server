@@ -8,6 +8,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
+using Range = Hl7.Fhir.Model.Range;
 
 namespace Microsoft.Health.Fhir.Tests.Common.Search
 {
@@ -96,6 +97,24 @@ namespace Microsoft.Health.Fhir.Tests.Common.Search
             Assert.True(usv.IsCanonical);
 
             Assert.Equal(expected, usv.ToString());
+        }
+
+        public static void ValidateQuantityRange(Range expected, ISearchValue sv)
+        {
+            QuantitySearchValue qsv = Assert.IsType<QuantitySearchValue>(sv);
+
+            Assert.Equal(expected.Low?.System, qsv.System);
+            Assert.Equal(expected.Low?.Code, qsv.Code);
+            Assert.Equal(expected.Low?.Value, qsv.Low);
+            Assert.Equal(expected.High?.Value, qsv.High);
+        }
+
+        public static void ValidateNumberRange(Range expected, ISearchValue sv)
+        {
+            NumberSearchValue qsv = Assert.IsType<NumberSearchValue>(sv);
+
+            Assert.Equal(expected.Low?.Value, qsv.Low);
+            Assert.Equal(expected.High?.Value, qsv.High);
         }
 
         public class Token
