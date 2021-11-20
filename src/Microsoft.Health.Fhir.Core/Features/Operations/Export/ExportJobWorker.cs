@@ -8,23 +8,26 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     /// <summary>
     /// The worker responsible for running the export job tasks.
     /// </summary>
-    public class ExportJobWorker
+    public class ExportJobWorker : INotificationHandler<StorageInitializedNotification>
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
         private readonly ILogger _logger;
+        private bool _storageReady = false;
 
         private const int MaximumDelayInSeconds = 3600;
 
@@ -50,30 +53,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 try
                 {
-                    // Remove all completed tasks.
-                    runningTasks.RemoveAll(task => task.IsCompleted);
-
-                    // Get list of available jobs.
-                    if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
+                    if (_storageReady)
                     {
-                        using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+                        // Remove all completed tasks.
+                        runningTasks.RemoveAll(task => task.IsCompleted);
+
+                        // Get list of available jobs.
+                        if (runningTasks.Count < _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed)
                         {
-                            IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
-                                _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
-                                _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
-                                cancellationToken);
-
-                            foreach (ExportJobOutcome job in jobs)
+                            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                             {
-                                _logger.LogTrace("Picked up job: {jobId}.", job.JobRecord.Id);
+                                IReadOnlyCollection<ExportJobOutcome> jobs = await store.Value.AcquireExportJobsAsync(
+                                    _exportJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
+                                    _exportJobConfiguration.JobHeartbeatTimeoutThreshold,
+                                    cancellationToken);
 
-                                runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                                foreach (ExportJobOutcome job in jobs)
+                                {
+                                    _logger.LogTrace("Picked up job: {jobId}.", job.JobRecord.Id);
+
+                                    runningTasks.Add(_exportJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                                }
                             }
                         }
-                    }
 
-                    // We successfully completed an attempt to acquire export jobs. Let us reset the polling frequency in case it has changed.
-                    delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
+                        // We successfully completed an attempt to acquire export jobs. Let us reset the polling frequency in case it has changed.
+                        delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -100,6 +106,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             _logger.LogInformation("ExportJobWorker: Cancellation requested.");
+        }
+
+        public Task Handle(StorageInitializedNotification notification, CancellationToken cancellationToken)
+        {
+            _storageReady = true;
+            return Task.CompletedTask;
         }
     }
 }
