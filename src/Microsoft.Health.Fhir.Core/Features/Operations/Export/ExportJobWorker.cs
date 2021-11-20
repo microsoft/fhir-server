@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
         private readonly ILogger _logger;
-        private bool _storageReady = false;
+        private bool _storageReady;
 
         private const int MaximumDelayInSeconds = 3600;
 
