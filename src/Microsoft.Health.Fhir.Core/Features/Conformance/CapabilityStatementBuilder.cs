@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (resourceComponent == null)
             {
-                resourceComponent = new ListedResourceComponent(_configuration)
+                resourceComponent = new ListedResourceComponent(_configuration, resourceType)
                 {
                     Type = resourceType,
                     Profile = new ReferenceComponent
