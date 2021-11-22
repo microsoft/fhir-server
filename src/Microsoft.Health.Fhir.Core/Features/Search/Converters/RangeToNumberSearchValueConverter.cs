@@ -23,8 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            var lowValue = (decimal?)value.Scalar("low");
-            var highValue = (decimal?)value.Scalar("high");
+            var lowValue = (decimal?)value.Scalar("low.value");
+            var highValue = (decimal?)value.Scalar("high.value");
 
             if (lowValue.HasValue || highValue.HasValue)
             {

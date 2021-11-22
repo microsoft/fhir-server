@@ -24,6 +24,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceHandlerTests_ConditionalDelete.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToNumberSearchValueConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToQuantitySearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToNumberSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToDateTimeSearchValueConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\ExtensionToQuantitySearchValueConverterTests.cs" />

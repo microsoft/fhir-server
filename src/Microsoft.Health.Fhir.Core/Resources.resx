@@ -620,6 +620,10 @@
   <data name="CurrentSeeAlsoLinkIdShouldNotBeNull" xml:space="preserve">
     <value>The 'seealso' link id cannot be null when a 'seealso' link is being processed.</value>
   </data>
+  <data name="SortParameterValueIsNotValidSearchParameter" xml:space="preserve">
+    <value>Sort parameter value '{0}' is invalid, must be a subset of valid search parameters for resource type '{1}'.</value>
+    <comment>Clarifies confusing situation when sort parameter value is not a valid search parameter (do we return search parameter or sort parameter value error).</comment>
+  </data>
   <data name="SearchParameterDefinitionNullorEmptyCodeValue" xml:space="preserve">
     <value>Code value cannot be null or empty</value>
   </data>
