@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
@@ -48,6 +49,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, null, pageSize: 10, expectedResources);
         }
 
+        protected async Task<Bundle> ExecuteAndValidateBundle(
+            string searchUrl,
+            bool sort,
+            bool invalidSortParameter,
+            Tuple<string, string> customHeader,
+            params Resource[] expectedResources)
+        {
+            var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
+            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, invalidSortParameter, customHeader, pageSize: 10, expectedResources);
+        }
+
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, int pageSize, params Resource[] expectedResources)
         {
             var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
@@ -62,11 +74,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             int pageSize = 10,
             params Resource[] expectedResources)
         {
+            return await ExecuteAndValidateBundle(searchUrl, selfLink, sort, false, customHeader, pageSize, expectedResources);
+        }
+
+        protected async Task<Bundle> ExecuteAndValidateBundle(
+            string searchUrl,
+            string selfLink,
+            bool sort,
+            bool invalidSortParameter,
+            Tuple<string, string> customHeader = null,
+            int pageSize = 10,
+            params Resource[] expectedResources)
+        {
             Bundle firstBundle = await Client.SearchAsync(searchUrl, customHeader);
 
             var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources[0..pageSize] : expectedResources;
 
-            ValidateBundle(firstBundle, selfLink, sort, expectedFirstBundle);
+            ValidateBundle(firstBundle, selfLink, sort, invalidSortParameter, expectedFirstBundle);
 
             var nextLink = firstBundle.NextLink?.ToString();
             int pageNumber = 1;
@@ -87,7 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     checkedAllResources = true;
                 }
 
-                ValidateBundle(nextBundle, nextLink, sort, remainingResources);
+                ValidateBundle(nextBundle, nextLink, sort, invalidSortParameter, remainingResources);
 
                 nextLink = nextBundle.NextLink?.ToString();
                 pageNumber++;
@@ -96,12 +120,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return firstBundle;
         }
 
-        protected void ValidateBundle(Bundle bundle, string selfLink, params Resource[] expectedResources)
+        protected async Task<OperationOutcome> ExecuteAndValidateErrorOperationOutcomeAsync(
+            string searchUrl,
+            Tuple<string, string> customHeader,
+            HttpStatusCode expectedStatusCode,
+            OperationOutcome expectedOperationOutcome)
         {
-            ValidateBundle(bundle, selfLink, true, expectedResources);
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl, customHeader));
+            Assert.Equal(expectedStatusCode, ex.StatusCode);
+            ex.OperationOutcome.Id = null;
+            Assert.True(expectedOperationOutcome.IsExactly(ex.OperationOutcome), "Deep compare detected expected and actual OperationOutcome mismatch.");
+            return ex.OperationOutcome;
         }
 
-        protected void ValidateBundle(Bundle bundle, string selfLink, bool sort, params Resource[] expectedResources)
+        protected void ValidateBundle(Bundle bundle, string selfLink, params Resource[] expectedResources)
+        {
+            ValidateBundle(bundle, selfLink, true, false, expectedResources);
+        }
+
+        protected void ValidateBundle(Bundle bundle, string selfLink, bool sort, bool invalidSortParameter, params Resource[] expectedResources)
         {
             string actualUrl;
 
@@ -117,21 +154,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri);
             }
 
-            Skip.If(selfLink.Contains("_sort") && !actualUrl.Contains("_sort"), "This server does not support the supplied _sort parameter.");
+            if (!invalidSortParameter)
+            {
+                Skip.If(selfLink.Contains("_sort") && !actualUrl.Contains("_sort"), "This server does not support the supplied _sort parameter.");
 
-            Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
+                Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
+            }
+            else
+            {
+                Assert.DoesNotContain("_sort", actualUrl);
+            }
 
-            ValidateBundle(bundle, sort, expectedResources);
+            ValidateBundle(bundle, sort, invalidSortParameter, expectedResources);
         }
 
         protected void ValidateBundle(Bundle bundle, params Resource[] expectedResources)
         {
-            ValidateBundle(bundle, true, expectedResources);
+            ValidateBundle(bundle, true, false, expectedResources);
         }
 
-        protected void ValidateBundle(Bundle bundle, bool sort, params Resource[] expectedResources)
+        protected void ValidateBundle(Bundle bundle, bool sort, bool invalidSortParameter, params Resource[] expectedResources)
         {
             Assert.NotNull(bundle);
+
+            if (invalidSortParameter)
+            {
+                Bundle.EntryComponent entry = Assert.Single(bundle.Entry, e => e.Resource.TypeName == KnownResourceTypes.OperationOutcome); // Exactly one OperationOutcome is returned.
+                Assert.Equal(bundle.Entry[0].Resource.TypeName, KnownResourceTypes.OperationOutcome); // OperationOutcome is the first resource.
+                entry.Resource.Id = null; // Set OperationOutcome id returned by the server to null before comparing with the expected resources.
+            }
 
             if (sort)
             {
