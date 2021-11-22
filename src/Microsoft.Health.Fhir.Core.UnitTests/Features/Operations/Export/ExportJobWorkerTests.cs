@@ -53,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _exportJobTaskFactory,
                 NullLogger<ExportJobWorker>.Instance);
 
+            _exportJobWorker.Handle(new Messages.Storage.StorageInitializedNotification(), CancellationToken.None);
             _cancellationToken = _cancellationTokenSource.Token;
         }
 
