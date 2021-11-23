@@ -1,4 +1,4 @@
-﻿EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 21.';
+﻿EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 23.';
 GO
 
 /*************************************************************
