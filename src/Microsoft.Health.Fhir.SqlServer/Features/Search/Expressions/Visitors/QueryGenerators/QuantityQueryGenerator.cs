@@ -18,26 +18,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            NullableDecimalColumn valueColumn;
-            NullableDecimalColumn nullCheckColumn;
+            NullableDecimalColumn valueColumn = null;
+            NullableDecimalColumn nullCheckColumn = null;
+            DecimalColumn notNullablevalueColumn = null;
+
             switch (expression.FieldName)
             {
                 case FieldName.Quantity:
                     valueColumn = nullCheckColumn = VLatest.QuantitySearchParam.SingleValue;
                     break;
                 case SqlFieldName.QuantityLow:
-                    valueColumn = nullCheckColumn = VLatest.QuantitySearchParam.LowValue;
+                    notNullablevalueColumn = VLatest.QuantitySearchParam.LowValue;
                     break;
                 case SqlFieldName.QuantityHigh:
-                    valueColumn = VLatest.QuantitySearchParam.HighValue;
-                    nullCheckColumn = VLatest.QuantitySearchParam.LowValue;
+                    notNullablevalueColumn = VLatest.QuantitySearchParam.HighValue;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            AppendColumnName(context, nullCheckColumn, expression).Append(" IS NOT NULL AND ");
+            if (nullCheckColumn != null)
+            {
+                AppendColumnName(context, nullCheckColumn, expression).Append(" IS NOT NULL AND ");
+            }
+
+            if (valueColumn != null)
+            {
             return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
+            }
+
+            return VisitSimpleBinary(expression.BinaryOperator, context, notNullablevalueColumn, expression.ComponentIndex, expression.Value);
         }
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)

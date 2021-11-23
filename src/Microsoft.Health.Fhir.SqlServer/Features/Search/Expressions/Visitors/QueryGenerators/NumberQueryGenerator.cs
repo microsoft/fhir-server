@@ -18,26 +18,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            NullableDecimalColumn valueColumn;
-            NullableDecimalColumn nullCheckColumn;
+            NullableDecimalColumn valueColumn = null;
+            NullableDecimalColumn nullCheckColumn = null;
+            DecimalColumn notNullablevalueColumn = null;
+
             switch (expression.FieldName)
             {
                 case FieldName.Number:
                     valueColumn = nullCheckColumn = VLatest.NumberSearchParam.SingleValue;
                     break;
                 case SqlFieldName.NumberLow:
-                    valueColumn = nullCheckColumn = VLatest.NumberSearchParam.LowValue;
+                    notNullablevalueColumn = VLatest.NumberSearchParam.LowValue;
                     break;
                 case SqlFieldName.NumberHigh:
-                    valueColumn = VLatest.NumberSearchParam.HighValue;
-                    nullCheckColumn = VLatest.NumberSearchParam.LowValue;
+                    notNullablevalueColumn = VLatest.NumberSearchParam.HighValue;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            AppendColumnName(context, nullCheckColumn, expression).Append(" IS NOT NULL AND ");
-            return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
+            if (nullCheckColumn != null)
+            {
+                AppendColumnName(context, nullCheckColumn, expression).Append(" IS NOT NULL AND ");
+            }
+
+            if (valueColumn != null)
+            {
+                return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
+            }
+
+            return VisitSimpleBinary(expression.BinaryOperator, context, notNullablevalueColumn, expression.ComponentIndex, expression.Value);
         }
     }
 }
