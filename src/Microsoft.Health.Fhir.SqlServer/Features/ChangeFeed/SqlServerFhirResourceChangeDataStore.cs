@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         // So, January 1st, 1970 at 00:00:00 UTC is chosen as the initial partition anchor DateTime in the resource change data partition function.
         private static readonly DateTime PartitionAnchorDateTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
         private readonly SchemaInformation _schemaInformation;
+        private const int PartitionWindowInHoursToGoBack = -1;
 
         /// <summary>
         /// Creates a new instance of the <see cref="SqlServerFhirResourceChangeDataStore"/> class.
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         ///  Returns the number of resource change records from a start id and a checkpoint datetime.
         /// </summary>
         /// <param name="startId">The start id of resource change records to fetch. The start id is inclusive.</param>
-        /// <param name="lastProcessedDateTime">The partition datetime to look up.</param>
+        /// <param name="lastProcessedDateTime">The last checkpoint datetime.</param>
         /// <param name="pageSize">The page size for fetching resource change records.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Resource change data rows.</returns>
@@ -165,7 +166,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionDatetimeOnResourceChangesVersion)
             {
                 sqlCommand.CommandText = "dbo.FetchResourceChanges_3";
-                sqlCommand.Parameters.AddWithValue("@partitionDatetime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
+                sqlCommand.Parameters.AddWithValue("@partitionDatetime", SqlDbType.DateTime2).Value = RoundDownToNearestHour(lastProcessedDateTime).AddHours(PartitionWindowInHoursToGoBack);
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
@@ -191,6 +192,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     }
                 }
             }
+        }
+
+        private static DateTime RoundDownToNearestHour(DateTime dateTime)
+        {
+            return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, dateTime.Hour, 0, 0, dateTime.Kind);
         }
     }
 }
