@@ -101,7 +101,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<IReadOnlyCollection<TaskInfo>> GetNextMessagesAsync(short count, int taskHeartbeatTimeoutThresholdInSeconds, CancellationToken cancellationToken)
         {
             List<TaskInfo> output = new List<TaskInfo>();
-            string storedProcedureName = string.Empty;
             try
             {
                 using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
@@ -109,7 +108,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     string queueId = _taskHostingConfiguration.QueueId;
                     VLatest.GetNextTask.PopulateCommand(sqlCommandWrapper, queueId, count, taskHeartbeatTimeoutThresholdInSeconds);
-                    storedProcedureName = sqlCommandWrapper.CommandText;
                     SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(cancellationToken);
 
                     var taskInfoTable = VLatest.TaskInfo;
@@ -148,7 +146,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
-            catch (SqlException e) when (e.Message.Contains("Could not find stored procedure", StringComparison.OrdinalIgnoreCase))
+            catch (SqlException e) when (e.Number == 2812)
             {
                 _logger.LogWarning(e, "Schema is not initialized - {ex.Message}", e.Message);
             }
