@@ -1,6 +1,6 @@
 ﻿--
 -- STORED PROCEDURE
---     FetchResourceChanges_2
+--     FetchResourceChanges_3
 --
 -- DESCRIPTION
 --     Returns the number of resource change records from startId. The start id is inclusive.
@@ -8,17 +8,17 @@
 -- PARAMETERS
 --     @startId
 --         * The start id of resource change records to fetch.
---     @lastProcessedDateTime
---         * The last checkpoint datetime.
+--     @partitionDatetime
+--         * The partition datetime to look up.
 --     @pageSize
 --         * The page size for fetching resource change records.
 --
 -- RETURN VALUE
 --     Resource change data rows.
 --
-CREATE PROCEDURE dbo.FetchResourceChanges_2
+CREATE PROCEDURE dbo.FetchResourceChanges_3
     @startId bigint,
-    @lastProcessedDateTime datetime2(7),
+    @partitionDatetime datetime2(7),
     @pageSize smallint
 AS
 BEGIN
@@ -42,7 +42,7 @@ BEGIN
       ResourceVersion,
       ResourceChangeTypeId
       FROM dbo.ResourceChangeData WITH (REPEATABLEREAD)
-    WHERE Timestamp >= @lastProcessedDateTime AND Id >= @startId 
-    ORDER BY Timestamp ASC, Id ASC;
+    WHERE PartitionDatetime >= @partitionDatetime AND Id >= @startId 
+    ORDER BY PartitionDatetime ASC, Id ASC;
 END;
 GO

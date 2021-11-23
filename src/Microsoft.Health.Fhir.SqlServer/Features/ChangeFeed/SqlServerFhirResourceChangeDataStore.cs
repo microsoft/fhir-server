@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         ///  Returns the number of resource change records from a start id and a checkpoint datetime.
         /// </summary>
         /// <param name="startId">The start id of resource change records to fetch. The start id is inclusive.</param>
-        /// <param name="lastProcessedDateTime">The last checkpoint datetime.</param>
+        /// <param name="lastProcessedDateTime">The partition datetime to look up.</param>
         /// <param name="pageSize">The page size for fetching resource change records.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Resource change data rows.</returns>
@@ -162,7 +162,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             sqlCommand.CommandType = CommandType.StoredProcedure;
             sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
             sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.SmallInt).Value = pageSize;
-            if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
+            if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionDatetimeOnResourceChangesVersion)
+            {
+                sqlCommand.CommandText = "dbo.FetchResourceChanges_3";
+                sqlCommand.Parameters.AddWithValue("@partitionDatetime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
                 sqlCommand.CommandText = "dbo.FetchResourceChanges_2";
                 sqlCommand.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;

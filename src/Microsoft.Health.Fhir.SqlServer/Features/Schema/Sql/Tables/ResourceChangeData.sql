@@ -7,5 +7,6 @@ CREATE TABLE dbo.ResourceChangeData
     ResourceTypeId smallint NOT NULL,
     ResourceVersion int NOT NULL,
     ResourceChangeTypeId tinyint NOT NULL,
-    CONSTRAINT PK_ResourceChangeData_TimestampId PRIMARY KEY (Timestamp, Id)
-) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp)
+    PartitionDatetime datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeData_PartitionDatetime DEFAULT (DATEADD(HOUR,DATEDIFF(HOUR,0,SYSUTCDATETIME()),0)),
+    CONSTRAINT PK_ResourceChangeData_PartitionDatetimeId PRIMARY KEY (PartitionDatetime ASC, Id ASC)
+) ON PartitionScheme_ResourceChangeData_Timestamp(PartitionDatetime)
