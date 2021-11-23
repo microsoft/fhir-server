@@ -51,9 +51,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                try
+                if (_storageReady)
                 {
-                    if (_storageReady)
+                    try
                     {
                         // Remove all completed tasks.
                         runningTasks.RemoveAll(task => task.IsCompleted);
@@ -80,17 +80,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         // We successfully completed an attempt to acquire export jobs. Let us reset the polling frequency in case it has changed.
                         delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
                     }
-                }
-                catch (Exception ex)
-                {
-                    // The job failed.
-                    _logger.LogError(ex, "Unhandled exception in the worker.");
-
-                    // Since acquiring jobs failed let us introduce a delay before we retry. We don't want to increase the delay between polls to more than an hour.
-                    delayBeforeNextPoll *= 2;
-                    if (delayBeforeNextPoll.TotalSeconds > MaximumDelayInSeconds)
+                    catch (Exception ex)
                     {
-                        delayBeforeNextPoll = TimeSpan.FromSeconds(MaximumDelayInSeconds);
+                        // The job failed.
+                        _logger.LogError(ex, "Unhandled exception in the worker.");
+
+                        // Since acquiring jobs failed let us introduce a delay before we retry. We don't want to increase the delay between polls to more than an hour.
+                        delayBeforeNextPoll *= 2;
+                        if (delayBeforeNextPoll.TotalSeconds > MaximumDelayInSeconds)
+                        {
+                            delayBeforeNextPoll = TimeSpan.FromSeconds(MaximumDelayInSeconds);
+                        }
                     }
                 }
 
