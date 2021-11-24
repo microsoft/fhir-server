@@ -19,35 +19,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
             NullableDecimalColumn valueColumn = null;
-            NullableDecimalColumn nullCheckColumn = null;
-            DecimalColumn notNullablevalueColumn = null;
+            DecimalColumn notNullableValueColumn = null;
 
             switch (expression.FieldName)
             {
                 case FieldName.Quantity:
-                    valueColumn = nullCheckColumn = VLatest.QuantitySearchParam.SingleValue;
+                    valueColumn = VLatest.QuantitySearchParam.SingleValue;
                     break;
                 case SqlFieldName.QuantityLow:
-                    notNullablevalueColumn = VLatest.QuantitySearchParam.LowValue;
+                    notNullableValueColumn = VLatest.QuantitySearchParam.LowValue;
                     break;
                 case SqlFieldName.QuantityHigh:
-                    notNullablevalueColumn = VLatest.QuantitySearchParam.HighValue;
+                    notNullableValueColumn = VLatest.QuantitySearchParam.HighValue;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
             }
 
-            if (nullCheckColumn != null)
-            {
-                AppendColumnName(context, nullCheckColumn, expression).Append(" IS NOT NULL AND ");
-            }
-
             if (valueColumn != null)
             {
-            return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
+                AppendColumnName(context, valueColumn, expression).Append(" IS NOT NULL AND ");
+                return VisitSimpleBinary(expression.BinaryOperator, context, valueColumn, expression.ComponentIndex, expression.Value);
             }
 
-            return VisitSimpleBinary(expression.BinaryOperator, context, notNullablevalueColumn, expression.ComponentIndex, expression.Value);
+            return VisitSimpleBinary(expression.BinaryOperator, context, notNullableValueColumn, expression.ComponentIndex, expression.Value);
         }
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
