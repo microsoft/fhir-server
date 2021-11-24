@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly ISqlConnectionStringProvider _sqlConnectionStringProvider;
+        private readonly ISqlConnectionFactory _sqlConnectionFactory;
         private readonly IMediator _mediator;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
-            ISqlConnectionStringProvider sqlConnectionStringProvider,
+            ISqlConnectionFactory sqlConnectionFactory,
             IMediator mediator,
             ILogger<SqlServerFhirModel> logger)
         {
@@ -72,14 +72,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
-            EnsureArg.IsNotNull(sqlConnectionStringProvider, nameof(sqlConnectionStringProvider));
+            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaInformation = schemaInformation;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
-            _sqlConnectionStringProvider = sqlConnectionStringProvider;
+            _sqlConnectionFactory = sqlConnectionFactory;
             _mediator = mediator;
             _logger = logger;
         }
@@ -187,8 +187,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
-            var connectionStringBuilder = new SqlConnectionStringBuilder(await _sqlConnectionStringProvider.GetSqlConnectionString(cancellationToken));
-            _logger.LogInformation("Initializing {Server} {Database} to version {Version}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog, version);
+            var connectionStringBuilder = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            _logger.LogInformation("Initializing {Server} {Database} to version {Version}", connectionStringBuilder.DataSource, connectionStringBuilder.Database, version);
 
             // If we are applying a full snap shot schema file, or if the server is just starting up
             if (runAllInitialization || _highestInitializedVersion == 0)
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeBase(CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(await _sqlConnectionStringProvider.GetSqlConnectionString(cancellationToken)))
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
             {
                 connection.Open();
 
@@ -367,7 +367,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(await _sqlConnectionStringProvider.GetSqlConnectionString(cancellationToken)))
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken))
             {
                 connection.Open();
 
@@ -414,7 +414,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _logger.LogInformation("Cache miss for string ID on {table}", table);
 
-            using (var connection = new SqlConnection(_sqlConnectionStringProvider.GetSqlConnectionString(CancellationToken.None).GetAwaiter().GetResult()))
+            // Forgive me father, I have sinned.
+            // In ideal world I should make this method async, but that spirals out of control and forces changes in all RowGenerators (about 35 files)
+            // and overall logic of preparing data for insert.
+            using (var connection = _sqlConnectionFactory.GetSqlConnectionAsync().GetAwaiter().GetResult())
             {
                 connection.Open();
 
