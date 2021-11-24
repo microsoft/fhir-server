@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using Microsoft.Health.Fhir.Shared.Core.Features.Operations.Import;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -42,7 +43,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add<ExportJobWorker>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .ReplaceService<INotificationHandler<StorageInitializedNotification>>();
 
             services.Add<ResourceToNdjsonBytesSerializer>()
                 .Singleton()

@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Messages.Storage;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _exportJobTaskFactory,
                 NullLogger<ExportJobWorker>.Instance);
 
+            _exportJobWorker.Handle(new StorageInitializedNotification(), CancellationToken.None);
             _cancellationToken = _cancellationTokenSource.Token;
         }
 
