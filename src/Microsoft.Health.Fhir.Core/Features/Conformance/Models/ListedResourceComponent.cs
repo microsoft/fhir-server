@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
 {
     public class ListedResourceComponent
     {
-        public ListedResourceComponent(CoreFeatureConfiguration configuration, string resourceType)
+        public ListedResourceComponent(CoreFeatureConfiguration configuration)
         {
             Interaction = new HashSet<ResourceInteractionComponent>(new PropertyEqualityComparer<ResourceInteractionComponent>(x => x.Code));
             SearchParam = new HashSet<SearchParamComponent>(new PropertyEqualityComparer<SearchParamComponent>(x => x.Name, x => x.Type.ToString()));
@@ -23,12 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Models
             ReferencePolicy = new HashSet<string>(StringComparer.Ordinal);
 
             var versioningPolicy = configuration.Versioning.Default;
-
-            // Override the default versioning policy if a matching resource type override exists
-            if (configuration.Versioning.ResourceTypeOverrides.ContainsKey(resourceType))
-            {
-                versioningPolicy = configuration.Versioning.ResourceTypeOverrides[resourceType];
-            }
 
             Versioning = new DefaultOptionHashSet<string>(versioningPolicy, StringComparer.Ordinal);
             SupportedProfile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
