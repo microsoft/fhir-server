@@ -45,7 +45,7 @@ GO
 --     @startId
 --         * The start id of resource change records to fetch.
 --     @partitionDatetime
---         * The partition datetime to look up.
+--         * The partition datetime to look up, which needs to be rounded down to the nearest hour.
 --     @pageSize
 --         * The page size for fetching resource change records.
 --
