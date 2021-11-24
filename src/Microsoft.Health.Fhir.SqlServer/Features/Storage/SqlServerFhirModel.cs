@@ -187,8 +187,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return;
             }
 
-            var connectionStringBuilder = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
-            _logger.LogInformation("Initializing {Server} {Database} to version {Version}", connectionStringBuilder.DataSource, connectionStringBuilder.Database, version);
+            var sqlConnection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            _logger.LogInformation("Initializing {Server} {Database} to version {Version}", sqlConnection.DataSource, sqlConnection.Database, version);
 
             // If we are applying a full snap shot schema file, or if the server is just starting up
             if (runAllInitialization || _highestInitializedVersion == 0)
