@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The operation to get resource changes has been canceled.
+        ///   Looks up a localized string similar to The operation to get resource changes has been canceled..
         /// </summary>
         internal static string GetRecordsAsyncOperationIsCanceled {
             get {
