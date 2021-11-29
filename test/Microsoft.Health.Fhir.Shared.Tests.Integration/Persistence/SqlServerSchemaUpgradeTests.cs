@@ -125,6 +125,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
+            var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
@@ -132,11 +133,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 defManager,
                 () => statusStore,
                 Options.Create(securityConfiguration),
-                sqlConnectionStringProvider,
+                sqlConnectionFactory,
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
-
-            var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
 
             var testHelper = new SqlServerFhirStorageTestHelper(
                 initialConnectionString,
