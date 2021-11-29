@@ -36,8 +36,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations.Import
             _excludedEndpoints = new HashSet<(string method, string pathRegex)>()
             {
                 (HttpMethods.Get, ".*"), // Exclude all read operations
-                (HttpMethods.Post, "/\\$import"),
-                (HttpMethods.Delete, "/_operations/import/.+"),
+                (HttpMethods.Post, ".*/\\$import"),
+                (HttpMethods.Delete, ".*/_operations/import/.+"),
             };
         }
 

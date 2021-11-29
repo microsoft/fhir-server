@@ -58,11 +58,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Rows.Add(newRow);
         }
 
-        internal override void FillSearchParamsSchema(DataTable table)
+        internal override void FillSchema(DataTable table)
         {
+            // Columns should follow same order as sql table defination.
+            table.Columns.Add(new DataColumn(ResourceTypeId.Metadata.Name, ResourceTypeId.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(ResourceSurrogateId.Metadata.Name, ResourceSurrogateId.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.SingleValue.Metadata.Name, VLatest.NumberSearchParam.SingleValue.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.LowValue.Metadata.Name, VLatest.NumberSearchParam.LowValue.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.NumberSearchParam.HighValue.Metadata.Name, VLatest.NumberSearchParam.HighValue.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

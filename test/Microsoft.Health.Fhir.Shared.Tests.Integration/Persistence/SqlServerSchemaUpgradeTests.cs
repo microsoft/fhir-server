@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var connectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions });
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = connectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
@@ -148,7 +148,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
 
-            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory);
+            var schemaManagerDataStore = new SchemaManagerDataStore(
+                sqlConnectionFactory,
+                config,
+                NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(
                 scriptProvider,
                 baseScriptProvider,
@@ -199,9 +202,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
+                ("Procedure", "[dbo].[UpsertResource_4]"),
+                ("Procedure", "[dbo].[ReindexResource]"),
+                ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[CreateTask]"),
                 ("Procedure", "[dbo].[GetNextTask]"),
                 ("Procedure", "[dbo].[HardDeleteResource]"),
+                ("Procedure", "[dbo].[FetchResourceChanges]"),
+                ("Procedure", "[dbo].[RemovePartitionFromResourceChanges]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ResourceWriteClaimTableType_1]"),
@@ -220,6 +228,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[TokenQuantityCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
@@ -229,7 +239,34 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            return remainingDifferences.Count == 0;
+            bool unexpectedDifference = false;
+            foreach (SchemaDifference schemaDifference in remainingDifferences)
+            {
+                if (schemaDifference.Name == "SqlTable" &&
+                    (schemaDifference.SourceObject.Name.ToString() == "[dbo].[DateTimeSearchParam]" ||
+                    schemaDifference.SourceObject.Name.ToString() == "[dbo].[StringSearchParam]"))
+                {
+                    foreach (SchemaDifference child in schemaDifference.Children)
+                    {
+                        if (child.TargetObject == null && child.SourceObject == null && (child.Name == "PartitionColumn" || child.Name == "PartitionScheme"))
+                        {
+                            // The ParitionColumn and the PartitionScheme come up in the differences list even though
+                            // when digging into the "difference" object the values being compared are equal.
+                            continue;
+                        }
+                        else
+                        {
+                            unexpectedDifference = true;
+                        }
+                    }
+                }
+                else
+                {
+                    unexpectedDifference = true;
+                }
+            }
+
+            return !unexpectedDifference;
         }
     }
 }

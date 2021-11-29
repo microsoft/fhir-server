@@ -94,18 +94,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
-            {
-                await connection.OpenAsync(cancellationToken);
-                SqlConnection.ClearAllPools();
-
-                using (SqlCommand command = connection.CreateCommand())
+            await Policy.Handle<SqlException>()
+                .WaitAndRetryAsync(3, retry => TimeSpan.FromSeconds(retry * 10))
+                .ExecuteAsync(async () =>
                 {
-                    command.CommandTimeout = 600;
-                    command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                    await command.ExecuteNonQueryAsync(cancellationToken);
-                }
-            }
+                    using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
+                    {
+                        await connection.OpenAsync(cancellationToken);
+                        SqlConnection.ClearAllPools();
+
+                        using (SqlCommand command = connection.CreateCommand())
+                        {
+                            command.CommandTimeout = 600;
+                            command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                            await command.ExecuteNonQueryAsync(cancellationToken);
+                        }
+                    }
+                });
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
@@ -231,14 +236,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SchemaInitializer CreateSchemaInitializer(string testConnectionString, int maxSupportedSchemaVersion)
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions });
+            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions, StatementTimeout = TimeSpan.FromMinutes(10) });
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maxSupportedSchemaVersion);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
             var sqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
-            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory);
+            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
 
             return new SchemaInitializer(config, schemaManagerDataStore, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);

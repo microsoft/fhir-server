@@ -321,9 +321,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
 
-                var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
-                memoryStream.Seek(0, SeekOrigin.Begin);
-                httpContext.Request.Body = memoryStream;
+                if (entry.Resource != null)
+                {
+                    var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
+                    memoryStream.Seek(0, SeekOrigin.Begin);
+                    httpContext.Request.Body = memoryStream;
+                }
             }
 #if !STU3
             // Allow JSON Patch to be an encoded Binary in a Bundle (See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request)

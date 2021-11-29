@@ -25,10 +25,10 @@ Privacy and security are top priorities and the FHIR Server for Azure has been d
 
 This open source project is fully backed by the Microsoft Healthcare team, but we know that this project will only get better with your feedback and contributions. We are leading the development of this code base, and test builds and deployments daily.
 
-There is also a managed offering in Azure called the [Azure API for FHIR](https://azure.microsoft.com/services/azure-api-for-fhir/). This Platform as a Service (PaaS) FHIR server is backed by the open source project in this repository and it offers a turn key solution to provisioning a compliant, secure FHIR service.
+There are also two managed offerings in Azure. One is a generally available offering called the [Azure API for FHIR](https://docs.microsoft.com/en-us/azure/healthcare-apis/azure-api-for-fhir/). The second is the [Azure Healthcare APIs](https://azure.microsoft.com/en-us/services/healthcare-apis/). The Azure Healthcare APIs includes the ability to deploy a FHIR server and a DICOM server in a single workspace. These Platform as a Service (PaaS) FHIR servers are backed by the open source project in this repository and offer a turn key solution to provisioning a compliant, secure FHIR service. 
 
 # Release Notes
-To see what is releasing in the FHIR Server, please refer to the [releases](https://github.com/microsoft/fhir-server/releases) section on GitHub. Starting in November 2020, we have tags on the PRs to better describe what is releasing. We have also released documentation on how to test the most recently build [here](docs/Testing-Releases.md). 
+To see what is releasing in the FHIR Server, please refer to the [releases](https://github.com/microsoft/fhir-server/releases) section on this project. Starting in November 2020, we have tags on the PRs to better describe what is releasing. We have also released documentation on how to [test the most recent build](docs/Testing-Releases.md). 
 
 # Documentation
 
@@ -39,15 +39,15 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 - [Register a client application](docs/Register-Client-Application.md): Learn how to register a client application registration, which is an Azure Active Directory representation of an application that can be used to authenticate on behalf of a user and request access to resource applications.
 
 ## Core FHIR Capabilities
-- [Azure API for FHIR documentation](https://docs.microsoft.com/azure/healthcare-apis/): Includes all Azure API for FHIR documentation which has many conceptual, how-to guides, and tutorials that can be leveraged in open-source as well.
-- [Features](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-features-supported): This document lists the main features of the FHIR Server for Azure and Azure API for FHIR.
+- [Azure Healthcare APIs FHIR documentation](https://docs.microsoft.com/azure/healthcare-apis/fhir/): Includes all FHIR service documentation which has many conceptual, how-to guides, and tutorials that can be leveraged in the open-source as well.
+- [Features](https://docs.microsoft.com/azure/healthcare-apis/fhir-features-supported): This document lists the main features of the Azure Healthcare APIs and the Azure API for FHIR. In general, you can use the features of the Azure Healthcare APIs as a view to the SQL open-source FHIR service and the Azure API for FHIR as a view to the Cosmos DB open-source FHIR server.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
 - [Search](docs/SearchArchitecture.md): Describes how search is implemented for the FHIR Server for Azure.
 
 ## Additional Capabilities
 - [Bulk Export](docs/BulkExport.md): Describes using Bulk Export within the FHIR Server.
-- [Convert Data](docs/ConvertDataOperation.md): Describes how to use $convert to convert data into FHIR.
+- [Convert Data](docs/ConvertDataOperation.md): Describes how to use $convert-data to convert data into FHIR.
 - [FHIR Proxy](https://github.com/microsoft/fhir-proxy): Secure FHIR Gateway and Proxy to FHIR Servers.
 
 ## Tutorials & How-to Guides

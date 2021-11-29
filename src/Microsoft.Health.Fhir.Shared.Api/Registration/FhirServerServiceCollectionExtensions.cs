@@ -153,6 +153,9 @@ namespace Microsoft.Extensions.DependencyInjection
                     // which will be used in other middlewares.
                     app.UseFhirRequestContext();
 
+                    // Adding the notification here makes sure that we are publishing all the unknown/unhandled errors e.g 500 errors should be logged in RequestMetric
+                    app.UseApiNotifications();
+
                     if (env.IsDevelopment())
                     {
                         app.UseDeveloperExceptionPage();
@@ -175,7 +178,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     // The audit module needs to come after the exception handler because we need to catch the response before it gets converted to custom error.
                     app.UseAudit();
-                    app.UseApiNotifications();
 
                     app.UseFhirRequestContextAuthentication();
 

@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -302,58 +303,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.Expression = Expression.And(searchExpressions.ToArray());
             }
 
-            if (unsupportedSearchParameters.Any())
-            {
-                bool throwForUnsupported = false;
-                if (_contextAccessor.RequestContext?.RequestHeaders != null &&
-                    _contextAccessor.RequestContext.RequestHeaders.TryGetValue(KnownHeaders.Prefer, out var values))
-                {
-                    var handlingValue = values.FirstOrDefault(x => x.StartsWith("handling=", StringComparison.OrdinalIgnoreCase));
-                    if (handlingValue != default)
-                    {
-                        handlingValue = handlingValue.Substring("handling=".Length);
-
-                        if (string.IsNullOrWhiteSpace(handlingValue) || !Enum.TryParse<SearchParameterHandling>(handlingValue, true, out var handling))
-                        {
-                            throw new BadRequestException(string.Format(
-                                Core.Resources.InvalidHandlingValue,
-                                handlingValue,
-                                string.Join(",", Enum.GetNames<SearchParameterHandling>())));
-                        }
-
-                        if (handling == SearchParameterHandling.Strict)
-                        {
-                            throwForUnsupported = true;
-                        }
-                    }
-                }
-
-                if (throwForUnsupported)
-                {
-                    throw new BadRequestException(string.Format(
-                            Core.Resources.SearchParameterNotSupported,
-                            string.Join(",", unsupportedSearchParameters.Select(x => x.Item1)),
-                            string.Join(",", resourceTypesString)));
-                }
-                else
-                {
-                    foreach (var unsupported in unsupportedSearchParameters)
-                    {
-                        _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
-                              OperationOutcomeConstants.IssueSeverity.Warning,
-                              OperationOutcomeConstants.IssueType.NotSupported,
-                              string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString))));
-                    }
-                }
-            }
-
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
 
+            var searchSortErrors = new List<string>();
             if (searchParams.Sort?.Count > 0)
             {
                 var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
                 bool sortingsValid = true;
 
+                // Only parameters that are valid for searching can also be used as sort parameter values. Therefore first check if the sort parameter values are valid as search parameters.
                 foreach ((string, Hl7.Fhir.Rest.SortOrder) sorting in searchParams.Sort)
                 {
                     try
@@ -364,17 +322,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (SearchParameterNotSupportedException)
                     {
                         sortingsValid = false;
-                        _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Warning,
-                            OperationOutcomeConstants.IssueType.NotSupported,
-                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, string.Join(", ", resourceTypesString))));
+                        searchSortErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SortParameterValueIsNotValidSearchParameter, sorting.Item1, string.Join(", ", resourceTypesString)));
                     }
                 }
 
+                // Sort parameter values are valid search parameters. Now verify that sort parameter values are also valid for sorting.
                 if (sortingsValid)
                 {
                     if (!_sortingValidator.ValidateSorting(sortings, out IReadOnlyList<string> errorMessages))
                     {
+                        // Sanity check, ValidateSorting must output errors if it returns false.
                         if (errorMessages == null || errorMessages.Count == 0)
                         {
                             throw new InvalidOperationException($"Expected {_sortingValidator.GetType().Name} to return error messages when {nameof(_sortingValidator.ValidateSorting)} returns false");
@@ -384,10 +341,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         foreach (var errorMessage in errorMessages)
                         {
-                            _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Warning,
-                                OperationOutcomeConstants.IssueType.NotSupported,
-                                errorMessage));
+                            searchSortErrors.Add(errorMessage);
                         }
                     }
                 }
@@ -401,6 +355,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchOptions.Sort == null)
             {
                 searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
+            }
+
+            // Processing of parameters is finished. If any of the parameters are unsupported warning is put into the bundle or exception is thrown,
+            // depending on the state of the "Prefer" header.
+            if (unsupportedSearchParameters.Any() || searchSortErrors.Any())
+            {
+                var allErrors = new List<string>();
+                foreach (Tuple<string, string> unsupported in unsupportedSearchParameters)
+                {
+                    allErrors.Add(string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, unsupported.Item1, string.Join(",", resourceTypesString)));
+                }
+
+                allErrors.AddRange(searchSortErrors);
+
+                if (_contextAccessor.GetIsStrictHandlingEnabled())
+                {
+                    throw new BadRequestException(allErrors);
+                }
+
+                // There is no "Prefer" header with handling value, or handling value is valid and not set to "Prefer: handling=strict".
+                foreach (string error in allErrors)
+                {
+                    _contextAccessor.RequestContext?.BundleIssues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Warning,
+                            OperationOutcomeConstants.IssueType.NotSupported,
+                            error));
+                }
             }
 
             return searchOptions;

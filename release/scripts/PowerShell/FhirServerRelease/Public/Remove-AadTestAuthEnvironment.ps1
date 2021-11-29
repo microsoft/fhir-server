@@ -7,6 +7,8 @@ function Remove-AadTestAuthEnvironment {
     Path for the testauthenvironment.json file
     .PARAMETER EnvironmentName
     Environment name used for the test environment. This is used throughout for making names unique.
+    .PARAMETER TenantId
+    TenantId used for creating service audience while creating AAD application
     #>
     param
     (
@@ -18,8 +20,9 @@ function Remove-AadTestAuthEnvironment {
         [ValidateNotNullOrEmpty()]
         [string]$EnvironmentName,
         
-        [Parameter(Mandatory = $false )]
-        [String]$WebAppSuffix = "azurewebsites.net"
+        [Parameter(Mandatory = $true )]
+        [ValidateNotNullOrEmpty()]
+        [String]$TenantId
     )
 
     Set-StrictMode -Version Latest
@@ -36,7 +39,7 @@ function Remove-AadTestAuthEnvironment {
 
     $testAuthEnvironment = Get-Content -Raw -Path $TestAuthEnvironmentPath | ConvertFrom-Json
 
-    $fhirServiceAudience = Get-ServiceAudience -EnvironmentName $EnvironmentName -WebAppSuffix $WebAppSuffix
+    $fhirServiceAudience = Get-ServiceAudience -ServiceName $EnvironmentName -TenantId $TenantId
 
     $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
 

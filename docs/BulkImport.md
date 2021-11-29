@@ -15,34 +15,62 @@ This feature enables importing FHIR data in NDJSON format to the FHIR server. Th
 
 Here are the high-level steps to use $import. Rest of the document describes some of these steps in detail:
 
-1. [Deploy a new fhir server](#deploy-a-fhir-server) if needed. Ensure that _Enable Import_ is set to _true_ during the installation.
-1. [Set init import mode](#change-init-import-mode-on-the-fhir-server) on the FHIR server. Setting this mode also suspends write operations (POST, PUT) on the FHIR server.
+1. [Deploy a new fhir server](#deploy-a-fhir-server) if needed. Ensure that _Enable Import_ is set to _True_ during the installation.
+1. [Check and set up the configuration](#check-and-set-up-configuration) check the configruation needed for import is set correctly, if not set it as indicated.
+If your fhir server is new deployed through [step 1](#deploy-a-fhir-server), you can skip this stage. 
+1. [Set initial import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. Setting this mode also suspends write operations (POST, PUT) on the FHIR server.
 1. Upload your NDJSON files to a container in the storage location associated with your FHIR server. You may want to use  [_Azure storage explorer_](https://docs.microsoft.com/en-us/azure/vs-azure-tools-storage-manage-with-storage-explorer?tabs=windows) or [_Az_copy_](https://docs.microsoft.com/en-us/azure/storage/common/storage-ref-azcopy) to upload your data.
 1. Ensure that the storage available on your Azure SQL is at least 3 times that of the sum of your NDJSON files.
 1. Make the [$import API](#call-import) call.
 1. Periodically [check the status](#check-import-status) of import.
-1. [Unset init import mode](#change-init-import-mode-on-the-fhir-server) on the FHIR server. This step removes the suspension of the write operations on the FHIR server.
+1. [Unset initial import mode](#change-initial-import-mode-on-the-fhir-server) on the FHIR server. This step removes the suspension of the write operations on the FHIR server.
 
 ### Deploy a FHIR server
 
 Follow the guide [_QuickstartDeployPortal_](https://github.com/microsoft/fhir-server/blob/main/docs/QuickstartDeployPortal.md) to deploy a new fhir server. Use the following guideline for parameter values while installing the server.
 
-- *Number Of Instances*: **>1**.
-- *Solution type*: **FhirServerSqlServer**.
-- *Sql Admin Password*: Set a strong password.
-- *Sql Schema Automatic Updates Enabled*: **auto**.
-- *Enable Import*: **true**.
+- ***Number of instances***: ***>=2***
+- *Solution type*: FhirServerSqlServer
+- *Sql Admin Password*: Set a strong password
+- *Sql Schema Automatic Updates Enabled*: auto
+- *Enable Import*: true
     ![arm-template-portal](./images/bulk-import/arm-template-portal.png)
 
-### Change _init import mode_ on the FHIR server
+### Check and set up configuration
 
-The FHIR server must have _init import mode_ set to _true_ for $import to work. Setting the value to _true_ also suspends the write operations (PUT, POST) on the FHIR server, and must be reverted to _false_ to resume the write operations.
+Make sure the following settings are set correctly in your fhir server:
 
-After the FHIR server app is ready, navigate to app service portal and click **Configuration**. Create the *FhirServer:Operations:Import:InitImportMode* setting if needed by clicking **New application setting**. Set the value to _true_ or _false_ as needed.
+- *FhirServer__Operations__Import__Enabled*: **True**.
+- *TaskHosting__Enabled*: **True**.
+- *FhirServer__Operations__Import__MaxRunningProcessingTaskCount*: **Not set as default or have value >0, we suggest it has value >= instance count for performance**.
+- *FhirServer__Operations__IntegrationDataStore__StorageAccountUri*: **The url of azure storage account used as data source, eg. https://<accountName>.blob.core.windows.net/**.<br>
+                        ***OR***
+- *FhirServer__Operations__IntegrationDataStore__StorageAccountConnection*: **The connection string of azure storage account used as data source**.
+---
+**NOTE**
+
+There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection` setting. The fhir-server will use the connection string to connect to the storage account and import data.
+
+The other option would be to use the `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` setting with the uri of the storage account. For this option, we assume that the fhir-server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the fhir-server code in App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
+
+---
+
+| :zap:! If you are doing custom deployments neither as a Linux app service or a custom Linux container, any nested JSON key structure in the app setting name like TaskHosting__Enabled needs to be configured in App Service as TaskHosting:Enabled for the key name. In other words, any __(double underscore) should be replaced by :(colon). |
+|-----------------------------------------|
+
+### Change _initial import mode_ on the FHIR server
+
+The FHIR server must have _initial import mode_ set to _True_ for $import to work. Setting the value to _True_ also suspends the write operations (PUT, POST) on the FHIR server, and must be reverted to _False_ to resume the write operations.
+
+```
+FhirServer__Operations__Import__InitialImportMode: True
+```
+
+After the FHIR server app is ready, navigate to app service portal and click **Configuration**. Create the *FhirServer:Operations:Import:InitialImportMode* setting if needed by clicking **New application setting**. Set the value to _True_ or _False_ as needed.
 
 Click **OK** then **Save**. Click **Continue** when prompted to restart the app and make the changes take effect.
 
-![set-initmode](./images/bulk-import/set-initmode.png)
+![set-initial-import-mode](./images/bulk-import/set-initial-import-mode.png)
 
 ### Call $import
 
@@ -54,7 +82,7 @@ As _$import_ is an async operation, a **_callback_** link will be returned in _C
 
 ```http
 Prefer:respond-async
-ContentType:application/fhir+json
+Content-Type:application/fhir+json
 ```
 
 #### Body
@@ -67,9 +95,9 @@ ContentType:application/fhir+json
 
 | Input part name   | Description | Card. |  Accepted values |
 | ----------- | ----------- | ----------- | ----------- |
-| type   |  Resource type of input file   | 1..1 |  A valid [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html)|
-| url   |  Azure storage url of input file   | 1..1 |  A valid url.|
-| etag   |  Etag of the input file on Azure storage   | 0..1 |  A valid etag string.|
+| type   |  Resource type of input file   | 1..1 |  A valid [FHIR resource type](https://www.hl7.org/fhir/resourcelist.html) that match the input file. |
+| url   |  Azure storage url of input file   | 1..1 | Url value of the input file that can't be modified. |
+| etag   |  Etag of the input file on Azure storage used to verify the file content has not changed. | 0..1 |  Etag value of the input file that can't be modified. |
 
 **Sample request:**
 
@@ -265,7 +293,7 @@ Below are some errors you may encounter:
 1. If you find that _LOG IO percentage_ or _CPU percentage_ are very high during import, upgrade your database tier.
 1. Scale out to Increase parallelism:
     1. Increase number of machines in the app service plan.
-    2. Set ```FhirServer:Operations:Import:MaxRunningProcessingTaskCount``` in app configuration, the value should be the number of machines + 1 or bigger.
+    2. Set ```FhirServer__Operations__Import__MaxRunningProcessingTaskCount``` in app configuration, the value should be the number of machines + 1 or bigger.
     3. Save the configuration and restart the app.
 1. Besides scaling out, you can also scale up each machine. Follow the guide [Scale up an app](https://docs.microsoft.com/en-us/azure/app-service/manage-scale-up) to achieve this. In general, P3V2 machine is enough for most of the scenarios.
-1. Create the configuration ```FhirServer:Operations:Import:DisableUniqueOptionalIndexesForImport``` and set it to true when your input size is huge, e.g. more than 10GB.
+1. Create the configuration ```FhirServer__Operations__Import__DisableUniqueOptionalIndexesForImport``` and set it to true when your input size is huge, e.g. more than 10GB.
