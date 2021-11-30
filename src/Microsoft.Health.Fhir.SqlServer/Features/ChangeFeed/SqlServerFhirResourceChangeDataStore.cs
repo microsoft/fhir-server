@@ -35,7 +35,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         // So, January 1st, 1970 at 00:00:00 UTC is chosen as the initial partition anchor DateTime in the resource change data partition function.
         private static readonly DateTime PartitionAnchorDateTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
         private readonly SchemaInformation _schemaInformation;
-        private const int PartitionWindowInHoursToGoBack = -1;
 
         /// <summary>
         /// Creates a new instance of the <see cref="SqlServerFhirResourceChangeDataStore"/> class.
@@ -175,7 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             if (_schemaInformation.Current >= SchemaVersionConstants.SupportsClusteredIdOnResourceChangesVersion)
             {
                 sqlCommand.CommandText = "dbo.FetchResourceChanges_3";
-                sqlCommand.Parameters.AddWithValue("@partitionUtcDatetime", SqlDbType.DateTime2).Value = RoundDownToNearestHour(lastProcessedDateTime).AddHours(PartitionWindowInHoursToGoBack);
+                sqlCommand.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
@@ -201,11 +200,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     }
                 }
             }
-        }
-
-        private static DateTime RoundDownToNearestHour(DateTime dateTime)
-        {
-            return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, dateTime.Hour, 0, 0, dateTime.Kind);
         }
     }
 }

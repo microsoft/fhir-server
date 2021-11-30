@@ -8,8 +8,8 @@
 -- PARAMETERS
 --     @startId
 --         * The start id of resource change records to fetch.
---     @partitionUtcDatetime
---         * The partition datetime to look up, which needs to be rounded down to the nearest hour.
+--     @lastProcessedDateTime
+--         * The last checkpoint datetime.
 --     @pageSize
 --         * The page size for fetching resource change records.
 --
@@ -18,7 +18,7 @@
 --
 CREATE PROCEDURE dbo.FetchResourceChanges_3
     @startId bigint,
-    @partitionUtcDatetime datetime2(7),
+    @lastProcessedDateTime datetime2(7),
     @pageSize smallint
 AS
 BEGIN
@@ -29,7 +29,7 @@ BEGIN
     DECLARE @precedingPartitionBoundary datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv
                                                            INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
                                                        WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                                                           AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @partitionUtcDatetime), 0)
+                                                           AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedDateTime), 0)
                                                        ORDER BY prv.boundary_id DESC);
 
     IF (@precedingPartitionBoundary IS NULL) BEGIN
@@ -60,9 +60,14 @@ BEGIN
       ResourceVersion,
       ResourceChangeTypeId
     FROM @partitions AS p CROSS APPLY (
-        SELECT TOP(@pageSize) * FROM ResourceChangeData WITH (REPEATABLEREAD)
-            WHERE $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(Timestamp) = $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(p.partitionBoundary)
-                AND Id >= @startId
+        SELECT TOP(@pageSize) Id,
+          Timestamp,
+          ResourceId,
+          ResourceTypeId,
+          ResourceVersion,
+          ResourceChangeTypeId
+        FROM ResourceChangeData WITH (REPEATABLEREAD)
+            WHERE Id >= @startId AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(Timestamp) = $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(p.partitionBoundary)
         ORDER BY Id ASC
         ) AS cd
     ORDER BY cd.Id ASC;

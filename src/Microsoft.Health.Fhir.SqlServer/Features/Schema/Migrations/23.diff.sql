@@ -21,12 +21,29 @@ WHERE LowValue IS NULL
     AND SingleValue IS NOT NULL;
 GO
 
-/*************************************************************
-Table - dbo.QuantitySearchParam
-**************************************************************/
--- Update LowValue and HighValue columns as NOT NULL
-IF (((SELECT COLUMNPROPERTY(OBJECT_ID('dbo.QuantitySearchParam', 'U'), 'LowValue', 'AllowsNull')) = 1)
-    OR (SELECT COLUMNPROPERTY(OBJECT_ID('dbo.QuantitySearchParam', 'U'), 'HighValue', 'AllowsNull')) = 1)
+--
+-- STORED PROCEDURE
+--     FetchResourceChanges_3
+--
+-- DESCRIPTION
+--     Returns the number of resource change records from startId. The start id is inclusive.
+--
+-- PARAMETERS
+--     @startId
+--         * The start id of resource change records to fetch.
+--     @lastProcessedDateTime
+--         * The last checkpoint datetime.
+--     @pageSize
+--         * The page size for fetching resource change records.
+--
+-- RETURN VALUE
+--     Resource change data rows.
+--
+CREATE OR ALTER PROCEDURE dbo.FetchResourceChanges_3
+    @startId bigint,
+    @lastProcessedDateTime datetime2(7),
+    @pageSize smallint
+AS
 BEGIN
     -- Drop indexes that uses LowValue and HighValue columns
 	IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue')
@@ -47,7 +64,7 @@ BEGIN
     DECLARE @precedingPartitionBoundary datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv
                                                            INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
                                                        WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                                                           AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @partitionUtcDatetime), 0)
+                                                           AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedDateTime), 0)
                                                        ORDER BY prv.boundary_id DESC);
 
     IF (@precedingPartitionBoundary IS NULL) BEGIN
@@ -70,19 +87,20 @@ BEGIN
 	ON dbo.QuantitySearchParam
 	(
       ResourceTypeId,
-		SearchParamId,
-		QuantityCodeId,
-		LowValue,
-		HighValue,
-		ResourceSurrogateId
-	)
-	INCLUDE
-	(
-		SystemId
-	)
-	WHERE IsHistory = 0
-    WITH (ONLINE=ON) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId);
+      ResourceVersion,
+      ResourceChangeTypeId
+    FROM @partitions AS p CROSS APPLY (
+        SELECT TOP(@pageSize) Id,
+          Timestamp,
+          ResourceId,
+          ResourceTypeId,
+          ResourceVersion,
+          ResourceChangeTypeId
+        FROM ResourceChangeData WITH (REPEATABLEREAD)
+            WHERE Id >= @startId AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(Timestamp) = $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(p.partitionBoundary)
+        ORDER BY Id ASC
+        ) AS cd
+    ORDER BY cd.Id ASC;
 END;
 GO
 
