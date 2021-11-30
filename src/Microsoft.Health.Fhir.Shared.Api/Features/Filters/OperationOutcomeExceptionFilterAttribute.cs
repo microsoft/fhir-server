@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.RequestHeaderFieldsTooLarge);
                         break;
                     default:
-                        healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
+                        healthExceptionResult = CreateOperationOutcomeResult(string.Empty, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
                         break;
                 }
 
@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
             else
             {
-                context.Result = CreateOperationOutcomeResult(context.Exception.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
+                context.Result = CreateOperationOutcomeResult(string.Empty, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
                 context.ExceptionHandled = true;
             }
 
@@ -253,7 +253,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 HttpStatusCode? statusCode = (context.Result as OperationOutcomeResult)?.StatusCode;
                 if (statusCode != null && statusCode >= HttpStatusCode.InternalServerError)
                 {
-                    _logger.LogError(context.Exception, "5xx error returned");
+                    _logger.LogError(context.Exception, "{statusCode} error returned", statusCode);
                 }
             }
         }
