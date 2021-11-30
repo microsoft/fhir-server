@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
@@ -23,18 +23,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            var highValue = (ITypedElement)value.Scalar("high");
-            var lowValue = (ITypedElement)value.Scalar("low");
+            var highValue = (decimal?)value.Scalar("high.value");
+            var lowValue = (decimal?)value.Scalar("low.value");
 
-            var quantityRepresentativeValue = lowValue ?? highValue;
+            var quantityRepresentativeValue = (lowValue != null) ? "low" : (highValue != null) ? "high" : null;
 
             if (quantityRepresentativeValue != null)
             {
-                var system = quantityRepresentativeValue.Scalar("system") as string;
-                var code = quantityRepresentativeValue.Scalar("code") as string;
+                var system = value.Scalar($"{quantityRepresentativeValue}.system") as string;
+                var code = value.Scalar($"{quantityRepresentativeValue}.code") as string;
 
                 // FROM https://www.hl7.org/fhir/datatypes.html#Range: "The unit and code/system elements of the low or high elements SHALL match."
-                yield return new QuantitySearchValue(system, code, (decimal?)lowValue?.Scalar("value"), (decimal?)highValue?.Scalar("value"));
+                yield return new QuantitySearchValue(system, code, lowValue, highValue);
             }
         }
     }

@@ -50,7 +50,7 @@ AS PARTITION PartitionFunction_ResourceTypeId ALL TO ([PRIMARY]);
 
 CREATE TABLE dbo.SearchParam
 (
-    SearchParamId smallint IDENTITY(1,1) NOT NULL, 
+    SearchParamId smallint IDENTITY(1,1) NOT NULL,
     CONSTRAINT PK_SearchParam PRIMARY KEY NONCLUSTERED (SearchParamId),
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NULL,
@@ -121,6 +121,13 @@ CREATE TABLE dbo.Resource
 )
 
 ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )
+
+CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource
+(
+    ResourceTypeId,
+    ResourceSurrogateId
+)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON dbo.Resource
@@ -230,6 +237,17 @@ CREATE TABLE dbo.CompartmentAssignment
 )
 
 ALTER TABLE dbo.CompartmentAssignment SET ( LOCK_ESCALATION = AUTO )
+
+CREATE CLUSTERED INDEX IXC_CompartmentAssignment
+ON dbo.CompartmentAssignment
+(
+    ResourceTypeId,
+    ResourceSurrogateId,
+    CompartmentTypeId,
+    ReferenceResourceId
+)
+WITH (DATA_COMPRESSION = PAGE)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId
 ON dbo.CompartmentAssignment
@@ -396,6 +414,18 @@ ON dbo.TokenText
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
+CREATE NONCLUSTERED INDEX IX_TokenText_SearchParamId_Text
+ON dbo.TokenText
+(
+    ResourceTypeId,
+    SearchParamId,
+    Text,
+    ResourceSurrogateId
+)
+WHERE IsHistory = 0
+WITH (DATA_COMPRESSION = PAGE)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
 GO
 
 /*************************************************************
@@ -508,6 +538,18 @@ ON dbo.UriSearchParam
     ResourceSurrogateId,
     SearchParamId
 )
+WITH (DATA_COMPRESSION = PAGE)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+
+CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
+ON dbo.UriSearchParam
+(
+    ResourceTypeId,
+    SearchParamId,
+    Uri,
+    ResourceSurrogateId
+)
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
@@ -717,6 +759,15 @@ CREATE TABLE dbo.DateTimeSearchParam
 )
 
 ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
+CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
+ON dbo.DateTimeSearchParam
+(
+    ResourceTypeId,
+    ResourceSurrogateId,
+    SearchParamId
+)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
 ON dbo.DateTimeSearchParam
@@ -1850,6 +1901,11 @@ CREATE TABLE dbo.ExportJob
     JobVersion rowversion NOT NULL
 )
 
+CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob ON dbo.ExportJob
+(
+    Id
+)
+
 CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime ON dbo.ExportJob
 (
     Hash,
@@ -2170,6 +2226,11 @@ CREATE TABLE dbo.ReindexJob
     HeartbeatDateTime datetime2(7) NULL,
     RawJobRecord varchar(max) NOT NULL,
     JobVersion rowversion NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_ReindexJob ON dbo.ReindexJob
+(
+    Id
 )
 
 GO
@@ -2914,6 +2975,10 @@ CREATE TABLE [dbo].[TaskInfo](
     [Result] [varchar](max) NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
 
+CREATE UNIQUE CLUSTERED INDEX IXC_Task on [dbo].[TaskInfo]
+(
+    TaskId
+)
 GO
 
 /*************************************************************
@@ -3607,17 +3672,25 @@ END;
 GO
 
 -- STORED PROCEDURE
---     RemovePartitionFromResourceChanges
+--     RemovePartitionFromResourceChanges_2
 --
 -- DESCRIPTION
---     Switches out and merges the extreme left partition with the immediate left partition.
+--     Switches a partition from a resource change data table to a staging table.
+--     Then merges two partitions based on a given partition boundary value.
 --     After that, truncates the staging table to purge the old resource change data.
+--     The RANGE RIGHT partition is used on ResourceChangeData table.
+--     For the sliding window scenario, if you want to drop the left-most partition,
+--     a partitionBoundaryToMerge argument should be the lowest partition boundary value and
+--     a partitionNumberToSwtichOut argument should be 2 assuming that partition 1 is always empty.
 --
---     @partitionBoundary
---         * The output parameter to stores the removed partition boundary.
+--     @partitionNumberToSwtichOut
+--         * The partition number to switch out.
+--     @partitionBoundaryToMerge
+--         * The partition boundary value to merge.
 --
-CREATE PROCEDURE dbo.RemovePartitionFromResourceChanges
-    @partitionBoundary datetime2(7) OUTPUT
+CREATE PROCEDURE dbo.RemovePartitionFromResourceChanges_2
+    @partitionNumberToSwitchOut int,
+    @partitionBoundaryToMerge datetime2(7)
 AS
   BEGIN
     
@@ -3634,17 +3707,17 @@ AS
                             WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                             ORDER BY prv.boundary_id ASC) AS datetime2(7));
 
-        /* Cleans up a staging table if there are existing rows. */
-        TRUNCATE TABLE dbo.ResourceChangeDataStaging;
+    /* Cleans up a staging table if there are existing rows. */
+    TRUNCATE TABLE dbo.ResourceChangeDataStaging;
         
-        /* Switches a partition to the staging table. */
-        ALTER TABLE dbo.ResourceChangeData SWITCH PARTITION 2 TO dbo.ResourceChangeDataStaging;
+    /* Switches a partition to the staging table. */
+    ALTER TABLE dbo.ResourceChangeData SWITCH PARTITION @partitionNumberToSwitchOut TO dbo.ResourceChangeDataStaging;
         
-        /* Merges range to move lower boundary one partition ahead. */
-        ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() MERGE RANGE(@leftPartitionBoundary);
+    /* Merges range to move boundary one partition ahead. */
+    ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp() MERGE RANGE(@partitionBoundaryToMerge);
         
-        /* Cleans up the staging table to purge resource changes. */
-        TRUNCATE TABLE dbo.ResourceChangeDataStaging;
+    /* Cleans up the staging table to purge resource changes. */
+    TRUNCATE TABLE dbo.ResourceChangeDataStaging;
         
         SET @partitionBoundary = @leftPartitionBoundary;
 
