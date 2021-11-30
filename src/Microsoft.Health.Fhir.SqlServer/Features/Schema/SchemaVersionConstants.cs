@@ -22,5 +22,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;
+        public const int SupportsClusteredIdOnResourceChangesVersion = (int)SchemaVersion.V23;
     }
 }

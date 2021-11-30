@@ -6,9 +6,11 @@ CREATE TABLE dbo.ResourceChangeDataStaging
     ResourceId varchar(64) NOT NULL,
     ResourceTypeId smallint NOT NULL,
     ResourceVersion int NOT NULL,
-    ResourceChangeTypeId tinyint NOT NULL,
-    CONSTRAINT PK_ResourceChangeDataStaging_TimestampId PRIMARY KEY (Timestamp, Id)
-) ON [PRIMARY]
+    ResourceChangeTypeId tinyint NOT NULL
+) ON [PRIMARY];
+
+CREATE CLUSTERED INDEX IXC_ResourceChangeDataStaging ON dbo.ResourceChangeDataStaging
+    (Id ASC, Timestamp ASC) WITH(ONLINE = ON) ON [PRIMARY];
 
 /* Adds a check constraint on the staging table for a partition boundary validation. */
 ALTER TABLE dbo.ResourceChangeDataStaging WITH CHECK 

@@ -350,10 +350,12 @@ CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
     ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, LowValue, HighValue, ResourceSurrogateId) WHERE IsHistory = 0
+                                                                                                            AND LowValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
     ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId) WHERE IsHistory = 0
+                                                                                                            AND LowValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.QuantityCode (
@@ -392,11 +394,13 @@ CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_Si
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
     ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, LowValue, HighValue, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0
+                            AND LowValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
     ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, HighValue, LowValue, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0
+                            AND LowValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceSearchParam (
@@ -499,9 +503,12 @@ CREATE TABLE dbo.ResourceChangeData (
     ResourceId           VARCHAR (64)  NOT NULL,
     ResourceTypeId       SMALLINT      NOT NULL,
     ResourceVersion      INT           NOT NULL,
-    ResourceChangeTypeId TINYINT       NOT NULL,
-    CONSTRAINT PK_ResourceChangeData_TimestampId PRIMARY KEY (Timestamp, Id)
+    ResourceChangeTypeId TINYINT       NOT NULL
 ) ON PartitionScheme_ResourceChangeData_Timestamp (Timestamp);
+
+CREATE CLUSTERED INDEX IXC_ResourceChangeData
+    ON dbo.ResourceChangeData(Id ASC) WITH (ONLINE = ON)
+    ON PartitionScheme_ResourceChangeData_Timestamp (Timestamp);
 
 CREATE TABLE dbo.ResourceChangeDataStaging (
     Id                   BIGINT        IDENTITY (1, 1) NOT NULL,
@@ -509,9 +516,12 @@ CREATE TABLE dbo.ResourceChangeDataStaging (
     ResourceId           VARCHAR (64)  NOT NULL,
     ResourceTypeId       SMALLINT      NOT NULL,
     ResourceVersion      INT           NOT NULL,
-    ResourceChangeTypeId TINYINT       NOT NULL,
-    CONSTRAINT PK_ResourceChangeDataStaging_TimestampId PRIMARY KEY (Timestamp, Id)
+    ResourceChangeTypeId TINYINT       NOT NULL
 ) ON [PRIMARY];
+
+CREATE CLUSTERED INDEX IXC_ResourceChangeDataStaging
+    ON dbo.ResourceChangeDataStaging(Id ASC, Timestamp ASC) WITH (ONLINE = ON)
+    ON [PRIMARY];
 
 ALTER TABLE dbo.ResourceChangeDataStaging WITH CHECK
     ADD CONSTRAINT CHK_ResourceChangeDataStaging_partition CHECK (Timestamp < CONVERT (DATETIME2 (7), N'9999-12-31 23:59:59.9999999'));
@@ -1610,21 +1620,27 @@ BEGIN
 END
 
 GO
-CREATE PROCEDURE dbo.FetchResourceChanges_2
-@startId BIGINT, @lastProcessedDateTime DATETIME2 (7), @pageSize SMALLINT
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @partitions TABLE (
+        partitionBoundary DATETIME2 (7));
+    INSERT INTO @partitions
+    SELECT CAST (prv.value AS DATETIME2 (7))
+    FROM   sys.partition_range_values AS prv
+           INNER JOIN
+           sys.partition_functions AS pf
+           ON pf.function_id = prv.function_id
+    WHERE  pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+           AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp (CAST (prv.value AS DATETIME2 (7))) >= $PARTITION.PartitionFunction_ResourceChangeData_Timestamp (@partitionUtcDatetime)
+           AND CAST (prv.value AS DATETIME2 (7)) < DATEADD(hour, 1, SYSUTCDATETIME());
     SELECT   TOP (@pageSize) Id,
                              Timestamp,
                              ResourceId,
                              ResourceTypeId,
                              ResourceVersion,
                              ResourceChangeTypeId
-    FROM     dbo.ResourceChangeData WITH (REPEATABLEREAD)
-    WHERE    Timestamp >= @lastProcessedDateTime
-             AND Id >= @startId
-    ORDER BY Timestamp ASC, Id ASC;
+                                                    AND Id >= @startId
 END
 
 GO

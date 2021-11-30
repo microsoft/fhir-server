@@ -1,4 +1,11 @@
-﻿EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 23.';
+﻿/*************************************************************
+    This migration removes the existing primary key clustered index and adds a clustered index on Id column in the ResourceChangeData table.
+    The migration is "online" meaning the server is fully available during the upgrade, but it can be very time-consuming.
+    For reference, a resource change data table with 10 million records took around 25 minutes to complete 
+    on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
+**************************************************************/
+
+EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 23.';
 GO
 
 /*************************************************************
@@ -40,7 +47,7 @@ BEGIN
 	EXEC dbo.LogSchemaMigrationProgress 'Updating LowValue as NOT NULL'
 	ALTER TABLE dbo.QuantitySearchParam
 	ALTER COLUMN LowValue decimal(18,6) NOT NULL;
-
+    
 	EXEC dbo.LogSchemaMigrationProgress 'Updating HighValue as NOT NULL'
 	ALTER TABLE dbo.QuantitySearchParam
 	ALTER COLUMN HighValue decimal(18,6) NOT NULL;	
@@ -55,7 +62,7 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
 	ON dbo.QuantitySearchParam
 	(
-		ResourceTypeId,
+      ResourceTypeId,
 		SearchParamId,
 		QuantityCodeId,
 		LowValue,
@@ -70,6 +77,7 @@ BEGIN
     WITH (ONLINE=ON) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId);
 END;
+GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue')
 BEGIN
@@ -137,11 +145,11 @@ BEGIN
 	END;
 
 	IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_NumberSearchParam_SearchParamId_HighValue_LowValue')
-	BEGIN
+BEGIN
 	    EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_NumberSearchParam_SearchParamId_HighValue_LowValue'
 		DROP INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
 		ON dbo.NumberSearchParam
-	END;
+END;
 
 	-- Update datatype and non-nullable LowValue and HighValue columns
 	EXEC dbo.LogSchemaMigrationProgress 'Updating NumberSearchParam LowValue as NOT NULL'
@@ -171,6 +179,10 @@ BEGIN
     WITH (ONLINE=ON)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END;
+GO
+
+EXEC dbo.LogSchemaMigrationProgress 'Creating IXC_ResourceChangeDataStaging index on ResourceChangeDataStaging table.';
+GO
 
 IF NOT EXISTS (
     SELECT * 
@@ -183,6 +195,7 @@ BEGIN
     WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END;
+GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_NumberSearchParam_SearchParamId_LowValue_HighValue')
 BEGIN

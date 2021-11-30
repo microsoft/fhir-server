@@ -6,6 +6,8 @@ CREATE TABLE dbo.ResourceChangeData
     ResourceId varchar(64) NOT NULL,
     ResourceTypeId smallint NOT NULL,
     ResourceVersion int NOT NULL,
-    ResourceChangeTypeId tinyint NOT NULL,
-    CONSTRAINT PK_ResourceChangeData_TimestampId PRIMARY KEY (Timestamp, Id)
-) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp)
+    ResourceChangeTypeId tinyint NOT NULL
+) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp);
+
+CREATE CLUSTERED INDEX IXC_ResourceChangeData ON dbo.ResourceChangeData
+    (Id ASC) WITH(ONLINE = ON) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp);

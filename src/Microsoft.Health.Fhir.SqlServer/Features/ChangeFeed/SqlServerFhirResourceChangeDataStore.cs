@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         // So, January 1st, 1970 at 00:00:00 UTC is chosen as the initial partition anchor DateTime in the resource change data partition function.
         private static readonly DateTime PartitionAnchorDateTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
         private readonly SchemaInformation _schemaInformation;
+        private const int PartitionWindowInHoursToGoBack = -1;
 
         /// <summary>
         /// Creates a new instance of the <see cref="SqlServerFhirResourceChangeDataStore"/> class.
@@ -171,7 +172,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             sqlCommand.CommandType = CommandType.StoredProcedure;
             sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
             sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.SmallInt).Value = pageSize;
-            if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
+            if (_schemaInformation.Current >= SchemaVersionConstants.SupportsClusteredIdOnResourceChangesVersion)
+            {
+                sqlCommand.CommandText = "dbo.FetchResourceChanges_3";
+                sqlCommand.Parameters.AddWithValue("@partitionUtcDatetime", SqlDbType.DateTime2).Value = RoundDownToNearestHour(lastProcessedDateTime).AddHours(PartitionWindowInHoursToGoBack);
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
                 sqlCommand.CommandText = "dbo.FetchResourceChanges_2";
                 sqlCommand.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
@@ -195,6 +201,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     }
                 }
             }
+        }
+
+        private static DateTime RoundDownToNearestHour(DateTime dateTime)
+        {
+            return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, dateTime.Hour, 0, 0, dateTime.Kind);
         }
     }
 }
