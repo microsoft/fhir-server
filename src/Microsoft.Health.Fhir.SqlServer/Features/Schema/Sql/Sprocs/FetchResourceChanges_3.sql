@@ -66,10 +66,10 @@ BEGIN
           ResourceTypeId,
           ResourceVersion,
           ResourceChangeTypeId
-        FROM ResourceChangeData WITH (REPEATABLEREAD)
+        FROM dbo.ResourceChangeData WITH (REPEATABLEREAD)
             WHERE Id >= @startId AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(Timestamp) = $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(p.partitionBoundary)
         ORDER BY Id ASC
-        ) AS cd
-    ORDER BY cd.Id ASC;
+        ) AS rcd
+    ORDER BY rcd.Id ASC;
 END;
 GO
