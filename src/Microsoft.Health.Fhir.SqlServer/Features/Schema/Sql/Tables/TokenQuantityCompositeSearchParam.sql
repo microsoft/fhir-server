@@ -10,6 +10,9 @@
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,
+    CONSTRAINT PK_TokenQuantityCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Code1)
+	WITH (DATA_COMPRESSION = PAGE) 
+	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 

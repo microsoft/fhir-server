@@ -5,6 +5,8 @@
     Version                     int                     NOT NULL,
     IsHistory                   bit                     NOT NULL,
     ResourceSurrogateId         bigint                  NOT NULL,
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsDeleted                   bit                     NOT NULL,
     RequestMethod               varchar(10)             NULL,
     RawResource                 varbinary(max)          NOT NULL,
@@ -13,14 +15,6 @@
 )
 
 ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )
-
-CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource
-(
-    ResourceTypeId,
-    ResourceSurrogateId
-)
-ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version ON dbo.Resource
 (

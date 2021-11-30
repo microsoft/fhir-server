@@ -4,6 +4,9 @@
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CONSTRAINT PK_UriSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId)
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
 )
 

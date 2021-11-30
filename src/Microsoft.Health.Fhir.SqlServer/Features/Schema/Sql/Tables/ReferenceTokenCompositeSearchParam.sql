@@ -9,6 +9,9 @@
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CONSTRAINT PK_ReferenceTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, ReferenceResourceId1, Code2, ResourceSurrogateId)
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 

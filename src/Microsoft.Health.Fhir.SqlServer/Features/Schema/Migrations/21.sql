@@ -51,7 +51,6 @@ AS PARTITION PartitionFunction_ResourceTypeId ALL TO ([PRIMARY]);
 CREATE TABLE dbo.SearchParam
 (
     SearchParamId smallint IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PK_SearchParam PRIMARY KEY NONCLUSTERED (SearchParamId),
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NULL,
     LastUpdated datetimeoffset(7) NULL,
@@ -66,7 +65,6 @@ CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam ON dbo.SearchParam
 CREATE TABLE dbo.ResourceType
 (
     ResourceTypeId smallint IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PK_ResourceType PRIMARY KEY NONCLUSTERED (ResourceTypeId),
     Name nvarchar(50) COLLATE Latin1_General_100_CS_AS  NOT NULL
 )
 
@@ -80,7 +78,6 @@ CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType on dbo.ResourceType
 CREATE TABLE dbo.System
 (
     SystemId int IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PK_System PRIMARY KEY NONCLUSTERED (SystemId),
     Value nvarchar(256) NOT NULL,
 )
 
@@ -92,7 +89,6 @@ CREATE UNIQUE CLUSTERED INDEX IXC_System ON dbo.System
 CREATE TABLE dbo.QuantityCode
 (
     QuantityCodeId int IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PK_QuantityCode PRIMARY KEY NONCLUSTERED (QuantityCodeId),
     Value nvarchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
@@ -112,7 +108,6 @@ CREATE TABLE dbo.Resource
     Version int NOT NULL,
     IsHistory bit NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsDeleted bit NOT NULL,
     RequestMethod varchar(10) NULL,
     RawResource varbinary(max) NOT NULL,
@@ -172,7 +167,6 @@ ON [Primary]
 CREATE TABLE dbo.ClaimType
 (
     ClaimTypeId tinyint IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PK_ClaimType PRIMARY KEY NONCLUSTERED (ClaimTypeId),
     Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
@@ -208,7 +202,6 @@ CREATE CLUSTERED INDEX IXC_ResourceWriteClaim on dbo.ResourceWriteClaim
 CREATE TABLE dbo.CompartmentType
 (
     CompartmentTypeId tinyint IDENTITY(1,1) NOT NULL,
-    CONSTRAINT PK_CompartmentType PRIMARY KEY NONCLUSTERED (CompartmentTypeId),
     Name varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
@@ -230,9 +223,6 @@ CREATE TABLE dbo.CompartmentAssignment
     ResourceSurrogateId bigint NOT NULL,
     CompartmentTypeId tinyint NOT NULL,
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_CompartmentAssignment PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 
@@ -286,9 +276,6 @@ CREATE TABLE dbo.ReferenceSearchParam
     ReferenceResourceTypeId smallint NULL,
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion int NULL,
-    CONSTRAINT PK_ReferenceSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, ReferenceResourceId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 
@@ -343,9 +330,6 @@ CREATE TABLE dbo.TokenSearchParam
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_TokenSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 
@@ -396,9 +380,6 @@ CREATE TABLE dbo.TokenText
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL,
-    CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
 )
 
@@ -448,9 +429,6 @@ CREATE TABLE dbo.StringSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
-    CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsHistory bit NOT NULL,
     IsMin bit CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
@@ -523,9 +501,6 @@ CREATE TABLE dbo.UriSearchParam
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_UriSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
 )
 
@@ -747,9 +722,6 @@ CREATE TABLE dbo.DateTimeSearchParam
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    CONSTRAINT PKC_DateTimeSearchParam PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     StartDateTime datetime2(7) NOT NULL,
     EndDateTime datetime2(7) NOT NULL,
     IsLongerThanADay bit NOT NULL,
@@ -868,9 +840,6 @@ CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
     ReferenceResourceVersion1 int NULL,
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_ReferenceTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, ReferenceResourceId1, Code2, ResourceSurrogateId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 
@@ -930,9 +899,6 @@ CREATE TABLE dbo.TokenTokenCompositeSearchParam
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     SystemId2 int NULL,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_TokenTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, Code2, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
 )
 
@@ -992,9 +958,6 @@ CREATE TABLE dbo.TokenDateTimeCompositeSearchParam
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
-    CONSTRAINT PK_TokenDateTimeCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 
@@ -1117,9 +1080,6 @@ CREATE TABLE dbo.TokenQuantityCompositeSearchParam
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,
-    CONSTRAINT PK_TokenQuantityCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Code1)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 
@@ -1218,9 +1178,6 @@ CREATE TABLE dbo.TokenStringCompositeSearchParam
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_CI_AI NOT NULL,
-    CONSTRAINT PK_TokenStringCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NULL,
     IsHistory bit NOT NULL,
 )
@@ -1305,9 +1262,6 @@ CREATE TABLE dbo.TokenNumberNumberCompositeSearchParam
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_TokenNumberNumberCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Code1)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,
@@ -1893,7 +1847,6 @@ GO
 CREATE TABLE dbo.ExportJob
 (
     Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_ExportJob PRIMARY KEY CLUSTERED(Id),
     Hash varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
     HeartbeatDateTime datetime2(7) NULL,
@@ -2221,7 +2174,6 @@ GO
 CREATE TABLE dbo.ReindexJob
 (
     Id varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PKC_ReindexJob PRIMARY KEY CLUSTERED(Id),
     Status varchar(10) NOT NULL,
     HeartbeatDateTime datetime2(7) NULL,
     RawJobRecord varchar(max) NOT NULL,
@@ -2961,7 +2913,6 @@ GO
 **************************************************************/
 CREATE TABLE [dbo].[TaskInfo](
 	[TaskId] [varchar](64) NOT NULL,
-    CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED(TaskId),
 	[QueueId] [varchar](64) NOT NULL,
 	[Status] [smallint] NOT NULL,
     [TaskTypeId] [smallint] NOT NULL,
@@ -3693,20 +3644,6 @@ CREATE PROCEDURE dbo.RemovePartitionFromResourceChanges_2
     @partitionBoundaryToMerge datetime2(7)
 AS
   BEGIN
-    
-    /* using XACT_ABORT to force a rollback on any error. */
-    SET XACT_ABORT ON;
-    
-    BEGIN TRANSACTION
-    
-        /* Finds the lowest boundary value. */
-        DECLARE @leftPartitionBoundary datetime2(7) = CAST((SELECT TOP (1) value
-                            FROM sys.partition_range_values AS prv
-                                JOIN sys.partition_functions AS pf
-                                    ON pf.function_id = prv.function_id
-                            WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                            ORDER BY prv.boundary_id ASC) AS datetime2(7));
-
     /* Cleans up a staging table if there are existing rows. */
     TRUNCATE TABLE dbo.ResourceChangeDataStaging;
         
@@ -3718,10 +3655,6 @@ AS
         
     /* Cleans up the staging table to purge resource changes. */
     TRUNCATE TABLE dbo.ResourceChangeDataStaging;
-        
-        SET @partitionBoundary = @leftPartitionBoundary;
-
-    COMMIT TRANSACTION
 END;
 GO 
 
