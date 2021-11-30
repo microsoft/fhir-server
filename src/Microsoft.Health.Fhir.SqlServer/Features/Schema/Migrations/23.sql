@@ -502,9 +502,12 @@ CREATE TABLE dbo.ResourceChangeData (
     ResourceTypeId       SMALLINT      NOT NULL,
     ResourceVersion      INT           NOT NULL,
     ResourceChangeTypeId TINYINT       NOT NULL,
-    PartitionDatetime    DATETIME2 (7) CONSTRAINT DF_ResourceChangeData_PartitionDatetime DEFAULT (DATEADD(HOUR, DATEDIFF(HOUR, 0, SYSUTCDATETIME()), 0)) NOT NULL,
-    CONSTRAINT PK_ResourceChangeData_PartitionDatetimeId PRIMARY KEY (PartitionDatetime ASC, Id ASC)
+    PartitionDatetime    DATETIME2 (7) CONSTRAINT DF_ResourceChangeData_PartitionDatetime DEFAULT (DATEADD(HOUR, DATEDIFF(HOUR, 0, SYSUTCDATETIME()), 0)) NOT NULL
 ) ON PartitionScheme_ResourceChangeData_Timestamp (PartitionDatetime);
+
+CREATE CLUSTERED INDEX IXC_ResourceChangeData
+    ON dbo.ResourceChangeData(Id ASC) WITH (ONLINE = ON)
+    ON PartitionScheme_ResourceChangeData_Timestamp (PartitionDatetime);
 
 CREATE TABLE dbo.ResourceChangeDataStaging (
     Id                   BIGINT        IDENTITY (1, 1) NOT NULL,
@@ -513,9 +516,12 @@ CREATE TABLE dbo.ResourceChangeDataStaging (
     ResourceTypeId       SMALLINT      NOT NULL,
     ResourceVersion      INT           NOT NULL,
     ResourceChangeTypeId TINYINT       NOT NULL,
-    PartitionDatetime    DATETIME2 (7) CONSTRAINT DF_ResourceChangeDataStaging_PartitionDatetime DEFAULT (DATEADD(HOUR, DATEDIFF(HOUR, 0, SYSUTCDATETIME()), 0)) NOT NULL,
-    CONSTRAINT PK_ResourceChangeDataStaging_PartitionDatetimeId PRIMARY KEY (PartitionDatetime ASC, Id ASC)
+    PartitionDatetime    DATETIME2 (7) CONSTRAINT DF_ResourceChangeDataStaging_PartitionDatetime DEFAULT (DATEADD(HOUR, DATEDIFF(HOUR, 0, SYSUTCDATETIME()), 0)) NOT NULL
 ) ON [PRIMARY];
+
+CREATE CLUSTERED INDEX IXC_ResourceChangeDataStaging
+    ON dbo.ResourceChangeDataStaging(Id ASC, Timestamp ASC) WITH (ONLINE = ON)
+    ON [PRIMARY];
 
 ALTER TABLE dbo.ResourceChangeDataStaging WITH CHECK
     ADD CONSTRAINT CHK_ResourceChangeDataStaging_partition CHECK (PartitionDatetime < CONVERT (DATETIME2 (7), N'9999-12-31 23:59:59.9999999'));
@@ -1615,20 +1621,38 @@ END
 
 GO
 CREATE PROCEDURE dbo.FetchResourceChanges_3
-@startId BIGINT, @partitionDatetime DATETIME2 (7), @pageSize SMALLINT
+@startId BIGINT, @lastProcessedDateTime DATETIME2 (7), @pageSize SMALLINT
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @partitions TABLE (
+        partitionBoundary DATETIME2 (7));
+    INSERT INTO @partitions
+    SELECT CAST (prv.value AS DATETIME2 (7))
+    FROM   sys.partition_range_values AS prv
+           INNER JOIN
+           sys.partition_functions AS pf
+           ON pf.function_id = prv.function_id
+    WHERE  pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+           AND CAST (prv.value AS DATETIME2 (7)) >= DATEADD(HOUR, DATEDIFF(hour, 0, @lastProcessedDateTime) - 1, 0)
+           AND CAST (prv.value AS DATETIME2 (7)) < DATEADD(hour, 1, SYSUTCDATETIME());
     SELECT   TOP (@pageSize) Id,
                              Timestamp,
                              ResourceId,
                              ResourceTypeId,
                              ResourceVersion,
                              ResourceChangeTypeId
-    FROM     dbo.ResourceChangeData WITH (REPEATABLEREAD)
-    WHERE    PartitionDatetime >= @partitionDatetime
-             AND Id >= @startId
-    ORDER BY PartitionDatetime ASC, Id ASC;
+    FROM     @partitions AS p CROSS APPLY (SELECT   TOP (@pageSize) Id,
+                                                                    Timestamp,
+                                                                    ResourceId,
+                                                                    ResourceTypeId,
+                                                                    ResourceVersion,
+                                                                    ResourceChangeTypeId
+                                           FROM     ResourceChangeData WITH (REPEATABLEREAD)
+                                           WHERE    Id >= @startId
+                                                    AND PartitionDateTime = p.partitionBoundary
+                                           ORDER BY Id ASC) AS rcd
+    ORDER BY rcd.Id ASC;
 END
 
 GO

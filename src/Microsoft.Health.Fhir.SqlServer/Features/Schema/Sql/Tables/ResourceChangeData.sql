@@ -7,6 +7,8 @@ CREATE TABLE dbo.ResourceChangeData
     ResourceTypeId smallint NOT NULL,
     ResourceVersion int NOT NULL,
     ResourceChangeTypeId tinyint NOT NULL,
-    PartitionDatetime datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeData_PartitionDatetime DEFAULT (DATEADD(HOUR,DATEDIFF(HOUR,0,SYSUTCDATETIME()),0)),
-    CONSTRAINT PK_ResourceChangeData_PartitionDatetimeId PRIMARY KEY (PartitionDatetime ASC, Id ASC)
-) ON PartitionScheme_ResourceChangeData_Timestamp(PartitionDatetime)
+    PartitionDatetime datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeData_PartitionDatetime DEFAULT (DATEADD(HOUR,DATEDIFF(HOUR,0,SYSUTCDATETIME()),0))
+) ON PartitionScheme_ResourceChangeData_Timestamp(PartitionDatetime);
+
+CREATE CLUSTERED INDEX IXC_ResourceChangeData ON dbo.ResourceChangeData
+    (Id ASC) WITH(ONLINE = ON) ON PartitionScheme_ResourceChangeData_Timestamp(PartitionDatetime);

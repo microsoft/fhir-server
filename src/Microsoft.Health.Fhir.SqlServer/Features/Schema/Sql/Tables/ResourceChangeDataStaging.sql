@@ -7,9 +7,11 @@ CREATE TABLE dbo.ResourceChangeDataStaging
     ResourceTypeId smallint NOT NULL,
     ResourceVersion int NOT NULL,
     ResourceChangeTypeId tinyint NOT NULL,
-    PartitionDatetime datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeDataStaging_PartitionDatetime DEFAULT (DATEADD(HOUR,DATEDIFF(HOUR,0,SYSUTCDATETIME()),0)),
-    CONSTRAINT PK_ResourceChangeDataStaging_PartitionDatetimeId PRIMARY KEY (PartitionDatetime ASC, Id ASC)
-) ON [PRIMARY]
+    PartitionDatetime datetime2(7) NOT NULL CONSTRAINT DF_ResourceChangeDataStaging_PartitionDatetime DEFAULT (DATEADD(HOUR,DATEDIFF(HOUR,0,SYSUTCDATETIME()),0))
+) ON [PRIMARY];
+
+CREATE CLUSTERED INDEX IXC_ResourceChangeDataStaging ON dbo.ResourceChangeDataStaging
+    (Id ASC, Timestamp ASC) WITH(ONLINE = ON) ON [PRIMARY];
 
 /* Adds a check constraint on the staging table for a partition boundary validation. */
 ALTER TABLE dbo.ResourceChangeDataStaging WITH CHECK 
