@@ -26,13 +26,22 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @partitions TABLE (partitionBoundary datetime2(7));
-    
+    DECLARE @precedingPartitionBoundary datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv
+                                                           INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
+                                                       WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                                                           AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @partitionUtcDatetime), 0)
+                                                       ORDER BY prv.boundary_id DESC);
+
+    IF (@precedingPartitionBoundary IS NULL) BEGIN
+        SET @precedingPartitionBoundary = CONVERT(datetime2(7), N'1970-01-01T00:00:00.0000000');
+    END;
+
     INSERT INTO @partitions 
         SELECT CAST(prv.value AS datetime2(7)) FROM sys.partition_range_values AS prv
             INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
         WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-              AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(CAST(prv.value AS datetime2(7))) >= $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(@partitionUtcDatetime)
-              AND CAST(prv.value AS datetime2(7)) < DATEADD(hour, 1, SYSUTCDATETIME());
+              AND CAST(prv.value AS datetime2(7)) >= DATEADD(HOUR, DATEDIFF(HOUR, 0, @precedingPartitionBoundary), 0)
+              AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, 1, SYSUTCDATETIME());
 
     /* Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
        using the Repeatable Read isolation level table hint to avoid skipping resource changes 

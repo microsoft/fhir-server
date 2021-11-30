@@ -43,16 +43,23 @@ BEGIN
 		ON dbo.QuantitySearchParam
 	END;
 
-	-- Update datatype and non-nullable LowValue and HighValue columns
-	EXEC dbo.LogSchemaMigrationProgress 'Updating LowValue as NOT NULL'
-	ALTER TABLE dbo.QuantitySearchParam
-	ALTER COLUMN LowValue decimal(18,6) NOT NULL;
-    
-	EXEC dbo.LogSchemaMigrationProgress 'Updating HighValue as NOT NULL'
-	ALTER TABLE dbo.QuantitySearchParam
-	ALTER COLUMN HighValue decimal(18,6) NOT NULL;	
-END;
-GO
+    DECLARE @partitions TABLE (partitionBoundary datetime2(7));
+    DECLARE @precedingPartitionBoundary datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv
+                                                           INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
+                                                       WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                                                           AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @partitionUtcDatetime), 0)
+                                                       ORDER BY prv.boundary_id DESC);
+
+    IF (@precedingPartitionBoundary IS NULL) BEGIN
+        SET @precedingPartitionBoundary = CONVERT(datetime2(7), N'1970-01-01T00:00:00.0000000');
+    END;
+
+    INSERT INTO @partitions 
+        SELECT CAST(prv.value AS datetime2(7)) FROM sys.partition_range_values AS prv
+            INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
+        WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+              AND CAST(prv.value AS datetime2(7)) >= DATEADD(HOUR, DATEDIFF(HOUR, 0, @precedingPartitionBoundary), 0)
+              AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, 1, SYSUTCDATETIME());
 
 -- Recreate dropped indexes
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue')
