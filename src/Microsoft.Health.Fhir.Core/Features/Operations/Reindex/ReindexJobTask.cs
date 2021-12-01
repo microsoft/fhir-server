@@ -465,7 +465,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _jobSemaphore.Release();
                 }
 
-                _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
+                _logger.LogInformation($"Reindex job current thread: {Environment.CurrentManagedThreadId}");
                 await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.ResourceTypeSearchParameterHashMap, cancellationToken);
                 _throttleController.UpdateDatastoreUsage();
 

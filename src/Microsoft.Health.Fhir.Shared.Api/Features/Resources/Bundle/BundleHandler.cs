@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (entry.Resource != null)
                 {
-                    var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(entry.Resource));
+                    var memoryStream = new MemoryStream(await _fhirJsonSerializer.SerializeToBytesAsync(entry.Resource));
                     memoryStream.Seek(0, SeekOrigin.Begin);
                     httpContext.Request.Body = memoryStream;
                 }

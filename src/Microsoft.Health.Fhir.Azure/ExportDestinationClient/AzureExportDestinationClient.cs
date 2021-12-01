@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             // We can clear the stream mappings once we commit everything.
             foreach (Stream stream in _streamMappings.Values)
             {
-                stream.Dispose();
+                await stream.DisposeAsync();
             }
 
             _streamMappings.Clear();

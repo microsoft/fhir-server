@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     using (SqlDataReader sqlDataReader = await commandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                     {
-                        if (!sqlDataReader.Read())
+                        if (!await sqlDataReader.ReadAsync(cancellationToken))
                         {
                             return null;
                         }

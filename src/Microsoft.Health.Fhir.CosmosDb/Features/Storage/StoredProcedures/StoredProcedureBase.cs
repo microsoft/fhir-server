@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
 
         public Uri GetUri(Uri collection)
         {
-            return new Uri($"{collection}/sprocs/{Uri.EscapeUriString(FullName)}", UriKind.Relative);
+            return new Uri($"{collection}/sprocs/{Uri.EscapeDataString(FullName)}", UriKind.Relative);
         }
 
         private string GetBody()
