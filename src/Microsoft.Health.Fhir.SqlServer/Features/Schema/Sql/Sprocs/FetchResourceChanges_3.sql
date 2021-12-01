@@ -8,8 +8,8 @@
 -- PARAMETERS
 --     @startId
 --         * The start id of resource change records to fetch.
---     @lastProcessedDateTime
---         * The last checkpoint datetime.
+--     @lastProcessedUtcDateTime
+--         * The last checkpoint datetime in UTC time (Coordinated Universal Time).
 --     @pageSize
 --         * The page size for fetching resource change records.
 --
@@ -18,7 +18,7 @@
 --
 CREATE PROCEDURE dbo.FetchResourceChanges_3
     @startId bigint,
-    @lastProcessedDateTime datetime2(7),
+    @lastProcessedUtcDateTime datetime2(7),
     @pageSize smallint
 AS
 BEGIN
@@ -29,7 +29,7 @@ BEGIN
     DECLARE @precedingPartitionBoundary datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv
                                                            INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
                                                        WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                                                           AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedDateTime), 0)
+                                                           AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedUtcDateTime), 0)
                                                        ORDER BY prv.boundary_id DESC);
 
     IF (@precedingPartitionBoundary IS NULL) BEGIN

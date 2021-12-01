@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             if (_schemaInformation.Current >= SchemaVersionConstants.SupportsClusteredIdOnResourceChangesVersion)
             {
                 sqlCommand.CommandText = "dbo.FetchResourceChanges_3";
-                sqlCommand.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
+                sqlCommand.Parameters.AddWithValue("@lastProcessedUtcDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
