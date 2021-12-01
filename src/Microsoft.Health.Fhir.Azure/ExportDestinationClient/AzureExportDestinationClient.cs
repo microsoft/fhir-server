@@ -87,7 +87,9 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             }
             catch (StorageException se)
             {
+#pragma warning disable CA2254 // Template should be a static expression
                 _logger.LogWarning(se, se.Message);
+#pragma warning restore CA2254 // Template should be a static expression
 
                 HttpStatusCode responseCode = StorageExceptionParser.ParseStorageException(se);
                 throw new DestinationConnectionException(se.Message, responseCode);

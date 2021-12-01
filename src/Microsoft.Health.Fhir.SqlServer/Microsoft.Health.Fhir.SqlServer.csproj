@@ -1,10 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
 
   <!-- Properties used by sql task to generate full script-->
-  
+  <PropertyGroup>
+    <LatestSchemaVersion>22</LatestSchemaVersion>
+    <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
+    <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="10.1.0" />
     <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
@@ -16,10 +21,12 @@
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.46521.71" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(AspNetPackageVersion)" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <EmbeddedResource Include="Features\Schema\Migrations\*.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\*.sql" Exclude="Features\Schema\Migrations\*.diff.sql">
+      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
+      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
       <MutableClassVersion Condition="'%(Filename)' != '$(LatestSchemaVersion)'">%(Filename)</MutableClassVersion>
       <MutableClassVersion Condition="'%(Filename)' == '$(LatestSchemaVersion)'">Latest</MutableClassVersion>
     </EmbeddedResource>
@@ -57,9 +64,29 @@
   <ItemGroup>
     <TInitSqlScript Include="Features\Schema\Sql\Scripts\TransactionCheckWithInitialiScript.sql" />
   </ItemGroup>
-  
+
   <!-- Target contains sql build tasks -->
   <Import Project="$(NuGetPackageRoot)microsoft.health.tools.sql.tasks\$(HealthcareSharedPackageVersion)\build\Sql.targets" />
 
+  <Target Name="ComputeGeneratorInputs" BeforeTargets="GenerateFiles">
+    <ItemGroup>
+      <MutableSqlGeneratorInputs Include="@(EmbeddedResource)" Condition="'%(EmbeddedResource.InputToMutableSqlGenerator)' == 'true'" />
+      <ImmutableSqlGeneratorInputs Include="@(EmbeddedResource)" Condition="'%(EmbeddedResource.InputToImmutableSqlGenerator)' == 'true'" />
+
+      <!--We create this item group to that MSBuild can know when the GenerateFiles can be skipped.-->
+      <GenerateFilesInputs Include="@(MutableSqlGeneratorInputs);@(ImmutableSqlGeneratorInputs)" />
+
+      <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.cs">
+        <Generator>ImmutableSqlModelGenerator</Generator>
+        <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
+        <Args>@(ImmutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
+      </Generated>
+      <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.cs">
+        <Generator>MutableSqlModelGenerator</Generator>
+        <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
+        <Args>@(MutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
+      </Generated>
+    </ItemGroup>
+  </Target>
 
 </Project>

@@ -383,7 +383,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             }
             catch (Exception ex)
             {
-                _logger.LogInformation(ex, "Failed to import table. {0}", table.TableName);
+                _logger.LogInformation(ex, "Failed to import table: {Table}", table.TableName);
 
                 throw;
             }

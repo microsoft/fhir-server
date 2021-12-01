@@ -383,7 +383,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         string message = string.Format(Core.Resources.ReindexingResourceVersionConflictWithCount, failedResourceCount);
                         string userAction = Core.Resources.ReindexingUserAction;
 
+#pragma warning disable CA2254 // Template should be a static expression
                         _logger.LogError(message);
+#pragma warning restore CA2254 // Template should be a static expression
                         throw new PreconditionFailedException(message + " " + userAction);
                     }
                 }
@@ -402,7 +404,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 string message = Core.Resources.ReindexingResourceVersionConflict;
                                 string userAction = Core.Resources.ReindexingUserAction;
 
+#pragma warning disable CA2254 // Template should be a static expression
                                 _logger.LogError(message);
+#pragma warning restore CA2254 // Template should be a static expression
                                 throw new PreconditionFailedException(message + " " + userAction);
 
                             default:
@@ -477,7 +481,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
+#pragma warning disable CA2254 // Template should be a static expression
                             _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
+#pragma warning restore CA2254 // Template should be a static expression
                             throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
                         default:

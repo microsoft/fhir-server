@@ -412,7 +412,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 return id;
             }
 
-            _logger.LogInformation("Cache miss for string ID on {table}", table);
+            _logger.LogInformation("Cache miss for string ID on {Table}", table);
 
             // Forgive me father, I have sinned.
             // In ideal world I should make this method async, but that spirals out of control and forces changes in all RowGenerators (about 35 files)

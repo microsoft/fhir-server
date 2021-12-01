@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             catch (SqlException e) when (e.Number == 2812)
             {
-                _logger.LogWarning(e, "Schema is not initialized - {ex.Message}", e.Message);
+                _logger.LogWarning(e, "Schema is not initialized - {Message}", e.Message);
             }
 
             return output;
