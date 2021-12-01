@@ -212,7 +212,7 @@ BEGIN
        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
        This behavior enables queries or updates to the underlying table and indexes to continue. */
     CREATE CLUSTERED INDEX IXC_ResourceChangeDataStaging ON dbo.ResourceChangeDataStaging
-        (Id ASC, Timestamp ASC) WITH(ONLINE = ON) ON [PRIMARY];
+        (Id ASC, PartitionDatetime ASC) WITH(ONLINE = ON) ON [PRIMARY];
 END;
 GO
 
