@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (string uri in searchParameterUris)
             {
-                _logger.LogTrace("Setting the search parameter status of '{uri}' to '{newStatus}'", uri, status.ToString());
+                _logger.LogTrace("Setting the search parameter status of '{Uri}' to '{NewStatus}'", uri, status.ToString());
 
                 var searchParamUri = new Uri(uri);
 
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
             catch (Exception ex)
             {
-                _logger.LogWarning("Unable to resolve search parameter {0}. Exception: {1}", parameterInfo?.Code, ex);
+                _logger.LogWarning("Unable to resolve search parameter {Code}. Exception: {Exception}", parameterInfo?.Code, ex);
                 return (false, false);
             }
         }

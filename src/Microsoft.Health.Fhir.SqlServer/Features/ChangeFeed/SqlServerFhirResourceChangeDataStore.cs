@@ -146,13 +146,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     case SqlErrorCodes.TimeoutExpired:
                         throw new TimeoutException(ex.Message, ex);
                     default:
+#pragma warning disable CA2254 // Template should be a static expression
                         _logger.LogError(ex, string.Format(Resources.SqlExceptionOccurredWhenFetchingResourceChanges, ex.Number));
+#pragma warning restore CA2254 // Template should be a static expression
                         throw;
                 }
             }
             catch (Exception ex)
             {
+#pragma warning disable CA2254 // Template should be a static expression
                 _logger.LogError(ex, Resources.ExceptionOccurredWhenFetchingResourceChanges);
+#pragma warning restore CA2254 // Template should be a static expression
                 throw;
             }
         }

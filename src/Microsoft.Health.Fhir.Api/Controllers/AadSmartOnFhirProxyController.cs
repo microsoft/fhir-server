@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 if (ex is HttpRequestException || ex is OperationCanceledException)
                 {
-                    logger.LogWarning(ex, "There was an exception while attempting to read the OpenId Configuration from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
+                    logger.LogWarning(ex, "There was an exception while attempting to read the OpenId Configuration from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
                     throw new OpenIdConfigurationException();
                 }
 
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             if (_aadTokenEndpoint == null || _aadAuthorizeEndpoint == null)
             {
-                logger.LogError("There was an error attempting to read the endpoints from \"{openIdConfigurationUrl}\".", openIdConfigurationUrl);
+                logger.LogError("There was an error attempting to read the endpoints from \"{OpenIdConfigurationUrl}\".", openIdConfigurationUrl);
                 throw new OpenIdConfigurationException();
             }
         }
@@ -255,7 +255,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error parsing launch parameters: {message}", ex.Message);
+                _logger.LogError("Error parsing launch parameters: {Message}", ex.Message);
                 throw new AadSmartOnFhirProxyBadRequestException(Resources.InvalidLaunchContext, ex);
             }
 
@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error decoding compound code: {message}", ex.Message);
+                _logger.LogError("Error decoding compound code: {Message}", ex.Message);
                 throw new AadSmartOnFhirProxyBadRequestException(Resources.InvalidCompoundCode, ex);
             }
 

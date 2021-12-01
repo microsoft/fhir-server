@@ -704,18 +704,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
         }
 
-        private string ExtractExportTaskLoggingMessage()
-        {
-            string id = _exportJobRecord.Id ?? string.Empty;
-            string status = _exportJobRecord.Status.ToString();
-            string queuedTime = _exportJobRecord.QueuedTime.ToString("u") ?? string.Empty;
-            string endTime = _exportJobRecord.EndTime?.ToString("u") ?? string.Empty;
-            long dataSize = _exportJobRecord.Output?.Values.Sum(fileList => fileList.Sum(job => job?.CommittedBytes ?? 0)) ?? 0;
-            bool isAnonymizedExport = IsAnonymizedExportJob();
-
-            return $"Export job completed. Id: {id}, Status {status}, Queued Time: {queuedTime}, End Time: {endTime}, DataSize: {dataSize}, IsAnonymizedExport: {isAnonymizedExport}";
-        }
-
         private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
         {
             if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id || parameter.Item1 == KnownQueryParameterNames.ContinuationToken))

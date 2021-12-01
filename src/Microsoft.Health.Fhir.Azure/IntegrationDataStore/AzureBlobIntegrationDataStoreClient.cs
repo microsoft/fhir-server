@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogInformation(storageEx, "Failed to create container for {0}:{1}", containerId, fileName);
+                _logger.LogInformation(storageEx, "Failed to create container for {Container}:{File}", containerId, fileName);
 
                 HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
                 throw new IntegrationDataStoreException(storageEx.Message, statusCode);
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogInformation(storageEx, "Failed to upload data for {0}", resourceUri);
+                _logger.LogInformation(storageEx, "Failed to upload data for {Url}", resourceUri);
 
                 HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
                 throw new IntegrationDataStoreException(storageEx.Message, statusCode);
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogInformation(storageEx, "Failed to commit for {0}", resourceUri);
+                _logger.LogInformation(storageEx, "Failed to commit for {Url}", resourceUri);
 
                 HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
                 throw new IntegrationDataStoreException(storageEx.Message, statusCode);
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogInformation(storageEx, "Failed to append commit for {0}", resourceUri);
+                _logger.LogInformation(storageEx, "Failed to append commit for {Url}", resourceUri);
 
                 HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
                 throw new IntegrationDataStoreException(storageEx.Message, statusCode);
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogInformation(storageEx, "Failed to get properties of blob {0}", resourceUri);
+                _logger.LogInformation(storageEx, "Failed to get properties of blob {Url}", resourceUri);
 
                 HttpStatusCode statusCode = StorageExceptionParser.ParseStorageException(storageEx);
                 throw new IntegrationDataStoreException(storageEx.Message, statusCode);
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (StorageException storageEx)
             {
-                _logger.LogInformation(storageEx, "Failed to acquire lease on the blob {0}", resourceUri);
+                _logger.LogInformation(storageEx, "Failed to acquire lease on the blob {Url}", resourceUri);
                 return null;
             }
         }
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Azure.IntegrationDataStore
             }
             catch (Exception storageEx)
             {
-                _logger.LogInformation(storageEx, "Failed to release lease on the blob {0}", resourceUri);
+                _logger.LogInformation(storageEx, "Failed to release lease on the blob {Url}", resourceUri);
             }
         }
 
