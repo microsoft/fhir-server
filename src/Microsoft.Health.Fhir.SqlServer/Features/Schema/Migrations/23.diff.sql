@@ -8,17 +8,7 @@
 EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 23.';
 GO
 
-/*************************************************************
- Insert singleValue values into the low and high values for
- dbo.QuantitySearchParam table
-**************************************************************/
-EXEC dbo.LogSchemaMigrationProgress 'Populating LowValue and HighValue in QuantitySearchParam if null'
-UPDATE dbo.QuantitySearchParam
-SET LowValue = SingleValue, 
-    HighValue = SingleValue
-WHERE LowValue IS NULL
-    AND HighValue IS NULL
-    AND SingleValue IS NOT NULL;
+EXEC dbo.LogSchemaMigrationProgress 'Adding or updating FetchResourceChanges_3 and ConfigurePartitionOnResourceChanges_2 stored procedures.';
 GO
 
 --
@@ -119,9 +109,6 @@ BEGIN
 END;
 GO
 
-/*************************************************************
-    Purge partition feature for resource change data
-**************************************************************/
 --
 -- STORED PROCEDURE
 --     ConfigurePartitionOnResourceChanges_2
@@ -133,21 +120,21 @@ GO
 --     @numberOfFuturePartitionsToAdd
 --         * The number of partitions to add for future datetimes.
 --
-CREATE OR ALTER  PROCEDURE dbo.ConfigurePartitionOnResourceChanges_2
+CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges_2
     @numberOfFuturePartitionsToAdd int
 AS
 BEGIN
     
-	/* using XACT_ABORT to force a rollback on any error. */
-	SET XACT_ABORT ON;
+    /* using XACT_ABORT to force a rollback on any error. */
+    SET XACT_ABORT ON;
         
     /* Rounds the current datetime to the hour. */
-	DECLARE @partitionBoundary AS DATETIME2 (7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
+    DECLARE @partitionBoundary AS DATETIME2 (7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
     
-	/* Adds one due to starting from the current hour. */
-	DECLARE @numberOfPartitionsToAdd AS INT = @numberOfFuturePartitionsToAdd + 1;
+    /* Adds one due to starting from the current hour. */
+    DECLARE @numberOfPartitionsToAdd AS INT = @numberOfFuturePartitionsToAdd + 1;
     
-	/* Creates the partitions for future datetimes on the resource change data table. */    
+    /* Creates the partitions for future datetimes on the resource change data table. */    
     WHILE @numberOfPartitionsToAdd > 0
     BEGIN
         BEGIN TRANSACTION
@@ -164,8 +151,8 @@ BEGIN
             END;
         COMMIT TRANSACTION;
             
-		/* Adds one hour for the next partition. */
-		SET @partitionBoundary = DATEADD(hour, 1, @partitionBoundary);
+        /* Adds one hour for the next partition. */
+        SET @partitionBoundary = DATEADD(hour, 1, @partitionBoundary);
         SET @numberOfPartitionsToAdd -= 1;
     END;
 END;

@@ -17,40 +17,35 @@ CREATE PROCEDURE dbo.ConfigurePartitionOnResourceChanges_2
 AS
 BEGIN
     
-	/* using XACT_ABORT to force a rollback on any error. */
-	SET XACT_ABORT ON;
-    BEGIN TRANSACTION;
-    
-	/* Creates the partitions for future datetimes on the resource change data table. */    
+    /* using XACT_ABORT to force a rollback on any error. */
+    SET XACT_ABORT ON;
         
     /* Rounds the current datetime to the hour. */
-	DECLARE @partitionBoundary AS DATETIME2 (7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
+    DECLARE @partitionBoundary AS DATETIME2 (7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
     
-	/* Finds the highest boundary value. */
-	DECLARE @startingRightPartitionBoundary AS DATETIME2 (7) = CAST ((SELECT   TOP (1) value
-                                                                      FROM     sys.partition_range_values AS prv
-                                                                               INNER JOIN
-                                                                               sys.partition_functions AS pf
-                                                                               ON pf.function_id = prv.function_id
-                                                                      WHERE    pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                                                                      ORDER BY prv.boundary_id DESC) AS DATETIME2 (7));
+    /* Adds one due to starting from the current hour. */
+    DECLARE @numberOfPartitionsToAdd AS INT = @numberOfFuturePartitionsToAdd + 1;
     
-	/* Adds one due to starting from the current hour. */
-	DECLARE @numberOfPartitionsToAdd AS INT = @numberOfFuturePartitionsToAdd + 1;
+    /* Creates the partitions for future datetimes on the resource change data table. */    
     WHILE @numberOfPartitionsToAdd > 0
-        BEGIN
+    BEGIN
+        BEGIN TRANSACTION
             /* Checks if a partition exists. */
-			IF (@startingRightPartitionBoundary < @partitionBoundary)
-                BEGIN
-                    ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [PRIMARY];
-                    ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp( )
-                        SPLIT RANGE (@partitionBoundary);
-                END
+            IF NOT EXISTS (SELECT 1 FROM sys.partition_range_values AS prv
+                                INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
+                            WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                                AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
+                                AND CAST(prv.value AS datetime2(7)) = @partitionBoundary)
+            BEGIN
+                ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [PRIMARY];
+                ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp( )
+                    SPLIT RANGE (@partitionBoundary);
+            END;
+        COMMIT TRANSACTION;
             
-			/* Adds one hour for the next partition. */
-			SET @partitionBoundary = DATEADD(hour, 1, @partitionBoundary);
-            SET @numberOfPartitionsToAdd -= 1;
-        END
-    COMMIT TRANSACTION;
-END
+        /* Adds one hour for the next partition. */
+        SET @partitionBoundary = DATEADD(hour, 1, @partitionBoundary);
+        SET @numberOfPartitionsToAdd -= 1;
+    END;
+END;
 GO

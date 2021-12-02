@@ -1482,28 +1482,28 @@ CREATE PROCEDURE dbo.ConfigurePartitionOnResourceChanges_2
 AS
 BEGIN
     SET XACT_ABORT ON;
-    BEGIN TRANSACTION;
     DECLARE @partitionBoundary AS DATETIME2 (7) = DATEADD(hour, DATEDIFF(hour, 0, sysutcdatetime()), 0);
-    DECLARE @startingRightPartitionBoundary AS DATETIME2 (7) = CAST ((SELECT   TOP (1) value
-                                                                      FROM     sys.partition_range_values AS prv
-                                                                               INNER JOIN
-                                                                               sys.partition_functions AS pf
-                                                                               ON pf.function_id = prv.function_id
-                                                                      WHERE    pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                                                                      ORDER BY prv.boundary_id DESC) AS DATETIME2 (7));
     DECLARE @numberOfPartitionsToAdd AS INT = @numberOfFuturePartitionsToAdd + 1;
     WHILE @numberOfPartitionsToAdd > 0
         BEGIN
-            IF (@startingRightPartitionBoundary < @partitionBoundary)
+            BEGIN TRANSACTION;
+            IF NOT EXISTS (SELECT 1
+                           FROM   sys.partition_range_values AS prv
+                                  INNER JOIN
+                                  sys.partition_functions AS pf
+                                  ON pf.function_id = prv.function_id
+                           WHERE  pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                                  AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
+                                  AND CAST (prv.value AS DATETIME2 (7)) = @partitionBoundary)
                 BEGIN
                     ALTER PARTITION SCHEME PartitionScheme_ResourceChangeData_Timestamp NEXT USED [PRIMARY];
                     ALTER PARTITION FUNCTION PartitionFunction_ResourceChangeData_Timestamp( )
                         SPLIT RANGE (@partitionBoundary);
                 END
+            COMMIT TRANSACTION;
             SET @partitionBoundary = DATEADD(hour, 1, @partitionBoundary);
             SET @numberOfPartitionsToAdd -= 1;
         END
-    COMMIT TRANSACTION;
 END
 
 GO
