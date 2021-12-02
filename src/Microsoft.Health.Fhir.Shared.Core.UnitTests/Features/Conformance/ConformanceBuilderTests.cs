@@ -17,10 +17,10 @@ using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
+using TypeRestfulInteraction = Microsoft.Health.Fhir.ValueSets.TypeRestfulInteraction;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
