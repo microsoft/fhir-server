@@ -1,0 +1,332 @@
+# Before running this, update the versioning policy in appsettings.json to:
+#
+#"Versioning": {
+#     "Default": "versioned",
+#     "ResourceTypeOverrides":
+#         {
+#             "Observation": "no-version",
+#             "Patient": "no-version"
+#         }
+#     }
+
+@hostname = localhost:44348
+
+###
+# Get the capability statement.
+# Note that the "versioning" property of every resource type is set to "versioned"
+# except for Observation and Patient where it is set to "no-version".
+GET https://{{hostname}}/metadata
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+# Create a patient resource that we will update.
+PUT https://{{hostname}}/Patient/patient-to-update
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-to-update",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05"
+}
+
+###
+# Update the patient.
+PUT https://{{hostname}}/Patient/patient-to-update
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Patient",
+  "id": "patient-to-update",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+###
+# Create an observation resource that we will update.
+PUT https://{{hostname}}/Observation/observation-to-update
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Observation",
+  "id": "observation-to-update",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: bgpanel</p><p><b>status</b>: final</p><p><b>category</b>: Laboratory <span>(Details : {http://terminology.hl7.org/CodeSystem/observation-category code 'laboratory' = 'Laboratory', given as 'Laboratory'})</span></p><p><b>code</b>: Blood Group Panel <span>(Details : {LOINC code '34532-2' = 'Blood type and Indirect antibody screen panel - Blood', given as ' Blood type and Indirect antibody screen panel - Blood'})</span></p><p><b>subject</b>: <a>Patient/infant</a></p><p><b>effective</b>: 11/03/2018 4:07:54 PM</p><p><b>hasMember</b>: </p><ul><li><a>Observation/bloodgroup</a></li><li><a>Observation/rhstatus</a></li></ul></div>"
+  },
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+          "code": "laboratory",
+          "display": "Laboratory"
+        }
+      ],
+      "text": "Laboratory"
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "34532-2",
+        "display": " Blood type and Indirect antibody screen panel - Blood"
+      }
+    ],
+    "text": "Blood Group Panel"
+  },
+  "subject": {
+    "reference": "Patient/infant"
+  },
+  "effectiveDateTime": "2018-03-11T16:07:54+00:00",
+  "hasMember": [
+    {
+      "reference": "Observation/bloodgroup"
+    },
+    {
+      "reference": "Observation/rhstatus"
+    }
+  ]
+}
+
+###
+# Update the observation.
+PUT https://{{hostname}}/Observation/observation-to-update
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Observation",
+  "id": "observation-to-update",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: bgpanel</p><p><b>status</b>: final</p><p><b>category</b>: Laboratory <span>(Details : {http://terminology.hl7.org/CodeSystem/observation-category code 'laboratory' = 'Laboratory', given as 'Laboratory'})</span></p><p><b>code</b>: Blood Group Panel <span>(Details : {LOINC code '34532-2' = 'Blood type and Indirect antibody screen panel - Blood', given as ' Blood type and Indirect antibody screen panel - Blood'})</span></p><p><b>subject</b>: <a>Patient/infant</a></p><p><b>effective</b>: 11/03/2018 4:07:54 PM</p><p><b>hasMember</b>: </p><ul><li><a>Observation/bloodgroup</a></li><li><a>Observation/rhstatus</a></li></ul></div>"
+  },
+  "status": "final",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+          "code": "laboratory",
+          "display": "Laboratory"
+        }
+      ],
+      "text": "Laboratory"
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "34532-2",
+        "display": " Blood type and Indirect antibody screen panel - Blood"
+      }
+    ],
+    "text": "Blood Group Panel"
+  },
+  "subject": {
+    "reference": "Patient/patient-to-update"
+  },
+  "effectiveDateTime": "2018-03-11T16:07:54+00:00",
+  "hasMember": [
+    {
+      "reference": "Observation/bloodgroup"
+    },
+    {
+      "reference": "Observation/rhstatus"
+    }
+  ]
+}
+
+###
+# Create a practitioner resource that we will update.
+PUT https://{{hostname}}/Practitioner/practitioner-to-update
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Practitioner",
+  "id": "practitioner-to-update",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      <p>Dr Adam Careful is a Referring Practitioner for Acme Hospital from 1-Jan 2012 to 31-Mar\n        2012</p>\n    </div>"
+  },
+  "identifier": [
+    {
+      "system": "http://www.acme.org/practitioners",
+      "value": "23"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Careful",
+      "given": [
+        "Adam"
+      ],
+      "prefix": [
+        "Dr"
+      ]
+    }
+  ],
+  "address": [
+    {
+      "use": "home",
+      "line": [
+        "534 Erewhon St"
+      ],
+      "city": "PleasantVille",
+      "state": "Vic",
+      "postalCode": "3999"
+    }
+  ],
+  "qualification": [
+    {
+      "identifier": [
+        {
+          "system": "http://example.org/UniversityIdentifier",
+          "value": "12345"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0360/2.7",
+            "code": "BS",
+            "display": "Bachelor of Science"
+          }
+        ],
+        "text": "Bachelor of Science"
+      },
+      "period": {
+        "start": "1995"
+      },
+      "issuer": {
+        "display": "Example University"
+      }
+    }
+  ]
+}
+
+###
+# Update the practitioner.
+PUT https://{{hostname}}/Practitioner/practitioner-to-update
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Practitioner",
+  "id": "practitioner-to-update",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n      <p>Dr Adam Careful is a Referring Practitioner for Acme Hospital from 1-Jan 2012 to 31-Mar\n        2012</p>\n    </div>"
+  },
+  "identifier": [
+    {
+      "system": "http://www.acme.org/practitioners",
+      "value": "23"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Extracareful",
+      "given": [
+        "Adam"
+      ],
+      "prefix": [
+        "Dr"
+      ]
+    }
+  ],
+  "address": [
+    {
+      "use": "home",
+      "line": [
+        "534 Erewhon St"
+      ],
+      "city": "PleasantVille",
+      "state": "Vic",
+      "postalCode": "3999"
+    }
+  ],
+  "qualification": [
+    {
+      "identifier": [
+        {
+          "system": "http://example.org/UniversityIdentifier",
+          "value": "12345"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0360/2.7",
+            "code": "BS",
+            "display": "Bachelor of Science"
+          }
+        ],
+        "text": "Bachelor of Science"
+      },
+      "period": {
+        "start": "1995"
+      },
+      "issuer": {
+        "display": "Example University"
+      }
+    }
+  ]
+}
+
+###
+# Because of how we modified appsettings.json, patient history should NOT be kept.
+# Only the latest version is returned in the history bundle.
+GET https://{{hostname}}/Patient/patient-to-update/_history
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Because of how we modified appsettings.json, observation history should NOT be kept.
+# Only the latest version is returned in the history bundle.
+GET https://{{hostname}}/Observation/observation-to-update/_history
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Because of how we modified appsettings.json, practitioner history SHOULD be kept.
+# All versions are returned in the history bundle.
+GET https://{{hostname}}/Practitioner/practitioner-to-update/_history
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
