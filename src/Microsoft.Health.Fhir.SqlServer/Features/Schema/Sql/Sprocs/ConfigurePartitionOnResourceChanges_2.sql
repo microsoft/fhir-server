@@ -3,7 +3,7 @@
 **************************************************************/
 --
 -- STORED PROCEDURE
---     ConfigurePartitionOnResourceChanges
+--     ConfigurePartitionOnResourceChanges_2
 --
 -- DESCRIPTION
 --     Creates initial partitions for future datetimes on the resource change data table if they do not already exist.
@@ -12,7 +12,7 @@
 --     @numberOfFuturePartitionsToAdd
 --         * The number of partitions to add for future datetimes.
 --
-CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
+CREATE PROCEDURE dbo.ConfigurePartitionOnResourceChanges_2
     @numberOfFuturePartitionsToAdd int
 AS
 BEGIN

@@ -350,12 +350,10 @@ CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_SingleValue
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_LowValue_HighValue
     ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, LowValue, HighValue, ResourceSurrogateId) WHERE IsHistory = 0
-                                                                                                            AND LowValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
     ON dbo.NumberSearchParam(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId) WHERE IsHistory = 0
-                                                                                                            AND LowValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.QuantityCode (
@@ -394,13 +392,11 @@ CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_Si
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
     ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, LowValue, HighValue, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0
-                            AND LowValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
     ON dbo.QuantitySearchParam(ResourceTypeId, SearchParamId, QuantityCodeId, HighValue, LowValue, ResourceSurrogateId)
     INCLUDE(SystemId) WHERE IsHistory = 0
-                            AND LowValue IS NOT NULL
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.ReferenceSearchParam (
@@ -1481,7 +1477,7 @@ WHERE  TaskId = @taskId;
 COMMIT TRANSACTION;
 
 GO
-CREATE OR ALTER PROCEDURE dbo.ConfigurePartitionOnResourceChanges
+CREATE PROCEDURE dbo.ConfigurePartitionOnResourceChanges_2
 @numberOfFuturePartitionsToAdd INT
 AS
 BEGIN
