@@ -43,6 +43,8 @@ BEGIN
            Substracts one hour from the rounded DateTime to include a partition where the watermark lies, in the partition boundary filter below. */
         SET @precedingPartitionBoundary = DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedUtcDateTime) - 1, 0);
     END;
+    
+    DECLARE @endDateTimeToFilter datetime2(7) = DATEADD(HOUR, 1, SYSUTCDATETIME());
 
     /* Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database, 
        using the Repeatable Read isolation level table hint to avoid skipping resource changes 
@@ -60,7 +62,7 @@ BEGIN
             INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
         WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                 AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
-                AND CAST(prv.value AS datetime2(7)) BETWEEN @precedingPartitionBoundary AND DATEADD(HOUR, 1, SYSUTCDATETIME())
+                AND CAST(prv.value AS datetime2(7)) BETWEEN @precedingPartitionBoundary AND @endDateTimeToFilter
     )
     SELECT TOP(@pageSize) Id,
         Timestamp,
