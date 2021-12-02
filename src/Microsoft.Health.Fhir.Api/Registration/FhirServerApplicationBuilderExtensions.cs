@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Registration;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -24,9 +25,14 @@ namespace Microsoft.AspNetCore.Builder
         /// <returns>THe application builder instance.</returns>
         public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app)
         {
+            return app.UseFhirServer(null);
+        }
+
+        public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app, Func<HealthCheckRegistration, bool> predicate)
+        {
             EnsureArg.IsNotNull(app, nameof(app));
 
-            app.UseHealthChecksExtension(new PathString(KnownRoutes.HealthCheck));
+            app.UseHealthChecksExtension(new PathString(KnownRoutes.HealthCheck), predicate);
 
             var config = app.ApplicationServices.GetRequiredService<IOptions<FhirServerConfiguration>>();
 
