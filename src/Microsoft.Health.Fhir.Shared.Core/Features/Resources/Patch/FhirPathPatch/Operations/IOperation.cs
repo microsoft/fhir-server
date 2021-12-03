@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
-using static Hl7.Fhir.Model.Parameters;
 
 namespace FhirPathPatch.Operations
 {
@@ -14,7 +13,7 @@ namespace FhirPathPatch.Operations
     public interface IOperation
     {
         /// <summary>
-        /// <param type="PendingOperation">The patch operation to take place.</param>
+        /// <param type="PendingOperation" name="operation">The patch operation to take place.</param>
         /// <returns>Patched FHIR Resource.</returns>
         /// </summary>
         public Resource Execute(PendingOperation operation);

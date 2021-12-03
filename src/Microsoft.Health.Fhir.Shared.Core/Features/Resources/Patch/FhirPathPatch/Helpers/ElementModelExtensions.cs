@@ -15,15 +15,19 @@ namespace FhirPathPatch.Helpers
 {
     internal static class ElementModelExtensions
     {
+        // Converts a resource to an ElementNode
         internal static ElementNode ToElementNode(this Resource resource) =>
             ElementNode.FromElement(resource.ToTypedElement());
 
+        // Finds a child ElementNode at a given path
         internal static ElementNode Find(this ElementNode element, string pathExpression) =>
             ((ScopedNode)element.Select(pathExpression).First()).Current as ElementNode;
 
+        // Finds a child element node with a given name at a given index
         internal static ElementNode AtIndex(this ElementNode element, string elementName, int index) =>
             element.Children(elementName).ElementAt(index).ToElementNode();
 
+        // Converts an ITypedElement to an ElementNode
         internal static ElementNode ToElementNode(this ITypedElement element)
         {
             if (element is ElementNode)
@@ -34,6 +38,7 @@ namespace FhirPathPatch.Helpers
             return ElementNode.FromElement(element);
         }
 
+        // Converts a DataType to an ElementNode
         internal static ElementNode ToElementNode(this DataType data) =>
             ElementNode.FromElement(TypedSerialization.ToTypedElement(data));
 

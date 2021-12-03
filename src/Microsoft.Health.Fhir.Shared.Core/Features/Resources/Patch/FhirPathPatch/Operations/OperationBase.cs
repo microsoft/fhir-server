@@ -21,8 +21,8 @@ namespace FhirPathPatch.Operations
         /// <param name="resource">FHIR Resource for this operation.</param>
         protected OperationBase(Resource resource)
         {
-            this.PocoProvider = new PocoStructureDefinitionSummaryProvider();
-            this.ResourceElement = resource.ToElementNode();
+            PocoProvider = new PocoStructureDefinitionSummaryProvider();
+            ResourceElement = resource.ToElementNode();
         }
 
         /// <summary>

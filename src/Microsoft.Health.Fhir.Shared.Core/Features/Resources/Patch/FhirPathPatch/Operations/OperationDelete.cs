@@ -35,13 +35,13 @@ namespace FhirPathPatch.Operations
         {
             try
             {
-                var targetElement = this.ResourceElement.Find(operation.Path);
+                var targetElement = ResourceElement.Find(operation.Path);
                 targetElement.Parent.Remove(targetElement);
-                return this.ResourceElement.ToPoco<Resource>();
+                return ResourceElement.ToPoco<Resource>();
             }
             catch (InvalidOperationException)
             {
-                return this.ResourceElement.ToPoco<Resource>();
+                return ResourceElement.ToPoco<Resource>();
             }
         }
     }

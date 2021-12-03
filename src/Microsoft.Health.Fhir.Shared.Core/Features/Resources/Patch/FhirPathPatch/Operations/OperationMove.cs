@@ -36,7 +36,7 @@ namespace FhirPathPatch.Operations
         public override Resource Execute(PendingOperation operation)
         {
             // Setup
-            var targetElement = this.ResourceElement.Find(operation.Path);
+            var targetElement = ResourceElement.Find(operation.Path);
             var targetParent = targetElement.Parent;
             var name = targetElement.Name;
 
@@ -68,7 +68,7 @@ namespace FhirPathPatch.Operations
                 // Add the new item at the correct index
                 if (operation.Destination == child.index)
                 {
-                    targetParent.Add(this.PocoProvider, elementToMove, name);
+                    targetParent.Add(PocoProvider, elementToMove, name);
                 }
 
                 // Remove the old element from the list so the new order is used
@@ -78,10 +78,10 @@ namespace FhirPathPatch.Operations
                 }
 
                 // Add the old element back to the list
-                targetParent.Add(this.PocoProvider, child.value, name);
+                targetParent.Add(PocoProvider, child.value, name);
             }
 
-            return this.ResourceElement.ToPoco<Resource>();
+            return ResourceElement.ToPoco<Resource>();
         }
     }
 }
