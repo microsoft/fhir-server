@@ -4,8 +4,11 @@
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
     SingleValue decimal(18,6) NULL,
-    LowValue decimal(18,6) SPARSE NULL,
-    HighValue decimal(18,6) SPARSE NULL,
+    LowValue decimal(18,6) NOT NULL,
+    HighValue decimal(18,6) NOT NULL,
+    CONSTRAINT PK_NumberSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, LowValue, HighValue, ResourceSurrogateId)
+	WITH (DATA_COMPRESSION = PAGE) 
+	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
 )
 
@@ -40,7 +43,7 @@ ON dbo.NumberSearchParam
     HighValue,
     ResourceSurrogateId
 )
-WHERE IsHistory = 0 AND LowValue IS NOT NULL
+WHERE IsHistory = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
@@ -52,5 +55,5 @@ ON dbo.NumberSearchParam
     LowValue,
     ResourceSurrogateId
 )
-WHERE IsHistory = 0 AND LowValue IS NOT NULL
+WHERE IsHistory = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
