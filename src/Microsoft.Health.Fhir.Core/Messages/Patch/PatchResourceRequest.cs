@@ -1,10 +1,11 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -13,12 +14,12 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
-    public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
+    public sealed class PatchResourceRequest<TData>: IRequest<UpsertResourceResponse>, IRequireCapability
+        where TData: notnull
     {
-        public PatchResourceRequest(ResourceKey resourceKey, JsonPatchDocument patchDocument, WeakETag weakETag = null)
+        public PatchResourceRequest(ResourceKey resourceKey, TData patchDocument, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
-            EnsureArg.IsNotNull(patchDocument, nameof(patchDocument));
 
             ResourceKey = resourceKey;
             PatchDocument = patchDocument;
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 
         public ResourceKey ResourceKey { get; }
 
-        public JsonPatchDocument PatchDocument { get; }
+        public TData PatchDocument { get; }
 
         public WeakETag WeakETag { get; }
 
@@ -35,5 +36,5 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
         {
             yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{ResourceKey.ResourceType}').interaction.where(code = 'patch').exists()");
         }
-    }
+    }   
 }
