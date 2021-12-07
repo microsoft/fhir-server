@@ -6,60 +6,152 @@ EXEC dbo.LogSchemaMigrationProgress 'Beginning schema migration to version 23.';
 GO
 
 -- SearchParam table
--- Adding nonclustered primary key on identity column
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_SearchParam'
+-- Dropping clustered index since primary key to create on the same column
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IXC_SearchParam' AND object_id = OBJECT_ID('dbo.SearchParam'))
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_SearchParam'
+	DROP INDEX IXC_SearchParam ON dbo.SearchParam
+	WITH (ONLINE=ON)
+END
+
+-- Adding primary key
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
-	WHERE name='PK_SearchParam' AND type='PK')
+	WHERE name='PKC_SearchParam' AND type='PK')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_SearchParam'
 	ALTER TABLE dbo.SearchParam 
-	ADD CONSTRAINT PK_SearchParam PRIMARY KEY NONCLUSTERED(SearchParamId)
+	ADD CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED(Uri)
+	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+END
+
+-- Adding unique constraint to the identity column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='UQ_SearchParam_SearchParamId' AND type='UQ')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_SearchParam_SearchParamId'
+	ALTER TABLE dbo.SearchParam 
+	ADD CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE(SearchParamId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
 GO
 
 -- ResourceType
--- Adding nonclustered primary key on identity column
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_ResourceType'
+-- Dropping clustered index since primary key to create on the same column
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IXC_ResourceType' AND object_id = OBJECT_ID('dbo.ResourceType'))
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_ResourceType'
+	DROP INDEX IXC_ResourceType ON dbo.ResourceType
+	WITH (ONLINE=ON)
+END
+
+-- Adding primary key
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
-	WHERE name='PK_ResourceType' AND type='PK')
+	WHERE name='PKC_ResourceType' AND type='PK')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_ResourceType'
 	ALTER TABLE dbo.ResourceType 
-	ADD CONSTRAINT PK_ResourceType PRIMARY KEY NONCLUSTERED(ResourceTypeId)
+	ADD CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED(Name)
+	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+END
+
+-- Adding unique constraint to the identity column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='UQ_ResourceType_ResourceTypeId' AND type='UQ')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_ResourceType_ResourceTypeId'
+	ALTER TABLE dbo.ResourceType 
+	ADD CONSTRAINT UQ_ResourceType_ResourceTypeId UNIQUE(ResourceTypeId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
 GO
 
 -- System
--- Adding nonclustered primary key on identity column
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_System'
+-- Dropping clustered index since primary key to create on the same column
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IXC_System' AND object_id = OBJECT_ID('dbo.System'))
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_System'
+	DROP INDEX IXC_System ON dbo.System
+	WITH (ONLINE=ON)
+END
+
+-- Adding primary key
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
-	WHERE name='PK_System' AND type='PK')
+	WHERE name='PKC_System' AND type='PK')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_System'
+	ALTER TABLE dbo.System
+	ADD CONSTRAINT PKC_System PRIMARY KEY CLUSTERED(Value)
+	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+END
+
+-- Adding unique constraint to the identity column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='UQ_System_SystemId' AND type='UQ')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_System_SystemId'
 	ALTER TABLE dbo.System 
-	ADD CONSTRAINT PK_System PRIMARY KEY NONCLUSTERED(SystemId)
+	ADD CONSTRAINT UQ_System_SystemId UNIQUE(SystemId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
 GO
 
 -- QuantityCode
--- Adding nonclustered primary key on the identity column
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_QuantityCode'
+-- Dropping clustered index since primary key to create on the same column
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IXC_QuantityCode' AND object_id = OBJECT_ID('dbo.QuantityCode'))
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_QuantityCode'
+	DROP INDEX IXC_QuantityCode ON dbo.QuantityCode
+	WITH (ONLINE=ON)
+END
+
+-- Adding primary key
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
-	WHERE name='PK_QuantityCode' AND type='PK')
+	WHERE name='PKC_QuantityCode' AND type='PK')
 BEGIN
-	ALTER TABLE dbo.QuantityCode 
-	ADD CONSTRAINT PK_QuantityCode PRIMARY KEY NONCLUSTERED(QuantityCodeId)
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_QuantityCode'
+	ALTER TABLE dbo.QuantityCode
+	ADD CONSTRAINT PKC_QuantityCode PRIMARY KEY CLUSTERED(Value)
+	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+END
+
+-- Adding unique constraint to the identity column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='UQ_QuantityCode_QuantityCodeId' AND type='UQ')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_QuantityCode_QuantityCodeId'
+	ALTER TABLE dbo.System 
+	ADD CONSTRAINT UQ_QuantityCode_QuantityCodeId UNIQUE(QuantityCodeId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
@@ -67,29 +159,76 @@ GO
 
 -- ClaimType
 -- Adding nonclustered primary key on the identity column
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_ClaimType'
+-- Dropping clustered index since primary key to create on the same column
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IXC_ClaimType' AND object_id = OBJECT_ID('dbo.ClaimType'))
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_ClaimType'
+	DROP INDEX IXC_ClaimType ON dbo.ClaimType
+	WITH (ONLINE=ON)
+END
+
+-- Adding primary key
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
-	WHERE name='PK_ClaimType' AND type='PK')
+	WHERE name='PKC_ClaimType' AND type='PK')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_ClaimType'
+	ALTER TABLE dbo.ClaimType
+	ADD CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED(Name)
+	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+END
+
+-- Adding unique constraint to the identity column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='UQ_ClaimType_ClaimTypeId' AND type='UQ')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_ClaimType_ClaimTypeId'
 	ALTER TABLE dbo.ClaimType 
-	ADD CONSTRAINT PK_ClaimType PRIMARY KEY NONCLUSTERED(ClaimTypeId)
+	ADD CONSTRAINT UQ_ClaimType_ClaimTypeId UNIQUE(ClaimTypeId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
 GO
 
 -- CompartmentType
--- Create nonclustered primary key on the identity column
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_CompartmentType'
+-- Dropping clustered index since primary key to create on the same column
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IXC_CompartmentType' AND object_id = OBJECT_ID('dbo.CompartmentType'))
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_CompartmentType'
+	DROP INDEX IXC_CompartmentType ON dbo.CompartmentType
+	WITH (ONLINE=ON)
+END
+
+-- Adding primary key
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
-	WHERE name='PK_CompartmentType' AND type='PK')
+	WHERE name='PKC_CompartmentType' AND type='PK')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_CompartmentType'
+	ALTER TABLE dbo.CompartmentType
+	ADD CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED(Name)
+	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+END
+
+-- Adding unique constraint to the identity column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='UQ_CompartmentType_CompartmentTypeId' AND type='UQ')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_CompartmentType_CompartmentTypeId'
 	ALTER TABLE dbo.CompartmentType 
-	ADD CONSTRAINT PK_CompartmentType PRIMARY KEY NONCLUSTERED(CompartmentTypeId)
+	ADD CONSTRAINT UQ_CompartmentType_CompartmentTypeId UNIQUE(CompartmentTypeId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
@@ -176,6 +315,16 @@ IF EXISTS (
 BEGIN
 	DROP INDEX IX_Resource ON dbo.Resource
 END
+
+-- Adds unique constraint to the existing nonclustered index
+EXEC dbo.LogSchemaMigrationProgress 'Adding unique constraint IX_Resource_ResourceSurrogateId'
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IX_Resource' AND object_id = OBJECT_ID('dbo.Resource'))
+BEGIN
+	DROP INDEX IX_Resource ON dbo.Resource
+END
 GO
 
 -- ExportJob
@@ -189,7 +338,7 @@ IF NOT EXISTS (
 	FROM sys.indexes 
 	WHERE name='IX_ExportJob' AND object_id = OBJECT_ID('dbo.ExportJob'))
 BEGIN
-	CREATE NONCLUSTERED INDEX IX_ExportJob ON dbo.ExportJob
+	CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob ON dbo.ExportJob
 	(
 		Id
 	)
@@ -241,7 +390,7 @@ IF NOT EXISTS (
 	FROM sys.indexes 
 	WHERE name='IX_ReindexJob' AND object_id = OBJECT_ID('dbo.ReindexJob'))
 BEGIN
-	CREATE NONCLUSTERED INDEX IX_ReindexJob ON dbo.ReindexJob
+	CREATE UNIQUE NONCLUSTERED INDEX IX_ReindexJob ON dbo.ReindexJob
 	(
 		Id
 	)
@@ -291,7 +440,7 @@ IF NOT EXISTS (
 	FROM sys.indexes 
 	WHERE name='IX_TaskInfo' AND object_id = OBJECT_ID('dbo.TaskInfo'))
 BEGIN
-	CREATE NONCLUSTERED INDEX IX_TaskInfo ON dbo.TaskInfo
+	CREATE UNIQUE NONCLUSTERED INDEX IX_TaskInfo ON dbo.TaskInfo
 	(
 		TaskId
 	)

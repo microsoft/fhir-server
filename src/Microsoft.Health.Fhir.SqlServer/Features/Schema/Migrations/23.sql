@@ -227,11 +227,9 @@ CREATE TYPE dbo.BulkImportResourceType_1 AS TABLE (
 CREATE TABLE dbo.ClaimType (
     ClaimTypeId TINYINT       IDENTITY (1, 1) NOT NULL,
     Name        VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_ClaimType PRIMARY KEY NONCLUSTERED (ClaimTypeId)
+    CONSTRAINT UQ_ClaimType_ClaimTypeId UNIQUE (ClaimTypeId),
+    CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED (Name)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_Claim
-    ON dbo.ClaimType(Name);
 
 CREATE TABLE dbo.CompartmentAssignment (
     ResourceTypeId      SMALLINT     NOT NULL,
@@ -251,11 +249,9 @@ CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceRe
 CREATE TABLE dbo.CompartmentType (
     CompartmentTypeId TINYINT       IDENTITY (1, 1) NOT NULL,
     Name              VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_CompartmentType PRIMARY KEY NONCLUSTERED (CompartmentTypeId)
+    CONSTRAINT UQ_CompartmentType_CompartmentTypeId UNIQUE (CompartmentTypeId),
+    CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED (Name)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType
-    ON dbo.CompartmentType(Name);
 
 CREATE TABLE dbo.DateTimeSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
@@ -354,11 +350,9 @@ CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
 CREATE TABLE dbo.QuantityCode (
     QuantityCodeId INT            IDENTITY (1, 1) NOT NULL,
     Value          NVARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_QuantityCode PRIMARY KEY NONCLUSTERED (QuantityCodeId)
+    CONSTRAINT UQ_QuantityCode_QuantityCodeId UNIQUE (QuantityCodeId),
+    CONSTRAINT PK_QuantityCode PRIMARY KEY CLUSTERED (Value)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode
-    ON dbo.QuantityCode(Value);
 
 CREATE TABLE dbo.QuantitySearchParam (
     ResourceTypeId      SMALLINT               NOT NULL,
@@ -533,11 +527,9 @@ VALUES                        (2, N'Deletion');
 CREATE TABLE dbo.ResourceType (
     ResourceTypeId SMALLINT      IDENTITY (1, 1) NOT NULL,
     Name           NVARCHAR (50) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_ResourceType PRIMARY KEY NONCLUSTERED (ResourceTypeId)
+    CONSTRAINT UQ_ResourceType_ResourceTypeId UNIQUE (ResourceTypeId),
+    CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (Name)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType
-    ON dbo.ResourceType(Name);
 
 CREATE TABLE dbo.ResourceWriteClaim (
     ResourceSurrogateId BIGINT         NOT NULL,
@@ -560,11 +552,9 @@ CREATE TABLE dbo.SearchParam (
     Status               VARCHAR (10)       NULL,
     LastUpdated          DATETIMEOFFSET (7) NULL,
     IsPartiallySupported BIT                NULL,
-    CONSTRAINT PK_SearchParam PRIMARY KEY NONCLUSTERED (SearchParamId)
+    CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId),
+    CONSTRAINT PK_SearchParam PRIMARY KEY CLUSTERED (Uri)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam
-    ON dbo.SearchParam(Uri);
 
 CREATE TABLE dbo.StringSearchParam (
     ResourceTypeId      SMALLINT       NOT NULL,
@@ -598,11 +588,9 @@ CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 CREATE TABLE dbo.System (
     SystemId INT            IDENTITY (1, 1) NOT NULL,
     Value    NVARCHAR (256) NOT NULL,
-    CONSTRAINT PK_System PRIMARY KEY NONCLUSTERED (SystemId)
+    CONSTRAINT UQ_System UNIQUE (SystemId),
+    CONSTRAINT PKC_System PRIMARY KEY CLUSTERED (Value)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_System
-    ON dbo.System(Value);
 
 CREATE TABLE [dbo].[TaskInfo] (
     [TaskId]            VARCHAR (64)  NOT NULL,
