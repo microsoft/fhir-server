@@ -8,7 +8,7 @@
 EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 23.';
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Adding or updating FetchResourceChanges_3 and ConfigurePartitionOnResourceChanges_2 stored procedures.';
+EXEC dbo.LogSchemaMigrationProgress 'Adding or updating FetchResourceChanges_3 stored procedure.';
 GO
 
 --
