@@ -1630,35 +1630,18 @@ BEGIN
                                                                      AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
                                                                      AND CAST (prv.value AS DATETIME2 (7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedUtcDateTime), 0)
                                                             ORDER BY prv.boundary_id DESC);
-    DECLARE @currentUtcDateTime AS DATETIME2 (7) = SYSUTCDATETIME();
+    DECLARE @endDateTimeToFilter AS DATETIME2 (7) = DATEADD(HOUR, 1, SYSUTCDATETIME());
     WITH     PartitionBoundaries
-    AS       (SELECT   TOP (3) CAST (prv.value AS DATETIME2 (7)) AS PartitionBoundary
-              FROM     sys.dm_db_partition_stats AS p
-                       INNER JOIN
-                       sys.indexes AS i
-                       ON i.object_id = p.object_id
-                          AND i.index_id = p.index_id
-                       INNER JOIN
-                       sys.data_spaces AS ds
-                       ON ds.data_space_id = i.data_space_id
-                       INNER JOIN
-                       sys.partition_schemes AS ps
-                       ON ps.data_space_id = ds.data_space_id
-                       INNER JOIN
-                       sys.partition_functions AS pf
-                       ON pf.function_id = ps.function_id
-                       INNER JOIN
-                       sys.partition_range_values AS prv
-                       ON ps.function_id = prv.function_id
-                          AND prv.boundary_id = p.partition_number - 1
-              WHERE    p.object_id = OBJECT_ID(N'ResourceChangeData', N'TABLE')
-                       AND pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                       AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
-                       AND (CAST (prv.value AS DATETIME2 (7)) BETWEEN @precedingPartitionBoundary AND DATEADD(HOUR, 1, @currentUtcDateTime)
-                            OR @precedingPartitionBoundary IS NULL
-                               AND CAST (prv.value AS DATETIME2 (7)) >= CONVERT (DATETIME2 (7), N'1970-01-01T00:00:00.0000000'))
-                       AND p.row_count > 0
-              ORDER BY p.partition_number ASC)
+    AS       (SELECT CAST (prv.value AS DATETIME2 (7)) AS PartitionBoundary
+              FROM   sys.partition_range_values AS prv
+                     INNER JOIN
+                     sys.partition_functions AS pf
+                     ON pf.function_id = prv.function_id
+              WHERE  pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                     AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
+                     AND (CAST (prv.value AS DATETIME2 (7)) BETWEEN @precedingPartitionBoundary AND @endDateTimeToFilter
+                          OR @precedingPartitionBoundary IS NULL
+                             AND CAST (prv.value AS DATETIME2 (7)) BETWEEN CONVERT (DATETIME2 (7), N'1970-01-01T00:00:00.0000000') AND @endDateTimeToFilter))
     SELECT   TOP (@pageSize) Id,
                              Timestamp,
                              ResourceId,
@@ -1671,7 +1654,7 @@ BEGIN
                                                                             ResourceTypeId,
                                                                             ResourceVersion,
                                                                             ResourceChangeTypeId
-                                                   FROM     dbo.ResourceChangeData WITH (REPEATABLEREAD)
+                                                   FROM     dbo.ResourceChangeData WITH (TABLOCK, HOLDLOCK)
                                                    WHERE    Id >= @startId
                                                             AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp (Timestamp) = $PARTITION.PartitionFunction_ResourceChangeData_Timestamp (p.PartitionBoundary)
                                                    ORDER BY Id ASC) AS rcd
