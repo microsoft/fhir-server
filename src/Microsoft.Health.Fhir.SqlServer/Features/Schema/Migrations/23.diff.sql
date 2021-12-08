@@ -95,9 +95,6 @@ BEGIN
 END;
 GO
 
--- ReferenceSearchParam
--- Adding nonclustered primary key on the set of non-nullable columns that makes it unique
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_ReferenceSearchParam'
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
@@ -172,24 +169,9 @@ BEGIN
     )
     WHERE IsHistory = 0
     WITH (ONLINE=ON)
-END
-
--- Adding primary key on the set of non-nullable columns which makes it unique.
-EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_DateTimeSearchParam'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_DateTimeSearchParam' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.DateTimeSearchParam
-	ADD CONSTRAINT PKC_DateTimeSearchParam PRIMARY KEY CLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
     ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END;
 
---ReferenceTokenCompositeSearchParam
--- Adding nonclustered primary key on the set of non-nullable columns which makes it unique
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_ReferenceTokenCompositeSearchParam'
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
@@ -213,12 +195,6 @@ BEGIN
         LowValue,
         HighValue,
         ResourceSurrogateId
-    )
-    INCLUDE
-    (
-        ReferenceResourceTypeId1,
-        BaseUri1,
-        SystemId2
     )
     WHERE IsHistory = 0
     WITH (ONLINE=ON)

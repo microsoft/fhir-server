@@ -1,4 +1,5 @@
 ﻿
+
 /***********************************************************************
  NOTE: just checking first object, since this is run in transaction
 ***************************************************************************/
@@ -18,6 +19,6 @@ Go
 
 INSERT INTO dbo.SchemaVersion
 VALUES
-    (23, 'started')
+    (24, 'started')
 
 Go

@@ -33,5 +33,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V21 = 21,
         V22 = 22,
         V23 = 23,
+        V24 = 24,
     }
 }
