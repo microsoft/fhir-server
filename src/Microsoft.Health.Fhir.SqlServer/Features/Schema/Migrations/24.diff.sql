@@ -5,7 +5,7 @@
     on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
 **************************************************************/
 
-EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 23.';
+EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 24.';
 GO
 
 EXEC dbo.LogSchemaMigrationProgress 'Adding or updating FetchResourceChanges_3 stored procedure.';
@@ -142,5 +142,5 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Completed migration to version 23.';
+EXEC dbo.LogSchemaMigrationProgress 'Completed migration to version 24.';
 GO
