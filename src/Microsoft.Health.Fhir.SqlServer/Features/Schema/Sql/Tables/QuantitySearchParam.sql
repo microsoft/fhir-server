@@ -6,8 +6,11 @@
     SystemId int NULL,
     QuantityCodeId int NULL,
     SingleValue decimal(18,6) NULL,
-    LowValue decimal(18,6) SPARSE NULL,
-    HighValue decimal(18,6) SPARSE NULL,
+    LowValue decimal(18,6) NOT NULL,
+    HighValue decimal(18,6) NOT NULL,
+    CONSTRAINT PK_QuantitySearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId)
+	WITH (DATA_COMPRESSION = PAGE) 
+	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
 )
 
@@ -52,7 +55,7 @@ INCLUDE
 (
     SystemId
 )
-WHERE IsHistory = 0 AND LowValue IS NOT NULL
+WHERE IsHistory = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
@@ -69,5 +72,5 @@ INCLUDE
 (
     SystemId
 )
-WHERE IsHistory = 0 AND LowValue IS NOT NULL
+WHERE IsHistory = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
