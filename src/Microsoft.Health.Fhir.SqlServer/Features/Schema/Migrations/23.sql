@@ -433,7 +433,7 @@ CREATE CLUSTERED INDEX IXC_ReferenceTokenCompositeSearchParam
     ON dbo.ReferenceTokenCompositeSearchParam(ResourceTypeId, ResourceSurrogateId, SearchParamId) WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
+CREATE UNIQUE NONCLUSTERED INDEX UQIX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
     ON dbo.ReferenceTokenCompositeSearchParam(ResourceTypeId, SearchParamId, ReferenceResourceId1, Code2, ResourceSurrogateId)
     INCLUDE(ReferenceResourceTypeId1, BaseUri1, SystemId2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
@@ -458,6 +458,7 @@ CREATE TABLE dbo.Resource (
     RawResource          VARBINARY (MAX) NOT NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
+    CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId) ON [PRIMARY],
     CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
@@ -477,7 +478,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId
                                                                AND IsDeleted = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_Resource_ResourceSurrogateId
+CREATE UNIQUE NONCLUSTERED INDEX UQIX_Resource_ResourceSurrogateId
     ON dbo.Resource(ResourceSurrogateId)
     ON [Primary];
 

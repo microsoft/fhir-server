@@ -27,7 +27,7 @@ ON dbo.ReferenceTokenCompositeSearchParam
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
+CREATE UNIQUE NONCLUSTERED INDEX UQIX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
 ON dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceTypeId,

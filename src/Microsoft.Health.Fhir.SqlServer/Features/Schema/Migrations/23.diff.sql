@@ -150,7 +150,7 @@ IF NOT EXISTS (
 	WHERE name='UQ_QuantityCode_QuantityCodeId' AND type='UQ')
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_QuantityCode_QuantityCodeId'
-	ALTER TABLE dbo.System 
+	ALTER TABLE dbo.QuantityCode 
 	ADD CONSTRAINT UQ_QuantityCode_QuantityCodeId UNIQUE(QuantityCodeId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
@@ -158,15 +158,15 @@ END
 GO
 
 -- ClaimType
--- Adding nonclustered primary key on the identity column
+-- Adding nonclustered primary key on the unique column
 -- Dropping clustered index since primary key to create on the same column
 IF EXISTS (
     SELECT * 
 	FROM sys.indexes 
-	WHERE name='IXC_ClaimType' AND object_id = OBJECT_ID('dbo.ClaimType'))
+	WHERE name='IXC_Claim' AND object_id = OBJECT_ID('dbo.ClaimType'))
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_ClaimType'
-	DROP INDEX IXC_ClaimType ON dbo.ClaimType
+	DROP INDEX IXC_Claim ON dbo.ClaimType
 	WITH (ONLINE=ON)
 END
 
@@ -273,7 +273,7 @@ IF NOT EXISTS (
 	FROM sys.indexes 
 	WHERE name='IX_Resource' AND object_id = OBJECT_ID('dbo.Resource'))
 BEGIN
-	CREATE NONCLUSTERED INDEX IX_Resource ON dbo.Resource
+	CREATE UNIQUE NONCLUSTERED INDEX IX_Resource ON dbo.Resource
 	(
 		ResourceTypeId,
 		ResourceSurrogateId
@@ -316,14 +316,28 @@ BEGIN
 	DROP INDEX IX_Resource ON dbo.Resource
 END
 
--- Adds unique constraint to the existing nonclustered index
-EXEC dbo.LogSchemaMigrationProgress 'Adding unique constraint IX_Resource_ResourceSurrogateId'
+-- Creating UQIX_Resource_ResourceSurrogateId
+EXEC dbo.LogSchemaMigrationProgress 'Creating UQIX_Resource_ResourceSurrogateId'
 IF EXISTS (
     SELECT * 
 	FROM sys.indexes 
-	WHERE name='IX_Resource' AND object_id = OBJECT_ID('dbo.Resource'))
+	WHERE name='UQIX_Resource_ResourceSurrogateId' AND object_id = OBJECT_ID('dbo.Resource'))
 BEGIN
-	DROP INDEX IX_Resource ON dbo.Resource
+	CREATE UNIQUE NONCLUSTERED INDEX UQIX_Resource_ResourceSurrogateId ON dbo.Resource
+    (
+        ResourceSurrogateId
+    )
+    ON [Primary]
+END
+
+-- Dropping IX_Resource_ResourceSurrogateId since unique index for the same column created above
+EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_Resource_ResourceSurrogateId'
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IX_Resource_ResourceSurrogateId' AND object_id = OBJECT_ID('dbo.Resource'))
+BEGIN
+	DROP INDEX IX_Resource_ResourceSurrogateId ON dbo.Resource
 END
 GO
 
@@ -623,6 +637,43 @@ BEGIN
 	ADD CONSTRAINT PK_ReferenceTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, ReferenceResourceId1, Code2, ResourceSurrogateId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END
+
+-- Creating UQIX_Resource_ResourceSurrogateId
+EXEC dbo.LogSchemaMigrationProgress 'Creating UQIX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2'
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='UQIX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2' AND object_id = OBJECT_ID('dbo.ReferenceTokenCompositeSearchParam'))
+BEGIN
+	CREATE UNIQUE NONCLUSTERED INDEX UQIX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
+    ON dbo.ReferenceTokenCompositeSearchParam
+    (
+        ResourceTypeId,
+        SearchParamId,
+        ReferenceResourceId1,
+        Code2,
+        ResourceSurrogateId
+    )
+    INCLUDE
+    (
+        ReferenceResourceTypeId1,
+        BaseUri1,
+        SystemId2
+    )
+    WHERE IsHistory = 0
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END
+
+-- Dropping IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2 since unique index for the same column created above
+EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2'
+IF EXISTS (
+    SELECT * 
+	FROM sys.indexes 
+	WHERE name='IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2' AND object_id = OBJECT_ID('dbo.ReferenceTokenCompositeSearchParam'))
+BEGIN
+	DROP INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2 ON dbo.ReferenceTokenCompositeSearchParam
 END
 
 GO

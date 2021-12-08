@@ -5,6 +5,8 @@
     Version                     int                     NOT NULL,
     IsHistory                   bit                     NOT NULL,
     ResourceSurrogateId         bigint                  NOT NULL,
+    CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId)
+    ON [PRIMARY],
     CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsDeleted                   bit                     NOT NULL,
@@ -45,7 +47,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId O
 WHERE IsHistory = 0 AND IsDeleted = 0
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
-CREATE NONCLUSTERED INDEX IX_Resource_ResourceSurrogateId ON dbo.Resource
+CREATE UNIQUE NONCLUSTERED INDEX UQIX_Resource_ResourceSurrogateId ON dbo.Resource
 (
     ResourceSurrogateId
 )
