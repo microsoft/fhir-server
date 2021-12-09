@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
             int expectedIndexesCount = 0;
             foreach (Table table in resourceRelatedTables)
             {
-                string[] indexNames = table.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic).Where(f => f.Name.StartsWith("IX_")).Select(f => f.Name).ToArray();
+                string[] indexNames = table.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic).Where(f => (f.Name.StartsWith("IX_") || f.Name.StartsWith("UQIX_"))).Select(f => f.Name).ToArray();
                 foreach (string indexName in indexNames)
                 {
                     if (excludeIndexNames.Contains(indexName))
