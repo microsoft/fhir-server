@@ -16,8 +16,8 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public class OperationMove : OperationBase, IOperation
     {
-        public OperationMove(Resource resource)
-            : base(resource)
+        public OperationMove(Resource resource, PendingOperation po)
+            : base(resource, po)
         {
         }
 
@@ -33,27 +33,26 @@ namespace FhirPathPatch.Operations
         /// </summary>
         /// <param name="operation">PendingOperation representing Move operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute(PendingOperation operation)
+        public override Resource Execute()
         {
             // Setup
-            var targetElement = ResourceElement.Find(operation.Path);
-            var targetParent = targetElement.Parent;
-            var name = targetElement.Name;
+            var targetParent = Target.Parent;
+            var name = Target.Name;
 
             // Check indexes
             var targetLen = targetParent.Children(name).Count();
-            if (operation.Source < 0 || operation.Source >= targetLen)
+            if (Operation.Source < 0 || Operation.Source >= targetLen)
             {
                 throw new InvalidOperationException("Move source index out of bounds of target list");
             }
 
-            if (operation.Destination < 0 || operation.Destination >= targetLen)
+            if (Operation.Destination < 0 || Operation.Destination >= targetLen)
             {
                 throw new InvalidOperationException("Move destination index out of bounds of target list");
             }
 
             // Remove specified element from the list
-            var elementToMove = targetParent.AtIndex(name, operation.Source ?? -1);
+            var elementToMove = targetParent.AtIndex(name, Operation.Source ?? -1);
             if (!targetParent.Remove(elementToMove))
             {
                 throw new InvalidOperationException();
@@ -66,9 +65,9 @@ namespace FhirPathPatch.Operations
                                             .Select((value, index) => (value, index)))
             {
                 // Add the new item at the correct index
-                if (operation.Destination == child.index)
+                if (Operation.Destination == child.index)
                 {
-                    targetParent.Add(PocoProvider, elementToMove, name);
+                    targetParent.Add(Provider, elementToMove, name);
                 }
 
                 // Remove the old element from the list so the new order is used
@@ -78,7 +77,7 @@ namespace FhirPathPatch.Operations
                 }
 
                 // Add the old element back to the list
-                targetParent.Add(PocoProvider, child.value, name);
+                targetParent.Add(Provider, child.value, name);
             }
 
             return ResourceElement.ToPoco<Resource>();

@@ -199,12 +199,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
 
-        /* Not sure how this should be handled.
         /// <summary>
         /// Tests insert with non-matching data types
         /// </summary>
-
-       [Fact]
+        [Fact]
         public void InsertNonMatchingTypes()
         {
             // Arrange
@@ -213,13 +211,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             {
                 Identifier = new List<Identifier>
                     {
-                        new Identifier { System = "http://example.org", Value = "value 1" }
-                    }
+                        new Identifier { System = "http://example.org", Value = "value 1" },
+                    },
             };
 
             // Act / Assert
             var builder = new FhirPathPatchBuilder(patientResource).Build(patchParam);
             Assert.Throws<InvalidOperationException>(builder.Apply);
-        } */
+        }
     }
 }

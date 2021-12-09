@@ -5,8 +5,10 @@
 
 using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace FhirPathPatch.Operations
 {
@@ -15,32 +17,50 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public abstract class OperationBase
     {
+        private ElementNode _target;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="OperationBase"/> class.
         /// </summary>
         /// <param name="resource">FHIR Resource for this operation.</param>
-        protected OperationBase(Resource resource)
+        /// <param name="po">Operation request.</param>
+        protected OperationBase(Resource resource, PendingOperation po)
         {
-            PocoProvider = new PocoStructureDefinitionSummaryProvider();
             ResourceElement = resource.ToElementNode();
+            Operation = po;
         }
 
-        /// <summary>
-        /// Gets the provider used in POCO conversion.
-        /// </summary>
-        protected PocoStructureDefinitionSummaryProvider PocoProvider { get; }
+        // Gets the element node representation of the patch operation resource
+        internal ElementNode ResourceElement { get; }
 
-        /// <summary>
-        /// Gets the element node representation of the patch operation
-        /// resource.
-        /// </summary>
-        protected ElementNode ResourceElement { get; }
+        // Gets the operation object representing the patch request.
+        internal PendingOperation Operation { get; }
+
+        // Gets the FHIR Provider used in manipulating ElementNodes.
+        internal static IStructureDefinitionSummaryProvider Provider =>
+            ModelInfoProvider.Instance.StructureDefinitionSummaryProvider;
+
+        // Gets the target in the ElementNode tree to execute patch operations.
+        internal ElementNode Target =>
+            _target is null ? _target = ResourceElement.Find(Operation.Path) : _target;
+
+        // Gets the value of the patch operation as an ElementNode.
+        internal ElementNode ValueElementNode
+        {
+            get
+            {
+                PropertyMapping summary = Operation.Type is EOperationType.ADD ?
+                    Target.Definition.GetChildDefinition(Operation.Name) :
+                    Target.Definition as PropertyMapping;
+
+                return Operation.Value.GetElementNodeFromPart(summary.Name, summary.PropertyTypeMapping.NativeType);
+            }
+        }
 
         /// <summary>
         /// All inheriting classes must implement an operation exeuction method.
         /// </summary>
-        /// <param name="operation">Input parameters to Patch operatioin.</param>
         /// <returns>FHIR Resource as POCO.</returns>
-        public abstract Resource Execute(PendingOperation operation);
+        public abstract Resource Execute();
     }
 }

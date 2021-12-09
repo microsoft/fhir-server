@@ -5,7 +5,6 @@
 
 using System;
 using System.Linq;
-using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
@@ -17,8 +16,8 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public class OperationInsert : OperationBase, IOperation
     {
-        public OperationInsert(Resource resource)
-            : base(resource)
+        public OperationInsert(Resource resource, PendingOperation po)
+            : base(resource, po)
         {
         }
 
@@ -33,18 +32,18 @@ namespace FhirPathPatch.Operations
         /// </summary>
         /// <param name="operation">PendingOperation representing Insert operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute(PendingOperation operation)
+        public override Resource Execute()
         {
-            var targetElement = ResourceElement.Find(operation.Path);
-            var targetParent = targetElement.Parent;
-            var name = targetElement.Name;
+            // Setup;
+            var targetParent = Target.Parent;
+            var name = Target.Name;
             var listElements = targetParent.Children(name).ToList()
                                               .Select(x => x as ElementNode)
                                               .Select((value, index) => (value, index))
                                               .ToList();
 
             // Ensure index is in bounds
-            if (operation.Index < 0 || operation.Index > listElements.Count)
+            if (Operation.Index < 0 || Operation.Index > listElements.Count)
             {
                 throw new InvalidOperationException("Insert index out of bounds of target list");
             }
@@ -54,9 +53,9 @@ namespace FhirPathPatch.Operations
             foreach (var child in listElements)
             {
                 // Add the new item at the correct index
-                if (operation.Index == child.index)
+                if (Operation.Index == child.index)
                 {
-                    targetParent.Add(PocoProvider, operation.Value.ToElementNode(), name);
+                    targetParent.Add(Provider, ValueElementNode);
                 }
 
                 // Remove the old element from the list so the new order is used
@@ -66,7 +65,7 @@ namespace FhirPathPatch.Operations
                 }
 
                 // Add the old element back to the list
-                targetParent.Add(PocoProvider, child.value, name);
+                targetParent.Add(Provider, child.value, name);
             }
 
             return ResourceElement.ToPoco<Resource>();

@@ -52,9 +52,9 @@ namespace FhirPathPatch.Operations
         public string Path { get; set; }
 
         /// <summary>
-        /// Gets or sets the operation value.
+        /// Gets or sets the operation value as the input ParameterComponent.
         /// </summary>
-        public object Value { get; set; }
+        public ParameterComponent Value { get; set; }
 
         /// <summary>
         /// Convert from ParameterComponent to PendingOperation Object.
@@ -67,13 +67,7 @@ namespace FhirPathPatch.Operations
             var operationType = component.Part.First(x => x.Name == "type").Value.ToString().ToUpper(c);
             var path = component.Part.First(x => x.Name == "path").Value.ToString();
             var name = component.Part.FirstOrDefault(x => x.Name == "name")?.Value.ToString();
-
-            // #TODO - Isolate Operation.Value from Parameter object
-            object value = component.Part.FirstOrDefault(x => x.Name == "value")?.Value;
-            if (value is null)
-            {
-                value = component.Part.FirstOrDefault(x => x.Name == "value")?.Part[0];
-            }
+            var value = component.Part.FirstOrDefault(x => x.Name == "value");
 
             int? index = int.TryParse(component.Part.FirstOrDefault(x => x.Name == "index")?.Value.ToString(), out int itmp) ? itmp : null;
             int? source = int.TryParse(component.Part.FirstOrDefault(x => x.Name == "source")?.Value.ToString(), out int stmp) ? stmp : null;

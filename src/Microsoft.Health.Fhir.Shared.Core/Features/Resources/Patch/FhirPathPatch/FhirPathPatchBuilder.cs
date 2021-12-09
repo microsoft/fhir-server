@@ -53,19 +53,19 @@ namespace FhirPathPatch
                 switch (po.Type)
                 {
                     case EOperationType.ADD:
-                        resource = new OperationAdd(resource).Execute(po);
+                        resource = new OperationAdd(resource, po).Execute();
                         break;
                     case EOperationType.INSERT:
-                        resource = new OperationInsert(resource).Execute(po);
+                        resource = new OperationInsert(resource, po).Execute();
                         break;
                     case EOperationType.REPLACE:
-                        resource = new OperationReplace(resource).Execute(po);
+                        resource = new OperationReplace(resource, po).Execute();
                         break;
                     case EOperationType.DELETE:
-                        resource = new OperationDelete(resource).Execute(po);
+                        resource = new OperationDelete(resource, po).Execute();
                         break;
                     case EOperationType.MOVE:
-                        resource = new OperationMove(resource).Execute(po);
+                        resource = new OperationMove(resource, po).Execute();
                         break;
                     default:
                         throw new NotImplementedException();

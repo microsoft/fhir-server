@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 
@@ -14,8 +13,8 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public class OperationReplace : OperationBase, IOperation
     {
-        public OperationReplace(Resource resource)
-            : base(resource)
+        public OperationReplace(Resource resource, PendingOperation po)
+            : base(resource, po)
         {
         }
 
@@ -29,11 +28,9 @@ namespace FhirPathPatch.Operations
         /// </summary>
         /// <param name="operation">PendingOperation representing Replace operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute(PendingOperation operation)
+        public override Resource Execute()
         {
-            var targetElement = ResourceElement.Find(operation.Path);
-            targetElement.ReplaceWith(PocoProvider, operation.Value.ToElementNode());
-
+            Target.ReplaceWith(Provider, ValueElementNode);
             return ResourceElement.ToPoco<Resource>();
         }
     }

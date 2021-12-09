@@ -16,6 +16,6 @@ namespace FhirPathPatch.Operations
         /// <param type="PendingOperation" name="operation">The patch operation to take place.</param>
         /// <returns>Patched FHIR Resource.</returns>
         /// </summary>
-        public Resource Execute(PendingOperation operation);
+        public Resource Execute();
     }
 }

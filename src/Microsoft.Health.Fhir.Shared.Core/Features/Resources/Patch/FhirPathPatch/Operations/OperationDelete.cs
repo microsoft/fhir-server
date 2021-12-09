@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 
@@ -15,8 +14,8 @@ namespace FhirPathPatch.Operations
     /// </summary>
     public class OperationDelete : OperationBase, IOperation
     {
-        public OperationDelete(Resource resource)
-            : base(resource)
+        public OperationDelete(Resource resource, PendingOperation po)
+            : base(resource, po)
         {
         }
 
@@ -31,12 +30,11 @@ namespace FhirPathPatch.Operations
         /// </summary>
         /// <param name="operation">PendingOperation representing Delete operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute(PendingOperation operation)
+        public override Resource Execute()
         {
             try
             {
-                var targetElement = ResourceElement.Find(operation.Path);
-                targetElement.Parent.Remove(targetElement);
+                Target.Parent.Remove(Target);
                 return ResourceElement.ToPoco<Resource>();
             }
             catch (InvalidOperationException)
