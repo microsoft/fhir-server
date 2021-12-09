@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(key, nameof(key));
 
-            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest(key, patchDocument, weakETag), cancellationToken);
+            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest<JsonPatchDocument>(key, patchDocument, weakETag), cancellationToken);
 
             return result;
         }
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(key, nameof(key));
 
-            UpsertResourceResponse result = await mediator.Send(new FhirPatchResourceRequest(key, paramsResource, weakETag), cancellationToken);
+            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest<Parameters>(key, paramsResource, weakETag), cancellationToken);
 
             return result;
         }

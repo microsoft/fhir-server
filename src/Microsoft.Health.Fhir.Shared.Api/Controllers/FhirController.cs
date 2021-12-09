@@ -439,7 +439,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
             UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalPatchResourceRequest(typeParameter, patchDocument, conditionalParameters, ifMatchHeader),
+                new ConditionalPatchResourceRequest<JsonPatchDocument>(typeParameter, patchDocument, conditionalParameters, ifMatchHeader),
                 HttpContext.RequestAborted);
 
             SaveOutcome saveOutcome = response.Outcome;
@@ -479,7 +479,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
             UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalFhirPatchResourceRequest(typeParameter, paramsResource, conditionalParameters, ifMatchHeader),
+                new ConditionalPatchResourceRequest<Parameters>(typeParameter, paramsResource, conditionalParameters, ifMatchHeader),
                 HttpContext.RequestAborted);
 
             SaveOutcome saveOutcome = response.Outcome;

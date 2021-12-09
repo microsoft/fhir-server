@@ -7,7 +7,9 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -19,9 +21,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, UpsertResourceResponse>
+    public class PatchResourceHandler<TData> : BaseResourceHandler, IRequestHandler<PatchResourceRequest<TData>, UpsertResourceResponse>
     {
-        private readonly JsonPatchService _patchService;
+        private readonly AbstractPatchService<TData> _patchService;
         private readonly IMediator _mediator;
 
         public PatchResourceHandler(
@@ -37,11 +39,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            _patchService = new JsonPatchService(modelInfoProvider);
+            dynamic service;
+            if(typeof(TData) == typeof(JsonPatchDocument))
+                service = new JsonPatchService(modelInfoProvider);
+            else if(typeof(TData) == typeof(Parameters))
+                service = new FhirParameterPatchService(modelInfoProvider);
+            else
+                throw new ArgumentException($"Type {typeof(TData)} was not expected for this templated class");
+            
+            _patchService = service as AbstractPatchService<TData>;
             _mediator = mediator;
         }
 
-        public async Task<UpsertResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> Handle(PatchResourceRequest<TData> request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
