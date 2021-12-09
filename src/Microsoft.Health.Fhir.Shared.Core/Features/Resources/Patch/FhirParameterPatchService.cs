@@ -20,11 +20,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     internal sealed class FhirParameterPatchService : AbstractPatchService<Parameters>
     {
-        public FhirParameterPatchService(IModelInfoProvider modelInfoProvider)
-            : base(modelInfoProvider)
-        {
-        }
-
         public override ResourceElement Patch(ResourceWrapper resourceToPatch, Parameters paramsResource, WeakETag weakETag)
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
@@ -34,12 +29,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
 
             // Capture the state of properties that are immutable
-            ITypedElement resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
-            (string path, object result)[] preState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
+            ITypedElement resource = node.ToTypedElement(Provider);
+            (string path, object result)[] preState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
             Resource patchedResource = GetPatchedJsonResource(node, paramsResource);
 
-            (string path, object result)[] postState = _immutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
+            (string path, object result)[] postState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
             if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))
             {
                 throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
@@ -77,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Resource resourcePoco;
             try
             {
-                var resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+                var resource = node.ToTypedElement(Provider);
                 resourcePoco = resource.ToPoco<Resource>();
             }
             catch (Exception e)

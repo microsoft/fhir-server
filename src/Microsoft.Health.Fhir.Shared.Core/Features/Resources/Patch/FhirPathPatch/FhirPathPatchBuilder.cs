@@ -18,7 +18,7 @@ namespace FhirPathPatch
     {
         private Resource resource;
 
-        private List<PendingOperation> operations;
+        private readonly List<PendingOperation> operations;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirPathPatchBuilder"/> class.
@@ -44,32 +44,20 @@ namespace FhirPathPatch
         /// <summary>
         /// Applies the list of pending operations to the resource.
         /// </summary>
+        /// <returns>FHIR Resource <see cref="Resource"/>.</returns>
         public Resource Apply()
         {
             foreach (var po in operations)
             {
-                // TODO: this should probably be better abstracted / keylookup
-                // here
-                switch (po.Type)
+                resource = po.Type switch
                 {
-                    case EOperationType.ADD:
-                        resource = new OperationAdd(resource, po).Execute();
-                        break;
-                    case EOperationType.INSERT:
-                        resource = new OperationInsert(resource, po).Execute();
-                        break;
-                    case EOperationType.REPLACE:
-                        resource = new OperationReplace(resource, po).Execute();
-                        break;
-                    case EOperationType.DELETE:
-                        resource = new OperationDelete(resource, po).Execute();
-                        break;
-                    case EOperationType.MOVE:
-                        resource = new OperationMove(resource, po).Execute();
-                        break;
-                    default:
-                        throw new NotImplementedException();
-                }
+                    EOperationType.ADD => new OperationAdd(resource, po).Execute(),
+                    EOperationType.INSERT => new OperationInsert(resource, po).Execute(),
+                    EOperationType.REPLACE => new OperationReplace(resource, po).Execute(),
+                    EOperationType.DELETE => new OperationDelete(resource, po).Execute(),
+                    EOperationType.MOVE => new OperationMove(resource, po).Execute(),
+                    _ => throw new NotImplementedException(),
+                };
             }
 
             return resource;
@@ -134,6 +122,7 @@ namespace FhirPathPatch
         /// Builds the list of operations to execute
         /// </summary>
         /// <param type="parameters" name="parameters">The parameters to build the chain of the builder.</param>
+        /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
         public FhirPathPatchBuilder Build(Parameters parameters)
         {
             foreach (var param in parameters.Parameter)

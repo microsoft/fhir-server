@@ -5,16 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using EnsureThat;
-using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
     public sealed class ConditionalPatchResourceRequest<TData> : ConditionalResourceRequest<UpsertResourceResponse>
-        where TData: notnull
+        where TData : notnull
     {
         private static readonly string[] Capabilities = new string[1] { "conditionalPatch = true" };
 

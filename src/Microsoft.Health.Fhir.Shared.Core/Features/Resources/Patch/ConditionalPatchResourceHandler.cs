@@ -16,10 +16,8 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
-using Microsoft.Health.Fhir.Core.Messages;
 using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
@@ -35,23 +33,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService,
-            IModelInfoProvider modelInfoProvider)
+            IAuthorizationService<DataActions> authorizationService)
             : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-
-            dynamic service;
-            if (typeof(TData) == typeof(JsonPatchDocument))
-                service = new JsonPatchService(modelInfoProvider);
-            else if (typeof(TData) == typeof(Parameters))
-                service = new FhirParameterPatchService(modelInfoProvider);
-            else
-                throw new ArgumentException($"Type {typeof(TData)} was not expected for this templated class");
-
-            _patchService = service as AbstractPatchService<TData>;
             _mediator = mediator;
+
+            if (typeof(TData) == typeof(JsonPatchDocument))
+            {
+                _patchService = new JsonPatchService() as AbstractPatchService<TData>;
+                return;
+            }
+            else if (typeof(TData) == typeof(Parameters))
+            {
+                _patchService = new FhirParameterPatchService() as AbstractPatchService<TData>;
+                return;
+            }
+
+            throw new ArgumentException($"Type {typeof(TData)} was not expected for this templated class");
         }
 
         public override Task<UpsertResourceResponse> HandleNoMatch(ConditionalPatchResourceRequest<TData> request, CancellationToken cancellationToken)

@@ -44,11 +44,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\AbstractPatchService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\ConditionalPatchResourceHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\ConditionalFhirPatchResourceHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\AbstractPatchService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\JsonPatchService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirParameterPatchService.cs" />

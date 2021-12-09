@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -14,17 +14,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     internal abstract class AbstractPatchService<T>
     {
-        #pragma warning disable SA1401
-        protected IModelInfoProvider _modelInfoProvider;
-        protected ISet<string> _immutableProperties;
+        internal static IStructureDefinitionSummaryProvider Provider =>
+            ModelInfoProvider.Instance.StructureDefinitionSummaryProvider;
 
-        #pragma warning restore SA1401
-        public AbstractPatchService(IModelInfoProvider modelInfoProvider)
-        {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-
-            _modelInfoProvider = modelInfoProvider;
-            _immutableProperties = new HashSet<string>
+        internal static ISet<string> ImmutableProperties =>
+            new HashSet<string>
             {
                 "Resource.id",
                 "Resource.meta.lastUpdated",
@@ -32,7 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 "Resource.text.div",
                 "Resource.text.status",
             };
-        }
 
         public abstract ResourceElement Patch(ResourceWrapper resourceToPatch, T paramsResource, WeakETag weakETag);
 
