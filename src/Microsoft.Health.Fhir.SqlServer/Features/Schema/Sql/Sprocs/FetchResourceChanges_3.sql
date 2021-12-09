@@ -26,7 +26,7 @@ BEGIN
     SET NOCOUNT ON;
 
     /* Finds the prior partition to the current partition where the last processed watermark lies. It is a normal scenario when a prior watermark exists. */
-    DECLARE @precedingPartitionBoundary datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv WITH (NOLOCK)
+    DECLARE @precedingPartitionBoundary AS datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv WITH (NOLOCK)
                                                             INNER JOIN sys.partition_functions AS pf WITH (NOLOCK) ON pf.function_id = prv.function_id
                                                         WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                                                             AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
@@ -34,7 +34,7 @@ BEGIN
                                                         ORDER BY prv.boundary_id DESC);    
 
     /* It ensures that it will not check resource changes in future partitions. */
-    DECLARE @endDateTimeToFilter datetime2(7) = DATEADD(HOUR, 1, SYSUTCDATETIME());
+    DECLARE @endDateTimeToFilter AS datetime2(7) = DATEADD(HOUR, 1, SYSUTCDATETIME());
 
     WITH PartitionBoundaries
     AS (
