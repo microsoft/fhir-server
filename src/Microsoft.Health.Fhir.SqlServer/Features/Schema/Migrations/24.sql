@@ -1622,9 +1622,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @precedingPartitionBoundary AS DATETIME2 (7) = (SELECT   TOP (1) CAST (prv.value AS DATETIME2 (7)) AS value
-                                                            FROM     sys.partition_range_values AS prv
+                                                            FROM     sys.partition_range_values AS prv WITH (NOLOCK)
                                                                      INNER JOIN
-                                                                     sys.partition_functions AS pf
+                                                                     sys.partition_functions AS pf WITH (NOLOCK)
                                                                      ON pf.function_id = prv.function_id
                                                             WHERE    pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                                                                      AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
@@ -1633,9 +1633,9 @@ BEGIN
     DECLARE @endDateTimeToFilter AS DATETIME2 (7) = DATEADD(HOUR, 1, SYSUTCDATETIME());
     WITH     PartitionBoundaries
     AS       (SELECT CAST (prv.value AS DATETIME2 (7)) AS PartitionBoundary
-              FROM   sys.partition_range_values AS prv
+              FROM   sys.partition_range_values AS prv WITH (NOLOCK)
                      INNER JOIN
-                     sys.partition_functions AS pf
+                     sys.partition_functions AS pf WITH (NOLOCK)
                      ON pf.function_id = prv.function_id
               WHERE  pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                      AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'

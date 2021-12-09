@@ -39,8 +39,8 @@ BEGIN
     SET NOCOUNT ON;
 
     /* Finds the prior partition to the current partition where the last processed watermark lies. It is a normal scenario when a prior watermark exists. */
-    DECLARE @precedingPartitionBoundary datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv
-                                                            INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
+    DECLARE @precedingPartitionBoundary datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv WITH (NOLOCK)
+                                                            INNER JOIN sys.partition_functions AS pf WITH (NOLOCK) ON pf.function_id = prv.function_id
                                                         WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                                                             AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
                                                             AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedUtcDateTime), 0)
@@ -51,8 +51,8 @@ BEGIN
 
     WITH PartitionBoundaries
     AS (
-        SELECT CAST(prv.value as datetime2(7)) AS PartitionBoundary FROM sys.partition_range_values AS prv
-            INNER JOIN sys.partition_functions AS pf ON pf.function_id = prv.function_id
+        SELECT CAST(prv.value as datetime2(7)) AS PartitionBoundary FROM sys.partition_range_values AS prv WITH (NOLOCK)
+            INNER JOIN sys.partition_functions AS pf WITH (NOLOCK) ON pf.function_id = prv.function_id
         WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                 AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
                 AND (
@@ -82,7 +82,7 @@ BEGIN
             ResourceTypeId,
             ResourceVersion,
             ResourceChangeTypeId
-        /* Acquires and holds a table lock to prevent new resource changes from being created during the select query execution. */
+        /* Acquires and holds the table lock to prevent new resource changes from being created during the select query execution. */
         FROM dbo.ResourceChangeData WITH (TABLOCK, HOLDLOCK)
             WHERE Id >= @startId
                 AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(Timestamp) = $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(p.PartitionBoundary)
