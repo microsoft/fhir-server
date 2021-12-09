@@ -20,6 +20,7 @@ using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
 using NSubstitute;
 using Polly;
+using Polly.Retry;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _initialConnectionString;
         private readonly SqlServerFhirModel _sqlServerFhirModel;
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
+        private readonly AsyncRetryPolicy _dbSetupRetryPolicy;
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
@@ -45,48 +47,45 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _initialConnectionString = initialConnectionString;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionFactory = sqlConnectionFactory;
+
+            _dbSetupRetryPolicy = Policy
+                .Handle<SqlException>()
+                .WaitAndRetryAsync(
+                    retryCount: 7,
+                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
         }
 
         public async Task CreateAndInitializeDatabase(string databaseName, int maximumSupportedSchemaVersion, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
-            schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
+            schemaInitializer ??= CreateSchemaInitializer(testConnectionString, maximumSupportedSchemaVersion);
 
-            // Create the database.
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
             {
+                // Create the database.
+                await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
                 await connection.OpenAsync(cancellationToken);
 
-                using (SqlCommand command = connection.CreateCommand())
-                {
-                    command.CommandTimeout = 600;
-                    command.CommandText = @$"
+                await using SqlCommand command = connection.CreateCommand();
+                command.CommandTimeout = 600;
+                command.CommandText = @$"
                         IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{databaseName}')
                         BEGIN
                           CREATE DATABASE {databaseName};
                         END";
-                    await command.ExecuteNonQueryAsync(cancellationToken);
-                }
-            }
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            });
 
             // Verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
-            await Policy
-                .Handle<SqlException>()
-                .WaitAndRetryAsync(
-                    retryCount: 7,
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)))
-                .ExecuteAsync(async () =>
-                {
-                    using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(databaseName, cancellationToken))
-                    {
-                        await connection.OpenAsync(cancellationToken);
-                        using (SqlCommand sqlCommand = connection.CreateCommand())
-                        {
-                            sqlCommand.CommandText = "SELECT 1";
-                            await sqlCommand.ExecuteScalarAsync(cancellationToken);
-                        }
-                    }
-                });
+
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            {
+                await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(databaseName, cancellationToken);
+                await connection.OpenAsync(cancellationToken);
+                await using SqlCommand sqlCommand = connection.CreateCommand();
+                sqlCommand.CommandText = "SELECT 1";
+                await sqlCommand.ExecuteScalarAsync(cancellationToken);
+            });
 
             await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
             await _sqlServerFhirModel.Initialize(maximumSupportedSchemaVersion, true, cancellationToken);
@@ -94,140 +93,120 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            await Policy.Handle<SqlException>()
-                .WaitAndRetryAsync(3, retry => TimeSpan.FromSeconds(retry * 10))
-                .ExecuteAsync(async () =>
-                {
-                    using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
-                    {
-                        await connection.OpenAsync(cancellationToken);
-                        SqlConnection.ClearAllPools();
+            await _dbSetupRetryPolicy.ExecuteAsync(async () =>
+            {
+                await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken);
+                await connection.OpenAsync(cancellationToken);
+                SqlConnection.ClearAllPools();
 
-                        using (SqlCommand command = connection.CreateCommand())
-                        {
-                            command.CommandTimeout = 600;
-                            command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
-                            await command.ExecuteNonQueryAsync(cancellationToken);
-                        }
-                    }
-                });
+                await using SqlCommand command = connection.CreateCommand();
+                command.CommandTimeout = 600;
+                command.CommandText = $"DROP DATABASE IF EXISTS {databaseName}";
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            });
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
-            {
-                var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
+            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
 
-                await command.Connection.OpenAsync(cancellationToken);
-                await command.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await command.Connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
         public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
-            {
-                var command = new SqlCommand("DELETE FROM dbo.ExportJob WHERE Id = @id", connection);
+            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            var command = new SqlCommand("DELETE FROM dbo.ExportJob WHERE Id = @id", connection);
 
-                var parameter = new SqlParameter { ParameterName = "@id", Value = id };
-                command.Parameters.Add(parameter);
+            var parameter = new SqlParameter { ParameterName = "@id", Value = id };
+            command.Parameters.Add(parameter);
 
-                await command.Connection.OpenAsync(cancellationToken);
-                await command.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await command.Connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
         public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
-            {
-                var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
-                command.Parameters.AddWithValue("@uri", uri);
+            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
+            command.Parameters.AddWithValue("@uri", uri);
 
-                await command.Connection.OpenAsync(cancellationToken);
-                await command.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await command.Connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
 
             _sqlServerFhirModel.RemoveSearchParamIdToUriMapping(uri);
         }
 
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
-            {
-                var command = new SqlCommand("DELETE FROM dbo.ReindexJob", connection);
+            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            var command = new SqlCommand("DELETE FROM dbo.ReindexJob", connection);
 
-                await command.Connection.OpenAsync(cancellationToken);
-                await command.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await command.Connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
         public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
-            {
-                var command = new SqlCommand("DELETE FROM dbo.ReindexJob WHERE Id = @id", connection);
+            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync(cancellationToken: cancellationToken);
+            var command = new SqlCommand("DELETE FROM dbo.ReindexJob WHERE Id = @id", connection);
 
-                var parameter = new SqlParameter { ParameterName = "@id", Value = id };
-                command.Parameters.Add(parameter);
+            var parameter = new SqlParameter { ParameterName = "@id", Value = id };
+            command.Parameters.Add(parameter);
 
-                await command.Connection.OpenAsync(cancellationToken);
-                await command.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await command.Connection.OpenAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
-            {
-                await connection.OpenAsync();
+            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync();
+            await connection.OpenAsync();
 
-                SqlCommand command = connection.CreateCommand();
-                command.CommandText = "SELECT MAX(ResourceSurrogateId) FROM dbo.Resource";
-                return await command.ExecuteScalarAsync();
-            }
+            SqlCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT MAX(ResourceSurrogateId) FROM dbo.Resource";
+            return await command.ExecuteScalarAsync();
         }
 
         async Task IFhirStorageTestHelper.ValidateSnapshotTokenIsCurrent(object snapshotToken)
         {
-            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
-            {
-                await connection.OpenAsync();
+            await using SqlConnection connection = await _sqlConnectionFactory.GetSqlConnectionAsync();
+            await connection.OpenAsync();
 
-                var sb = new StringBuilder();
-                using (SqlCommand outerCommand = connection.CreateCommand())
-                {
-                    outerCommand.CommandText = @"
+            var sb = new StringBuilder();
+            await using (SqlCommand outerCommand = connection.CreateCommand())
+            {
+                outerCommand.CommandText = @"
                     SELECT t.name 
                     FROM sys.tables t
                     INNER JOIN sys.columns c ON c.object_id = t.object_id
                     WHERE c.name = 'ResourceSurrogateId'";
 
-                    using (SqlDataReader reader = await outerCommand.ExecuteReaderAsync())
+                await using (SqlDataReader reader = await outerCommand.ExecuteReaderAsync())
+                {
+                    while (reader.Read())
                     {
-                        while (reader.Read())
+                        if (sb.Length > 0)
                         {
-                            if (sb.Length > 0)
-                            {
-                                sb.AppendLine("UNION ALL");
-                            }
-
-                            string tableName = reader.GetString(0);
-                            sb.AppendLine($"SELECT '{tableName}' as TableName, MAX(ResourceSurrogateId) as MaxResourceSurrogateId FROM dbo.{tableName}");
+                            sb.AppendLine("UNION ALL");
                         }
+
+                        string tableName = reader.GetString(0);
+                        sb.AppendLine($"SELECT '{tableName}' as TableName, MAX(ResourceSurrogateId) as MaxResourceSurrogateId FROM dbo.{tableName}");
                     }
                 }
+            }
 
-                using (var command = connection.CreateCommand())
+            await using (SqlCommand command = connection.CreateCommand())
+            {
+                command.CommandText = sb.ToString();
+                await using (SqlDataReader reader = await command.ExecuteReaderAsync())
                 {
-                    command.CommandText = sb.ToString();
-                    using (var reader = await command.ExecuteReaderAsync())
+                    while (await reader.ReadAsync())
                     {
-                        while (await reader.ReadAsync())
-                        {
-                            Assert.True(reader.IsDBNull(1) || reader.GetInt64(1) <= (long)snapshotToken);
-                        }
+                        Assert.True(reader.IsDBNull(1) || reader.GetInt64(1) <= (long)snapshotToken);
                     }
                 }
             }
