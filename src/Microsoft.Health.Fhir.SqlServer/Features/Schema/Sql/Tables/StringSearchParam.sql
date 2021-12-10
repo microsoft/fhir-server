@@ -4,9 +4,6 @@
     ResourceSurrogateId         bigint              NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
-    CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsHistory bit NOT NULL,
     IsMin bit CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,

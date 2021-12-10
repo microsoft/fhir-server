@@ -228,7 +228,7 @@ CREATE TABLE dbo.ClaimType (
     ClaimTypeId TINYINT       IDENTITY (1, 1) NOT NULL,
     Name        VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     CONSTRAINT UQ_ClaimType_ClaimTypeId UNIQUE (ClaimTypeId),
-    CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED (Name)
+    CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED (Name) WITH (DATA_COMPRESSION = PAGE)
 );
 
 CREATE TABLE dbo.CompartmentAssignment (
@@ -250,7 +250,7 @@ CREATE TABLE dbo.CompartmentType (
     CompartmentTypeId TINYINT       IDENTITY (1, 1) NOT NULL,
     Name              VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     CONSTRAINT UQ_CompartmentType_CompartmentTypeId UNIQUE (CompartmentTypeId),
-    CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED (Name)
+    CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED (Name) WITH (DATA_COMPRESSION = PAGE)
 );
 
 CREATE TABLE dbo.DateTimeSearchParam (
@@ -350,7 +350,7 @@ CREATE TABLE dbo.QuantityCode (
     QuantityCodeId INT            IDENTITY (1, 1) NOT NULL,
     Value          NVARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
     CONSTRAINT UQ_QuantityCode_QuantityCodeId UNIQUE (QuantityCodeId),
-    CONSTRAINT PK_QuantityCode PRIMARY KEY CLUSTERED (Value)
+    CONSTRAINT PKC_QuantityCode PRIMARY KEY CLUSTERED (Value) WITH (DATA_COMPRESSION = PAGE)
 );
 
 CREATE TABLE dbo.QuantitySearchParam (
@@ -456,8 +456,8 @@ CREATE TABLE dbo.Resource (
     RawResource          VARBINARY (MAX) NOT NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
-    CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId) ON [PRIMARY],
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId) ON [Primary],
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
@@ -527,7 +527,7 @@ CREATE TABLE dbo.ResourceType (
     ResourceTypeId SMALLINT      IDENTITY (1, 1) NOT NULL,
     Name           NVARCHAR (50) COLLATE Latin1_General_100_CS_AS NOT NULL,
     CONSTRAINT UQ_ResourceType_ResourceTypeId UNIQUE (ResourceTypeId),
-    CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (Name)
+    CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (Name) WITH (DATA_COMPRESSION = PAGE)
 );
 
 CREATE TABLE dbo.ResourceWriteClaim (
@@ -552,7 +552,7 @@ CREATE TABLE dbo.SearchParam (
     LastUpdated          DATETIMEOFFSET (7) NULL,
     IsPartiallySupported BIT                NULL,
     CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId),
-    CONSTRAINT PK_SearchParam PRIMARY KEY CLUSTERED (Uri)
+    CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED (Uri) WITH (DATA_COMPRESSION = PAGE)
 );
 
 CREATE TABLE dbo.StringSearchParam (
@@ -563,8 +563,7 @@ CREATE TABLE dbo.StringSearchParam (
     TextOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsHistory           BIT            NOT NULL,
     IsMin               BIT            CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
-    IsMax               BIT            CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL,
-    CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    IsMax               BIT            CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL
 );
 
 ALTER TABLE dbo.StringSearchParam SET (LOCK_ESCALATION = AUTO);
@@ -587,8 +586,8 @@ CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 CREATE TABLE dbo.System (
     SystemId INT            IDENTITY (1, 1) NOT NULL,
     Value    NVARCHAR (256) NOT NULL,
-    CONSTRAINT UQ_System UNIQUE (SystemId),
-    CONSTRAINT PKC_System PRIMARY KEY CLUSTERED (Value)
+    CONSTRAINT UQ_System_SystemId UNIQUE (SystemId),
+    CONSTRAINT PKC_System PRIMARY KEY CLUSTERED (Value) WITH (DATA_COMPRESSION = PAGE)
 );
 
 CREATE TABLE [dbo].[TaskInfo] (
@@ -604,7 +603,7 @@ CREATE TABLE [dbo].[TaskInfo] (
     [InputData]         VARCHAR (MAX) NOT NULL,
     [TaskContext]       VARCHAR (MAX) NULL,
     [Result]            VARCHAR (MAX) NULL,
-    CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId)
+    CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (

@@ -25,7 +25,7 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_SearchParam'
 	ALTER TABLE dbo.SearchParam 
-	ADD CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED(Uri)
+	ADD CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED (Uri)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
@@ -37,8 +37,8 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_SearchParam_SearchParamId'
 	ALTER TABLE dbo.SearchParam 
-	ADD CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE(SearchParamId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+	ADD CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId)
+    WITH (ONLINE=ON) 
 END
 
 GO
@@ -63,7 +63,7 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_ResourceType'
 	ALTER TABLE dbo.ResourceType 
-	ADD CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED(Name)
+	ADD CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (Name)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
@@ -75,8 +75,8 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_ResourceType_ResourceTypeId'
 	ALTER TABLE dbo.ResourceType 
-	ADD CONSTRAINT UQ_ResourceType_ResourceTypeId UNIQUE(ResourceTypeId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+	ADD CONSTRAINT UQ_ResourceType_ResourceTypeId UNIQUE (ResourceTypeId)
+	WITH (ONLINE=ON) 
 END
 
 GO
@@ -101,7 +101,7 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_System'
 	ALTER TABLE dbo.System
-	ADD CONSTRAINT PKC_System PRIMARY KEY CLUSTERED(Value)
+	ADD CONSTRAINT PKC_System PRIMARY KEY CLUSTERED (Value)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
@@ -113,8 +113,8 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_System_SystemId'
 	ALTER TABLE dbo.System 
-	ADD CONSTRAINT UQ_System_SystemId UNIQUE(SystemId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+	ADD CONSTRAINT UQ_System_SystemId UNIQUE (SystemId)
+	WITH (ONLINE=ON) 
 END
 
 GO
@@ -139,7 +139,7 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_QuantityCode'
 	ALTER TABLE dbo.QuantityCode
-	ADD CONSTRAINT PKC_QuantityCode PRIMARY KEY CLUSTERED(Value)
+	ADD CONSTRAINT PKC_QuantityCode PRIMARY KEY CLUSTERED (Value)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
@@ -151,8 +151,8 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_QuantityCode_QuantityCodeId'
 	ALTER TABLE dbo.QuantityCode 
-	ADD CONSTRAINT UQ_QuantityCode_QuantityCodeId UNIQUE(QuantityCodeId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+	ADD CONSTRAINT UQ_QuantityCode_QuantityCodeId UNIQUE (QuantityCodeId)
+	WITH (ONLINE=ON) 
 END
 
 GO
@@ -178,7 +178,7 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_ClaimType'
 	ALTER TABLE dbo.ClaimType
-	ADD CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED(Name)
+	ADD CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED (Name)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
@@ -190,8 +190,8 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_ClaimType_ClaimTypeId'
 	ALTER TABLE dbo.ClaimType 
-	ADD CONSTRAINT UQ_ClaimType_ClaimTypeId UNIQUE(ClaimTypeId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+	ADD CONSTRAINT UQ_ClaimType_ClaimTypeId UNIQUE (ClaimTypeId)
+	WITH (ONLINE=ON) 
 END
 
 GO
@@ -216,7 +216,7 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_CompartmentType'
 	ALTER TABLE dbo.CompartmentType
-	ADD CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED(Name)
+	ADD CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED (Name)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 END
 
@@ -228,8 +228,8 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_CompartmentType_CompartmentTypeId'
 	ALTER TABLE dbo.CompartmentType 
-	ADD CONSTRAINT UQ_CompartmentType_CompartmentTypeId UNIQUE(CompartmentTypeId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+	ADD CONSTRAINT UQ_CompartmentType_CompartmentTypeId UNIQUE (CompartmentTypeId)
+	WITH (ONLINE=ON) 
 END
 
 GO
@@ -278,7 +278,7 @@ BEGIN
 		ResourceTypeId,
 		ResourceSurrogateId
 	)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
+	WITH (ONLINE=ON)
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END
 
@@ -301,9 +301,9 @@ IF NOT EXISTS (
 	WHERE name='PKC_Resource' AND type='PK')
 BEGIN
 	ALTER TABLE dbo.Resource 
-	ADD CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED(ResourceTypeId, ResourceSurrogateId)
+	ADD CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+	ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 END
 
 -- Deleting temporary non-clustered index created.
@@ -316,17 +316,27 @@ BEGIN
 	DROP INDEX IX_Resource ON dbo.Resource
 END
 
+-- Adding unique constraint on ResourceSurrogateId column
+EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_Resource_ResourceSurrogateId'
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='UQ_Resource_ResourceSurrogateId' AND type='UQ')
+BEGIN
+	ALTER TABLE dbo.Resource 
+	ADD CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId)
+	WITH (ONLINE=ON) 
+	ON [Primary]
+END
+
 -- Creating UQIX_Resource_ResourceSurrogateId
 EXEC dbo.LogSchemaMigrationProgress 'Creating UQIX_Resource_ResourceSurrogateId'
-IF EXISTS (
+IF NOT EXISTS (
     SELECT * 
 	FROM sys.indexes 
 	WHERE name='UQIX_Resource_ResourceSurrogateId' AND object_id = OBJECT_ID('dbo.Resource'))
 BEGIN
-	CREATE UNIQUE NONCLUSTERED INDEX UQIX_Resource_ResourceSurrogateId ON dbo.Resource
-    (
-        ResourceSurrogateId
-    )
+	CREATE UNIQUE NONCLUSTERED INDEX UQIX_Resource_ResourceSurrogateId ON dbo.Resource (ResourceSurrogateId)
     ON [Primary]
 END
 
@@ -339,6 +349,7 @@ IF EXISTS (
 BEGIN
 	DROP INDEX IX_Resource_ResourceSurrogateId ON dbo.Resource
 END
+
 GO
 
 -- ExportJob
@@ -378,7 +389,7 @@ IF NOT EXISTS (
 	WHERE name='PKC_ExportJob' AND type='PK')
 BEGIN
 	ALTER TABLE dbo.ExportJob 
-	ADD CONSTRAINT PKC_ExportJob PRIMARY KEY CLUSTERED(Id)
+	ADD CONSTRAINT PKC_ExportJob PRIMARY KEY CLUSTERED (Id)
 	WITH (ONLINE=ON)
 END
 
@@ -428,7 +439,7 @@ IF NOT EXISTS (
 	WHERE name='PKC_ReindexJob' AND type='PK')
 BEGIN
 	ALTER TABLE dbo.ReindexJob 
-	ADD CONSTRAINT PKC_ReindexJob PRIMARY KEY CLUSTERED(Id)
+	ADD CONSTRAINT PKC_ReindexJob PRIMARY KEY CLUSTERED (Id)
 	WITH (ONLINE=ON)
 END
 
@@ -478,7 +489,7 @@ IF NOT EXISTS (
 	WHERE name='PKC_TaskInfo' AND type='PK')
 BEGIN
 	ALTER TABLE dbo.TaskInfo 
-	ADD CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED(TaskId)
+	ADD CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
 END
 
@@ -533,26 +544,10 @@ IF NOT EXISTS (
 	WHERE name='PK_TokenText' AND type='PK')
 BEGIN
 	ALTER TABLE dbo.TokenText 
-	ADD CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
+	ADD CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END
-GO
-
---StringSearchParam
--- Create nonclustered primary key on the set of non-nullable columns which makes it unique
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_StringSearchParam'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PK_StringSearchParam' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.StringSearchParam
-	ADD CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-END
-
 GO
 
 --UriSearchParam
@@ -623,6 +618,7 @@ IF EXISTS (
 BEGIN
 	DROP INDEX IX_DateTimeSearchParam ON dbo.DateTimeSearchParam
 END
+
 GO
 
 --ReferenceTokenCompositeSearchParam
@@ -641,7 +637,7 @@ END
 
 -- Creating UQIX_Resource_ResourceSurrogateId
 EXEC dbo.LogSchemaMigrationProgress 'Creating UQIX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2'
-IF EXISTS (
+IF NOT EXISTS (
     SELECT * 
 	FROM sys.indexes 
 	WHERE name='UQIX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2' AND object_id = OBJECT_ID('dbo.ReferenceTokenCompositeSearchParam'))
@@ -703,7 +699,7 @@ IF NOT EXISTS (
 	WHERE name='PK_TokenDateTimeCompositeSearchParam' AND type='PK')
 BEGIN
 	ALTER TABLE dbo.TokenDateTimeCompositeSearchParam
-	ADD CONSTRAINT PK_TokenDateTimeCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
+	ADD CONSTRAINT PK_TokenDateTimeCompositeSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END
