@@ -1630,6 +1630,10 @@ BEGIN
                                                                      AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
                                                                      AND CAST (prv.value AS DATETIME2 (7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedUtcDateTime), 0)
                                                             ORDER BY prv.boundary_id DESC);
+    IF (@precedingPartitionBoundary IS NULL)
+        BEGIN
+            SET @precedingPartitionBoundary = CONVERT (DATETIME2 (7), N'1970-01-01T00:00:00.0000000');
+        END
     DECLARE @endDateTimeToFilter AS DATETIME2 (7) = DATEADD(HOUR, 1, SYSUTCDATETIME());
     WITH     PartitionBoundaries
     AS       (SELECT CAST (prv.value AS DATETIME2 (7)) AS PartitionBoundary
@@ -1639,9 +1643,7 @@ BEGIN
                      ON pf.function_id = prv.function_id
               WHERE  pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                      AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
-                     AND (CAST (prv.value AS DATETIME2 (7)) BETWEEN @precedingPartitionBoundary AND @endDateTimeToFilter
-                          OR @precedingPartitionBoundary IS NULL
-                             AND CAST (prv.value AS DATETIME2 (7)) BETWEEN CONVERT (DATETIME2 (7), N'1970-01-01T00:00:00.0000000') AND @endDateTimeToFilter))
+                     AND CAST (prv.value AS DATETIME2 (7)) BETWEEN @precedingPartitionBoundary AND @endDateTimeToFilter)
     SELECT   TOP (@pageSize) Id,
                              Timestamp,
                              ResourceId,

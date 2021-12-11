@@ -44,26 +44,27 @@ BEGIN
                                                         WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
                                                             AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
                                                             AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedUtcDateTime), 0)
-                                                        ORDER BY prv.boundary_id DESC);    
+                                                        ORDER BY prv.boundary_id DESC);
+
+    IF (@precedingPartitionBoundary IS NULL)
+    BEGIN
+        /* It happens when no prior watermark exists or the last processed datetime of prior watermark is older than the last retention datetime.
+           Uses the partition anchor datetime as the last processed DateTime. */
+        SET @precedingPartitionBoundary = CONVERT (DATETIME2 (7), N'1970-01-01T00:00:00.0000000');
+    END;
 
     /* It ensures that it will not check resource changes in future partitions. */
     DECLARE @endDateTimeToFilter AS datetime2(7) = DATEADD(HOUR, 1, SYSUTCDATETIME());
 
     WITH PartitionBoundaries
     AS (
+        /* Normal logic when prior watermark exists, grab prior partition to ensure we do not miss data that was written across a partition boundary,
+           and includes partitions until current one to ensure we keep moving to the next partition when some partitions do not have any resource changes. */
         SELECT CAST(prv.value as datetime2(7)) AS PartitionBoundary FROM sys.partition_range_values AS prv WITH (NOLOCK)
             INNER JOIN sys.partition_functions AS pf WITH (NOLOCK) ON pf.function_id = prv.function_id
         WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
-                AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
-                AND (
-                    /* Normal logic when prior watermark exists, Grab prior partition to ensure we do not miss data that was written across a partition boundary,
-                       and includes partitions until current one to ensure we keep moving to the next partition when some partitions do not have any resource changes. */
-                    CAST(prv.value AS datetime2(7)) BETWEEN @precedingPartitionBoundary AND @endDateTimeToFilter
-                    OR 
-                    /* It happens when no prior watermark exists or the last processed datetime of prior watermark is older than the last retention datetime.
-                       Uses the partition anchor datetime as the last processed DateTime. */
-                    @precedingPartitionBoundary IS NULL AND CAST(prv.value AS datetime2(7)) BETWEEN CONVERT(datetime2(7), N'1970-01-01T00:00:00.0000000') AND @endDateTimeToFilter
-                )
+            AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
+            AND CAST(prv.value AS datetime2(7)) BETWEEN @precedingPartitionBoundary AND @endDateTimeToFilter
     )
     SELECT TOP(@pageSize) Id,
         Timestamp,
@@ -82,7 +83,9 @@ BEGIN
             ResourceTypeId,
             ResourceVersion,
             ResourceChangeTypeId
-        /* Acquires and holds the table lock to prevent new resource changes from being created during the select query execution. */
+        /* Acquires and holds the table lock to prevent new resource changes from being created during the select query execution.
+           Without the TABLOCK and HOLDLOCK hints, the lock will be applied at the row or page level which can result in missed reads
+           if an insert occurs in range that was previously read and the locks were released on the read. */
         FROM dbo.ResourceChangeData WITH (TABLOCK, HOLDLOCK)
             WHERE Id >= @startId
                 AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(Timestamp) = $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(p.PartitionBoundary)
