@@ -5,9 +5,6 @@
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-     CONSTRAINT PK_TokenNumberNumberCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Code1)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     SingleValue2 decimal(18,6) NULL,
     LowValue2 decimal(18,6) NULL,
     HighValue2 decimal(18,6) NULL,

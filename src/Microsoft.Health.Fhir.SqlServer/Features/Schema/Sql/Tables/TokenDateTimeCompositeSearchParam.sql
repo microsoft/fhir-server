@@ -8,9 +8,6 @@
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
-    CONSTRAINT PK_TokenDateTimeCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, EndDateTime2, StartDateTime2, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL,
 )
 

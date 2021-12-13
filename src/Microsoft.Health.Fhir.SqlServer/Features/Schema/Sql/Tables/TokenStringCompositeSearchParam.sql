@@ -6,9 +6,6 @@
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_CI_AI NOT NULL,
-    CONSTRAINT PK_TokenStringCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Code1, Text2, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_CI_AI NULL,
     IsHistory bit NOT NULL,
 )

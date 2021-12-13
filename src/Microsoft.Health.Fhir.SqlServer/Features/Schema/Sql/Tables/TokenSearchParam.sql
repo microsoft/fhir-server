@@ -5,9 +5,6 @@
     SearchParamId               smallint                NOT NULL,
     SystemId                    int                     NULL,
     Code                        varchar(128)            COLLATE Latin1_General_100_CS_AS NOT NULL,
-    CONSTRAINT PK_TokenSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Code, ResourceSurrogateId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory                   bit                     NOT NULL,
 )
 

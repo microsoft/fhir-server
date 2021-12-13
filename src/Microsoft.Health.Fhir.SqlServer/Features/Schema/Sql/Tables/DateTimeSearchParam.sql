@@ -3,9 +3,6 @@
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    CONSTRAINT PKC_DateTimeSearchParam PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     StartDateTime datetime2(7) NOT NULL,
     EndDateTime datetime2(7) NOT NULL,
     IsLongerThanADay bit NOT NULL,
@@ -15,6 +12,15 @@
 )
 
 ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )
+
+CREATE CLUSTERED INDEX IXC_DateTimeSearchParam
+ON dbo.DateTimeSearchParam
+(
+    ResourceTypeId,
+    ResourceSurrogateId,
+    SearchParamId
+)
+ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
 CREATE NONCLUSTERED INDEX IX_DateTimeSearchParam_SearchParamId_StartDateTime_EndDateTime
 ON dbo.DateTimeSearchParam
