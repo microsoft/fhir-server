@@ -9,6 +9,13 @@ steps:
     useGlobalJson: true
 
 - task: DotNetCoreCLI@2
+  displayName: 'dotnet clean $(buildConfiguration)'
+  inputs:
+    command: clean
+    arguments: '--configuration $(buildConfiguration)'
+
+
+- task: DotNetCoreCLI@2
   displayName: 'dotnet build $(buildConfiguration)'
   inputs:
     command: build
