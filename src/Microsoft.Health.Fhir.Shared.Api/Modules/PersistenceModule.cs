@@ -4,12 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -36,6 +39,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddScoped<TransactionBundleValidator>();
             services.AddScoped<ResourceReferenceResolver>();
+
+            services.AddSingleton(typeof(BasePatchService<JsonPatchDocument>), typeof(JsonPatchService));
+            services.AddSingleton(typeof(BasePatchService<Parameters>), typeof(FhirParameterPatchService));
         }
     }
 }

@@ -18,8 +18,17 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    internal sealed class FhirParameterPatchService : AbstractPatchService<Parameters>
+    public class FhirParameterPatchService : BasePatchService<Parameters>
     {
+        private readonly IModelInfoProvider _modelInfoProvider;
+
+        public FhirParameterPatchService(IModelInfoProvider modelInfoProvider)
+        {
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+
+            _modelInfoProvider = modelInfoProvider;
+        }
+
         public override ResourceElement Patch(ResourceWrapper resourceToPatch, Parameters paramsResource, WeakETag weakETag)
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
@@ -29,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
 
             // Capture the state of properties that are immutable
-            ITypedElement resource = node.ToTypedElement(Provider);
+            ITypedElement resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
             (string path, object result)[] preState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
             Resource patchedResource = GetPatchedJsonResource(node, paramsResource);
@@ -72,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Resource resourcePoco;
             try
             {
-                var resource = node.ToTypedElement(Provider);
+                var resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
                 resourcePoco = resource.ToPoco<Resource>();
             }
             catch (Exception e)

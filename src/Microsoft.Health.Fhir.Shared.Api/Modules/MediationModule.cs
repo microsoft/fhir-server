@@ -6,10 +6,15 @@
 using System;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
+using Microsoft.Health.Fhir.Core.Messages.Patch;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -24,6 +29,20 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddMediatR(KnownAssemblies.All);
+
+            // AddMediatR does process generic classes. Manually adding these.
+            services.AddTransient(
+                typeof(IRequestHandler<PatchResourceRequest<JsonPatchDocument>, UpsertResourceResponse>),
+                typeof(PatchResourceHandler<JsonPatchDocument>));
+            services.AddTransient(
+                typeof(IRequestHandler<PatchResourceRequest<Parameters>, UpsertResourceResponse>),
+                typeof(PatchResourceHandler<Parameters>));
+            services.AddTransient(
+                typeof(IRequestHandler<ConditionalPatchResourceRequest<JsonPatchDocument>, UpsertResourceResponse>),
+                typeof(ConditionalPatchResourceHandler<JsonPatchDocument>));
+            services.AddTransient(
+                typeof(IRequestHandler<ConditionalPatchResourceRequest<Parameters>, UpsertResourceResponse>),
+                typeof(ConditionalPatchResourceHandler<Parameters>));
 
             // Allows handlers to provide capabilities
             var openRequestInterfaces = new[]

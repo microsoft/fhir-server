@@ -6,17 +6,13 @@
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.Fhir.Specification;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    internal abstract class AbstractPatchService<T>
+    public abstract class BasePatchService<T>
     {
-        internal static IStructureDefinitionSummaryProvider Provider =>
-            ModelInfoProvider.Instance.StructureDefinitionSummaryProvider;
-
         internal static ISet<string> ImmutableProperties =>
             new HashSet<string>
             {

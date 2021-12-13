@@ -7,9 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -21,9 +19,9 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public sealed class ConditionalPatchResourceHandler<TData> : ConditionalResourceHandler<ConditionalPatchResourceRequest<TData>, UpsertResourceResponse>
+    public class ConditionalPatchResourceHandler<TData> : ConditionalResourceHandler<ConditionalPatchResourceRequest<TData>, UpsertResourceResponse>
     {
-        private readonly AbstractPatchService<TData> _patchService;
+        private readonly BasePatchService<TData> _patchService;
         private readonly IMediator _mediator;
 
         public ConditionalPatchResourceHandler(
@@ -33,24 +31,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
+            BasePatchService<TData> patchService,
             IAuthorizationService<DataActions> authorizationService)
             : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(patchService, nameof(patchService));
+
             _mediator = mediator;
-
-            if (typeof(TData) == typeof(JsonPatchDocument))
-            {
-                _patchService = new JsonPatchService() as AbstractPatchService<TData>;
-                return;
-            }
-            else if (typeof(TData) == typeof(Parameters))
-            {
-                _patchService = new FhirParameterPatchService() as AbstractPatchService<TData>;
-                return;
-            }
-
-            throw new ArgumentException($"Type {typeof(TData)} was not expected for this templated class");
+            _patchService = patchService;
         }
 
         public override Task<UpsertResourceResponse> HandleNoMatch(ConditionalPatchResourceRequest<TData> request, CancellationToken cancellationToken)

@@ -7,9 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -22,8 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class PatchResourceHandler<TData> : BaseResourceHandler, IRequestHandler<PatchResourceRequest<TData>, UpsertResourceResponse>
     {
-        private readonly AbstractPatchService<TData> _patchService;
         private readonly IMediator _mediator;
+        private readonly BasePatchService<TData> _patchService;
 
         public PatchResourceHandler(
             IMediator mediator,
@@ -31,24 +29,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService)
+            IAuthorizationService<DataActions> authorizationService,
+            BasePatchService<TData> patchService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(patchService, nameof(patchService));
+
             _mediator = mediator;
-
-            if (typeof(TData) == typeof(JsonPatchDocument))
-            {
-                _patchService = new JsonPatchService() as AbstractPatchService<TData>;
-                return;
-            }
-            else if (typeof(TData) == typeof(Parameters))
-            {
-                _patchService = new FhirParameterPatchService() as AbstractPatchService<TData>;
-                return;
-            }
-
-            throw new ArgumentException($"Type {typeof(TData)} was not expected for this templated class");
+            _patchService = patchService;
         }
 
         public async Task<UpsertResourceResponse> Handle(PatchResourceRequest<TData> request, CancellationToken cancellationToken)
