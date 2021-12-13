@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Introspection;
@@ -53,7 +54,12 @@ namespace FhirPathPatch.Operations
                     Target.Definition.GetChildDefinition(Operation.Name) :
                     Target.Definition as PropertyMapping;
 
-                return Operation.Value.GetElementNodeFromPart(summary.Name, summary.PropertyTypeMapping.NativeType);
+                if (summary != null)
+                {
+                    return Operation.Value.GetElementNodeFromPart(summary.Name, summary.PropertyTypeMapping.NativeType);
+                }
+
+                throw new InvalidOperationException("Patch target has no definition");
             }
         }
 
