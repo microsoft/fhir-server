@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
         }
 
-        protected override Resource GetPatchedJsonResource(FhirJsonNode node, Parameters operations)
+        protected Resource GetPatchedJsonResource(FhirJsonNode node, Parameters operations)
         {
             Resource resourcePoco;
             try

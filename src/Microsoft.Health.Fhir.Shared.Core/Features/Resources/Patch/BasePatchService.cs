@@ -24,7 +24,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             };
 
         public abstract ResourceElement Patch(ResourceWrapper resourceToPatch, T paramsResource, WeakETag weakETag);
-
-        protected abstract Resource GetPatchedJsonResource(FhirJsonNode node, T operations);
     }
 }
