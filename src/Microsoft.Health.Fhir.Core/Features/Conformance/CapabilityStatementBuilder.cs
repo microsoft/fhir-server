@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
             if (resourceComponent == null)
             {
-                resourceComponent = new ListedResourceComponent(_configuration)
+                resourceComponent = new ListedResourceComponent()
                 {
                     Type = resourceType,
                     Profile = new ReferenceComponent
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                         Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}",
                     },
                 };
-
+                ((DefaultOptionHashSet<string>)resourceComponent.Versioning).DefaultOption = _configuration.Versioning.ResourceTypeOverrides.ContainsKey(resourceType) ? _configuration.Versioning.ResourceTypeOverrides[resourceType] : _configuration.Versioning.Default;
                 listedRestComponent.Resource.Add(resourceComponent);
             }
 

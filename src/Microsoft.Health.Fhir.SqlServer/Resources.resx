@@ -155,4 +155,7 @@
   <data name="ExecutionTimeoutExpired" xml:space="preserve">
     <value>The exection timeout expired from SQL Server.</value>
   </data>
+  <data name="GetRecordsAsyncOperationIsCanceled" xml:space="preserve">
+    <value>The operation to get resource changes has been canceled.</value>
+  </data>
 </root>
