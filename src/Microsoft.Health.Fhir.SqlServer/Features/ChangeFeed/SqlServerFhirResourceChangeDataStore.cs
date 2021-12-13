@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
             catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
             {
-                _logger.LogInformation(ex, Resources.GetRecordsAsyncOperationIsCanceled);
+                _logger.LogInformation(ex, "The operation to get resource changes has been canceled.");
                 throw;
             }
             catch (SqlException ex)
