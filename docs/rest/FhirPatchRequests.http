@@ -130,6 +130,36 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ###
+## Try to patch version (result = fail)
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.meta.versionId"
+                },
+                {
+                    "name": "value",
+                    "valueId": "abc"
+                }
+            ]
+        }
+    ]
+}
+
+###
 ## Add deceased
 
 PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
@@ -163,41 +193,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
     ]
 }
 
-###
-## Testing with conditional patch
-
-PATCH https://{{hostname}}/Patient?identifier=http://hospital.smarthealthit.org|1032704
-content-type: application/fhir+json
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-{
-    "resourceType": "Parameters",
-    "parameter": [
-        {
-            "name": "operation",
-            "part": [
-                {
-                    "name": "type",
-                    "valueCode": "add"
-                },
-                {
-                    "name": "path",
-                    "valueString": "Patient"
-                },
-                {
-                    "name": "name",
-                    "valueString": "deceased"
-                },
-                {
-                    "name": "value",
-                    "valueBoolean": "true"
-                }
-            ]
-        }
-    ]
-}
-
-### Patch in a bundle
+### Patch in a bundle (extensions)
 ## See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request
 
 POST https://{{hostname}}/
@@ -241,6 +237,41 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                 "method": "PATCH",
                 "url": "Patient/{{patient.response.body.id}}"
             }
+        }
+    ]
+}
+
+###
+## Conditional Patch
+
+PATCH https://{{hostname}}/Patient?identifier=http://hospital.smarthealthit.org|1032704
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "replace"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.name[0]"
+                },
+                {
+                    "name": "value",
+                    "valueHumanName": {
+                        "family": "Doe",
+                        "given": [
+                            "Jane"
+                        ]
+                    }
+                }
+            ]
         }
     ]
 }
