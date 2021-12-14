@@ -20,39 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class FhirParameterPatchService : BasePatchService<Parameters>
     {
-        private readonly IModelInfoProvider _modelInfoProvider;
 
-        public FhirParameterPatchService(IModelInfoProvider modelInfoProvider)
-        {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-
-            _modelInfoProvider = modelInfoProvider;
-        }
-
-        public override ResourceElement Patch(ResourceWrapper resourceToPatch, Parameters paramsResource, WeakETag weakETag)
-        {
-            EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
-
-            Validate(resourceToPatch, weakETag, paramsResource);
-
-            var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
-
-            // Capture the state of properties that are immutable
-            ITypedElement resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
-            (string path, object result)[] preState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
-
-            Resource patchedResource = GetPatchedJsonResource(node, paramsResource);
-
-            (string path, object result)[] postState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
-            if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))
-            {
-                throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
-            }
-
-            return patchedResource.ToResourceElement();
-        }
-
-        private static void Validate(ResourceWrapper currentDoc, WeakETag eTag, Parameters paramsResource)
+        public FhirParameterPatchService(IModelInfoProvider modelInfoProvider) : base(modelInfoProvider) { }
+        protected override void Validate(ResourceWrapper currentDoc, WeakETag eTag, Parameters paramsResource)
         {
             if (currentDoc.IsHistory)
             {
@@ -76,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
         }
 
-        protected Resource GetPatchedJsonResource(FhirJsonNode node, Parameters operations)
+        protected override Resource GetPatchedJsonResource(FhirJsonNode node, Parameters operations)
         {
             Resource resourcePoco;
             try
