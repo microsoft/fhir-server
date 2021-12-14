@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -196,7 +197,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // as this test is timing dependent, we will try it three times
             // to see if it can pass
-            for (int i = 0; i < 3; i++)
+            int retryCount = 3;
+            for (int i = 0; i < retryCount; i++)
             {
                 bool success = false;
                 var newResources = new List<Resource>();
@@ -237,9 +239,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     AssertCount(4, firstSet.Resource.Entry);
 
                     sinceUriString = beforeUriString;
-                    before = DateTime.UtcNow;
+                    before = Clock.UtcNow;
                     beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
-                    Thread.Sleep(500); // wait 500 milliseconds to make sure that the value passed to the server for _before is not a time in the future
+                    await Task.Delay(500); // wait 500 milliseconds to make sure that the value passed to the server for _before is not a time in the future
                     var secondSet = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
 
                     AssertCount(3, secondSet.Resource.Entry);
@@ -249,7 +251,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 catch (XunitException)
                 {
                     success = false;
-                    if (i == 2)
+                    if (i >= (retryCount - 1))
                     {
                         throw;
                     }
