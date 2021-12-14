@@ -286,13 +286,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenABundle_WhenOneRequestProducesA429_SubsequentRequestAreSkipped()
+        public async Task GivenABundle_WhenOneRequestProducesA429_429IsRetriedThenSubsequentRequestAreSkipped()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
                 Type = BundleType.Batch,
                 Entry = new List<EntryComponent>
                 {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
                     new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
                     new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
                 },
@@ -314,9 +315,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
 
-            Assert.Equal(1, callCount);
+            Assert.Equal(2, callCount);
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
-            Assert.Equal(2, bundleResource.Entry.Count);
+            Assert.Equal(3, bundleResource.Entry.Count);
             Assert.All(bundleResource.Entry, e => Assert.Equal("429", e.Response.Status));
         }
 

@@ -391,6 +391,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         await request.Handler.Invoke(httpContext);
 
+                        // we will retry a 429 one time per request in the bundle
+                        if (httpContext.Response.StatusCode == (int)HttpStatusCode.TooManyRequests
+                            && _bundleType == BundleType.Batch)
+                        {
+                            _logger.LogTrace("BundleHandler received 429 message, attempting retry.  HttpVerb:{httpVerb} BundleSize: {_requestCount} entryIndex:{entryIndex}", httpVerb, _requestCount, entryIndex);
+                            int retryDelay = 2;
+                            var retryAfterValues = httpContext.Response.Headers.GetCommaSeparatedValues("Retry-After");
+                            if (retryAfterValues != StringValues.Empty)
+                            {
+                                if (int.TryParse(retryAfterValues[0], out var retryHeaderValue))
+                                {
+                                    retryDelay = retryHeaderValue;
+                                }
+                            }
+
+                            await Task.Delay(retryDelay);
+                            await request.Handler.Invoke(httpContext);
+                        }
+
                         _resourceIdProvider.Create = originalResourceIdProvider;
 
                         entryComponent = CreateEntryComponent(httpContext);
@@ -405,6 +424,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         if (_bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
                         {
+                            _logger.LogTrace("BundleHandler received 429 after retry, now aborting remainder of bundle. HttpVerb:{httpVerb} BundleSize: {_requestCount} entryIndex:{entryIndex}", httpVerb, _requestCount, entryIndex);
+
                             // this action was throttled. Capture the entry and reuse it for subsequent actions.
                             throttledEntryComponent = entryComponent;
                         }
