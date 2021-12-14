@@ -20,7 +20,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public abstract class BasePatchService<T>
     {
-        protected readonly IModelInfoProvider _modelInfoProvider;
+        protected BasePatchService(IModelInfoProvider modelInfoProvider)
+        {
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+
+            this.ModelInfoProvider = modelInfoProvider;
+        }
+
+        protected IModelInfoProvider ModelInfoProvider { get; private set; }
+
         internal static ISet<string> ImmutableProperties =>
             new HashSet<string>
             {
@@ -30,14 +38,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 "Resource.text.div",
                 "Resource.text.status",
             };
-        public BasePatchService(IModelInfoProvider modelInfoProvider)
-        {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
-            this._modelInfoProvider = modelInfoProvider;
-        }
         protected abstract void Validate(ResourceWrapper currentDoc, WeakETag eTag, T patchDocument);
+
         protected abstract Resource GetPatchedJsonResource(FhirJsonNode node, T operations);
+
         public ResourceElement Patch(ResourceWrapper resourceToPatch, T paramsResource, WeakETag weakETag)
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
@@ -47,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
 
             // Capture the state of properties that are immutable
-            ITypedElement resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+            ITypedElement resource = node.ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
             (string path, object result)[] preState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
             Resource patchedResource = GetPatchedJsonResource(node, paramsResource);

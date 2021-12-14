@@ -21,8 +21,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class JsonPatchService : BasePatchService<JsonPatchDocument>
     {
-
-        public JsonPatchService(IModelInfoProvider modelInfoProvider) : base(modelInfoProvider) { }
+        public JsonPatchService(IModelInfoProvider modelInfoProvider)
+        : base(modelInfoProvider)
+        {
+        }
 
         protected override void Validate(ResourceWrapper currentDoc, WeakETag eTag, JsonPatchDocument patchDocument)
         {
@@ -63,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Resource resourcePoco;
             try
             {
-                var resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+                var resource = node.ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
                 resourcePoco = resource.ToPoco<Resource>();
             }
             catch (Exception e)

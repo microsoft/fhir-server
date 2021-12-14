@@ -20,9 +20,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
     public class FhirParameterPatchService : BasePatchService<Parameters>
     {
+        public FhirParameterPatchService(IModelInfoProvider modelInfoProvider)
+        : base(modelInfoProvider)
+        {
+        }
 
-        public FhirParameterPatchService(IModelInfoProvider modelInfoProvider) : base(modelInfoProvider) { }
-        protected override void Validate(ResourceWrapper currentDoc, WeakETag eTag, Parameters paramsResource)
+        protected override void Validate(ResourceWrapper currentDoc, WeakETag eTag, Parameters patchDocument)
         {
             if (currentDoc.IsHistory)
             {
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             var context = new System.ComponentModel.DataAnnotations.ValidationContext(currentDoc);
-            var results = paramsResource.Validate(context);
+            var results = patchDocument.Validate(context);
 
             foreach (var result in results)
             {
@@ -51,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Resource resourcePoco;
             try
             {
-                var resource = node.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+                var resource = node.ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
                 resourcePoco = resource.ToPoco<Resource>();
             }
             catch (Exception e)
