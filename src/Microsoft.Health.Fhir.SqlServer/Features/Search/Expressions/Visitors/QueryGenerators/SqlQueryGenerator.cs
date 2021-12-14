@@ -772,7 +772,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             // Handle Multiple Results sets to include from
             if (_includeFromCteIds?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCteIds.Count - 1)
             {
-                StringBuilder.AppendLine($")");
+                StringBuilder.AppendLine($"),");
 
                 // If it's not the last result set, append a new IncludeLimit cte, since IncludeLimitCte was not created for the current cte
                 if (_curFromCteIndex < _includeFromCteIds?.Count - 1)
