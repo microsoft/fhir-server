@@ -110,5 +110,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchInsertTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchMoveTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchReplaceTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPatchTypeTests.cs" />
   </ItemGroup>
 </Project>

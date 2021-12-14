@@ -12,36 +12,25 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchDeleteTests
     {
-        // HL7 published tests
-
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L51
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L51
         [Fact]
-        public void DeletePrimative()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingPrimitive_ThenPrimitiveShouldBeRemoved()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.birthDate");
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(new Patient { BirthDate = "1920-01-01" }).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(new Patient()));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L225
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L225
         [Fact]
-        public void DeleteNestedPrimative()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingNestedPrimitive_ThenNestedPrimitiveShouldBeRemoved()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.contact[0].gender");
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(
                 new Patient
                 {
@@ -58,7 +47,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
                 }).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -75,17 +63,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L262
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L262
         [Fact]
-        public void DeleteNestedPrimative2()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingDeepNestedPrimitive_ThenNestedPrimitiveShouldBeRemoved()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.contact[0].name.text");
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(
                 new Patient
                 {
@@ -102,7 +86,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
                 }).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -116,38 +99,29 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L420
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L420
         [Fact]
-        public void DeleteComplex()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingComplexObject_ThenComplexShouldBeRemoved()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.maritalStatus");
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(
                 new Patient
                 {
                     MaritalStatus = new CodeableConcept { Text = "married" },
                 }).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(new Patient()));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L494
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L494
         [Fact]
-        public void DeleteAnonymous()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingCDeleteAnonymousObject_ThenAnonymousShouldBeRemoved()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.contact[0]");
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(
                 new Patient
                 {
@@ -163,18 +137,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
                 }).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(new Patient()));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L790
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L790
         [Fact]
-        public void DeleteFromList1()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingFirstFromList_ThenListShouldOnlyContain23()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.identifier[0]");
             var patientResource = new Patient
             {
@@ -186,10 +156,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(new Patient
             {
                 Identifier = new List<Identifier>
@@ -200,14 +168,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L836
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L836
         [Fact]
-        public void DeleteFromList2()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingMiddleFromList_ThenListShouldOnlyContain13()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.identifier[1]");
             var patientResource = new Patient
             {
@@ -219,10 +184,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(new Patient
             {
                 Identifier = new List<Identifier>
@@ -233,14 +196,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L882
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L882
         [Fact]
-        public void DeleteFromList3()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingEndFromList_ThenListShouldOnlyContain12()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.identifier[2]");
             var patientResource = new Patient
             {
@@ -252,10 +212,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(new Patient
             {
                 Identifier = new List<Identifier>
@@ -266,47 +224,31 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             }));
         }
 
-        // Other tests
-
-        /// <summary>
-        /// Tests delete when the path does not resolve. According to
-        /// https://www.hl7.org/fhir/fhirpatch.html this is not supposed to
-        /// result in an error, but the input object with nothing deleted.
-        /// </summary>
         [Fact]
-        public void DeletePathDoesntResolve1()
+        public void GivenAFhirPatchDeleteRequest_WhenInvalidPathDoesntResolve_OriginalShouldBeReturned()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.nothing");
             var patchPatient = new Patient
             {
                 BirthDate = "1920-01-01",
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patchPatient).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(patchPatient));
         }
 
-        /// <summary>
-        /// see above
-        /// </summary>
         [Fact]
-        public void DeletePathDoesntResolve2()
+        public void GivenAFhirPatchDeleteRequest_WhenNotPopulatedPathDoesntResolve_OriginalShouldBeReturned()
         {
-            // Arrange
             var patchParam = new Parameters().AddDeletePatchParameter("Contact.name");
             var patchPatient = new Patient
             {
-                BirthDate = "1920-01-01",
+                BirthDate = "1989-07-05",
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patchPatient).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(patchPatient));
         }
     }

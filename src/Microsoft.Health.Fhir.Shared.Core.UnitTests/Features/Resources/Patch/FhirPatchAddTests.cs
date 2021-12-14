@@ -13,22 +13,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchAddTests
     {
-        // HL7 published tests
-
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L78
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L78
         [Fact]
-        public void AddPrimative()
+        public void GivenAFhirPatchAddRequest_WhenAddingPrimitiveVaue_ThenPrimitiveShouldBePopulated()
         {
-            // Arrange
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "birthDate", new Date("1930-01-01"));
 
-            // Act
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(new Patient()).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatch.FhirPathPatchBuilder(new Patient()).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -36,14 +29,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L297
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L297
         [Fact]
-        public void AddNestedPrimative()
+        public void GivenAFhirPatchAddRequest_WhenAddingNestedPrimitiveValue_ThenNestedPrimitiveShouldBePopulated()
         {
-            // Arrange
             var patchParam = new Parameters()
                 .AddAddPatchParameter("Patient.contact[0]", "gender", new Code("male"));
             var patientResource = new Patient
@@ -54,10 +44,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -72,20 +60,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L343
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L343
         [Fact]
-        public void AddComplex()
+        public void GivenAFhirPatchAddRequest_WhenAddingComplexValue_ThenComplexShouldBePopulated()
         {
-            // Arrange
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "maritalStatus", new CodeableConcept { Text = "married" });
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(new Patient()).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -93,14 +76,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L450
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L450
         [Fact]
-        public void AddAnonymousType()
+        public void GivenAFhirPatchAddRequest_WhenAddingAnAnonymousObject_ThenObjectShouldExistOnResource()
         {
-            // Arrange
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "contact", null);
             patchParam.Parameter[0].Part[3] = new Parameters.ParameterComponent
             {
@@ -118,10 +98,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(new Patient()).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -138,40 +116,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        // Custom Tests
-
-        /// <summary>
-        /// Tests "Add" by using the "where" operation
-        /// </summary>
         [Fact]
-        public void AddNestedPrimativeUsingWhere()
+        public void GivenAFhirPatchAddRequest_WhenAddingNestedPrimitiveVaue_ThenNestedPrimitiveShouldBePopulated()
         {
-            // Arrange
-            var now = DateTimeOffset.Now;
-            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official')", "period", new Period { EndElement = new FhirDateTime(now) });
+            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official')", "period", new Period { EndElement = new FhirDateTime("2021-12-01") });
             var patientResource = new Patient
             {
                 Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123" } },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
-                    Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123", Period = new Period { EndElement = new FhirDateTime(now) } } },
+                    Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123", Period = new Period { EndElement = new FhirDateTime("2021-12-01") } } },
                 }));
         }
 
-        /// <summary>
-        /// Add is called out as the way to inset at the end of an array
-        /// </summary>
         [Fact]
-        public void InsertAtEndOfArrayWithAdd()
+        public void GivenAFhirPatchAddRequest_WhenAddingToArray_ThenObjectShouldExistAtEndOfArray()
         {
-            // Arrange
             var patientResource = new Patient
             {
                 Name =
@@ -183,10 +148,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
             var newName = new HumanName { Given = new[] { "Chad", "Ochocinco" }, Family = "Johnson", Use = HumanName.NameUse.Usual };
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "name", newName);
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -199,13 +162,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Same as AddAnonymousType but with more complex input
-        /// </summary>
         [Fact]
-        public void AddComplexAnonymousType()
+        public void GivenAFhirPatchAddRequest_WhenAddingComplexAnonymousType_ThenObjectShouldExistOnResource()
         {
-            // Arrange
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "contact", null);
             patchParam.Parameter[0].Part[3] = new Parameters.ParameterComponent
             {
@@ -226,10 +185,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(new Patient()).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -249,29 +206,40 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-       /* Proper handling of this use case unclear.Commenting out until more clairty is obtained.
-
-       [Fact]
-        public void AddNestedPrimativeNullObject()
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L450
+        [Fact]
+        public void GivenAFhirPatchAddRequest_WhenAddingToUninitializedObject_ThenListShouldBeCreatedWithObject()
         {
-            // Arrange
-            var now = DateTimeOffset.Now;
-            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official').period", "end", new FhirDateTime(now));
-            var patientResource = new Patient
-            {
-                Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123" } }
-            };
+            var patchParam = new Parameters().AddAddPatchParameter("Patient", "identifier", new Identifier() { System = "http://example.org", Value = "value 3" });
 
-            // Act
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(new Patient()).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
-                    Identifier = { new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "123", Period = new Period { EndElement = new FhirDateTime(now) } } }
-                }
-            ));
-        } */
+                    Identifier = new List<Identifier>()
+                    {
+                        new Identifier() { System = "http://example.org", Value = "value 3" },
+                    },
+                }));
+        }
+
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L450
+        [Fact]
+        public void GivenAFhirPatchAddRequest_WhenAddingToUninitializedObject_ThenInvalidOperationExceptionIsThrown()
+        {
+            var patchParam = new Parameters().AddAddPatchParameter("Patient.identifier.where(use = 'official').period", "end", new FhirDateTime("2021-07-05"));
+            var patientResource = new Patient
+            {
+                Identifier = new List<Identifier>()
+                    {
+                        new Identifier() { Use = Identifier.IdentifierUse.Official, Value = "value 3" },
+                    },
+            };
+
+            Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply);
+        }
     }
 }

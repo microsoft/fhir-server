@@ -13,23 +13,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
 {
     public class FhirPatchReplaceTests
     {
-        // HL7 published tests
-
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L19
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L19
         [Fact]
-        public void ReplacePrimative()
+        public void GivenAFhirPatchReplaceRequest_WhenReplacingPrimitiveVaue_ThenPrimitiveShouldBeChanged()
         {
-            // Arrange
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.birthDate", new Date("1930-01-01"));
             var origPatient = new Patient { BirthDate = "1920-01-01" };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(origPatient).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -37,14 +30,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L140
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L140
         [Fact]
-        public void ReplaceNestedPrimative1()
+        public void GivenAFhirPatchReplaceRequest_WhenReplacingPrimitiveInList_ThenPrimitiveShouldBeChanged()
         {
-            // Arrange
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.contact[0].gender", new Code("female"));
             var origPatient = new Patient
             {
@@ -61,10 +51,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(origPatient).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                  new Patient
                  {
@@ -82,14 +70,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                  }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L183
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L183
         [Fact]
-        public void ReplaceNestedPrimative2()
+        public void GivenAFhirPatchReplaceRequest_WhenReplacingNestedPrimitiveInList_ThenPrimitiveShouldBeChanged()
         {
-            // Arrange
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.contact[0].name.text", new FhirString("the name"));
             var origPatient = new Patient
             {
@@ -106,10 +91,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(origPatient).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -127,14 +110,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L382
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L382
         [Fact]
-        public void ReplaceComplex()
+        public void GivenAFhirPatchReplaceRequest_WhenReplacingComplexObject_ThenObjectShouldBeChanged()
         {
-            // Arrange
             var patchParam = new Parameters().AddReplacePatchParameter("maritalStatus", new CodeableConcept { ElementId = "2", Text = "not married" });
             var origPatient = new Patient
             {
@@ -145,10 +125,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(origPatient).Add(patchParam.Parameter[0]).Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -160,14 +138,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Implements test case at:
-        /// https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L558
-        /// </summary>
+        // Implements test case at:
+        // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L558
         [Fact]
-        public void ReplaceListContents()
+        public void GivenAFhirPatchReplaceRequest_WhenReplacingListContents_ThenListShouldBeChanged()
         {
-            // Arrange
             var patchParam = new Parameters()
                 .AddReplacePatchParameter("Patient.identifier[0].value", new FhirString("value 2"))
                 .AddReplacePatchParameter("Patient.identifier[1].value", new FhirString("value 1"));
@@ -180,13 +155,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource)
                 .Add(patchParam.Parameter[0])
                 .Add(patchParam.Parameter[1])
                 .Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -198,15 +171,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        // Other tests
-
-        /// <summary>
-        /// Tests teh where operation when replacing the contents of a lits item
-        /// </summary>
         [Fact]
-        public void ReplaceListContentsUsingWhere()
+        public void GivenAFhirPatchReplaceRequest_WhenReplacingListContentsUsingWhere_ThenListShouldBeChanged()
         {
-            // Arrange
             var patchParam = new Parameters()
                 .AddReplacePatchParameter("Patient.identifier.where(id = 'a').value", new FhirString("value 2"))
                 .AddReplacePatchParameter("Patient.identifier.where(id = 'b').value", new FhirString("value 1"));
@@ -219,13 +186,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            // Act
             Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource)
                 .Add(patchParam.Parameter[0])
                 .Add(patchParam.Parameter[1])
                 .Apply();
 
-            // Assert
             Assert.True(patchedPatientResource.Matches(
                 new Patient
                 {
@@ -237,43 +202,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 }));
         }
 
-        /// <summary>
-        /// Tests replace operation when an invalid path is given. InvalidOperationException is expected.
-        /// </summary>
         [Fact]
-        public void ReplaceInvalidPath()
+        public void GivenAFhirPatchReplaceRequest_WhenGivenInvalidPath_ThenInvalidOperationExceptionIsThrown()
         {
-            // Arrange
             var patchParam = new Parameters().AddReplacePatchParameter("Patient.none", new FhirString("nothing"));
 
-            // Act / Assert
             var patchOperation = new FhirPathPatchBuilder(new Patient()).Add(patchParam.Parameter[0]);
             Assert.Throws<InvalidOperationException>(patchOperation.Apply);
         }
-
-        /* Unsure of proper behavior
-        /// <summary>
-        /// Tests replace operation when a non-matching data type is given.
-        /// </summary>
-        [Fact]
-        public void ReplaceDifferentDataType()
-        {
-            // Arrange
-            var patchParam = new Parameters().AddReplacePatchParameter("Patient.name[0].text", new FhirDecimal(-1));
-            var patchPatient = new Patient
-            {
-                Name = new List<HumanName>
-                {
-                    new HumanName
-                    {
-                        Text = "a name"
-                    }
-                }
-            };
-
-            // Act / Assert
-            var patchOperation = new FhirPathPatchBuilder(patchPatient).Add(patchParam.Parameter[0]);
-            Assert.Throws<InvalidOperationException>(patchOperation.Apply);
-        } */
     }
 }
