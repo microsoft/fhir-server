@@ -4,9 +4,6 @@
     ResourceSurrogateId         bigint              NOT NULL,
     SearchParamId               smallint            NOT NULL,
     Text                        nvarchar(400)       COLLATE Latin1_General_CI_AI NOT NULL,
-    CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory                   bit                 NOT NULL
 )
 

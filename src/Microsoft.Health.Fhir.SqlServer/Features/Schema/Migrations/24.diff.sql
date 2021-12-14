@@ -2,7 +2,7 @@
     This migration adds primary keys to the existing tables
 **************************************************************/
 
-EXEC dbo.LogSchemaMigrationProgress 'Beginning schema migration to version 23.';
+EXEC dbo.LogSchemaMigrationProgress 'Beginning schema migration to version 24.';
 GO
 
 -- SearchParam table
@@ -501,21 +501,6 @@ IF EXISTS (
 	WHERE name='IX_TaskInfo' AND object_id = OBJECT_ID('dbo.TaskInfo'))
 BEGIN
 	DROP INDEX IX_TaskInfo ON dbo.TaskInfo
-END
-GO
-
---TokenText
--- Adding nonclustered primary key on the set of non-nullable columns that makes it unique
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_TokenText'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PK_TokenText' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.TokenText 
-	ADD CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END
 GO
 
