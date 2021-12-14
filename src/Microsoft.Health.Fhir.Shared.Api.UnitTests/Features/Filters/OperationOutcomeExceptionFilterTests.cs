@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         private readonly ActionExecutedContext _context;
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor = Substitute.For<RequestContextAccessor<IFhirRequestContext>>();
         private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
+        private readonly ILogger<OperationOutcomeExceptionFilterAttribute> _logger = Substitute.For<ILogger<OperationOutcomeExceptionFilterAttribute>>();
         private readonly string _correlationId = Guid.NewGuid().ToString();
 
         public OperationOutcomeExceptionFilterTests()
@@ -54,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenAFhirBasedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
 
             _context.Exception = Substitute.For<FhirException>();
 
@@ -69,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenAResourceGoneExceptionException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
 
             _context.Exception = new ResourceGoneException(new ResourceKey<Observation>("id1", "version2"));
 
@@ -225,31 +227,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenAnUnrecognizedException_WhenExecutingAnAction_ThenNoResponseShouldBeCreated()
+        public void GivenAnUnrecognizedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
-
-            _context.Exception = new Exception();
-
-            filter.OnActionExecuted(_context);
-
-            Assert.False(_context.ExceptionHandled);
-            Assert.Null(_context.Result);
+            ValidateOperationOutcome(new Exception(), HttpStatusCode.InternalServerError);
         }
 
         [Fact]
-        public void GivenAnUnrecognizedExceptionAndInnerException_WhenExecutingAnAction_ThenNoResponseShouldBeCreated()
+        public void GivenAnUnrecognizedExceptionAndInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
-
-            var exception = new Exception(null, new Exception());
-            _context.Exception = exception;
-
-            filter.OnActionExecuted(_context);
-
-            Assert.False(_context.ExceptionHandled);
-            Assert.Null(_context.Result);
-            Assert.Same(exception, _context.Exception); // ensure state is restored
+            ValidateOperationOutcome(new Exception(null, new Exception()), HttpStatusCode.InternalServerError);
         }
 
         [Fact]
@@ -260,7 +246,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
-            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor, _logger);
 
             _context.Exception = exception;
 

@@ -129,6 +129,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync(searchUrl, customHeader));
             Assert.Equal(expectedStatusCode, ex.StatusCode);
             ex.OperationOutcome.Id = null;
+
+            // This is needed because the Meta is set to an instant and will be different when deep compared.
+            expectedOperationOutcome.Meta = ex.OperationOutcome.Meta;
+
             Assert.True(expectedOperationOutcome.IsExactly(ex.OperationOutcome), "Deep compare detected expected and actual OperationOutcome mismatch.");
             return ex.OperationOutcome;
         }
