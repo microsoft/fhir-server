@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _output = output;
         }
 
-        [SkippableFact]
+        [SkippableFact(Skip = "Re-enable this test when https://microsofthealth.visualstudio.com/Health/_workitems/edit/87426 is fixed")]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [SkippableFact(Skip = "Re-enable this test when https://microsofthealth.visualstudio.com/Health/_workitems/edit/87426 is fixed")]
         public async Task GivenASearchParam_WhenUpdatingParam_ThenResourcesIndexedWithUpdatedParam()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [SkippableFact]
+        [SkippableFact(Skip = "Re-enable this test when https://microsofthealth.visualstudio.com/Health/_workitems/edit/87426 is fixed")]
         public async Task GivenASearchParameterWithMultipleBaseResourceTypes_WhenTargetingReindexJobToResourceType_ThenOnlyTargetedTypesAreReindexed()
         {
             var randomName = Guid.NewGuid().ToString().ComputeHash().Substring(0, 14).ToLower();
