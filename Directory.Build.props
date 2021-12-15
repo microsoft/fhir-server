@@ -3,7 +3,6 @@
   <!-- Nuget related properties.-->
   <PropertyGroup>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-
     <Product>Microsoft FHIR Server for Azure</Product>
     <RepositoryUrl>https://github.com/microsoft/fhir-server/</RepositoryUrl>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -27,7 +26,7 @@
   <PropertyGroup>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>6.0.0</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>4.0.0</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>4.0.2</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>3.6.0</Hl7FhirVersion>
   </PropertyGroup>
 
