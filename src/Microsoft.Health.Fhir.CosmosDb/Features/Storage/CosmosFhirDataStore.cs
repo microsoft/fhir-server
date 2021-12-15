@@ -356,9 +356,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-#pragma warning disable CA2254 // Template should be a static expression
-                        _logger.LogError(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
-#pragma warning restore CA2254 // Template should be a static expression
+                        _logger.LogError("The supplied version {WeakETag} did not match", weakETag);
                         throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
                     case HttpStatusCode.ServiceUnavailable:

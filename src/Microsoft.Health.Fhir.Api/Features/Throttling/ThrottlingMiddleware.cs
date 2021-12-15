@@ -272,9 +272,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         {
             Interlocked.Increment(ref _currentPeriodRejectedCount);
 
-#pragma warning disable CA2254 // Template should be a static expression
-            _logger.LogWarning(Resources.TooManyConcurrentRequests + " Limit is {Limit}. Requests in flight {Requests}", _concurrentRequestLimit, _requestsInFlight);
-#pragma warning restore CA2254 // Template should be a static expression
+            _logger.LogWarning("The maximum number of concurrent API calls on this instance was reached.Limit is {Limit}. Requests in flight {Requests}", _concurrentRequestLimit, _requestsInFlight);
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 

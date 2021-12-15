@@ -630,9 +630,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             sb.AppendLine();
 
             sb.AppendLine(sqlCommandWrapper.CommandText);
-#pragma warning disable CA2254 // Template should be a static expression
-            _logger.LogInformation(sb.ToString());
-#pragma warning restore CA2254 // Template should be a static expression
+            _logger.LogInformation("{SqlQuery}", sb.ToString());
         }
 
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)

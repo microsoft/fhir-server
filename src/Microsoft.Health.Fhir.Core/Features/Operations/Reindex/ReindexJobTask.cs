@@ -728,9 +728,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     OperationOutcomeConstants.IssueType.Exception,
                     error);
                 _reindexJobRecord.Error.Add(issue);
-#pragma warning disable CA2254 // Template should be a static expression
-                _logger.LogError(error);
-#pragma warning restore CA2254 // Template should be a static expression
+                _logger.LogError("{Error}", error);
 
                 await MoveToFinalStatusAsync(OperationStatus.Failed);
             }

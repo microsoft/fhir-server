@@ -149,9 +149,6 @@
     <value>Failed to import resource with duplicated resource id {0}, line: {1}</value>
     <comment>{0} is the resource id. {1} is the line number in file.</comment>
   </data>
-  <data name="ExceptionOccurredWhenFetchingResourceChanges" xml:space="preserve">
-    <value>An error occurred when fetching resource changes from SQL database.</value>
-  </data>
   <data name="ExecutionTimeoutExpired" xml:space="preserve">
     <value>The exection timeout expired from SQL Server.</value>
   </data>

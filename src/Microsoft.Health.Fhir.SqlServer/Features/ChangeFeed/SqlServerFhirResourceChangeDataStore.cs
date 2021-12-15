@@ -161,9 +161,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
             catch (Exception ex)
             {
-#pragma warning disable CA2254 // Template should be a static expression
-                _logger.LogError(ex, Resources.ExceptionOccurredWhenFetchingResourceChanges);
-#pragma warning restore CA2254 // Template should be a static expression
+                _logger.LogError(ex, "An error occurred when fetching resource changes from SQL database.");
                 throw;
             }
         }
