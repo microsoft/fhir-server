@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                     newResources.Add(await CreateResourceWithTag(Samples.GetDefaultPatient().ToPoco(), tag));
                     newResources.Add(await CreateResourceWithTag(Samples.GetDefaultOrganization().ToPoco(), tag));
-                    await Task.Delay(1000);
+                    await Task.Delay(100);
                     newResources.Add(await CreateResourceWithTag(Samples.GetJsonSample("BloodGlucose").ToPoco(), tag));
                     newResources.Add(await CreateResourceWithTag(Samples.GetJsonSample("BloodPressure").ToPoco(), tag));
                     newResources.Add(await CreateResourceWithTag(Samples.GetJsonSample("Patient-f001").ToPoco(), tag));
@@ -233,7 +233,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                     var before = lastUpdatedTimes.ToList()[4];
                     var beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
-                    await Task.Delay(500);
+                    await Task.Delay(500); // wait 500 milliseconds to make sure that the value passed to the server for _before is not a time in the future
                     var firstSet = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
 
                     AssertCount(4, firstSet.Resource.Entry);
