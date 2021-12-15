@@ -356,25 +356,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypesUsingCommonSearchParameter_ThenOnlyResourcesMatchingTypeAndCommonSearchParameterShouldBeReturned()
         {
             // Create various resources.
+            var tag = Guid.NewGuid().ToString();
             var suffix = Guid.NewGuid().ToString("N").Substring(0, 4);
-            Patient nonMatchingPatient = (await Client.CreateAsync(new Patient() { Name = new List<HumanName>() { new HumanName() { Family = $"Adams{suffix}" } } })).Resource;
-            Practitioner nonMatchingPractitioner = (await Client.CreateAsync(new Practitioner() { Name = new List<HumanName>() { new HumanName() { Family = $"Wilson{suffix}" } } })).Resource;
-            Patient matchingPatient = (await Client.CreateAsync(new Patient() { Name = new List<HumanName>() { new HumanName() { Family = $"Smith{suffix}" } } })).Resource;
-            Practitioner matchingPractitioner = (await Client.CreateAsync(new Practitioner() { Name = new List<HumanName>() { new HumanName() { Family = $"Smith{suffix}" } } })).Resource;
+            Patient nonMatchingPatient = (await Client.CreateAsync(new Patient() { Meta = new Meta { Tag = new List<Coding>() { new Coding("testTag", tag), } }, Name = new List<HumanName>() { new HumanName() { Family = $"Adams{suffix}" } } })).Resource;
+            Practitioner nonMatchingPractitioner = (await Client.CreateAsync(new Practitioner() { Meta = new Meta { Tag = new List<Coding>() { new Coding("testTag", tag), } }, Name = new List<HumanName>() { new HumanName() { Family = $"Wilson{suffix}" } } })).Resource;
+            Patient matchingPatient = (await Client.CreateAsync(new Patient() { Meta = new Meta { Tag = new List<Coding>() { new Coding("testTag", tag), } }, Name = new List<HumanName>() { new HumanName() { Family = $"Smith{suffix}" } } })).Resource;
+            Practitioner matchingPractitioner = (await Client.CreateAsync(new Practitioner() { Meta = new Meta { Tag = new List<Coding>() { new Coding("testTag", tag), } }, Name = new List<HumanName>() { new HumanName() { Family = $"Smith{suffix}" } } })).Resource;
 
-            var query = $"?_type=Patient,Practitioner&family={matchingPatient.Name[0].Family}";
+            var query = $"?_type=Patient,Practitioner&family={matchingPatient.Name[0].Family}&_tag={tag}";
             await ExecuteAndValidateBundle(query, matchingPatient, matchingPractitioner);
-            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", matchingPatient.Name[0].Family));
+            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", matchingPatient.Name[0].Family), ("_tag", tag));
             ValidateBundle(bundle, query, matchingPatient, matchingPractitioner);
 
-            query = $"?_type=Patient,Practitioner&family={nonMatchingPatient.Name[0].Family}";
+            query = $"?_type=Patient,Practitioner&family={nonMatchingPatient.Name[0].Family}&_tag={tag}";
             await ExecuteAndValidateBundle(query, nonMatchingPatient);
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPatient.Name[0].Family));
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPatient.Name[0].Family), ("_tag", tag));
             ValidateBundle(bundle, query, nonMatchingPatient);
 
-            query = $"?_type=Patient,Practitioner&family={nonMatchingPractitioner.Name[0].Family}";
+            query = $"?_type=Patient,Practitioner&family={nonMatchingPractitioner.Name[0].Family}&_tag={tag}";
             await ExecuteAndValidateBundle(query, nonMatchingPractitioner);
-            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPractitioner.Name[0].Family));
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPractitioner.Name[0].Family), ("_tag", tag));
             ValidateBundle(bundle, query, nonMatchingPractitioner);
         }
 
