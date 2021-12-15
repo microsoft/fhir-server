@@ -48,6 +48,10 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                     "valueString": "Patient"
                 },
                 {
+                    "name": "name",
+                    "valueString": "address"
+                },
+                {
                     "name": "value",
                     "valueAddress": {
                         "use": "home",
@@ -219,7 +223,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                             },
                             {
                                 "name": "path",
-                                "valueString": "Patient.extension.where('url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race'').extension.where(url = 'ombCategory')"
+                                "valueString": "Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').extension.where(url = 'ombCategory').value"
                             },
                             {
                                 "name": "value",
