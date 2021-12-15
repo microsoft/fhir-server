@@ -328,7 +328,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     httpContext.Request.Body = memoryStream;
                 }
             }
+
 #if !STU3
+            // FHIRPatch if body is Parameters object
+            else if (
+                requestMethod == HTTPVerb.PATCH &&
+                string.Equals(KnownResourceTypes.Parameters, entry.Resource?.TypeName, StringComparison.Ordinal) &&
+                entry.Resource is Parameters parametersResource)
+            {
+                httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
+                var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(parametersResource));
+                memoryStream.Seek(0, SeekOrigin.Begin);
+                httpContext.Request.Body = memoryStream;
+            }
+
             // Allow JSON Patch to be an encoded Binary in a Bundle (See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request)
             else if (
                 requestMethod == HTTPVerb.PATCH &&
