@@ -235,6 +235,20 @@ END
 GO
 
 -- CompartmentAssignment
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.CompartmentAssignment'
+GO
+WITH cte AS (
+    SELECT ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory
+		ORDER BY ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId
+	) row_num
+	FROM dbo.CompartmentAssignment
+)
+DELETE FROM cte WHERE row_num > 1
+GO
+
 -- We are creating primary key on the same set of columns for which clustered index exists.
 -- If script execution failed immediately after dropping clustered index, then on the same set of columns we have non clustered index for non-historical records, so we should be good.
 EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_CompartmentAssignment'
@@ -505,6 +519,20 @@ END
 GO
 
 --UriSearchParam
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.UriSearchParam'
+GO
+WITH cte AS (
+    SELECT ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId, IsHistory, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId, IsHistory
+		ORDER BY ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId
+	) row_num
+	FROM dbo.UriSearchParam
+)
+DELETE FROM cte WHERE row_num > 1
+GO
+
 -- Create nonclustered primary key on the set of non-nullable columns that makes it unique
 EXEC dbo.LogSchemaMigrationProgress 'Adding PK_UriSearchParam'
 IF NOT EXISTS (
@@ -514,6 +542,35 @@ IF NOT EXISTS (
 BEGIN
 	ALTER TABLE dbo.UriSearchParam
 	ADD CONSTRAINT PK_UriSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId)
+	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
+	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END
+GO
+
+--TokenText
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.TokenText'
+GO
+WITH cte AS (
+    SELECT ResourceTypeId, SearchParamId, Text, ResourceSurrogateId, IsHistory, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, SearchParamId, Text, ResourceSurrogateId, IsHistory
+		ORDER BY ResourceTypeId, SearchParamId, Text, ResourceSurrogateId
+	) row_num
+	FROM dbo.TokenText
+)
+DELETE FROM cte WHERE row_num > 1
+GO
+
+-- Adding nonclustered primary key on the set of non-nullable columns that makes it unique
+EXEC dbo.LogSchemaMigrationProgress 'Adding PK_TokenText'
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='PK_TokenText' AND type='PK')
+BEGIN
+	ALTER TABLE dbo.TokenText 
+	ADD CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END
