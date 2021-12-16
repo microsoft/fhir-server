@@ -286,13 +286,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenABundle_WhenOneRequestProducesA429_SubsequentRequestAreSkipped()
+        public async Task GivenABundle_WhenOneRequestProducesA429_429IsRetriedThenSubsequentRequestAreSkipped()
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
                 Type = BundleType.Batch,
                 Entry = new List<EntryComponent>
                 {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
                     new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
                     new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
                 },
@@ -314,10 +315,57 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleRequest = new BundleRequest(bundle.ToResourceElement());
             BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
 
-            Assert.Equal(1, callCount);
+            Assert.Equal(2, callCount);
             var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
-            Assert.Equal(2, bundleResource.Entry.Count);
+            Assert.Equal(3, bundleResource.Entry.Count);
             Assert.All(bundleResource.Entry, e => Assert.Equal("429", e.Response.Status));
+        }
+
+        [Fact]
+        public async Task GivenABundle_WhenOneRequestProducesA429_429IsRetriedThenSucceeds()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                },
+            };
+
+            int callCount = 0;
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(info =>
+                {
+                    info.Arg<RouteContext>().Handler = context =>
+                    {
+                        callCount++;
+                        if (callCount == 2)
+                        {
+                            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                        }
+                        else
+                        {
+                            context.Response.StatusCode = StatusCodes.Status200OK;
+                        }
+
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+
+            Assert.Equal(4, callCount);
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Equal(3, bundleResource.Entry.Count);
+            foreach (var entry in bundleResource.Entry)
+            {
+                Assert.Equal("200", entry.Response.Status);
+            }
         }
 
         [Fact]
