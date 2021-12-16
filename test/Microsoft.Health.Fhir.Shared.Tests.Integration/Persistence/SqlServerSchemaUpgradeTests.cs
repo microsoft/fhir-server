@@ -202,8 +202,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
                 ("Procedure", "[dbo].[UpsertResource_4]"),
+                ("Procedure", "[dbo].[UpsertResource_5]"),
                 ("Procedure", "[dbo].[ReindexResource]"),
+                ("Procedure", "[dbo].[ReindexResource_2]"),
                 ("Procedure", "[dbo].[BulkReindexResources]"),
+                ("Procedure", "[dbo].[BulkReindexResources_2]"),
                 ("Procedure", "[dbo].[CreateTask]"),
                 ("Procedure", "[dbo].[GetNextTask]"),
                 ("Procedure", "[dbo].[HardDeleteResource]"),
@@ -217,6 +220,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[TokenSearchParamTableType_1]"),
                 ("TableType", "[dbo].[TokenTextTableType_1]"),
                 ("TableType", "[dbo].[StringSearchParamTableType_1]"),
+                ("TableType", "[dbo].[StringSearchParamTableType_2]"),
                 ("TableType", "[dbo].[UriSearchParamTableType_1]"),
                 ("TableType", "[dbo].[NumberSearchParamTableType_1]"),
                 ("TableType", "[dbo].[QuantitySearchParamTableType_1]"),
@@ -229,6 +233,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[TokenNumberNumberCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkStringSearchParamTableType_2]"),
             };
 
             var remainingDifferences = result.Differences.Where(
