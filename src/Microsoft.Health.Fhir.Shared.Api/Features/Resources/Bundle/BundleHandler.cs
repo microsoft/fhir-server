@@ -402,7 +402,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 retryDelay = retryHeaderValue;
                             }
 
-                            await Task.Delay(retryDelay);
+                            await Task.Delay(retryDelay * 1000); // multiply by 1000 as retry-header specifies delay in seconds
                             await request.Handler.Invoke(httpContext);
                         }
 
