@@ -9,6 +9,17 @@ variables:
 - template: build-variables.yml
 
 stages:
+- stage: UpdateVersion
+  displayName: 'Determine Semver'
+  dependsOn: []
+  jobs:
+  - job: Semver
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/update-semver.yml 
+
 - stage: DockerBuild  
   displayName: 'Build images'
   dependsOn:
