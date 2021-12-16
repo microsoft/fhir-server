@@ -5,7 +5,7 @@
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
-	TextHash nvarchar(32) NOT NULL,
+	TextHash nvarchar(32) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, TextHash)
     WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),

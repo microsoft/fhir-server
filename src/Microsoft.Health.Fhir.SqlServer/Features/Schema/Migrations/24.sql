@@ -585,7 +585,7 @@ CREATE TABLE dbo.StringSearchParam (
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL,
-    TextHash            NVARCHAR (32)  NOT NULL,
+    TextHash            NVARCHAR (32)  COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     IsHistory           BIT            NOT NULL,
     IsMin               BIT            CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
     IsMax               BIT            CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL,

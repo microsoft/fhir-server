@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             using (SHA256 sha256Hash = SHA256.Create())
             {
                 var hashText = overflow != null ? overflow : indexedPrefix;
-                computedHash = BitConverter.ToString(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(hashText)));
+                computedHash = BitConverter.ToString(sha256Hash.ComputeHash(Encoding.Unicode.GetBytes(hashText))).Replace("-", string.Empty, StringComparison.CurrentCultureIgnoreCase);
             }
 
             row = new BulkStringSearchParamTableTypeV3Row(offset, searchParamId, indexedPrefix, overflow, IsMin: searchValue.IsMin, IsMax: searchValue.IsMax, TextHash: computedHash);
