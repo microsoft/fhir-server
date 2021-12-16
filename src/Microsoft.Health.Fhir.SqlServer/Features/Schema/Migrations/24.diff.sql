@@ -95,11 +95,10 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Deleting PK_ResourceChangeData_TimestampId index from ResourceChangeData table.';
-GO
-
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Deleting PK_ResourceChangeData_TimestampId index from ResourceChangeData table.';
+
     /* Drops PK_ResourceChangeData_TimestampId index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
        This behavior enables queries or updates to the underlying table and indexes to continue. */
@@ -107,11 +106,10 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Deleting PK_ResourceChangeDataStaging_TimestampId index from ResourceChangeDataStaging table.';
-GO
-
 IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeDataStaging_TimestampId')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Deleting PK_ResourceChangeDataStaging_TimestampId index from ResourceChangeDataStaging table.';
+
     /* Drops PK_ResourceChangeDataStaging_TimestampId index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
        This behavior enables queries or updates to the underlying table and indexes to continue. */
@@ -119,24 +117,29 @@ BEGIN
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Creating IXC_ResourceChangeData index on ResourceChangeData table.';
-GO
-
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IXC_ResourceChangeData')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IXC_ResourceChangeData index on ResourceChangeData table.';
+
     /* Adds a clustered index on ResourceChangeData table. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
-       This behavior enables queries or updates to the underlying table and indexes to continue. */
+       This behavior enables queries or updates to the underlying table and indexes to continue. 
+       Creating a non-primary key and non-unique clustered index to have a better performance on the fetch query.
+       Since a resourceChangeData table is partitioned on timestamp, we can not create the primary key only on the Id column
+       due to a SQL constraint, "partition columns for a unique index must be a subset of the index key".
+       But, we don't want to include the partitioning timestamp column on the index due to a skipping record issue related to ordering by timestamp.
+       Previously, the uniqueness was combined with the timestamp column and it was only per partition. 
+       To enforce global uniqueness requires a non clustered index without a partition but which prevents partition swaps.
+       We are using identity which will guarantee uniqueness unless an identity insert is used or reseed identity value on the table which shouldn't happen. */
     CREATE CLUSTERED INDEX IXC_ResourceChangeData ON dbo.ResourceChangeData
         (Id ASC) WITH(ONLINE = ON) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp);
 END;
 GO
 
-EXEC dbo.LogSchemaMigrationProgress 'Creating IXC_ResourceChangeDataStaging index on ResourceChangeDataStaging table.';
-GO
-
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IXC_ResourceChangeDataStaging')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IXC_ResourceChangeDataStaging index on ResourceChangeDataStaging table.';
+
     /* Adds a clustered index on ResourceChangeDataStaging table. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
        During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
        This behavior enables queries or updates to the underlying table and indexes to continue. */
