@@ -1,6 +1,20 @@
 ﻿EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 24.';
 GO
 
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.StringSearchParam'
+GO
+WITH cte AS (
+    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax, IsHistory, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax, IsHistory
+		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId, Text
+	) row_num
+	FROM dbo.StringSearchParam
+)
+DELETE FROM cte WHERE row_num > 1
+GO
+
 EXEC dbo.LogSchemaMigrationProgress 'Adding BulkStringSearchParamTableType_3'
 IF TYPE_ID(N'BulkStringSearchParamTableType_3') IS NULL
 BEGIN
