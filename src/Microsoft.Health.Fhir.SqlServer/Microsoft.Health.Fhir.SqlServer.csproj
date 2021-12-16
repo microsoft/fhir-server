@@ -1,8 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
-  </PropertyGroup>
-
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
     <LatestSchemaVersion>23</LatestSchemaVersion>

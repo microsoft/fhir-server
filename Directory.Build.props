@@ -24,6 +24,7 @@
   </PropertyGroup>
   <!-- Shared dependencies versions.-->
   <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>6.0.0</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>4.0.2</HealthcareSharedPackageVersion>
