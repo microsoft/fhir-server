@@ -4,108 +4,109 @@ This file outlines the owners of the FHIR Server features in OSS.
 
 ### Portal
 
-rojo
+rojo (RB Johnson)
 
-patalada
+patalada (Paul Taladay)
 
 ### Custom Search & reindexing
 
-jaerwin
+jaerwin (Jared Erwin)
 
-rotodd
+rotodd (Robin Todd)
 
 ### Patient $everything
 
-rotodd
+rotodd (Robin Todd)
 
-ivmatan
+ivmatan (Ivan Matantsev)
 
 ### Sort
 
-namadabu
+namadabu (Narasimhan Madabusi)
 
 ### Schema management
 
-ribans
+ribans (Richa Bansal)
 
-apurvabhale
+apurvabhale (Apurva Bhale)
 
 ### Disable History
 
-rotodd
+rotodd (Robin Todd)
 
-patalada
+patalada (Paul Taladay)
 
 ### SQL perfomance
 
-ivmatan
+ivmatan (Ivan Matantsev)
 
-ribans
+ribans (Richa Bansal)
 
-jaerwin
+jaerwin (Jared Erwin)
 
 ### SQL CRUD operations
 
-rotodd
+rotodd (Robin Todd)
 
 ### SQL search
 
-namadabu
+namadabu (Narasimhan Madabusi)
 
 ### Cosmos DB performance
 
-bkowitz
+bkowitz (Brendan Kowitz)
 
-jaerwin
+jaerwin (Jared Erwin)
 
-ivmatan
+ivmatan (Ivan Matantsev)
 
 ### Cosmos CRUD operations
 
-bkowitz
+bkowitz (Brendan Kowitz)
 
-jaerwin
+jaerwin (Jared Erwin)
 
 ### Cosmos search
 
-bkowitz
+bkowitz (Brendan Kowitz)
 
-jaerwin
+jaerwin (Jared Erwin)
 
 ### Profiles & validation
 
-ivmatan
+ivmatan (Ivan Matantsev)
 
 ### Bulk export
 
-namadabu
-rojo
+namadabu (Narasimhan Madabusi)
+
+rojo (RB Johnson)
 
 ### Chained search
 
-bkowitz
+bkowitz (Brendan Kowitz)
 
 ### Conditional delete
 
-bkowitz
+bkowitz (Brendan Kowitz)
 
 ### Purge history
 
-bkowitz
+bkowitz (Brendan Kowitz)
 
 ### Patch
 
-ivmatan
+ivmatan (Ivan Matantsev)
 
-bkowitz
+bkowitz (Brendan Kowitz)
 
 ### Bulk import
 
-tongwu
+tongwu (Tong Wu)
 
-peizhou
+peizhou (Peiyuan Zhou)
 
 ### Resource change capture
 
-teli
+teli (Teng Li)
 
