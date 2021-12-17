@@ -361,8 +361,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             try
             {
-                table = RemoveDuplicatesRecords(table);
-
                 await Policy.Handle<SqlException>()
                     .WaitAndRetryAsync(
                         retryCount: 10,
@@ -398,16 +396,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
             importTasks.Enqueue(newTask);
 
             return newTask;
-        }
-
-        private static DataTable RemoveDuplicatesRecords(DataTable inputTable)
-        {
-            if (inputTable.Rows.Count == 0)
-            {
-                return inputTable;
-            }
-
-            return inputTable.DefaultView.ToTable(true);
         }
     }
 }
