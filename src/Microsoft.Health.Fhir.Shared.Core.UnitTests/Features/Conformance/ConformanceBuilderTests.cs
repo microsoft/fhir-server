@@ -4,17 +4,23 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
+using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
+using TypeRestfulInteraction = Microsoft.Health.Fhir.ValueSets.TypeRestfulInteraction;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
@@ -59,6 +65,95 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public void GivenAConformanceBuilder_WhenApplyToUnknownResource_ThenAnArgumentExceptionIsThrown()
         {
             Assert.Throws<ArgumentException>(() => _builder.ApplyToResource("foo", c => c.ConditionalCreate = true));
+        }
+
+        [Fact]
+        public void GivenAConformanceBuilder_WhenVersionofResourceIsDifferentFromDefault_ThenResourceUsesResourceSpecificVersionLogic()
+        {
+            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            Dictionary<string, string> overrides = new();
+            VersioningConfiguration versionConfig = new();
+            versionConfig.ResourceTypeOverrides.Add("Patient", "no-version");
+
+            configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
+            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var builder = CapabilityStatementBuilder.Create(
+                ModelInfoProvider.Instance,
+                _searchParameterDefinitionManager,
+                configuration,
+                supportedProfiles);
+            ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
+            {
+                c.Interaction.Add(new ResourceInteractionComponent
+                {
+                    Code = "create",
+                });
+            });
+            ITypedElement resource = capabilityStatement.Build();
+
+            var patientResource = ((CapabilityStatement)resource.ToPoco()).Rest.First().Resource.First();
+
+            Assert.True(patientResource.Type == ResourceType.Patient);
+            Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.NoVersion);
+        }
+
+        [Fact]
+        public void GivenAConformanceBuilder_WhenResourceTypeOverridesContainsResourcesThatDontMatch_ThenResourceUsesDefaultVersionLogic()
+        {
+            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            Dictionary<string, string> overrides = new();
+            VersioningConfiguration versionConfig = new();
+            versionConfig.ResourceTypeOverrides.Add("blah", "no-version");
+
+            configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
+            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var builder = CapabilityStatementBuilder.Create(
+                ModelInfoProvider.Instance,
+                _searchParameterDefinitionManager,
+                configuration,
+                supportedProfiles);
+            ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
+            {
+                c.Interaction.Add(new ResourceInteractionComponent
+                {
+                    Code = "create",
+                });
+            });
+            ITypedElement resource = capabilityStatement.Build();
+
+            var patientResource = ((CapabilityStatement)resource.ToPoco()).Rest.First().Resource.First();
+
+            Assert.True(patientResource.Type == ResourceType.Patient);
+            Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.Versioned);
+        }
+
+        [Fact]
+        public void GivenAConformanceBuilder_WhenResourceTypeOverridesIsEmpty_ThenResourceUsesDefaultVersionLogic()
+        {
+            IOptions<CoreFeatureConfiguration> configuration = Substitute.For<IOptions<CoreFeatureConfiguration>>();
+            Dictionary<string, string> overrides = new();
+            VersioningConfiguration versionConfig = new();
+
+            configuration.Value.Returns(new CoreFeatureConfiguration() { Versioning = versionConfig });
+            var supportedProfiles = Substitute.For<IKnowSupportedProfiles>();
+            var builder = CapabilityStatementBuilder.Create(
+                ModelInfoProvider.Instance,
+                _searchParameterDefinitionManager,
+                configuration,
+                supportedProfiles);
+            ICapabilityStatementBuilder capabilityStatement = builder.ApplyToResource("Patient", c =>
+            {
+                c.Interaction.Add(new ResourceInteractionComponent
+                {
+                    Code = "create",
+                });
+            });
+            ITypedElement resource = capabilityStatement.Build();
+
+            var patientResource = ((CapabilityStatement)resource.ToPoco()).Rest.First().Resource.First();
+
+            Assert.True(patientResource.Type == ResourceType.Patient);
+            Assert.True(patientResource.Versioning == CapabilityStatement.ResourceVersionPolicy.Versioned);
         }
 
         [Fact]
