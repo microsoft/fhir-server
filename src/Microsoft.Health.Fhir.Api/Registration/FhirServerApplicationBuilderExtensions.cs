@@ -19,22 +19,12 @@ namespace Microsoft.AspNetCore.Builder
     public static class FhirServerApplicationBuilderExtensions
     {
         /// <summary>
-        /// Adds FHIR server functionality to the pipeline.
-        /// </summary>
-        /// <param name="app">The application builder instance.</param>
-        /// <returns>THe application builder instance.</returns>
-        public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app)
-        {
-            return app.UseFhirServer(null);
-        }
-
-        /// <summary>
         /// Adds FHIR server functionality to the pipeline with health check filter.
         /// </summary>
         /// <param name="app">The application builder instance.</param>
         /// <param name="predicate">The predicate used to filter health check services.</param>
         /// <returns>THe application builder instance.</returns>
-        public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app, Func<HealthCheckRegistration, bool> predicate)
+        public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app, Func<HealthCheckRegistration, bool> predicate = null)
         {
             EnsureArg.IsNotNull(app, nameof(app));
 
