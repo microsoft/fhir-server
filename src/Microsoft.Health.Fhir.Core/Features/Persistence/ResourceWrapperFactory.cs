@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Core.Features.Security;
@@ -71,6 +72,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
+            searchIndices = searchIndices.Distinct().ToArray();
+
             string searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
 
             ExtractMinAndMaxValues(searchIndices);

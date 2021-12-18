@@ -62,14 +62,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public bool Equals(SearchIndexEntry other)
         {
-            if (other == null)
+            if ((object)other == null)
             {
                 return false;
             }
 
             if (other.SearchParameter.Url == SearchParameter.Url &&
                 other.SearchParameter.Code.Equals(SearchParameter.Code, StringComparison.OrdinalIgnoreCase) &&
-                other.Value == Value)
+                other.Value.Equals(Value))
             {
                 return true;
             }

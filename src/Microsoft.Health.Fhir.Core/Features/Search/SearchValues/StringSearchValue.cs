@@ -105,5 +105,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             return String.EscapeSearchParameterValue();
         }
+
+        public override int GetHashCode()
+        {
+            return String.GetHashCode(StringComparison.OrdinalIgnoreCase);
+        }
     }
 }
