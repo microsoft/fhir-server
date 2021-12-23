@@ -168,10 +168,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string compartmentType,
             string compartmentId)
         {
-            CompartmentSearchExpression compartmentSearchExpression = Assert.IsType<CompartmentSearchExpression>(expression);
+            // Compartment Searches now use the Search Parameters mapped to a defined Resource Compartment, for example:
+            // (Or (Param patient (And (FieldEqual ReferenceResourceType Patient) (FieldEqual ReferenceResourceId 'abc')) AND ((resourceType eq 'EOB'))),
+            //     (Param actor (And (FieldEqual ReferenceResourceType Patient) (FieldEqual ReferenceResourceId 'abc'))))
+            // The OR is used in the case there are more than 1 mapping (i.e. 'patient' or 'actor')
 
-            Assert.Equal(compartmentType, compartmentSearchExpression.CompartmentType);
-            Assert.Equal(compartmentId, compartmentSearchExpression.CompartmentId);
+            MultiaryExpression compartmentSearchExpression = Assert.IsType<MultiaryExpression>(expression);
+            Assert.Equal(MultiaryOperator.Or, compartmentSearchExpression.MultiaryOperation);
+
+            var parsedCompartmentType = Enum.Parse<ValueSets.CompartmentType>(compartmentType);
+
+            ValidateSearchParameterExpression(
+                compartmentSearchExpression.Expressions[0],
+                "patient",
+                e => ValidateMultiaryExpression(
+                    e,
+                    MultiaryOperator.And,
+                    val => ValidateBinaryExpression(val, FieldName.ReferenceResourceType, BinaryOperator.Equal, parsedCompartmentType),
+                    val => ValidateBinaryExpression(val, FieldName.ReferenceResourceId, BinaryOperator.Equal, compartmentId)));
         }
 
         public static IEnumerable<object[]> GetEnumAsMemberData<TEnum>(Predicate<TEnum> predicate = null)

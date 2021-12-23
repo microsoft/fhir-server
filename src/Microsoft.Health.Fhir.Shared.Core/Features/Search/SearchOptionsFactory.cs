@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
         private readonly IExpressionParser _expressionParser;
+        private readonly ICompartmentDefinitionManager _compartmentDefinitionManager;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private readonly ISortingValidator _sortingValidator;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ICompartmentDefinitionManager compartmentDefinitionManager,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
             ISortingValidator sortingValidator,
@@ -48,12 +50,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
+            EnsureArg.IsNotNull(compartmentDefinitionManager, nameof(compartmentDefinitionManager));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
+            _compartmentDefinitionManager = compartmentDefinitionManager;
             _contextAccessor = contextAccessor;
             _sortingValidator = sortingValidator;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
@@ -279,14 +283,64 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
-                if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
+                if (Enum.TryParse(compartmentType, out ValueSets.CompartmentType parsedCompartmentType))
                 {
                     if (string.IsNullOrWhiteSpace(compartmentId))
                     {
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId));
+                    var compartmentSearchExpressions = new List<Expression>();
+                    var compartmentResourceTypesToSearch = new List<string>();
+
+                    if (string.IsNullOrEmpty(resourceType))
+                    {
+                        if (_compartmentDefinitionManager.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
+                        {
+                            compartmentResourceTypesToSearch.AddRange(resourceTypes);
+                        }
+                    }
+                    else
+                    {
+                        compartmentResourceTypesToSearch.Add(resourceType);
+                    }
+
+                    foreach (var compartmentResourceType in compartmentResourceTypesToSearch)
+                    {
+                        var searchParamExpressionsForResourceType = new List<Expression>();
+                        if (_compartmentDefinitionManager.TryGetSearchParams(compartmentResourceType, parsedCompartmentType, out HashSet<string> compartmentSearchParameters))
+                        {
+                            foreach (var compartmentSearchParameter in compartmentSearchParameters)
+                            {
+                                if (_searchParameterDefinitionManager.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
+                                {
+                                    searchParamExpressionsForResourceType.Add(
+                                        Expression.SearchParameter(sp, Expression.And(Expression.Equals(FieldName.ReferenceResourceType, null, parsedCompartmentType), Expression.Equals(FieldName.ReferenceResourceId, null, compartmentId))));
+                                }
+                            }
+                        }
+
+                        if (compartmentResourceTypesToSearch.Count > 1)
+                        {
+                            // When more than 1 compartment type we need to create a multiary expression with Type + Parameter
+                            compartmentSearchExpressions.Add(
+                                Expression.And(
+                                    Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, compartmentResourceType)),
+                                    Expression.Or(searchParamExpressionsForResourceType.ToArray())));
+                        }
+                        else
+                        {
+                            compartmentSearchExpressions.AddRange(searchParamExpressionsForResourceType.ToArray());
+                        }
+                    }
+
+                    if (compartmentSearchExpressions.Any())
+                    {
+                        IEnumerable<IGrouping<string, Expression>> groupBy = compartmentSearchExpressions.GroupBy(x => x.ToString(), x => x);
+                        Expression[] distinct = groupBy.Select(x => x.First()).ToArray();
+
+                        searchExpressions.Add(Expression.Or(distinct));
+                    }
                 }
                 else
                 {

@@ -177,6 +177,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
                 () => searchableSearchParameterDefinitionManager,
+                Substitute.For<ICompartmentDefinitionManager>(),
                 options,
                 _fhirRequestContextAccessor,
                 sqlSortingValidator,

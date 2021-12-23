@@ -43,12 +43,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchOptionsFactoryTests()
         {
+            var compartmentDefinitionManager = Substitute.For<ICompartmentDefinitionManager>();
+            compartmentDefinitionManager.TryGetSearchParams(Arg.Any<string>(), Arg.Any<ValueSets.CompartmentType>(), out Arg.Any<HashSet<string>>())
+                .Returns(x =>
+                {
+                    x[2] = new HashSet<string>() { "patient" };
+                    return true;
+                });
+            compartmentDefinitionManager.TryGetResourceTypes(Arg.Any<ValueSets.CompartmentType>(), out Arg.Any<HashSet<string>>())
+                .Returns(x =>
+                {
+                    x[1] = new HashSet<string> { "Patient" };
+                    return true;
+                });
+
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Code = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
             _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Code = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
+            var patientSearchParam = new SearchParameter { Name = "patient", Code = "patient", Type = SearchParamType.Reference }.ToInfo();
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.LastUpdated).Returns(_lastUpdatedSearchParameterInfo);
+            searchParameterDefinitionManager.TryGetSearchParameter(Arg.Any<string>(), Arg.Is("patient"), out Arg.Any<SearchParameterInfo>())
+                .Returns(x =>
+                {
+                    x[2] = patientSearchParam;
+                    return true;
+                });
             _coreFeatures = new CoreFeatureConfiguration();
             _defaultFhirRequestContext = new DefaultFhirRequestContext();
 
@@ -57,6 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _factory = new SearchOptionsFactory(
                 _expressionParser,
                 () => searchParameterDefinitionManager,
+                compartmentDefinitionManager,
                 new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
                 _defaultFhirRequestContext.SetupAccessor(),
                 _sortingValidator,
