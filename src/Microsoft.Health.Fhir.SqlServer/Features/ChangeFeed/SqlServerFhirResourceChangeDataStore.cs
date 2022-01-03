@@ -62,6 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         /// <returns>Resource change data rows.</returns>
         /// <exception cref="System.ArgumentOutOfRangeException">Thrown if startId or pageSize is less than zero.</exception>
         /// <exception cref="System.InvalidOperationException">Thrown when a method call is invalid for the object's current state.</exception>
+        /// <exception cref="System.OperationCanceledException">Thrown when the operation is canceled.</exception>
+        /// <exception cref="System.Threading.Tasks.TaskCanceledException">Thrown when the task is canceled.</exception>
         /// <exception cref="Microsoft.Data.SqlClient.SqlException">Thrown when SQL Server returns a warning or error.</exception>
         /// <exception cref="System.TimeoutException">Thrown when the time allotted for a process or operation has expired.</exception>
         /// <exception cref="System.Exception">Thrown when errors occur during execution.</exception>
@@ -80,6 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         /// <returns>Resource change data rows.</returns>
         /// <exception cref="System.ArgumentOutOfRangeException">Thrown if startId or pageSize is less than zero.</exception>
         /// <exception cref="System.InvalidOperationException">Thrown when a method call is invalid for the object's current state.</exception>
+        /// <exception cref="System.OperationCanceledException">Thrown when the operation is canceled.</exception>
+        /// <exception cref="System.Threading.Tasks.TaskCanceledException">Thrown when the task is canceled.</exception>
         /// <exception cref="Microsoft.Data.SqlClient.SqlException">Thrown when SQL Server returns a warning or error.</exception>
         /// <exception cref="System.TimeoutException">Thrown when the time allotted for a process or operation has expired.</exception>
         /// <exception cref="System.Exception">Thrown when errors occur during execution.</exception>
@@ -139,6 +143,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     }
                 }
             }
+            catch (Exception ex) when ((ex is OperationCanceledException || ex is TaskCanceledException) && cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation(ex, Resources.GetRecordsAsyncOperationIsCanceled);
+                throw;
+            }
             catch (SqlException ex)
             {
                 switch (ex.Number)
@@ -162,7 +171,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             sqlCommand.CommandType = CommandType.StoredProcedure;
             sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
             sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.SmallInt).Value = pageSize;
-            if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
+            if (_schemaInformation.Current >= SchemaVersionConstants.SupportsClusteredIdOnResourceChangesVersion)
+            {
+                sqlCommand.CommandText = "dbo.FetchResourceChanges_3";
+                sqlCommand.Parameters.AddWithValue("@lastProcessedUtcDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
                 sqlCommand.CommandText = "dbo.FetchResourceChanges_2";
                 sqlCommand.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;

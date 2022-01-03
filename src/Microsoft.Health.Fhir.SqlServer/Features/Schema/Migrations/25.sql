@@ -15,7 +15,7 @@ IF EXISTS (SELECT *
 
 GO
 INSERT  INTO dbo.SchemaVersion
-VALUES (24, 'started');
+VALUES (25, 'started');
 
 CREATE PARTITION FUNCTION PartitionFunction_ResourceTypeId(SMALLINT)
     AS RANGE RIGHT
@@ -226,25 +226,21 @@ CREATE TYPE dbo.BulkImportResourceType_1 AS TABLE (
 
 CREATE TABLE dbo.ClaimType (
     ClaimTypeId TINYINT       IDENTITY (1, 1) NOT NULL,
-    Name        VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL
+    Name        VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CONSTRAINT UQ_ClaimType_ClaimTypeId UNIQUE (ClaimTypeId),
+    CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED (Name) WITH (DATA_COMPRESSION = PAGE)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_Claim
-    ON dbo.ClaimType(Name);
 
 CREATE TABLE dbo.CompartmentAssignment (
     ResourceTypeId      SMALLINT     NOT NULL,
     ResourceSurrogateId BIGINT       NOT NULL,
     CompartmentTypeId   TINYINT      NOT NULL,
     ReferenceResourceId VARCHAR (64) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT          NOT NULL
+    IsHistory           BIT          NOT NULL,
+    CONSTRAINT PKC_CompartmentAssignment PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.CompartmentAssignment SET (LOCK_ESCALATION = AUTO);
-
-CREATE CLUSTERED INDEX IXC_CompartmentAssignment
-    ON dbo.CompartmentAssignment(ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId) WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId
     ON dbo.CompartmentAssignment(ResourceTypeId, CompartmentTypeId, ReferenceResourceId, ResourceSurrogateId) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
@@ -252,11 +248,10 @@ CREATE NONCLUSTERED INDEX IX_CompartmentAssignment_CompartmentTypeId_ReferenceRe
 
 CREATE TABLE dbo.CompartmentType (
     CompartmentTypeId TINYINT       IDENTITY (1, 1) NOT NULL,
-    Name              VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL
+    Name              VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CONSTRAINT UQ_CompartmentType_CompartmentTypeId UNIQUE (CompartmentTypeId),
+    CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED (Name) WITH (DATA_COMPRESSION = PAGE)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType
-    ON dbo.CompartmentType(Name);
 
 CREATE TABLE dbo.DateTimeSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
@@ -317,11 +312,9 @@ CREATE TABLE dbo.ExportJob (
     Status            VARCHAR (10)  NOT NULL,
     HeartbeatDateTime DATETIME2 (7) NULL,
     RawJobRecord      VARCHAR (MAX) NOT NULL,
-    JobVersion        ROWVERSION    NOT NULL
+    JobVersion        ROWVERSION    NOT NULL,
+    CONSTRAINT PKC_ExportJob PRIMARY KEY CLUSTERED (Id)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_ExportJob
-    ON dbo.ExportJob(Id);
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob_Hash_Status_HeartbeatDateTime
     ON dbo.ExportJob(Hash, Status, HeartbeatDateTime);
@@ -358,11 +351,10 @@ CREATE NONCLUSTERED INDEX IX_NumberSearchParam_SearchParamId_HighValue_LowValue
 
 CREATE TABLE dbo.QuantityCode (
     QuantityCodeId INT            IDENTITY (1, 1) NOT NULL,
-    Value          NVARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL
+    Value          NVARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CONSTRAINT UQ_QuantityCode_QuantityCodeId UNIQUE (QuantityCodeId),
+    CONSTRAINT PKC_QuantityCode PRIMARY KEY CLUSTERED (Value) WITH (DATA_COMPRESSION = PAGE)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_QuantityCode
-    ON dbo.QuantityCode(Value);
 
 CREATE TABLE dbo.QuantitySearchParam (
     ResourceTypeId      SMALLINT        NOT NULL,
@@ -450,11 +442,9 @@ CREATE TABLE dbo.ReindexJob (
     Status            VARCHAR (10)  NOT NULL,
     HeartbeatDateTime DATETIME2 (7) NULL,
     RawJobRecord      VARCHAR (MAX) NOT NULL,
-    JobVersion        ROWVERSION    NOT NULL
+    JobVersion        ROWVERSION    NOT NULL,
+    CONSTRAINT PKC_ReindexJob PRIMARY KEY CLUSTERED (Id)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_ReindexJob
-    ON dbo.ReindexJob(Id);
 
 CREATE TABLE dbo.Resource (
     ResourceTypeId       SMALLINT        NOT NULL,
@@ -466,14 +456,12 @@ CREATE TABLE dbo.Resource (
     RequestMethod        VARCHAR (10)    NULL,
     RawResource          VARBINARY (MAX) NOT NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
-    SearchParamHash      VARCHAR (64)    NULL
+    SearchParamHash      VARCHAR (64)    NULL,
+    CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId) ON [Primary],
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.Resource SET (LOCK_ESCALATION = AUTO);
-
-CREATE UNIQUE CLUSTERED INDEX IXC_Resource
-    ON dbo.Resource(ResourceTypeId, ResourceSurrogateId)
-    ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceId_Version
     ON dbo.Resource(ResourceTypeId, ResourceId, Version)
@@ -489,7 +477,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId
                                                                AND IsDeleted = 0
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
-CREATE NONCLUSTERED INDEX IX_Resource_ResourceSurrogateId
+CREATE UNIQUE NONCLUSTERED INDEX UQIX_Resource_ResourceSurrogateId
     ON dbo.Resource(ResourceSurrogateId)
     ON [Primary];
 
@@ -544,11 +532,10 @@ VALUES                        (2, N'Deletion');
 
 CREATE TABLE dbo.ResourceType (
     ResourceTypeId SMALLINT      IDENTITY (1, 1) NOT NULL,
-    Name           NVARCHAR (50) COLLATE Latin1_General_100_CS_AS NOT NULL
+    Name           NVARCHAR (50) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CONSTRAINT UQ_ResourceType_ResourceTypeId UNIQUE (ResourceTypeId),
+    CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (Name) WITH (DATA_COMPRESSION = PAGE)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_ResourceType
-    ON dbo.ResourceType(Name);
 
 CREATE TABLE dbo.ResourceWriteClaim (
     ResourceSurrogateId BIGINT         NOT NULL,
@@ -570,11 +557,10 @@ CREATE TABLE dbo.SearchParam (
     Uri                  VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status               VARCHAR (10)       NULL,
     LastUpdated          DATETIMEOFFSET (7) NULL,
-    IsPartiallySupported BIT                NULL
+    IsPartiallySupported BIT                NULL,
+    CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId),
+    CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED (Uri) WITH (DATA_COMPRESSION = PAGE)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_SearchParam
-    ON dbo.SearchParam(Uri);
 
 CREATE TABLE dbo.StringSearchParam (
     ResourceTypeId      SMALLINT       NOT NULL,
@@ -606,11 +592,10 @@ CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
 
 CREATE TABLE dbo.System (
     SystemId INT            IDENTITY (1, 1) NOT NULL,
-    Value    NVARCHAR (256) NOT NULL
+    Value    NVARCHAR (256) NOT NULL,
+    CONSTRAINT UQ_System_SystemId UNIQUE (SystemId),
+    CONSTRAINT PKC_System PRIMARY KEY CLUSTERED (Value) WITH (DATA_COMPRESSION = PAGE)
 );
-
-CREATE UNIQUE CLUSTERED INDEX IXC_System
-    ON dbo.System(Value);
 
 CREATE TABLE [dbo].[TaskInfo] (
     [TaskId]            VARCHAR (64)  NOT NULL,
@@ -624,11 +609,9 @@ CREATE TABLE [dbo].[TaskInfo] (
     [HeartbeatDateTime] DATETIME2 (7) NULL,
     [InputData]         VARCHAR (MAX) NOT NULL,
     [TaskContext]       VARCHAR (MAX) NULL,
-    [Result]            VARCHAR (MAX) NULL
+    [Result]            VARCHAR (MAX) NULL,
+    CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId) WITH (DATA_COMPRESSION = PAGE)
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
-
-CREATE UNIQUE CLUSTERED INDEX IXC_Task
-    ON [dbo].[TaskInfo](TaskId);
 
 CREATE TABLE dbo.TokenDateTimeCompositeSearchParam (
     ResourceTypeId      SMALLINT      NOT NULL,
@@ -795,7 +778,8 @@ CREATE TABLE dbo.TokenText (
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL,
-    IsHistory           BIT            NOT NULL
+    IsHistory           BIT            NOT NULL,
+    CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.TokenText SET (LOCK_ESCALATION = AUTO);
@@ -835,7 +819,8 @@ CREATE TABLE dbo.UriSearchParam (
     ResourceSurrogateId BIGINT        NOT NULL,
     SearchParamId       SMALLINT      NOT NULL,
     Uri                 VARCHAR (256) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory           BIT           NOT NULL
+    IsHistory           BIT           NOT NULL,
+    CONSTRAINT PK_UriSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.UriSearchParam SET (LOCK_ESCALATION = AUTO);

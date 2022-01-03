@@ -6,13 +6,13 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer;
-using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
@@ -24,11 +24,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
     {
         private readonly SqlServerFhirResourceChangeDataStore resourceChangeDataStore;
 
+        private ISqlConnectionFactory connectionFactory;
+
         public SqlServerFhirResourceChangeDataStoreTests()
         {
-            var config = Options.Create(new SqlServerDataStoreConfiguration { ConnectionString = string.Empty, StatementTimeout = TimeSpan.FromMinutes(10) });
-            var connectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            var connectionFactory = new DefaultSqlConnectionFactory(connectionStringProvider);
+            connectionFactory = Substitute.For<ISqlConnectionFactory>();
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             schemaInformation.Current = SchemaVersionConstants.Max;
             resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(connectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
@@ -66,6 +66,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         [Fact]
         public async Task GivenEmptyConnectionString_WhenGetResourceChanges_ThenInvalidOperationExceptionShouldBeThrown()
         {
+            connectionFactory.GetSqlConnectionAsync(default, default).Returns(new SqlConnection(string.Empty));
+
             try
             {
                 await resourceChangeDataStore.GetRecordsAsync(1, 200, CancellationToken.None);
@@ -73,6 +75,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             catch (Exception ex)
             {
                 Assert.Equal(nameof(InvalidOperationException), ex.GetType().Name);
+            }
+        }
+
+        [Fact]
+        public async Task GivenOperationCanceled_WhenGetResourceChanges_ThenTaskCanceledExceptionShouldBeThrown()
+        {
+            var source = new CancellationTokenSource();
+            var token = source.Token;
+            source.Cancel();
+
+            connectionFactory.GetSqlConnectionAsync(default, token).Returns(new SqlConnection());
+
+            try
+            {
+                await resourceChangeDataStore.GetRecordsAsync(1, 200, token);
+            }
+            catch (Exception ex)
+            {
+                Assert.Equal(nameof(TaskCanceledException), ex.GetType().Name);
             }
         }
     }

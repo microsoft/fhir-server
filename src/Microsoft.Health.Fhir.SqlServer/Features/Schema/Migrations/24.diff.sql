@@ -1,548 +1,152 @@
 ﻿/*************************************************************
-    This migration adds primary keys to the existing tables
+    This migration removes the existing primary key clustered index and adds a clustered index on Id column in the ResourceChangeData table.
+    The migration is "online" meaning the server is fully available during the upgrade, but it can be very time-consuming.
+    For reference, a resource change data table with 10 million records took around 25 minutes to complete 
+    on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
 **************************************************************/
 
-EXEC dbo.LogSchemaMigrationProgress 'Beginning schema migration to version 24.';
+EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 24.';
 GO
 
--- SearchParam table
--- Dropping clustered index since primary key to create on the same column
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_SearchParam' AND object_id = OBJECT_ID('dbo.SearchParam'))
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_SearchParam'
-	DROP INDEX IXC_SearchParam ON dbo.SearchParam
-	WITH (ONLINE=ON)
-END
-
--- Adding primary key
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_SearchParam' AND type='PK')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_SearchParam'
-	ALTER TABLE dbo.SearchParam 
-	ADD CONSTRAINT PKC_SearchParam PRIMARY KEY CLUSTERED (Uri)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-END
-
--- Adding unique constraint to the identity column
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='UQ_SearchParam_SearchParamId' AND type='UQ')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_SearchParam_SearchParamId'
-	ALTER TABLE dbo.SearchParam 
-	ADD CONSTRAINT UQ_SearchParam_SearchParamId UNIQUE (SearchParamId)
-    WITH (ONLINE=ON) 
-END
-
+EXEC dbo.LogSchemaMigrationProgress 'Adding or updating FetchResourceChanges_3 stored procedure.';
 GO
 
--- ResourceType
--- Dropping clustered index since primary key to create on the same column
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_ResourceType' AND object_id = OBJECT_ID('dbo.ResourceType'))
+--
+-- STORED PROCEDURE
+--     FetchResourceChanges_3
+--
+-- DESCRIPTION
+--     Returns the number of resource change records from startId. The start id is inclusive.
+--
+-- PARAMETERS
+--     @startId
+--         * The start id of resource change records to fetch.
+--     @lastProcessedUtcDateTime
+--         * The last checkpoint datetime in UTC time (Coordinated Universal Time).
+--     @pageSize
+--         * The page size for fetching resource change records.
+--
+-- RETURN VALUE
+--     Resource change data rows.
+--
+CREATE OR ALTER PROCEDURE dbo.FetchResourceChanges_3
+    @startId bigint,
+    @lastProcessedUtcDateTime datetime2(7),
+    @pageSize smallint
+AS
 BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_ResourceType'
-	DROP INDEX IXC_ResourceType ON dbo.ResourceType
-	WITH (ONLINE=ON)
-END
+   
+    SET NOCOUNT ON;
 
--- Adding primary key
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_ResourceType' AND type='PK')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_ResourceType'
-	ALTER TABLE dbo.ResourceType 
-	ADD CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (Name)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-END
+    /* Finds the prior partition to the current partition where the last processed watermark lies. It is a normal scenario when a prior watermark exists. */
+    DECLARE @precedingPartitionBoundary AS datetime2(7) = (SELECT TOP(1) CAST(prv.value as datetime2(7)) AS value FROM sys.partition_range_values AS prv WITH (NOLOCK)
+                                                            INNER JOIN sys.partition_functions AS pf WITH (NOLOCK) ON pf.function_id = prv.function_id
+                                                        WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+                                                            AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
+                                                            AND CAST(prv.value AS datetime2(7)) < DATEADD(HOUR, DATEDIFF(HOUR, 0, @lastProcessedUtcDateTime), 0)
+                                                        ORDER BY prv.boundary_id DESC);
 
--- Adding unique constraint to the identity column
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='UQ_ResourceType_ResourceTypeId' AND type='UQ')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_ResourceType_ResourceTypeId'
-	ALTER TABLE dbo.ResourceType 
-	ADD CONSTRAINT UQ_ResourceType_ResourceTypeId UNIQUE (ResourceTypeId)
-	WITH (ONLINE=ON) 
-END
+    IF (@precedingPartitionBoundary IS NULL)
+    BEGIN
+        /* It happens when no prior watermark exists or the last processed datetime of prior watermark is older than the last retention datetime.
+           Uses the partition anchor datetime as the last processed DateTime. */
+        SET @precedingPartitionBoundary = CONVERT (DATETIME2 (7), N'1970-01-01T00:00:00.0000000');
+    END;
 
+    /* It ensures that it will not check resource changes in future partitions. */
+    DECLARE @endDateTimeToFilter AS datetime2(7) = DATEADD(HOUR, 1, SYSUTCDATETIME());
+
+    WITH PartitionBoundaries
+    AS (
+        /* Normal logic when prior watermark exists, grab prior partition to ensure we do not miss data that was written across a partition boundary,
+           and includes partitions until current one to ensure we keep moving to the next partition when some partitions do not have any resource changes. */
+        SELECT CAST(prv.value as datetime2(7)) AS PartitionBoundary FROM sys.partition_range_values AS prv WITH (NOLOCK)
+            INNER JOIN sys.partition_functions AS pf WITH (NOLOCK) ON pf.function_id = prv.function_id
+        WHERE pf.name = N'PartitionFunction_ResourceChangeData_Timestamp'
+            AND SQL_VARIANT_PROPERTY(prv.Value, 'BaseType') = 'datetime2'
+            AND CAST(prv.value AS datetime2(7)) BETWEEN @precedingPartitionBoundary AND @endDateTimeToFilter
+    )
+    SELECT TOP(@pageSize) Id,
+        Timestamp,
+        ResourceId,
+        ResourceTypeId,
+        ResourceVersion,
+        ResourceChangeTypeId
+    FROM PartitionBoundaries AS p
+    CROSS APPLY (
+        /* Given the fact that Read Committed Snapshot isolation level is enabled on the FHIR database,
+           using TABLOCK and HOLDLOCK table hints to avoid skipping resource changes 
+           due to interleaved transactions on the resource change data table. */
+        SELECT TOP(@pageSize) Id,
+            Timestamp,
+            ResourceId,
+            ResourceTypeId,
+            ResourceVersion,
+            ResourceChangeTypeId
+        /* Acquires and holds the table lock to prevent new resource changes from being created during the select query execution.
+           Without the TABLOCK and HOLDLOCK hints, the lock will be applied at the row or page level which can result in missed reads
+           if an insert occurs in range that was previously read and the locks were released on the read. */
+        FROM dbo.ResourceChangeData WITH (TABLOCK, HOLDLOCK)
+            WHERE Id >= @startId
+                AND $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(Timestamp) = $PARTITION.PartitionFunction_ResourceChangeData_Timestamp(p.PartitionBoundary)
+        ORDER BY Id ASC
+        ) AS rcd
+    ORDER BY rcd.Id ASC;
+END;
 GO
 
--- System
--- Dropping clustered index since primary key to create on the same column
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_System' AND object_id = OBJECT_ID('dbo.System'))
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeData_TimestampId')
 BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_System'
-	DROP INDEX IXC_System ON dbo.System
-	WITH (ONLINE=ON)
-END
+    EXEC dbo.LogSchemaMigrationProgress 'Deleting PK_ResourceChangeData_TimestampId index from ResourceChangeData table.';
 
--- Adding primary key
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_System' AND type='PK')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_System'
-	ALTER TABLE dbo.System
-	ADD CONSTRAINT PKC_System PRIMARY KEY CLUSTERED (Value)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-END
-
--- Adding unique constraint to the identity column
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='UQ_System_SystemId' AND type='UQ')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_System_SystemId'
-	ALTER TABLE dbo.System 
-	ADD CONSTRAINT UQ_System_SystemId UNIQUE (SystemId)
-	WITH (ONLINE=ON) 
-END
-
+    /* Drops PK_ResourceChangeData_TimestampId index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+       During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+       This behavior enables queries or updates to the underlying table and indexes to continue. */
+    ALTER TABLE dbo.ResourceChangeData DROP CONSTRAINT PK_ResourceChangeData_TimestampId WITH(ONLINE = ON);
+END;
 GO
 
--- QuantityCode
--- Dropping clustered index since primary key to create on the same column
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_QuantityCode' AND object_id = OBJECT_ID('dbo.QuantityCode'))
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'PK_ResourceChangeDataStaging_TimestampId')
 BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_QuantityCode'
-	DROP INDEX IXC_QuantityCode ON dbo.QuantityCode
-	WITH (ONLINE=ON)
-END
+    EXEC dbo.LogSchemaMigrationProgress 'Deleting PK_ResourceChangeDataStaging_TimestampId index from ResourceChangeDataStaging table.';
 
--- Adding primary key
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_QuantityCode' AND type='PK')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_QuantityCode'
-	ALTER TABLE dbo.QuantityCode
-	ADD CONSTRAINT PKC_QuantityCode PRIMARY KEY CLUSTERED (Value)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-END
-
--- Adding unique constraint to the identity column
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='UQ_QuantityCode_QuantityCodeId' AND type='UQ')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_QuantityCode_QuantityCodeId'
-	ALTER TABLE dbo.QuantityCode 
-	ADD CONSTRAINT UQ_QuantityCode_QuantityCodeId UNIQUE (QuantityCodeId)
-	WITH (ONLINE=ON) 
-END
-
+    /* Drops PK_ResourceChangeDataStaging_TimestampId index. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+       During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+       This behavior enables queries or updates to the underlying table and indexes to continue. */
+    ALTER TABLE dbo.ResourceChangeDataStaging DROP CONSTRAINT PK_ResourceChangeDataStaging_TimestampId WITH(ONLINE = ON);
+END;
 GO
 
--- ClaimType
--- Adding nonclustered primary key on the unique column
--- Dropping clustered index since primary key to create on the same column
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_Claim' AND object_id = OBJECT_ID('dbo.ClaimType'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IXC_ResourceChangeData')
 BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_ClaimType'
-	DROP INDEX IXC_Claim ON dbo.ClaimType
-	WITH (ONLINE=ON)
-END
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IXC_ResourceChangeData index on ResourceChangeData table.';
 
--- Adding primary key
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_ClaimType' AND type='PK')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_ClaimType'
-	ALTER TABLE dbo.ClaimType
-	ADD CONSTRAINT PKC_ClaimType PRIMARY KEY CLUSTERED (Name)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-END
-
--- Adding unique constraint to the identity column
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='UQ_ClaimType_ClaimTypeId' AND type='UQ')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_ClaimType_ClaimTypeId'
-	ALTER TABLE dbo.ClaimType 
-	ADD CONSTRAINT UQ_ClaimType_ClaimTypeId UNIQUE (ClaimTypeId)
-	WITH (ONLINE=ON) 
-END
-
+    /* Adds a clustered index on ResourceChangeData table. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+       During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+       This behavior enables queries or updates to the underlying table and indexes to continue. 
+       Creating a non-primary key and non-unique clustered index to have a better performance on the fetch query.
+       Since a resourceChangeData table is partitioned on timestamp, we can not create the primary key only on the Id column
+       due to a SQL constraint, "partition columns for a unique index must be a subset of the index key".
+       Also, we don't want to include the partitioning timestamp column on the index due to a skipping record issue related to ordering by timestamp.
+       Previously, the uniqueness was combined with the timestamp column and it was only per partition. 
+       To enforce global uniqueness requires a non clustered index without a partition but which prevents partition swaps.
+       We are using identity which will guarantee uniqueness unless an identity insert is used or reseed identity value on the table which shouldn't happen. */
+    CREATE CLUSTERED INDEX IXC_ResourceChangeData ON dbo.ResourceChangeData
+        (Id ASC) WITH(ONLINE = ON) ON PartitionScheme_ResourceChangeData_Timestamp(Timestamp);
+END;
 GO
 
--- CompartmentType
--- Dropping clustered index since primary key to create on the same column
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_CompartmentType' AND object_id = OBJECT_ID('dbo.CompartmentType'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IXC_ResourceChangeDataStaging')
 BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_CompartmentType'
-	DROP INDEX IXC_CompartmentType ON dbo.CompartmentType
-	WITH (ONLINE=ON)
-END
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IXC_ResourceChangeDataStaging index on ResourceChangeDataStaging table.';
 
--- Adding primary key
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_CompartmentType' AND type='PK')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_CompartmentType'
-	ALTER TABLE dbo.CompartmentType
-	ADD CONSTRAINT PKC_CompartmentType PRIMARY KEY CLUSTERED (Name)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-END
-
--- Adding unique constraint to the identity column
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='UQ_CompartmentType_CompartmentTypeId' AND type='UQ')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_CompartmentType_CompartmentTypeId'
-	ALTER TABLE dbo.CompartmentType 
-	ADD CONSTRAINT UQ_CompartmentType_CompartmentTypeId UNIQUE (CompartmentTypeId)
-	WITH (ONLINE=ON) 
-END
-
+    /* Adds a clustered index on ResourceChangeDataStaging table. "ONLINE = ON" indicates long-term table locks aren't held for the duration of the index operation. 
+       During the main phase of the index operation, only an Intent Share (IS) lock is held on the source table. 
+       This behavior enables queries or updates to the underlying table and indexes to continue. */
+    CREATE CLUSTERED INDEX IXC_ResourceChangeDataStaging ON dbo.ResourceChangeDataStaging
+        (Id ASC, Timestamp ASC) WITH(ONLINE = ON) ON [PRIMARY];
+END;
 GO
 
--- CompartmentAssignment
--- Deleting duplicate rows based on all columns
-EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.CompartmentAssignment'
-GO
-WITH cte AS (
-    SELECT ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory, ROW_NUMBER() 
-    OVER (
-		PARTITION BY ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory
-		ORDER BY ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId
-	) row_num
-	FROM dbo.CompartmentAssignment
-)
-DELETE FROM cte WHERE row_num > 1
-GO
-
--- We are creating primary key on the same set of columns for which clustered index exists.
--- If script execution failed immediately after dropping clustered index, then on the same set of columns we have non clustered index for non-historical records, so we should be good.
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_CompartmentAssignment'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_CompartmentAssignment' AND object_id = OBJECT_ID('dbo.CompartmentAssignment'))
-BEGIN
-	DROP INDEX IXC_CompartmentAssignment ON dbo.CompartmentAssignment
-	WITH (ONLINE=ON)
-END
-
--- Add clustered primary key on the same set of columns for which clustered index just dropped above.
-EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_CompartmentAssignment'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_CompartmentAssignment' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.CompartmentAssignment 
-	ADD CONSTRAINT PKC_CompartmentAssignment PRIMARY KEY CLUSTERED(ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-END
-
-GO
-
--- Resource
--- Since we need to create primary key on the same of columns for which clustered index exists.
--- We will create non-clustered index first, drop IXC, create PKC and finally drop IX
--- so that the table would never be left without indexes.
--- Creating temporary non-clustered index
-EXEC dbo.LogSchemaMigrationProgress 'Creating IX_Resource'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_Resource' AND object_id = OBJECT_ID('dbo.Resource'))
-BEGIN
-	CREATE UNIQUE NONCLUSTERED INDEX IX_Resource ON dbo.Resource
-	(
-		ResourceTypeId,
-		ResourceSurrogateId
-	)
-	WITH (ONLINE=ON)
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-END
-
--- Deleting clustered index
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_Resource'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_Resource' AND object_id = OBJECT_ID('dbo.Resource'))
-BEGIN
-	DROP INDEX IXC_Resource ON dbo.Resource
-	WITH (ONLINE=ON)
-END
-
--- Adding clustered primary key
-EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_Resource'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_Resource' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.Resource 
-	ADD CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-	ON PartitionScheme_ResourceTypeId (ResourceTypeId)
-END
-
--- Deleting temporary non-clustered index created.
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_Resource'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_Resource' AND object_id = OBJECT_ID('dbo.Resource'))
-BEGIN
-	DROP INDEX IX_Resource ON dbo.Resource
-END
-
--- Adding unique constraint on ResourceSurrogateId column
-EXEC dbo.LogSchemaMigrationProgress 'Adding UQ_Resource_ResourceSurrogateId'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='UQ_Resource_ResourceSurrogateId' AND type='UQ')
-BEGIN
-	ALTER TABLE dbo.Resource 
-	ADD CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId)
-	WITH (ONLINE=ON) 
-	ON [Primary]
-END
-
--- Creating UQIX_Resource_ResourceSurrogateId
-EXEC dbo.LogSchemaMigrationProgress 'Creating UQIX_Resource_ResourceSurrogateId'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='UQIX_Resource_ResourceSurrogateId' AND object_id = OBJECT_ID('dbo.Resource'))
-BEGIN
-	CREATE UNIQUE NONCLUSTERED INDEX UQIX_Resource_ResourceSurrogateId ON dbo.Resource (ResourceSurrogateId)
-    ON [Primary]
-END
-
--- Dropping IX_Resource_ResourceSurrogateId since unique index for the same column created above
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_Resource_ResourceSurrogateId'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_Resource_ResourceSurrogateId' AND object_id = OBJECT_ID('dbo.Resource'))
-BEGIN
-	DROP INDEX IX_Resource_ResourceSurrogateId ON dbo.Resource
-END
-
-GO
-
--- ExportJob
--- Since we need to create primary key on the same of columns for which clustered index exists.
--- We will create non-clustered index(IX) first, drop IXC, create PKC and finally drop IX
--- so that the table would never be left without indexes.
--- Creating temporary non-clustered index
-EXEC dbo.LogSchemaMigrationProgress 'Creating IX_ExportJob'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_ExportJob' AND object_id = OBJECT_ID('dbo.ExportJob'))
-BEGIN
-	CREATE UNIQUE NONCLUSTERED INDEX IX_ExportJob ON dbo.ExportJob
-	(
-		Id
-	)
-	WITH (ONLINE=ON)
-END
-
--- Deleting clustered index
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_ExportJob'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_ExportJob' AND object_id = OBJECT_ID('dbo.ExportJob'))
-BEGIN
-	DROP INDEX IXC_ExportJob ON dbo.ExportJob
-	WITH (ONLINE=ON)
-END
-
--- Adding clustered primary key
-EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_ExportJob'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_ExportJob' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.ExportJob 
-	ADD CONSTRAINT PKC_ExportJob PRIMARY KEY CLUSTERED (Id)
-	WITH (ONLINE=ON)
-END
-
--- Deleting temporary non-clustered index created.
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_ExportJob'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_ExportJob' AND object_id = OBJECT_ID('dbo.ExportJob'))
-BEGIN
-	DROP INDEX IX_ExportJob ON dbo.ExportJob
-END
-GO
-
--- ReindexJob
--- Since we need to create primary key on the same of columns for which clustered index exists.
--- We will create non-clustered index(IX) first, drop IXC, create PKC and finally drop IX
--- so that the table would never be left without indexes.
--- Creating temporary non-clustered index
-EXEC dbo.LogSchemaMigrationProgress 'Creating IX_ReindexJob'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_ReindexJob' AND object_id = OBJECT_ID('dbo.ReindexJob'))
-BEGIN
-	CREATE UNIQUE NONCLUSTERED INDEX IX_ReindexJob ON dbo.ReindexJob
-	(
-		Id
-	)
-	WITH (ONLINE=ON)
-END
-
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_ReindexJob'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_ReindexJob' AND object_id = OBJECT_ID('dbo.ReindexJob'))
-BEGIN
-	DROP INDEX IXC_ReindexJob ON dbo.ReindexJob
-	WITH (ONLINE=ON)
-END
-
-EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_ReindexJob'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_ReindexJob' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.ReindexJob 
-	ADD CONSTRAINT PKC_ReindexJob PRIMARY KEY CLUSTERED (Id)
-	WITH (ONLINE=ON)
-END
-
--- Deleting temporary non-clustered index created.
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_ReindexJob'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_ReindexJob' AND object_id = OBJECT_ID('dbo.ReindexJob'))
-BEGIN
-	DROP INDEX IX_ReindexJob ON dbo.ReindexJob
-END
-GO
-
--- TaskInfo
--- Since we need to create primary key on the same of columns for which clustered index exists.
--- We will create non-clustered index(IX) first, drop IXC, create PKC and finally drop IX
--- so that the table would never be left without indexes.
--- Creating temporary non-clustered index
-EXEC dbo.LogSchemaMigrationProgress 'Creating IX_TaskInfo'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_TaskInfo' AND object_id = OBJECT_ID('dbo.TaskInfo'))
-BEGIN
-	CREATE UNIQUE NONCLUSTERED INDEX IX_TaskInfo ON dbo.TaskInfo
-	(
-		TaskId
-	)
-	WITH (ONLINE=ON)
-END
-
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IXC_Task'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IXC_Task' AND object_id = OBJECT_ID('dbo.TaskInfo'))
-BEGIN
-	DROP INDEX IXC_Task ON dbo.TaskInfo
-	WITH (ONLINE=ON)
-END
-
-EXEC dbo.LogSchemaMigrationProgress 'Adding PKC_TaskInfo'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PKC_TaskInfo' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.TaskInfo 
-	ADD CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
-END
-
--- Deleting temporary non-clustered index created.
-EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_TaskInfo'
-IF EXISTS (
-    SELECT * 
-	FROM sys.indexes 
-	WHERE name='IX_TaskInfo' AND object_id = OBJECT_ID('dbo.TaskInfo'))
-BEGIN
-	DROP INDEX IX_TaskInfo ON dbo.TaskInfo
-END
-GO
-
---UriSearchParam
--- Deleting duplicate rows based on all columns
-EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.UriSearchParam'
-GO
-WITH cte AS (
-    SELECT ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId, IsHistory, ROW_NUMBER() 
-    OVER (
-		PARTITION BY ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId, IsHistory
-		ORDER BY ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId
-	) row_num
-	FROM dbo.UriSearchParam
-)
-DELETE FROM cte WHERE row_num > 1
-GO
-
--- Create nonclustered primary key on the set of non-nullable columns that makes it unique
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_UriSearchParam'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PK_UriSearchParam' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.UriSearchParam
-	ADD CONSTRAINT PK_UriSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, Uri, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-END
+EXEC dbo.LogSchemaMigrationProgress 'Completed migration to version 24.';
 GO

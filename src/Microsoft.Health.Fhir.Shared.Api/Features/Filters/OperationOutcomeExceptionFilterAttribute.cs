@@ -11,8 +11,10 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -36,12 +38,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         private const string ValidateController = "Validate";
 
         private readonly RequestContextAccessor<IFhirRequestContext> _fhirRequestContextAccessor;
+        private readonly ILogger<OperationOutcomeExceptionFilterAttribute> _logger;
 
-        public OperationOutcomeExceptionFilterAttribute(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor)
+        public OperationOutcomeExceptionFilterAttribute(RequestContextAccessor<IFhirRequestContext> fhirRequestContextAccessor, ILogger<OperationOutcomeExceptionFilterAttribute> logger)
         {
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
+            _logger = logger;
         }
 
         public override void OnActionExecuted(ActionExecutedContext context)
@@ -60,6 +65,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     {
                         Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
                         Issue = fhirException.Issues.Select(x => x.ToPoco()).ToList(),
+                        Meta = new Meta()
+                        {
+                            LastUpdated = Clock.UtcNow,
+                        },
                     },
                     HttpStatusCode.BadRequest);
 
@@ -202,12 +211,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.RequestHeaderFieldsTooLarge);
                         break;
                     default:
-                        healthExceptionResult = new OperationOutcomeResult(
-                            new OperationOutcome
-                            {
-                                Id = _fhirRequestContextAccessor.RequestContext.CorrelationId,
-                            },
-                            HttpStatusCode.InternalServerError);
+                        healthExceptionResult = CreateOperationOutcomeResult(string.Empty, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
                         break;
                 }
 
@@ -235,6 +239,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         context.Exception = outerException;
                     }
                 }
+
+                return;
+            }
+            else
+            {
+                context.Result = CreateOperationOutcomeResult(string.Empty, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Unknown, HttpStatusCode.InternalServerError);
+                context.ExceptionHandled = true;
+            }
+
+            if (context.ExceptionHandled)
+            {
+                HttpStatusCode? statusCode = (context.Result as OperationOutcomeResult)?.StatusCode;
+                if (statusCode != null && statusCode >= HttpStatusCode.InternalServerError)
+                {
+                    _logger.LogError(context.Exception, "{statusCode} error returned", statusCode);
+                }
             }
         }
 
@@ -252,6 +272,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             Code = issueType,
                             Diagnostics = message,
                         },
+                    },
+                    Meta = new Meta()
+                    {
+                        LastUpdated = Clock.UtcNow,
                     },
                 },
                 httpStatusCode);

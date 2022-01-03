@@ -5,7 +5,7 @@
 
   <!-- Properties used by sql task to generate full script-->
   <PropertyGroup>
-    <LatestSchemaVersion>24</LatestSchemaVersion>
+    <LatestSchemaVersion>25</LatestSchemaVersion>
     <GeneratedFullScriptPath>Features\Schema\Migrations\$(LatestSchemaVersion).sql</GeneratedFullScriptPath>
     <AutoGenerateBindingRedirects></AutoGenerateBindingRedirects>
   </PropertyGroup>
@@ -44,6 +44,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="Features\Schema\Migrations\25.diff.sql" />
+    <None Remove="Features\Schema\Migrations\25.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\Microsoft.Health.TaskManagement\Microsoft.Health.TaskManagement.csproj" />
   </ItemGroup>
@@ -55,6 +60,9 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Update="Features\Schema\Migrations\25.sql">
+      <MutableClassVersion>Latest</MutableClassVersion>
+    </EmbeddedResource>
     <EmbeddedResource Update="Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
