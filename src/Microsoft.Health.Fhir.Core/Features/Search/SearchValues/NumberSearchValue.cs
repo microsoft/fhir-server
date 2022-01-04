@@ -102,5 +102,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return $"[{Low}, {High})";
         }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                Low.GetHashCode(), High.GetHashCode());
+        }
     }
 }

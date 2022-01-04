@@ -65,5 +65,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             return string.Join(" $ ", Components.Select(component => string.Join(", ", component.Select(v => $"({v})"))));
         }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return Components.GetHashCode();
+        }
     }
 }

@@ -122,5 +122,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return $"{System.EscapeSearchParameterValue()}|{Code.EscapeSearchParameterValue()}";
         }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                System.GetHashCode(StringComparison.OrdinalIgnoreCase),
+                Code.GetHashCode(StringComparison.OrdinalIgnoreCase),
+                Text.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        }
     }
 }

@@ -103,5 +103,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return $"{ResourceType}/{ResourceId}";
         }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                Kind.GetHashCode(),
+                BaseUri.GetHashCode(),
+                ResourceType.GetHashCode(StringComparison.OrdinalIgnoreCase),
+                ResourceId.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        }
     }
 }
