@@ -778,8 +778,7 @@ CREATE TABLE dbo.TokenText (
     ResourceSurrogateId BIGINT         NOT NULL,
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL,
-    IsHistory           BIT            NOT NULL,
-    CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    IsHistory           BIT            NOT NULL
 );
 
 ALTER TABLE dbo.TokenText SET (LOCK_ESCALATION = AUTO);

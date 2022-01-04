@@ -546,32 +546,3 @@ BEGIN
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END
 GO
-
---TokenText
--- Deleting duplicate rows based on all columns
-EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.TokenText'
-GO
-WITH cte AS (
-    SELECT ResourceTypeId, SearchParamId, Text, ResourceSurrogateId, IsHistory, ROW_NUMBER() 
-    OVER (
-		PARTITION BY ResourceTypeId, SearchParamId, Text, ResourceSurrogateId, IsHistory
-		ORDER BY ResourceTypeId, SearchParamId, Text, ResourceSurrogateId
-	) row_num
-	FROM dbo.TokenText
-)
-DELETE FROM cte WHERE row_num > 1
-GO
-
--- Adding nonclustered primary key on the set of non-nullable columns that makes it unique
-EXEC dbo.LogSchemaMigrationProgress 'Adding PK_TokenText'
-IF NOT EXISTS (
-    SELECT * 
-	FROM sys.key_constraints 
-	WHERE name='PK_TokenText' AND type='PK')
-BEGIN
-	ALTER TABLE dbo.TokenText 
-	ADD CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, Text, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-END
-GO

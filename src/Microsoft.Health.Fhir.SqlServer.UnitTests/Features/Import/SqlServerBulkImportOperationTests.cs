@@ -5,15 +5,38 @@
 
 using System.Linq;
 using System.Reflection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Storage;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
 {
     public class SqlServerBulkImportOperationTests
     {
+        private IOptions<OperationsConfiguration> _operationsConfiguration;
+        private SqlImportOperation _sqlServerFhirDataBulkOperation;
+
+        public SqlServerBulkImportOperationTests(
+            IOptions<OperationsConfiguration> operationsConfiguration)
+        {
+            _operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            SqlTransactionHandler sqlTransactionHandler = new SqlTransactionHandler();
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = Substitute.For<SqlConnectionWrapperFactory>();
+            var sqlServerTransient = Substitute.For<ISqlServerTransientFaultRetryPolicyFactory>();
+
+            _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerTransient, Substitute.For<SqlServerFhirModel>(), operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
+        }
+
         [Fact]
         public void GivenResourceRelatedTables_WhenNewIndexesAdded_BulkImportOperationShouldSupportNewIndexes()
         {
@@ -45,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 "IX_Resource_ResourceTypeId_ResourceSurrgateId",
             };
 
-            string[] supportedIndexesNames = SqlImportOperation.OptionalIndexesForImport.Select(i => i.index.IndexName).ToArray();
+            string[] supportedIndexesNames = _sqlServerFhirDataBulkOperation.OptionalIndexesForImport.Select(i => i.index.IndexName).ToArray();
             int expectedIndexesCount = 0;
             foreach (Table table in resourceRelatedTables)
             {

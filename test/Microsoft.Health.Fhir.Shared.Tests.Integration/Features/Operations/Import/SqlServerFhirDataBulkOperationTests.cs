@@ -29,73 +29,71 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
     public class SqlServerFhirDataBulkOperationTests : IClassFixture<SqlServerFhirStorageTestsFixture>
     {
         private SqlServerFhirStorageTestsFixture _fixture;
+        private SqlImportOperation _sqlServerFhirDataBulkOperation;
 
-        public SqlServerFhirDataBulkOperationTests(SqlServerFhirStorageTestsFixture fixture)
+        public SqlServerFhirDataBulkOperationTests(
+            SqlServerFhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
+            var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
+            _sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, _fixture.SchemaInformation, NullLogger<SqlImportOperation>.Instance);
         }
 
         [Fact]
         public async Task GivenBatchResources_WhenBulkCopy_ThenRecordsShouldBeAdded()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             int count = 1001;
             short typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
 
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateDateTimeSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateNumberSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateQuantitySearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateStringSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTextSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateUriSearchParamsTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateCompartmentAssignmentTable);
-            await VerifyDataForBulkImport(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceWriteClaimTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateDateTimeSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateNumberSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateQuantitySearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateStringSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTextSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateUriSearchParamsTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateCompartmentAssignmentTable);
+            await VerifyDataForBulkImport(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceWriteClaimTable);
         }
 
         [Fact]
         public async Task GivenImportedBatchResources_WhenCleanData_ThenRecordsShouldBeDeleted()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             int count = 1001;
             short typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
 
             List<string> tableNames = new List<string>();
 
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateNumberSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateStringSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateUriSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceWriteClaimTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateNumberSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateStringSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateUriSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceWriteClaimTable));
 
-            await sqlServerFhirDataBulkOperation.CleanBatchResourceAsync("Patient", startSurrogateId, startSurrogateId + count - 1, CancellationToken.None);
+            await _sqlServerFhirDataBulkOperation.CleanBatchResourceAsync("Patient", startSurrogateId, startSurrogateId + count - 1, CancellationToken.None);
 
             foreach (string tableName in tableNames)
             {
@@ -107,35 +105,31 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenImportedBatchResources_WhenCleanDataWithWrongType_ThenRecordsShouldNotBeDeleted()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             int count = 1001;
             short typeId = _fixture.SqlServerFhirModel.GetResourceTypeId("Patient");
 
             List<string> tableNames = new List<string>();
 
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateNumberSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateStringSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateUriSearchParamsTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
-            tableNames.Add(await ImportDataAsync(sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceWriteClaimTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateDateTimeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateNumberSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateQuantitySearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateReferenceTokenCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateStringSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenDateTimeCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenNumberNumberCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenQuantityCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenStringCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTextSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateUriSearchParamsTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateCompartmentAssignmentTable));
+            tableNames.Add(await ImportDataAsync(_sqlServerFhirDataBulkOperation, startSurrogateId, count, typeId, TestBulkDataProvider.GenerateResourceWriteClaimTable));
 
-            await sqlServerFhirDataBulkOperation.CleanBatchResourceAsync("Observation", startSurrogateId, startSurrogateId + count - 1, CancellationToken.None);
+            await _sqlServerFhirDataBulkOperation.CleanBatchResourceAsync("Observation", startSurrogateId, startSurrogateId + count - 1, CancellationToken.None);
 
             foreach (string tableName in tableNames)
             {
@@ -153,10 +147,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenDuplicateResources_WhenBulkMergeToStore_ThenOnlyDistinctResourcesImported()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             int count = 100;
             string resourceId = Guid.NewGuid().ToString();
@@ -167,7 +157,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                 resources.Add(CreateTestResource(resourceId, startSurrogateId + i));
             }
 
-            SqlBulkCopyDataWrapper[] result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
+            SqlBulkCopyDataWrapper[] result = (await _sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
             int rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + count);
             Assert.Single(result);
             Assert.Equal(1, rCount);
@@ -176,24 +166,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenBatchInValidResources_WhenBulkCopy_ThenExceptionShouldBeThrow()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
             int count = 1001;
 
             DataTable inputTable = TestBulkDataProvider.GenerateInValidUriSearchParamsTable(count, startSurrogateId, 0);
-            await Assert.ThrowsAnyAsync<Exception>(async () => await sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None));
+            await Assert.ThrowsAnyAsync<Exception>(async () => await _sqlServerFhirDataBulkOperation.BulkCopyDataAsync(inputTable, CancellationToken.None));
         }
 
         [Fact]
         public async Task GivenListOfResources_WhenBulkMergeToStore_ThenAllResourcesShouldBeImported()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
             List<SqlBulkCopyDataWrapper> resources = new List<SqlBulkCopyDataWrapper>();
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
 
@@ -203,7 +185,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             resources.Add(resource1);
             resources.Add(resource2);
 
-            SqlBulkCopyDataWrapper[] result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
+            SqlBulkCopyDataWrapper[] result = (await _sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
             int rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + 2);
             Assert.Equal(2, result.Length);
             Assert.Equal(2, rCount);
@@ -212,10 +194,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenListOfResourcesWithDupResourceId_WhenBulkMergeToStore_ThenDistinctResourceShouldBeImported()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
             List<SqlBulkCopyDataWrapper> resources = new List<SqlBulkCopyDataWrapper>();
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
 
@@ -225,14 +203,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             resources.Add(resource1);
             resources.Add(resource2);
 
-            SqlBulkCopyDataWrapper[] result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
+            SqlBulkCopyDataWrapper[] result = (await _sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
             int rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + 2);
             Assert.Equal(2, result.Count());
             Assert.Equal(2, rCount);
 
             resource1.ResourceSurrogateId = startSurrogateId + 2;
             resource1.ResourceSurrogateId = startSurrogateId + 3;
-            result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
+            result = (await _sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
             rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + 4);
             Assert.Empty(result);
             Assert.Equal(2, rCount);
@@ -241,10 +219,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenListOfResources_WhenBulkMergeToStoreTwice_ThenSecondMergeShouldFail()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
             List<SqlBulkCopyDataWrapper> resources = new List<SqlBulkCopyDataWrapper>();
             long startSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(DateTime.Now);
 
@@ -255,7 +229,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             resources.Add(resource1);
             resources.Add(resource2);
 
-            SqlBulkCopyDataWrapper[] result = (await sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
+            SqlBulkCopyDataWrapper[] result = (await _sqlServerFhirDataBulkOperation.BulkMergeResourceAsync(resources, CancellationToken.None)).ToArray();
             int rCount = await GetResourceCountAsync("Resource", startSurrogateId, startSurrogateId + 2);
             Assert.Single(result);
             Assert.Equal(1, rCount);
@@ -264,12 +238,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenUnclusteredIndexes_WhenRebuildIndexes_ThenOnlyDisabledIndexShouldBeBuilt()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
-
-            (string tableName, string indexName)[] indexes = SqlImportOperation.OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             foreach (var index in indexes)
             {
                 await DisableIndex(index.tableName, index.indexName);
@@ -291,12 +260,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenUnclusteredIndexes_WhenDisableIndexes_ThenOnlyBuiltIndexShouldBeDisabled()
         {
-            IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
-            operationsConfiguration.Value.Returns(new OperationsConfiguration());
-
-            SqlImportOperation sqlServerFhirDataBulkOperation = new SqlImportOperation(_fixture.SqlConnectionWrapperFactory, new TestSqlServerTransientFaultRetryPolicyFactory(), _fixture.SqlServerFhirModel, operationsConfiguration, NullLogger<SqlImportOperation>.Instance);
-
-            (string tableName, string indexName)[] indexes = SqlImportOperation.OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             foreach (var index in indexes)
             {
                 await RebuildIndex(index.tableName, index.indexName);

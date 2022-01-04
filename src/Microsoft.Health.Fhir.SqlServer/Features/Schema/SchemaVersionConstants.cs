@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int BulkReindexReturnsFailuresVersion = (int)SchemaVersion.V16;
         public const int AddMinMaxForDateAndStringSearchParamVersion = (int)SchemaVersion.V18;
         public const int SupportsPartitionedResourceChangeDataVersion = (int)SchemaVersion.V20;
+        public const int AddPrimaryKeyForResourceTable = (int)SchemaVersion.V25;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;
