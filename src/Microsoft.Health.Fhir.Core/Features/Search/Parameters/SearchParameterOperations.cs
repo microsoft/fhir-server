@@ -225,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             var paramsToAdd = new List<ITypedElement>();
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status != SearchParameterStatus.Deleted))
             {
-                var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.AbsoluteUri, cancellationToken);
+                var searchParamResource = await GetSearchParameterByUrl(searchParam.Uri.OriginalString, cancellationToken);
 
                 if (searchParamResource == null)
                 {
@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri, out var existingSearchParam))
                 {
                     // if the search parameter exists we should delete the old information currently stored
-                    DeleteSearchParameter(searchParam.Uri.AbsoluteUri);
+                    DeleteSearchParameter(searchParam.Uri.OriginalString);
                 }
 
                 paramsToAdd.Add(searchParamResource);
