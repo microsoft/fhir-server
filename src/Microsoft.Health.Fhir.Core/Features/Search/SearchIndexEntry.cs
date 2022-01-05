@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public bool Equals(SearchIndexEntry other)
         {
-            if ((object)other == null)
+            if (other == null)
             {
                 return false;
             }

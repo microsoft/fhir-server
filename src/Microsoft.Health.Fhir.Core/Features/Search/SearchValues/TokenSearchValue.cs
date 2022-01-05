@@ -126,9 +126,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public override int GetHashCode()
         {
             return HashCode.Combine(
-                System.GetHashCode(StringComparison.OrdinalIgnoreCase),
-                Code.GetHashCode(StringComparison.OrdinalIgnoreCase),
-                Text.GetHashCode(StringComparison.OrdinalIgnoreCase));
+                System != null ? System.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
+                Code != null ? Code.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
+                Text != null ? Text.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0);
         }
     }
 }

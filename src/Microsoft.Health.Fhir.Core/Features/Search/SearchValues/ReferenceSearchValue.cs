@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
@@ -109,9 +110,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             return HashCode.Combine(
                 Kind.GetHashCode(),
-                BaseUri.GetHashCode(),
-                ResourceType.GetHashCode(StringComparison.OrdinalIgnoreCase),
-                ResourceId.GetHashCode(StringComparison.OrdinalIgnoreCase));
+                BaseUri != null ? BaseUri.GetHashCode() : 0,
+                ResourceType != null ? ResourceType.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
+                ResourceId != null ? ResourceId.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0);
         }
     }
 }

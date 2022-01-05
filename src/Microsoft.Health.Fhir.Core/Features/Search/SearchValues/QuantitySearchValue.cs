@@ -167,10 +167,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public override int GetHashCode()
         {
             return HashCode.Combine(
-                Low.GetHashCode(),
-                High.GetHashCode(),
-                System.GetHashCode(StringComparison.OrdinalIgnoreCase),
-                Code.GetHashCode(StringComparison.OrdinalIgnoreCase));
+                Low != null ? Low.GetHashCode() : 0,
+                High != null ? High.GetHashCode() : 0,
+                System != null ? System.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
+                Code != null ? Code.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0);
         }
     }
 }
