@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
         public override int GetHashCode()
         {
-            return String != null ? String.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0;
+            return String.GetHashCode(StringComparison.OrdinalIgnoreCase);
         }
     }
 }
