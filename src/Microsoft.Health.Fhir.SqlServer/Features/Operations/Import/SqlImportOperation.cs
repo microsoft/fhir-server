@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private ISqlServerTransientFaultRetryPolicyFactory _sqlServerTransientFaultRetryPolicyFactory;
-        private SqlServerFhirModel _model;
+        private ISqlServerFhirModel _model;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly ImportTaskConfiguration _importTaskConfiguration;
         private readonly SchemaInformation _schemaInformation;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public SqlImportOperation(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ISqlServerTransientFaultRetryPolicyFactory sqlServerTransientFaultRetryPolicyFactory,
-            SqlServerFhirModel model,
+            ISqlServerFhirModel model,
             IOptions<OperationsConfiguration> operationsConfig,
             SchemaInformation schemaInformation,
             ILogger<SqlImportOperation> logger)

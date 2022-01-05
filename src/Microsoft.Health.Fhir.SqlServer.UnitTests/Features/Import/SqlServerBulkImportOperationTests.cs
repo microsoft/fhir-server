@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -22,19 +23,19 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
 {
     public class SqlServerBulkImportOperationTests
     {
-        private IOptions<OperationsConfiguration> _operationsConfiguration;
         private SqlImportOperation _sqlServerFhirDataBulkOperation;
 
-        public SqlServerBulkImportOperationTests(
-            IOptions<OperationsConfiguration> operationsConfiguration)
+        public SqlServerBulkImportOperationTests()
         {
-            _operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            var operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
+            operationsConfiguration.Value.Returns(new OperationsConfiguration());
+
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             SqlTransactionHandler sqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = Substitute.For<SqlConnectionWrapperFactory>();
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(Substitute.For<SqlTransactionHandler>(), new SqlCommandWrapperFactory(), Substitute.For<ISqlConnectionFactory>());
             var sqlServerTransient = Substitute.For<ISqlServerTransientFaultRetryPolicyFactory>();
 
-            _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerTransient, Substitute.For<SqlServerFhirModel>(), operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
+            _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerTransient, Substitute.For<ISqlServerFhirModel>(), operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);
         }
 
         [Fact]
@@ -66,9 +67,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 "IX_Resource_ResourceTypeId_ResourceId_Version",
                 "IX_Resource_ResourceTypeId_ResourceId",
                 "IX_Resource_ResourceTypeId_ResourceSurrgateId",
+                "UQIX_Resource_ResourceSurrogateId",
             };
 
-            string[] supportedIndexesNames = _sqlServerFhirDataBulkOperation.OptionalIndexesForImport.Select(i => i.index.IndexName).ToArray();
+            string[] supportedIndexesNames = _sqlServerFhirDataBulkOperation.IndexesList().Select(i => i.index.IndexName).ToArray();
             int expectedIndexesCount = 0;
             foreach (Table table in resourceRelatedTables)
             {

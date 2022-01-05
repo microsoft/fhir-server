@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenUnclusteredIndexes_WhenRebuildIndexes_ThenOnlyDisabledIndexShouldBeBuilt()
         {
-            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.IndexesList().Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             foreach (var index in indexes)
             {
                 await DisableIndex(index.tableName, index.indexName);
@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public async Task GivenUnclusteredIndexes_WhenDisableIndexes_ThenOnlyBuiltIndexShouldBeDisabled()
         {
-            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.OptionalIndexesForImport.Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
+            (string tableName, string indexName)[] indexes = _sqlServerFhirDataBulkOperation.IndexesList().Select(indexRecord => (indexRecord.table.TableName, indexRecord.index.IndexName)).ToArray();
             foreach (var index in indexes)
             {
                 await RebuildIndex(index.tableName, index.indexName);
