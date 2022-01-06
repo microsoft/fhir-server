@@ -183,5 +183,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return $"{Start.ToString("o")}-{End.ToString("o")}";
         }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                Start.GetHashCode(), End.GetHashCode());
+        }
     }
 }

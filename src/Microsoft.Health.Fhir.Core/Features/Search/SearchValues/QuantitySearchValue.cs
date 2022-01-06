@@ -127,8 +127,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return Low == quantitytSearchValueOther.Low &&
                    High == quantitytSearchValueOther.High &&
-                   System.Equals(quantitytSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
-                   Code.Equals(quantitytSearchValueOther.Code, StringComparison.OrdinalIgnoreCase);
+                   string.Equals(System, quantitytSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(Code, quantitytSearchValueOther.Code, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />
@@ -161,6 +161,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             }
 
             return sb.ToString();
+        }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                Low != null ? Low.GetHashCode() : 0,
+                High != null ? High.GetHashCode() : 0,
+                System != null ? System.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
+                Code != null ? Code.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0);
         }
     }
 }

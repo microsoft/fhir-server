@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
@@ -85,8 +86,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return Kind == referenceSearchValueOther.Kind &&
                    BaseUri == referenceSearchValueOther.BaseUri &&
-                   ResourceType.Equals(referenceSearchValueOther.ResourceType, StringComparison.OrdinalIgnoreCase) &&
-                   ResourceId.Equals(referenceSearchValueOther.ResourceId, StringComparison.OrdinalIgnoreCase);
+                   string.Equals(ResourceType, referenceSearchValueOther.ResourceType, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(ResourceId, referenceSearchValueOther.ResourceId, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />
@@ -102,6 +103,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             }
 
             return $"{ResourceType}/{ResourceId}";
+        }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                Kind.GetHashCode(),
+                BaseUri != null ? BaseUri.GetHashCode() : 0,
+                ResourceType != null ? ResourceType.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
+                ResourceId != null ? ResourceId.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0);
         }
     }
 }

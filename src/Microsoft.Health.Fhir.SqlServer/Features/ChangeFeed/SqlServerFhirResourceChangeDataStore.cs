@@ -171,7 +171,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             sqlCommand.CommandType = CommandType.StoredProcedure;
             sqlCommand.Parameters.AddWithValue("@startId", SqlDbType.BigInt).Value = startId;
             sqlCommand.Parameters.AddWithValue("@pageSize", SqlDbType.SmallInt).Value = pageSize;
-            if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
+            if (_schemaInformation.Current >= SchemaVersionConstants.SupportsClusteredIdOnResourceChangesVersion)
+            {
+                sqlCommand.CommandText = "dbo.FetchResourceChanges_3";
+                sqlCommand.Parameters.AddWithValue("@lastProcessedUtcDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsPartitionedResourceChangeDataVersion)
             {
                 sqlCommand.CommandText = "dbo.FetchResourceChanges_2";
                 sqlCommand.Parameters.AddWithValue("@lastProcessedDateTime", SqlDbType.DateTime2).Value = lastProcessedDateTime;
