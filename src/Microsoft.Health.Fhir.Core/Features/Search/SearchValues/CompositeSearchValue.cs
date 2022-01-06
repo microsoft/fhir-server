@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -64,6 +65,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public override string ToString()
         {
             return string.Join(" $ ", Components.Select(component => string.Join(", ", component.Select(v => $"({v})"))));
+        }
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Components.Select(x => x.GetHashCode()));
         }
     }
 }

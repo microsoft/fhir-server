@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
+
             string searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
 
             ExtractMinAndMaxValues(searchIndices);

@@ -143,5 +143,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return asString.ToString();
         }
+
+        public override int GetHashCode()
+        {
+            return Uri.GetHashCode(StringComparison.Ordinal);
+        }
     }
 }

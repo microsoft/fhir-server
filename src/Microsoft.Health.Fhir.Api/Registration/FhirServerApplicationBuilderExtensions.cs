@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Registration;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -18,15 +19,16 @@ namespace Microsoft.AspNetCore.Builder
     public static class FhirServerApplicationBuilderExtensions
     {
         /// <summary>
-        /// Adds FHIR server functionality to the pipeline.
+        /// Adds FHIR server functionality to the pipeline with health check filter.
         /// </summary>
         /// <param name="app">The application builder instance.</param>
+        /// <param name="predicate">The predicate used to filter health check services.</param>
         /// <returns>THe application builder instance.</returns>
-        public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app)
+        public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app, Func<HealthCheckRegistration, bool> predicate = null)
         {
             EnsureArg.IsNotNull(app, nameof(app));
 
-            app.UseHealthChecksExtension(new PathString(KnownRoutes.HealthCheck));
+            app.UseHealthChecksExtension(new PathString(KnownRoutes.HealthCheck), predicate);
 
             var config = app.ApplicationServices.GetRequiredService<IOptions<FhirServerConfiguration>>();
 
