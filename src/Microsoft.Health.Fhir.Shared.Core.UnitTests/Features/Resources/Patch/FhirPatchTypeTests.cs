@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         {
             var patchParam = new Parameters().AddAddPatchParameter("Patient", "identifier", new FhirDecimal(-42));
 
-            Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient()).Build(patchParam).Apply);
+            Assert.Throws<InvalidOperationException>(new FhirPathPatchBuilder(new Patient(), patchParam).Apply);
         }
 
         [Fact]
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient

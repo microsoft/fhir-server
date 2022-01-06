@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient
@@ -160,10 +160,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource)
-                .Add(patchParam.Parameter[0])
-                .Add(patchParam.Parameter[1])
-                .Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient
@@ -198,10 +195,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource)
-                .Add(patchParam.Parameter[0])
-                .Add(patchParam.Parameter[1])
-                .Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient
@@ -221,7 +215,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.nothing", 0, 2);
 
-            var builder = new FhirPathPatchBuilder(new Patient()).Build(patchParam);
+            var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
 
@@ -230,7 +224,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 0, 0);
 
-            var builder = new FhirPathPatchBuilder(new Patient()).Build(patchParam);
+            var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
 
@@ -248,7 +242,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            var builder = new FhirPathPatchBuilder(patientResource).Build(patchParam);
+            var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
 
@@ -266,7 +260,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            var builder = new FhirPathPatchBuilder(patientResource).Build(patchParam);
+            var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
 
@@ -284,7 +278,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            var builder = new FhirPathPatchBuilder(patientResource).Build(patchParam);
+            var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
 
@@ -302,7 +296,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            var builder = new FhirPathPatchBuilder(patientResource).Build(patchParam);
+            var builder = new FhirPathPatchBuilder(patientResource, patchParam);
             Assert.Throws<InvalidOperationException>(builder.Apply);
         }
     }

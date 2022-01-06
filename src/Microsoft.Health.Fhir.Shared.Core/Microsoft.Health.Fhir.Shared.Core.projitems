@@ -47,6 +47,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\BasePatchService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\ConditionalPatchResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\FhirParametersExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\JsonPatchService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirParameterPatchService.cs" />

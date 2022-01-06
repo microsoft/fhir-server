@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.birthDate");
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(new Patient { BirthDate = "1920-01-01" }).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(new Patient { BirthDate = "1920-01-01" }, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(new Patient()));
         }
@@ -45,7 +45,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                             Gender = AdministrativeGender.Male,
                         },
                     },
-                }).Add(patchParam.Parameter[0]).Apply();
+                },
+                patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient
@@ -84,7 +85,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                             Gender = AdministrativeGender.Male,
                         },
                     },
-                }).Add(patchParam.Parameter[0]).Apply();
+                },
+                patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(
                 new Patient
@@ -110,7 +112,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 new Patient
                 {
                     MaritalStatus = new CodeableConcept { Text = "married" },
-                }).Add(patchParam.Parameter[0]).Apply();
+                },
+                patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(new Patient()));
         }
@@ -135,7 +138,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                             },
                         },
                     },
-                }).Add(patchParam.Parameter[0]).Apply();
+                },
+                patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(new Patient()));
         }
@@ -156,7 +160,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(new Patient
             {
@@ -184,7 +188,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(new Patient
             {
@@ -212,7 +216,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                     },
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patientResource, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(new Patient
             {
@@ -233,7 +237,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 BirthDate = "1920-01-01",
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patchPatient).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patchPatient, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(patchPatient));
         }
@@ -247,7 +251,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
                 BirthDate = "1989-07-05",
             };
 
-            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patchPatient).Add(patchParam.Parameter[0]).Apply();
+            Patient patchedPatientResource = (Patient)new FhirPathPatchBuilder(patchPatient, patchParam).Apply();
 
             Assert.True(patchedPatientResource.Matches(patchPatient));
         }

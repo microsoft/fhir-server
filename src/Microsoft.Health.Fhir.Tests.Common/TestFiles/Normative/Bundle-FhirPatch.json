@@ -1,8 +1,8 @@
 ﻿{
     "resourceType": "Bundle",
-    "id": "bundle-binarypatch",
+    "id": "bundle-fhirpatch",
     "meta": {
-        "lastUpdated": "2014-08-18T01:43:30Z"
+        "lastUpdated": "2014-07-05T01:43:30Z"
     },
     "type": "batch",
     "entry": [
@@ -43,9 +43,26 @@
         {
             "fullUrl": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5",
             "resource": {
-                "resourceType": "Binary",
-                "contentType": "application/json-patch+json",
-                "data": "W3sib3AiOiJyZXBsYWNlIiwicGF0aCI6Ii9nZW5kZXIiLCJ2YWx1ZSI6ImZlbWFsZSJ9XQ=="
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "operation",
+                        "part": [
+                            {
+                                "name": "type",
+                                "valueCode": "replace"
+                            },
+                            {
+                                "name": "path",
+                                "valueString": "Patient.gender"
+                            },
+                            {
+                                "name": "value",
+                                "valueCode": "female"
+                            }
+                        ]
+                    }
+                ]
             },
             "request": {
                 "method": "PATCH",

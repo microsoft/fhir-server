@@ -63,8 +63,19 @@ namespace FhirPathPatch.Operations
         /// <returns>PendingOperation.</returns>
         public static PendingOperation FromParameterComponent(ParameterComponent component)
         {
-            var c = new CultureInfo("en-US", false);
-            var operationType = component.Part.First(x => x.Name == "type").Value.ToString().ToUpper(c);
+            var operationTypeString = component.Part.First(x => x.Name == "type").Value.ToString();
+            EOperationType operationType;
+            try
+            {
+                operationType = (EOperationType)Enum.Parse(
+                    typeof(EOperationType),
+                    operationTypeString.ToUpper(new CultureInfo("en-US", false)));
+            }
+            catch (ArgumentException)
+            {
+                throw new InvalidOperationException($"Operation type of ${operationTypeString} is not valid.");
+            }
+
             var path = component.Part.First(x => x.Name == "path").Value.ToString();
             var name = component.Part.FirstOrDefault(x => x.Name == "name")?.Value.ToString();
             var value = component.Part.FirstOrDefault(x => x.Name == "value");
@@ -75,7 +86,7 @@ namespace FhirPathPatch.Operations
 
             return new PendingOperation
             {
-                Type = (EOperationType)Enum.Parse(typeof(EOperationType), operationType),
+                Type = operationType,
                 Parameter = component,
                 Path = path,
                 Name = name,
@@ -83,7 +94,44 @@ namespace FhirPathPatch.Operations
                 Index = index,
                 Source = source,
                 Destination = destination,
-            };
+            }.Validate();
+        }
+
+        // Validate the required parameters are provided via http://www.hl7.org/fhir/fhirpatch.html
+        private PendingOperation Validate()
+        {
+            if (string.IsNullOrEmpty(Path))
+            {
+                throw new InvalidOperationException($"Path is required for operation type of {Type}");
+            }
+
+            if (string.IsNullOrEmpty(Name) && Type == EOperationType.ADD)
+            {
+                throw new InvalidOperationException($"Name is required for operation type of {Type}");
+            }
+
+            if (Value is null &&
+                new[] { EOperationType.ADD, EOperationType.INSERT, EOperationType.REPLACE }.Contains(Type))
+            {
+                throw new InvalidOperationException($"Value is required for operation type of {Type}");
+            }
+
+            if (Index is null && Type == EOperationType.INSERT)
+            {
+                throw new InvalidOperationException($"Index is required for operation type of {Type}");
+            }
+
+            if (Source is null && Type == EOperationType.MOVE)
+            {
+                throw new InvalidOperationException($"Source is required for operation type of {Type}");
+            }
+
+            if (Destination is null && Type == EOperationType.MOVE)
+            {
+                throw new InvalidOperationException($"Destination is required for operation type of {Type}");
+            }
+
+            return this;
         }
     }
 }

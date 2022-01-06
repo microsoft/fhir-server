@@ -4,13 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
-using EnsureThat;
 using FhirPathPatch;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -62,8 +59,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, e.Message));
             }
 
-            var builder = new FhirPathPatchBuilder(resourcePoco, operations);
-            return builder.Apply();
+            try
+            {
+                return new FhirPathPatchBuilder(resourcePoco, operations).Apply();
+            }
+            catch (InvalidOperationException e)
+            {
+                // Invalid patch input
+                throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
+            }
+            catch (FormatException e)
+            {
+                // Invalid output POCO
+                throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
+            }
         }
     }
 }
