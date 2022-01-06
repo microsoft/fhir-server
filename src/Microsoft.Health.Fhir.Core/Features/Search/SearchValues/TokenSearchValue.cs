@@ -107,9 +107,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 return false;
             }
 
-            return System.Equals(tokenSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
-                   Code.Equals(tokenSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
-                   Text.Equals(tokenSearchValueOther.Text, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(System, tokenSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(Code, tokenSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(Text, tokenSearchValueOther.Text, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />
@@ -121,6 +121,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             }
 
             return $"{System.EscapeSearchParameterValue()}|{Code.EscapeSearchParameterValue()}";
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                System != null ? System.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
+                Code != null ? Code.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0,
+                Text != null ? Text.GetHashCode(StringComparison.OrdinalIgnoreCase) : 0);
         }
     }
 }

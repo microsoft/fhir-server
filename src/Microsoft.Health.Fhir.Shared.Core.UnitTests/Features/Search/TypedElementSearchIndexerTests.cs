@@ -30,10 +30,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private static readonly string ResourceStaus = "http://hl7.org/fhir/SearchParameter/Resource-status";
         private static readonly string ResourceUse = "http://hl7.org/fhir/SearchParameter/Resource-use";
+        private static readonly string ResourceName = "http://hl7.org/fhir/SearchParameter/name";
 
         private const string CoverageStausExpression = "Coverage.status";
         private const string ObservationStausExpression = "Observation.status";
         private const string ClaimUseExpression = "Claim.use";
+        private const string PatientNameExpression = "Patient.name";
 
         private static SearchParameterInfo statusSearchParameterInfo;
 
@@ -48,13 +50,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchIndexer = new TypedElementSearchIndexer(supportedSearchParameterDefinitionManager, typedElementToSearchValueConverterManager, referenceToElementResolver, modelInfoProvider, logger);
 
             List<string> baseResourceTypes = new List<string>() { "Resource" };
-            List<string> targetResourceTypes = new List<string>() { "Coverage", "Observation", "Claim" };
+            List<string> targetResourceTypes = new List<string>() { "Coverage", "Observation", "Claim", "Patient" };
             statusSearchParameterInfo = new SearchParameterInfo("_status", "_status", (ValueSets.SearchParamType)SearchParamType.Token, new Uri(ResourceStaus), expression: CoverageStausExpression, targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes);
             var searchParameterInfos = new[]
             {
                 statusSearchParameterInfo,
                 new SearchParameterInfo("_status", "_status", (ValueSets.SearchParamType)SearchParamType.Token, new Uri(ResourceStaus), expression: ObservationStausExpression, targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
                 new SearchParameterInfo("_use", "_use", (ValueSets.SearchParamType)SearchParamType.Token, new Uri(ResourceUse), expression: ClaimUseExpression, targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
+                new SearchParameterInfo("name", "name", (ValueSets.SearchParamType)SearchParamType.String, new Uri(ResourceName), expression: PatientNameExpression, targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
             };
             supportedSearchParameterDefinitionManager.GetSearchParameters(Arg.Any<string>()).Returns(searchParameterInfos);
         }
@@ -70,14 +73,33 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var coverageResource = Samples.GetDefaultCoverage().ToPoco<Coverage>();
 
-            var serachIndexEntry = _searchIndexer.Extract(coverageResource.ToResourceElement());
-            Assert.NotEmpty(serachIndexEntry);
+            var searchIndexEntry = _searchIndexer.Extract(coverageResource.ToResourceElement());
+            Assert.NotEmpty(searchIndexEntry);
 
-            var tokenSearchValue = serachIndexEntry.First().Value as TokenSearchValue;
+            var tokenSearchValue = searchIndexEntry.First().Value as TokenSearchValue;
             Assert.NotNull(tokenSearchValue);
 
             Assert.True(coverageResource.Status.Value.ToString().Equals(tokenSearchValue.Code, StringComparison.CurrentCultureIgnoreCase));
         }
+
+        [Fact]
+        public void GivenAValidResourceWithDuplicateSearchIndices_WhenExtract_ThenDistincSearchIndexEntriesAreCreated()
+        {
+            var patientResource = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var familyName = "Chalmers";
+            var nameList = new List<HumanName>()
+            {
+                new HumanName() { Use = HumanName.NameUse.Official, Family = familyName },
+                new HumanName() { Use = HumanName.NameUse.Official, Family = familyName },
+            };
+            patientResource.Name = nameList;
+
+            var serachIndexEntry = _searchIndexer.Extract(patientResource.ToResourceElement());
+            Assert.Equal(1, serachIndexEntry.Count);
+
+            var nameSearchValue = serachIndexEntry.First().Value as StringSearchValue;
+            Assert.Equal(familyName, nameSearchValue.String);
+         }
 
 #if !Stu3
         // For Stu3 - Coverage.status, Observation.status, and Claim.use are not required fields

@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (other.SearchParameter.Url == SearchParameter.Url &&
                 other.SearchParameter.Code.Equals(SearchParameter.Code, StringComparison.OrdinalIgnoreCase) &&
-                other.Value == Value)
+                other.Value.Equals(Value))
             {
                 return true;
             }
