@@ -107,9 +107,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 return false;
             }
 
-            return System.Equals(tokenSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
-                   Code.Equals(tokenSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
-                   Text.Equals(tokenSearchValueOther.Text, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(System, tokenSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(Code, tokenSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(Text, tokenSearchValueOther.Text, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />

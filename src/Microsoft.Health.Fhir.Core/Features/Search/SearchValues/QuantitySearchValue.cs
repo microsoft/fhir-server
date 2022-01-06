@@ -127,8 +127,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return Low == quantitytSearchValueOther.Low &&
                    High == quantitytSearchValueOther.High &&
-                   System.Equals(quantitytSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
-                   Code.Equals(quantitytSearchValueOther.Code, StringComparison.OrdinalIgnoreCase);
+                   string.Equals(System, quantitytSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(Code, quantitytSearchValueOther.Code, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />

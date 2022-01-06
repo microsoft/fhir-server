@@ -86,8 +86,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
             return Kind == referenceSearchValueOther.Kind &&
                    BaseUri == referenceSearchValueOther.BaseUri &&
-                   ResourceType.Equals(referenceSearchValueOther.ResourceType, StringComparison.OrdinalIgnoreCase) &&
-                   ResourceId.Equals(referenceSearchValueOther.ResourceId, StringComparison.OrdinalIgnoreCase);
+                   string.Equals(ResourceType, referenceSearchValueOther.ResourceType, StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(ResourceId, referenceSearchValueOther.ResourceId, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />
