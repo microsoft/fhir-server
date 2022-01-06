@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             // parameter will not cause conflicts
             foreach (var searchParam in updatedSearchParameterStatus.Where(p => p.Status == SearchParameterStatus.Deleted))
             {
-                DeleteSearchParameter(searchParam.Uri.ToString());
+                DeleteSearchParameter(searchParam.Uri.OriginalString);
             }
 
             var paramsToAdd = new List<ITypedElement>();

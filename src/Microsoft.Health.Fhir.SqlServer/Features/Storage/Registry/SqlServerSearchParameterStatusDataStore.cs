@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 var status = (SqlServerResourceSearchParameterStatus)resourceSearchParameterStatus;
 
                 // Add the new search parameters to the FHIR model dictionary.
-                _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.ToString(), status.Id);
+                _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.OriginalString, status.Id);
             }
         }
     }

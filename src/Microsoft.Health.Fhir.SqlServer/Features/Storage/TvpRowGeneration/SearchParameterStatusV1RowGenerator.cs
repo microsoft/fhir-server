@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         public IEnumerable<SearchParamTableTypeV1Row> GenerateRows(List<ResourceSearchParameterStatus> searchParameterStatuses)
         {
             return searchParameterStatuses.Select(searchParameterStatus => new SearchParamTableTypeV1Row(
-                    searchParameterStatus.Uri.ToString(),
+                    searchParameterStatus.Uri.OriginalString,
                     searchParameterStatus.Status.ToString(),
                     searchParameterStatus.IsPartiallySupported))
                 .ToList();
