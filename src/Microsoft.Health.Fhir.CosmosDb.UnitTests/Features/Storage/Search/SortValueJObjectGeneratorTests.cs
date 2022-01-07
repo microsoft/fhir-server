@@ -48,5 +48,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             Assert.Equal(expected, output.Value<string>(SearchValueConstants.SortLowValueFieldName));
         }
+
+        [Fact]
+        public void GivenAString_WhenNormalized_ExpectedValuesAreReturned()
+        {
+            var testString = "Müller";
+            var normalizedString = testString.Normalize(System.Text.NormalizationForm.FormKD);
+
+            Console.Write("Characters in normalized string = ");
+            foreach (short x in normalizedString)
+            {
+                Console.Write("{0:X4} ", x);
+            }
+
+            Console.WriteLine();
+
+            var charArray = normalizedString.ToCharArray();
+            Assert.Equal((char)117, charArray[1]); // Lowercase u
+            Assert.Equal((char)776, charArray[2]); // Combining Diaeresis
+        }
     }
 }
