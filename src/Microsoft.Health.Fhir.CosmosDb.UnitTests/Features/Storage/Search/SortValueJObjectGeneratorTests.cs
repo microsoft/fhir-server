@@ -67,5 +67,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             Assert.Equal((char)117, charArray[1]); // Lowercase u
             Assert.Equal((char)776, charArray[2]); // Combining Diaeresis
         }
+
+        [Fact]
+        public void GivenACulture_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned()
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            var numberString = string.Format("{0:00.0000000}", 27 + 0.765);
+
+            Assert.Equal("27,7650000", numberString);
+        }
     }
 }
