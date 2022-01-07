@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var output = _generator.Generate(values);
 
-            Console.WriteLine("Input {input}, Output {output}", input, output.Value<string>(SearchValueConstants.SortLowValueFieldName));
+            Console.WriteLine("Input {0}, Output {1}", input, output.Value<string>(SearchValueConstants.SortLowValueFieldName));
 
             Console.Write("Characters in input = ");
             foreach (short x in input)
