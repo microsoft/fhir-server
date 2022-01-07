@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 var serializer = new FhirJsonSerializer();
                 _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
-                Assert.Contains(searchParamPosted.Resource.Url, param.Value.ToString());
+                Assert.Contains(searchParamPosted.Resource.Url, param?.Value?.ToString());
 
                 reindexJobResult = await WaitForReindexStatus(reindexJobUri, "Completed");
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources with {randomName}");
@@ -279,9 +279,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 var serializer = new FhirJsonSerializer();
                 _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
-                Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam.Value.ToString());
-                Assert.Equal("Appointment", targetResourcesParam.Value.ToString());
-                Assert.Equal("Appointment", resourcesParam.Value.ToString());
+                Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam?.Value?.ToString());
+                Assert.Equal("Appointment", targetResourcesParam?.Value?.ToString());
+                Assert.Equal("Appointment", resourcesParam?.Value?.ToString());
 
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Appointment only.");
 
@@ -399,11 +399,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 var serializer = new FhirJsonSerializer();
                 _output.WriteLine(serializer.SerializeToString(reindexJobResult.Resource));
 
-                Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam.Value.ToString());
-                Assert.Contains("Appointment", targetResourcesParam.Value.ToString());
-                Assert.Contains("Appointment", resourcesParam.Value.ToString());
-                Assert.Contains("Immunization", targetResourcesParam.Value.ToString());
-                Assert.Contains("Immunization", resourcesParam.Value.ToString());
+                Assert.Contains(searchParamPosted.Resource.Url, searchParamListParam?.Value?.ToString());
+                Assert.Contains("Appointment", targetResourcesParam?.Value?.ToString());
+                Assert.Contains("Appointment", resourcesParam?.Value?.ToString());
+                Assert.Contains("Immunization", targetResourcesParam?.Value?.ToString());
+                Assert.Contains("Immunization", resourcesParam?.Value?.ToString());
 
                 _output.WriteLine($"Reindex job is completed, it should have reindexed the resources of type Appointment and Immunization only.");
 
@@ -479,6 +479,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 await Task.Delay(1000);
             }
             while (!desiredStatus.Contains(currentStatus) && checkReindexCount < 20);
+
+            if (checkReindexCount >= 20)
+            {
+                throw new Exception("ReindexJob did not complete within 20 seconds.");
+            }
 
             return reindexJobResult;
         }

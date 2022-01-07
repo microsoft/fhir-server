@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            return entries;
+            return entries.Distinct().ToList();
         }
 
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
