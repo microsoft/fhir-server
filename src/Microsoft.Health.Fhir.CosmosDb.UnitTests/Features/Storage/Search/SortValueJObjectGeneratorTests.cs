@@ -28,6 +28,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 
             var output = _generator.Generate(values);
 
+            Console.WriteLine("Input {input}, Output {output}", input, output.Value<string>(SearchValueConstants.SortLowValueFieldName));
+
+            Console.Write("Characters in input = ");
+            foreach (short x in input)
+            {
+                Console.Write("{0:X4} ", x);
+            }
+
+            Console.WriteLine();
+
+            Console.Write("Characters in output = ");
+            foreach (short x in output.Value<string>(SearchValueConstants.SortLowValueFieldName))
+            {
+                Console.Write("{0:X4} ", x);
+            }
+
+            Console.WriteLine();
+
             Assert.Equal(expected, output.Value<string>(SearchValueConstants.SortLowValueFieldName));
         }
     }
