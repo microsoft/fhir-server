@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
             int result = originalValue.CompareTo(givenValue, ComparisonRange.Max);
 
-            // Result is only guarantied to be negitive or positive, not -1 or 1. 0 is the only guarantied value. So the sign of the result needs to be checked, not its value. 
+            // Result is only guarantied to be negitive or positive, not -1 or 1. 0 is the only guarantied value. So the sign of the result needs to be checked, not its value.
             Assert.True(expectedResult == 0 ? result == expectedResult : result * expectedResult > 0);
         }
 
