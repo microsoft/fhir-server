@@ -1,63 +1,15 @@
-﻿EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 24.';
-GO
-
--- Deleting duplicate rows based on all columns
-EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.StringSearchParam'
-GO
-WITH cte AS (
-    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax, IsHistory, ROW_NUMBER() 
-    OVER (
-		PARTITION BY ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsMin, IsMax, IsHistory
-		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId, Text
-	) row_num
-	FROM dbo.StringSearchParam
-)
-DELETE FROM cte WHERE row_num > 1
-GO
-
-EXEC dbo.LogSchemaMigrationProgress 'Adding BulkStringSearchParamTableType_3'
-IF TYPE_ID(N'BulkStringSearchParamTableType_3') IS NULL
-BEGIN
-    CREATE TYPE dbo.BulkStringSearchParamTableType_3 AS TABLE
-    (
-        Offset int NOT NULL,
-        SearchParamId smallint NOT NULL,
-        Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
-        TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
-        IsMin bit NOT NULL,
-        IsMax bit NOT NULL,
-        TextHash nvarchar(32) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
-    )
-END
-GO
-
-/*************************************************************
+﻿/*************************************************************
     This migration removes the existing primary key clustered index and adds a clustered index on Id column in the ResourceChangeData table.
     The migration is "online" meaning the server is fully available during the upgrade, but it can be very time-consuming.
     For reference, a resource change data table with 10 million records took around 25 minutes to complete 
     on the Azure SQL database (SQL elastic pools - GeneralPurpose: Gen5, 2 vCores).
 **************************************************************/
-EXEC dbo.LogSchemaMigrationProgress 'Adding TextHash column in dbo.StringSearchParam'
-IF NOT EXISTS (
-    SELECT * 
-    FROM   sys.columns 
-    WHERE  object_id = OBJECT_ID('dbo.StringSearchParam') AND name = 'TextHash')
-BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding TextHash column as nullable';
-    ALTER TABLE dbo.StringSearchParam 
-        ADD TextHash nvarchar(32) NULL 
-END
-GO
 
 EXEC dbo.LogSchemaMigrationProgress 'Beginning migration to version 24.';
 GO
 
 EXEC dbo.LogSchemaMigrationProgress 'Adding or updating FetchResourceChanges_3 stored procedure.';
 GO
-
-/*************************************************************
-    Stored procedures for creating and deleting
-**************************************************************/
 
 --
 -- STORED PROCEDURE

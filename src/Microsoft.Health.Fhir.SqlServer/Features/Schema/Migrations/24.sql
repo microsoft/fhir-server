@@ -104,15 +104,6 @@ CREATE TYPE dbo.BulkStringSearchParamTableType_2 AS TABLE (
     IsMin         BIT            NOT NULL,
     IsMax         BIT            NOT NULL);
 
-CREATE TYPE dbo.BulkStringSearchParamTableType_3 AS TABLE (
-    Offset        INT            NOT NULL,
-    SearchParamId SMALLINT       NOT NULL,
-    Text          NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
-    TextOverflow  NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL,
-    IsMin         BIT            NOT NULL,
-    IsMax         BIT            NOT NULL,
-    TextHash      NVARCHAR (32)  NOT NULL);
-
 CREATE TYPE dbo.BulkUriSearchParamTableType_1 AS TABLE (
     Offset        INT           NOT NULL,
     SearchParamId SMALLINT      NOT NULL,
@@ -591,7 +582,6 @@ CREATE TABLE dbo.StringSearchParam (
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow        NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL,
-    TextHash            NVARCHAR (32)  COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     IsHistory           BIT            NOT NULL,
     IsMin               BIT            CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
     IsMax               BIT            CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL
