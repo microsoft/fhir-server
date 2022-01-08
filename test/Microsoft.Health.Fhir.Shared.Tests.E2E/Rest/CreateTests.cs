@@ -60,6 +60,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateStringSearchParam_TheServerShouldRespondSuccessfully()
+        {
+            Patient originalResource = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            var familyName = "Chalmers";
+            originalResource.Name[1].Use = HumanName.NameUse.Official;
+            originalResource.Name[1].Family = familyName;
+            originalResource.Name[2].Use = HumanName.NameUse.Official;
+            originalResource.Name[2].Family = familyName;
+
+            originalResource.Id = Guid.NewGuid().ToString();
+            originalResource.Meta = new Meta
+            {
+                VersionId = Guid.NewGuid().ToString(),
+                LastUpdated = DateTimeOffset.UtcNow,
+            };
+
+            using FhirResponse<Patient> response = await _client.CreateAsync(originalResource);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResourceAndProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
             using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), provenanceHeader: Samples.GetProvenanceHeader());
