@@ -355,6 +355,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 compartmentId);
 
             Assert.NotNull(options);
+
             ValidateMultiaryExpression(
                 options.Expression,
                 MultiaryOperator.And,

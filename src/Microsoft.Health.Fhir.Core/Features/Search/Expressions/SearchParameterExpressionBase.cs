@@ -15,8 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     {
         protected SearchParameterExpressionBase(SearchParameterInfo searchParameter)
         {
-            Parameter = searchParameter;
-            EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
+            Parameter = EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
         }
 
         public SearchParameterInfo Parameter { get; }

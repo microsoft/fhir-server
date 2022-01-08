@@ -290,8 +290,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    var compartmentSearchExpressions = new List<Expression>();
                     var compartmentResourceTypesToSearch = new List<string>();
+                    var compartmentSearchExpressions = new Dictionary<string, (SearchParameterExpression Expression, HashSet<string> ResourceTypes)>();
 
                     if (string.IsNullOrEmpty(resourceType))
                     {
@@ -307,7 +307,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                     foreach (var compartmentResourceType in compartmentResourceTypesToSearch)
                     {
-                        var searchParamExpressionsForResourceType = new List<Expression>();
+                        var searchParamExpressionsForResourceType = new List<SearchParameterExpression>();
                         if (_compartmentDefinitionManager.TryGetSearchParams(compartmentResourceType, parsedCompartmentType, out HashSet<string> compartmentSearchParameters))
                         {
                             foreach (var compartmentSearchParameter in compartmentSearchParameters)
@@ -320,26 +320,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             }
                         }
 
-                        if (compartmentResourceTypesToSearch.Count > 1)
+                        foreach (var expr in searchParamExpressionsForResourceType)
                         {
-                            // When more than 1 compartment type we need to create a multiary expression with Type + Parameter
-                            compartmentSearchExpressions.Add(
-                                Expression.And(
-                                    Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, compartmentResourceType)),
-                                    Expression.Or(searchParamExpressionsForResourceType.ToArray())));
-                        }
-                        else
-                        {
-                            compartmentSearchExpressions.AddRange(searchParamExpressionsForResourceType.ToArray());
+                            if (compartmentSearchExpressions.TryGetValue(expr.ToString(), out var resourceTypeList))
+                            {
+                                resourceTypeList.ResourceTypes.Add(compartmentResourceType);
+                            }
+                            else
+                            {
+                                compartmentSearchExpressions[expr.ToString()] = (expr, new HashSet<string> { compartmentResourceType });
+                            }
                         }
                     }
 
                     if (compartmentSearchExpressions.Any())
                     {
-                        IEnumerable<IGrouping<string, Expression>> groupBy = compartmentSearchExpressions.GroupBy(x => x.ToString(), x => x);
-                        Expression[] distinct = groupBy.Select(x => x.First()).ToArray();
+                        var compartmentSearchExpressionsGrouped = new List<Expression>();
 
-                        searchExpressions.Add(Expression.Or(distinct));
+                        foreach (var grouping in compartmentSearchExpressions)
+                        {
+                            // When we're searching more than 1 compartment resource type (i.e. Patient/abc/*) the search parameters need to list the applicable resource types
+                            if (compartmentResourceTypesToSearch.Count > 1)
+                            {
+                                SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
+                                    _resourceTypeSearchParameter,
+                                    Expression.Or(grouping.Value.ResourceTypes.Select(compartmentResourceType => Expression.Equals(FieldName.TokenCode, null, compartmentResourceType)).ToArray<Expression>()));
+
+                                compartmentSearchExpressionsGrouped.Add(Expression.And(grouping.Value.Expression, resourceTypesExpression));
+                            }
+                            else
+                            {
+                                compartmentSearchExpressionsGrouped.Add(grouping.Value.Expression);
+                            }
+                        }
+
+                        searchExpressions.Add(Expression.Or(compartmentSearchExpressionsGrouped));
                     }
                 }
                 else
