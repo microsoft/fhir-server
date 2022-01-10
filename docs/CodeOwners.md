@@ -2,12 +2,6 @@
 
 This file outlines the owners of the FHIR Server features in OSS.
 
-### Portal
-
-rojo (RB Johnson)
-
-patalada (Paul Taladay)
-
 ### Custom Search & reindexing
 
 jaerwin (Jared Erwin)
@@ -22,7 +16,9 @@ ivmatan (Ivan Matantsev)
 
 ### Sort
 
-namadabu (Narasimhan Madabusi)
+rojo (RB Johnson)
+
+bkowitz (Brendan Kowitz)
 
 ### Schema management
 
@@ -50,7 +46,11 @@ rotodd (Robin Todd)
 
 ### SQL search
 
-namadabu (Narasimhan Madabusi)
+ivmatan (Ivan Matantsev)
+
+rotodd (Robin Todd)
+
+ribans (Richa Bansal)
 
 ### Cosmos DB performance
 
@@ -77,8 +77,6 @@ jaerwin (Jared Erwin)
 ivmatan (Ivan Matantsev)
 
 ### Bulk export
-
-namadabu (Narasimhan Madabusi)
 
 rojo (RB Johnson)
 
