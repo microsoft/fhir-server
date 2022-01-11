@@ -96,7 +96,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder.AppendDelimited(
                 sb => sb.AppendLine().Append(expression.MultiaryOperation == MultiaryOperator.And ? "AND " : "OR "),
                 expression.Expressions,
-                (sb, childExpr) => childExpr.AcceptVisitor(this, context));
+                (sb, childExpr) =>
+                {
+                    if (expression.MultiaryOperation == MultiaryOperator.Or)
+                    {
+                        context.StringBuilder.Append('(');
+                    }
+
+                    childExpr.AcceptVisitor(this, context);
+
+                    if (expression.MultiaryOperation == MultiaryOperator.Or)
+                    {
+                        context.StringBuilder.Append(')');
+                    }
+                });
 
             if (expression.MultiaryOperation == MultiaryOperator.Or)
             {

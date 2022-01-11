@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 if (_searchParameterDefinitionManager.TryGetSearchParameter(compartmentResourceType, compartmentSearchParameter, out SearchParameterInfo sp))
                                 {
                                     searchParamExpressionsForResourceType.Add(
-                                        Expression.SearchParameter(sp, Expression.And(Expression.Equals(FieldName.ReferenceResourceType, null, parsedCompartmentType), Expression.Equals(FieldName.ReferenceResourceId, null, compartmentId))));
+                                        Expression.SearchParameter(sp, Expression.And(Expression.StringEquals(FieldName.ReferenceResourceType, null, compartmentType, false), Expression.StringEquals(FieldName.ReferenceResourceId, null, compartmentId, false))));
                                 }
                             }
                         }
@@ -344,7 +344,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             {
                                 SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
                                     _resourceTypeSearchParameter,
-                                    Expression.Or(grouping.Value.ResourceTypes.Select(compartmentResourceType => Expression.Equals(FieldName.TokenCode, null, compartmentResourceType)).ToArray<Expression>()));
+                                    Expression.Or(grouping.Value.ResourceTypes.Select(compartmentResourceType => Expression.StringEquals(FieldName.TokenCode, null, compartmentResourceType, false)).ToArray<Expression>()));
 
                                 compartmentSearchExpressionsGrouped.Add(Expression.And(grouping.Value.Expression, resourceTypesExpression));
                             }

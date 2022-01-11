@@ -26,11 +26,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitMultiary(MultiaryExpression expression, int context)
         {
-            if (expression.MultiaryOperation != MultiaryOperator.And)
-            {
-                throw new InvalidOperationException("Or is not supported as a top-level expression");
-            }
-
             List<SearchParameterExpressionBase> resourceExpressions = null;
             List<SearchParamTableExpression> tableExpressions = null;
 
