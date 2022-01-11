@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
@@ -97,6 +98,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(_bundleConfiguration);
 
+            IMediator mediator = Substitute.For<IMediator>();
+
             _bundleHandler = new BundleHandler(
                 httpContextAccessor,
                 fhirRequestContextAccessor,
@@ -110,6 +113,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 auditEventTypeMapping,
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
+                mediator,
                 NullLogger<BundleHandler>.Instance);
         }
 

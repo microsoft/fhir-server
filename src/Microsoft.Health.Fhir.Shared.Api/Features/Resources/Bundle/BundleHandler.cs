@@ -5,11 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -77,6 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
+        private readonly IMediator _mediator;
 
         /// <summary>
         /// Headers to propagate the the from the inner actions to the outer HTTP request.
@@ -98,6 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
             IAuthorizationService<DataActions> authorizationService,
+            IMediator mediator,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -113,6 +113,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -126,6 +127,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _auditEventTypeMapping = auditEventTypeMapping;
             _authorizationService = authorizationService;
             _bundleConfiguration = bundleConfiguration.Value;
+            _mediator = mediator;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -202,7 +204,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     };
 
                     await ExecuteAllRequests(responseBundle);
-                    return new BundleResponse(responseBundle.ToResourceElement());
+                    var response = new BundleResponse(responseBundle.ToResourceElement());
+
+                    int successfulRequestCount = 0;
+                    foreach (var entry in responseBundle.Entry)
+                    {
+                        successfulRequestCount += entry.Response.Status.StartsWith("2", StringComparison.InvariantCulture) ? 1 : 0;
+                    }
+
+                    await _mediator.Publish(new BundleMetricsNotification(successfulRequestCount, BundleType.Batch), CancellationToken.None);
+
+                    return response;
                 }
 
                 if (_bundleType == BundleType.Transaction)
@@ -217,7 +229,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.TransactionResponse,
                     };
 
-                    return await ExecuteTransactionForAllRequests(responseBundle);
+                    var response = await ExecuteTransactionForAllRequests(responseBundle);
+
+                    int successfulRequestCount = 0;
+                    foreach (var entry in responseBundle.Entry)
+                    {
+                        successfulRequestCount += entry.Response.Status.StartsWith("2", StringComparison.InvariantCulture) ? 1 : 0;
+                    }
+
+                    await _mediator.Publish(new BundleMetricsNotification(successfulRequestCount, BundleType.Transaction), CancellationToken.None);
+
+                    return response;
                 }
 
                 throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
