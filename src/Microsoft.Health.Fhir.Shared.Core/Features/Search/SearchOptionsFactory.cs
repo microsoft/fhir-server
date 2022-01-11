@@ -290,19 +290,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    var compartmentResourceTypesToSearch = new List<string>();
+                    var compartmentResourceTypesToSearch = new HashSet<string>();
                     var compartmentSearchExpressions = new Dictionary<string, (SearchParameterExpression Expression, HashSet<string> ResourceTypes)>();
 
-                    if (string.IsNullOrEmpty(resourceType))
-                    {
-                        if (_compartmentDefinitionManager.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
-                        {
-                            compartmentResourceTypesToSearch.AddRange(resourceTypes);
-                        }
-                    }
-                    else
+                    Tuple<string, string> queryTypeFilter = queryParameters?.FirstOrDefault(x => string.Equals(KnownQueryParameterNames.Type, x.Item1, StringComparison.Ordinal));
+
+                    if (!string.IsNullOrEmpty(resourceType))
                     {
                         compartmentResourceTypesToSearch.Add(resourceType);
+                    }
+                    else if (!string.IsNullOrEmpty(queryTypeFilter?.Item2))
+                    {
+                        foreach (var resourceFilter in queryTypeFilter.Item2.Split(',', ' ', StringSplitOptions.RemoveEmptyEntries).Where(x => ModelInfoProvider.IsKnownResource(x)))
+                        {
+                            compartmentResourceTypesToSearch.Add(resourceFilter);
+                        }
+                    }
+                    else if (_compartmentDefinitionManager.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
+                    {
+                        foreach (var resourceFilter in resourceTypes)
+                        {
+                            compartmentResourceTypesToSearch.Add(resourceFilter);
+                        }
                     }
 
                     foreach (var compartmentResourceType in compartmentResourceTypesToSearch)
@@ -342,9 +351,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             // When we're searching more than 1 compartment resource type (i.e. Patient/abc/*) the search parameters need to list the applicable resource types
                             if (compartmentResourceTypesToSearch.Count > 1)
                             {
+                                Expression[] resourceTypeFilter = grouping.Value.ResourceTypes.Select(compartmentResourceType => Expression.StringEquals(FieldName.TokenCode, null, compartmentResourceType, false)).ToArray<Expression>();
+
                                 SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
                                     _resourceTypeSearchParameter,
-                                    Expression.Or(grouping.Value.ResourceTypes.Select(compartmentResourceType => Expression.StringEquals(FieldName.TokenCode, null, compartmentResourceType, false)).ToArray<Expression>()));
+                                    resourceTypeFilter.Length == 1 ? resourceTypeFilter.Single() : Expression.Or(resourceTypeFilter));
 
                                 compartmentSearchExpressionsGrouped.Add(Expression.And(grouping.Value.Expression, resourceTypesExpression));
                             }
