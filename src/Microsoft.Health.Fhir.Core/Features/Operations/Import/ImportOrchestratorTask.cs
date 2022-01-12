@@ -10,6 +10,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core.Features.Context;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private const int DefaultPollingFrequencyInSeconds = 3;
         private const long DefaultResourceSizePerByte = 64;
 
+        private readonly IMediator _mediator;
         private ImportOrchestratorTaskInputData _orchestratorInputData;
         private RequestContextAccessor<IFhirRequestContext> _contextAccessor;
         private ImportOrchestratorTaskContext _orchestratorTaskContext;
@@ -40,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         private List<(Uri resourceUri, TaskInfo taskInfo)> _runningTasks = new List<(Uri resourceUri, TaskInfo taskInfo)>();
 
         public ImportOrchestratorTask(
+            IMediator mediator,
             ImportOrchestratorTaskInputData orchestratorInputData,
             ImportOrchestratorTaskContext orchestratorTaskContext,
             ITaskManager taskManager,
@@ -50,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             IIntegrationDataStoreClient integrationDataStoreClient,
             ILoggerFactory loggerFactory)
         {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(orchestratorInputData, nameof(orchestratorInputData));
             EnsureArg.IsNotNull(orchestratorTaskContext, nameof(orchestratorTaskContext));
             EnsureArg.IsNotNull(taskManager, nameof(taskManager));
@@ -60,6 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
+            _mediator = mediator;
             _orchestratorInputData = orchestratorInputData;
             _orchestratorTaskContext = orchestratorTaskContext;
             _taskManager = taskManager;
@@ -148,6 +153,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CancelProcessingTasksAsync();
                 taskResultData = new TaskResultData(TaskResult.Canceled, taskCanceledEx.Message);
+                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (OperationCanceledException canceledEx)
             {
@@ -155,6 +161,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CancelProcessingTasksAsync();
                 taskResultData = new TaskResultData(TaskResult.Canceled, canceledEx.Message);
+                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
@@ -167,6 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
+                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
@@ -179,6 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
+                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (ImportProcessingException processingEx)
             {
@@ -191,6 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
+                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (Exception ex)
             {
@@ -201,6 +211,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     HttpStatusCode = HttpStatusCode.InternalServerError,
                     ErrorMessage = ex.Message,
                 };
+
+                await SendImportMetricsNotification(TaskResult.Fail);
 
                 throw new RetriableTaskException(JsonConvert.SerializeObject(errorResult));
             }
@@ -227,6 +239,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                         InnerError = errorResult,
                     };
 
+                    await SendImportMetricsNotification(TaskResult.Fail);
+
                     throw new RetriableTaskException(JsonConvert.SerializeObject(postProcessEerrorResult));
                 }
             }
@@ -234,6 +248,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             if (taskResultData == null) // No exception
             {
                 taskResultData = new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(_orchestratorTaskContext.ImportResult));
+                await SendImportMetricsNotification(taskResultData.Result);
             }
 
             return taskResultData;
@@ -265,6 +280,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     }
                 }
             }
+        }
+
+        private async Task SendImportMetricsNotification(TaskResult taskResult)
+        {
+            long succeedCount = _orchestratorTaskContext.ImportResult.Output.Sum(output => output.Count);
+            long failedCount = _orchestratorTaskContext.ImportResult.Error.Sum(error => error.Count);
+
+            ImportTaskMetricsNotification importTaskMetricsNotification = new ImportTaskMetricsNotification(
+                _orchestratorInputData.TaskId,
+                taskResult.ToString(),
+                _orchestratorInputData.TaskCreateTime,
+                DateTimeOffset.Now,
+                _orchestratorTaskContext.TotalSizeInBytes,
+                succeedCount,
+                failedCount);
+
+            await _mediator.Publish(importTaskMetricsNotification, CancellationToken.None);
         }
 
         private async Task UpdateProgressAsync(ImportOrchestratorTaskContext context, CancellationToken cancellationToken)
@@ -310,6 +342,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 result[input.Url] = processingTask;
 
                 beginSequenceId = endSequenceId;
+
+                _orchestratorTaskContext.TotalSizeInBytes += blobSizeInBytes;
             }
 
             return result;

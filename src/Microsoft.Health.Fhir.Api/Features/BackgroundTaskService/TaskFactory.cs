@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
         private readonly ITaskManager _taskmanager;
         private readonly IContextUpdaterFactory _contextUpdaterFactory;
         private readonly RequestContextAccessor<IFhirRequestContext> _contextAccessor;
+        private readonly IMediator _mediator;
         private readonly ILoggerFactory _loggerFactory;
 
         public TaskFactory(
@@ -40,6 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             ISequenceIdGenerator<long> sequenceIdGenerator,
             IIntegrationDataStoreClient integrationDataStoreClient,
             RequestContextAccessor<IFhirRequestContext> contextAccessor,
+            IMediator mediator,
             ILoggerFactory loggerFactory)
         {
             EnsureArg.IsNotNull(importResourceLoader, nameof(importResourceLoader));
@@ -51,6 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             EnsureArg.IsNotNull(sequenceIdGenerator, nameof(sequenceIdGenerator));
             EnsureArg.IsNotNull(integrationDataStoreClient, nameof(integrationDataStoreClient));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(loggerFactory, nameof(loggerFactory));
 
             _importResourceLoader = importResourceLoader;
@@ -62,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
             _taskmanager = taskmanager;
             _contextUpdaterFactory = contextUpdaterFactory;
             _contextAccessor = contextAccessor;
+            _mediator = mediator;
             _loggerFactory = loggerFactory;
         }
 
@@ -92,6 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.BackgroundTaskService
                 ImportOrchestratorTaskContext orchestratorTaskProgress = string.IsNullOrEmpty(taskInfo.Context) ? new ImportOrchestratorTaskContext() : JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(taskInfo.Context);
 
                 return new ImportOrchestratorTask(
+                    _mediator,
                     inputData,
                     orchestratorTaskProgress,
                     _taskmanager,
