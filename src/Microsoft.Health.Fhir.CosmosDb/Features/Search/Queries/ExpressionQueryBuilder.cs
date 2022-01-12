@@ -15,11 +15,10 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
-    internal class ExpressionQueryBuilder : IExpressionVisitorWithInitialContext<ExpressionQueryBuilder.Context, object>, ICosmosExpressionVisitor<ExpressionQueryBuilder.Context, object>
+    internal class ExpressionQueryBuilder : IExpressionVisitorWithInitialContext<ExpressionQueryBuilder.Context, object>
     {
         private static readonly Dictionary<BinaryOperator, string> BinaryOperatorMapping = new Dictionary<BinaryOperator, string>()
         {

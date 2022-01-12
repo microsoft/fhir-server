@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
+using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -82,6 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
+            string queryTypeFilter = null;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
@@ -122,19 +124,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         if (badTypes.Count != types.Count)
                         {
                             // In case of we have acceptable types, we filter invalid types from search.
-                            searchParams.Add(KnownQueryParameterNames.Type, types.Except(badTypes).JoinByOrSeparator());
+                            queryTypeFilter = types.Except(badTypes).JoinByOrSeparator();
                         }
                         else
                         {
                             // If all types are invalid, we add them to search params. If we remove them, we wouldn't filter by type, and return all types,
                             // which is incorrect behaviour. Optimally we should indicate in search options what it would yield nothing, and skip search,
                             // but there is no option for that right now.
-                            searchParams.Add(KnownQueryParameterNames.Type, query.Item2);
+                            queryTypeFilter = query.Item2;
                         }
                     }
                     else
                     {
-                        searchParams.Add(KnownQueryParameterNames.Type, query.Item2);
+                        queryTypeFilter = query.Item2;
                     }
                 }
                 else if (string.IsNullOrWhiteSpace(query.Item1) || string.IsNullOrWhiteSpace(query.Item2))
@@ -220,16 +222,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ResourceType[] parsedResourceTypes = new[] { ResourceType.DomainResource };
 
             var searchExpressions = new List<Expression>();
-            if (string.IsNullOrWhiteSpace(resourceType))
+            if (string.IsNullOrWhiteSpace(resourceType) && !string.IsNullOrEmpty(queryTypeFilter))
             {
                 // Try to parse resource types from _type Search Parameter
                 // This will result in empty array if _type has any modifiers
                 // Which is good, since :not modifier changes the meaning of the
                 // search parameter and we can no longer use it to deduce types
                 // (and should proceed with ResourceType.DomainResource in that case)
-                var resourceTypes = searchParams.Parameters
-                    .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
-                    .SelectMany(q => q.Item2.SplitByOrSeparator())
+                var resourceTypes = queryTypeFilter
+                    .SplitByOrSeparator()
                     .Where(type => ModelInfoProvider.IsKnownResource(type))
                     .Select(x =>
                     {
@@ -248,7 +249,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     parsedResourceTypes = resourceTypes.ToArray();
                 }
             }
-            else
+            else if (!string.IsNullOrWhiteSpace(resourceType))
             {
                 if (!Enum.TryParse(resourceType, out parsedResourceTypes[0]))
                 {
@@ -275,11 +276,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     })
                 .Where(item => item != null));
 
+            // This is used to generate queries specific to the compartment filters
+            if (!string.IsNullOrEmpty(queryTypeFilter))
+            {
+                searchParams.Add(KnownQueryParameterNames.Type, queryTypeFilter);
+            }
+
             // Parse _include:iterate (_include:recurse) parameters.
             // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
             // when applied on a circular reference
             searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.Include, resourceTypesString, false));
             searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams.RevInclude, resourceTypesString, true));
+
+            // If compartmentResource and _type is not specified, get all compartmentTypes
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -293,17 +302,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     var compartmentResourceTypesToSearch = new HashSet<string>();
                     var compartmentSearchExpressions = new Dictionary<string, (SearchParameterExpression Expression, HashSet<string> ResourceTypes)>();
 
-                    Tuple<string, string> queryTypeFilter = queryParameters?.FirstOrDefault(x => string.Equals(KnownQueryParameterNames.Type, x.Item1, StringComparison.Ordinal));
-
-                    if (!string.IsNullOrEmpty(resourceType))
+                    if (parsedResourceTypes?.Where(x => x != ResourceType.DomainResource).Any() == true)
                     {
-                        compartmentResourceTypesToSearch.Add(resourceType);
-                    }
-                    else if (!string.IsNullOrEmpty(queryTypeFilter?.Item2))
-                    {
-                        foreach (var resourceFilter in queryTypeFilter.Item2.Split(',', ' ', StringSplitOptions.RemoveEmptyEntries).Where(x => ModelInfoProvider.IsKnownResource(x)))
+                        foreach (ResourceType parsedResourceType in parsedResourceTypes)
                         {
-                            compartmentResourceTypesToSearch.Add(resourceFilter);
+                            compartmentResourceTypesToSearch.Add(parsedResourceType.ToString());
                         }
                     }
                     else if (_compartmentDefinitionManager.TryGetResourceTypes(parsedCompartmentType, out HashSet<string> resourceTypes))
@@ -351,11 +354,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             // When we're searching more than 1 compartment resource type (i.e. Patient/abc/*) the search parameters need to list the applicable resource types
                             if (compartmentResourceTypesToSearch.Count > 1)
                             {
-                                Expression[] resourceTypeFilter = grouping.Value.ResourceTypes.Select(compartmentResourceType => Expression.StringEquals(FieldName.TokenCode, null, compartmentResourceType, false)).ToArray<Expression>();
+                                var inExpression = new InExpression(FieldName.TokenCode, null, grouping.Value.ResourceTypes);
 
                                 SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
                                     _resourceTypeSearchParameter,
-                                    resourceTypeFilter.Length == 1 ? resourceTypeFilter.Single() : Expression.Or(resourceTypeFilter));
+                                    inExpression);
 
                                 compartmentSearchExpressionsGrouped.Add(Expression.And(grouping.Value.Expression, resourceTypesExpression));
                             }
@@ -366,6 +369,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         }
 
                         searchExpressions.Add(Expression.Or(compartmentSearchExpressionsGrouped));
+                    }
+                    else
+                    {
+                        var inExpression = new InExpression(FieldName.TokenCode, null, parsedResourceTypes.Select(x => x.ToString()));
+
+                        SearchParameterExpression resourceTypesExpression = Expression.SearchParameter(
+                            _resourceTypeSearchParameter,
+                            inExpression);
+
+                        searchExpressions.Add(resourceTypesExpression);
                     }
                 }
                 else

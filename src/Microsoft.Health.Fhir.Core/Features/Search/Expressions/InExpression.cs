@@ -6,9 +6,8 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
     /// In CosmosDB, allows for use of ARRAY_CONTAINS to group known values instead of multiple ORs.
@@ -30,7 +29,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
-            return ((ICosmosExpressionVisitor<TContext, TOutput>)visitor).VisitIn(this, context);
+            return visitor.VisitIn(this, context);
         }
 
         public override string ToString()

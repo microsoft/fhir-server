@@ -264,6 +264,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
+        protected static SearchParameterQueryGeneratorContext VisitSimpleIn(SearchParameterQueryGeneratorContext context, Column column, params object[] resolvedValues)
+        {
+            context.StringBuilder.Append(column, context.TableAlias);
+            context.StringBuilder.Append(" IN (");
+
+            for (var index = 0; index < resolvedValues.Length; index++)
+            {
+                var item = resolvedValues[index];
+
+                context.StringBuilder.Append(context.Parameters.AddParameter(item, true));
+
+                if (index < resolvedValues.Length - 1)
+                {
+                    context.StringBuilder.Append(",");
+                }
+            }
+
+            context.StringBuilder.AppendLine(")");
+
+            return context;
+        }
+
         protected static SearchParameterQueryGeneratorContext VisitMissingFieldImpl(MissingFieldExpression expression, SearchParameterQueryGeneratorContext context, FieldName expectedFieldName, Column column)
         {
             if (expression.FieldName != expectedFieldName)
