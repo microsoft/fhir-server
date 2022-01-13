@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core;
@@ -62,6 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             ITaskManager taskManager = Substitute.For<ITaskManager>();
+            IMediator mediator = Substitute.For<IMediator>();
 
             importOrchestratorTaskInputData.TaskId = Guid.NewGuid().ToString("N");
             importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
@@ -87,6 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns(_ => 0L);
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,
@@ -117,6 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             ITaskManager taskManager = Substitute.For<ITaskManager>();
+            IMediator mediator = Substitute.For<IMediator>();
 
             importOrchestratorTaskInputData.TaskId = Guid.NewGuid().ToString("N");
             importOrchestratorTaskInputData.TaskCreateTime = Clock.UtcNow;
@@ -139,6 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns(_ => 0L);
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,
@@ -166,6 +171,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -219,6 +225,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns(_ => 0L);
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,
@@ -244,6 +251,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -291,6 +299,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => throw new InvalidOperationException());
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,
@@ -316,6 +325,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -357,6 +367,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,
@@ -382,6 +393,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -435,6 +447,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,
@@ -462,6 +475,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -524,6 +538,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,
@@ -550,6 +565,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -606,6 +622,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns<long>(_ => 0L);
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,
@@ -630,6 +647,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ILoggerFactory loggerFactory = new NullLoggerFactory();
             IIntegrationDataStoreClient integrationDataStoreClient = Substitute.For<IIntegrationDataStoreClient>();
             ISequenceIdGenerator<long> sequenceIdGenerator = Substitute.For<ISequenceIdGenerator<long>>();
+            IMediator mediator = Substitute.For<IMediator>();
             ImportOrchestratorTaskInputData importOrchestratorTaskInputData = new ImportOrchestratorTaskInputData();
             ImportOrchestratorTaskContext importOrchestratorTaskContext = new ImportOrchestratorTaskContext();
             List<(long begin, long end)> surrogatedIdRanges = new List<(long begin, long end)>();
@@ -727,6 +745,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             sequenceIdGenerator.GetCurrentSequenceId().Returns(_ => 0L);
 
             ImportOrchestratorTask orchestratorTask = new ImportOrchestratorTask(
+                mediator,
                 importOrchestratorTaskInputData,
                 importOrchestratorTaskContext,
                 taskManager,

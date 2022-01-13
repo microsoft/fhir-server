@@ -15,9 +15,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             string status,
             DateTimeOffset createdTime,
             DateTimeOffset endTime,
-            long dataSize,
-            long succeedCount,
-            long failedCount)
+            long? dataSize,
+            long? succeedCount,
+            long? failedCount)
         {
             Id = id;
             Status = status;
@@ -40,10 +40,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         public DateTimeOffset EndTime { get; }
 
-        public long DataSize { get; }
+        public long? DataSize { get; }
 
-        public long SucceedCount { get; }
+        public long? SucceedCount { get; }
 
-        public long FailedCount { get; }
+        public long? FailedCount { get; }
     }
 }

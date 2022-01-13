@@ -31,6 +31,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
         /// <summary>
         /// Import total file size
         /// </summary>
-        public long TotalSizeInBytes { get; set; }
+        public long? TotalSizeInBytes { get; set; }
     }
 }

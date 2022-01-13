@@ -284,8 +284,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
         private async Task SendImportMetricsNotification(TaskResult taskResult)
         {
-            long succeedCount = _orchestratorTaskContext.ImportResult.Output.Sum(output => output.Count);
-            long failedCount = _orchestratorTaskContext.ImportResult.Error.Sum(error => error.Count);
+            long? succeedCount = _orchestratorTaskContext.ImportResult?.Output?.Sum(output => output.Count);
+            long? failedCount = _orchestratorTaskContext.ImportResult?.Error?.Sum(error => error.Count);
 
             ImportTaskMetricsNotification importTaskMetricsNotification = new ImportTaskMetricsNotification(
                 _orchestratorInputData.TaskId,
@@ -309,6 +309,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             Dictionary<Uri, TaskInfo> result = new Dictionary<Uri, TaskInfo>();
 
             long beginSequenceId = _sequenceIdGenerator.GetCurrentSequenceId();
+            long totalSizeInBYtes = 0;
 
             foreach (var input in _orchestratorInputData.Input)
             {
@@ -343,8 +344,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 beginSequenceId = endSequenceId;
 
-                _orchestratorTaskContext.TotalSizeInBytes += blobSizeInBytes;
+                totalSizeInBYtes += blobSizeInBytes;
             }
+
+            _orchestratorTaskContext.TotalSizeInBytes = totalSizeInBYtes;
 
             return result;
         }
