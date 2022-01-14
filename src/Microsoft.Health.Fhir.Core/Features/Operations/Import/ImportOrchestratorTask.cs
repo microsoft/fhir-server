@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _orchestratorInputData.TaskId,
                 taskResult.ToString(),
                 _orchestratorInputData.TaskCreateTime,
-                DateTimeOffset.Now,
+                DateTimeOffset.Now.ToUniversalTime(),
                 _orchestratorTaskContext.TotalSizeInBytes,
                 succeedCount,
                 failedCount);
