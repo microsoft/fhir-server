@@ -508,17 +508,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
                     catch (Exception exp)
                     {
+                        _output.WriteLine("CustomSearchParameter test experienced issue attempted to clean up SearchParameter {searchParamUrl}.  The exception message is {exp}", searchParam.Url, exp.Message);
                         var fhirException = exp as FhirException;
                         if (fhirException != null && fhirException.OperationOutcome?.Issue != null)
                         {
                             foreach (var issue in fhirException.OperationOutcome.Issue)
                             {
-                                _output.WriteLine("Issue: {message}", issue.Diagnostics);
+                                _output.WriteLine("FhirException OperationOutome message from trying to delete SearchParameter is CustomSearchParam test: {message}", issue.Diagnostics);
                             }
-                        }
-                        else
-                        {
-                            _output.WriteLine($"Failed to delete searchParameter: {exp}");
                         }
 
                         success = false;
