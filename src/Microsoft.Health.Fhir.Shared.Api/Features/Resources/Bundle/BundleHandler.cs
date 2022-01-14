@@ -206,11 +206,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     await ExecuteAllRequests(responseBundle);
                     var response = new BundleResponse(responseBundle.ToResourceElement());
 
-                    int successfulRequestCount = 0;
-                    foreach (var entry in responseBundle.Entry)
-                    {
-                        successfulRequestCount += entry.Response.Status.StartsWith("2", StringComparison.InvariantCulture) ? 1 : 0;
-                    }
+                    int successfulRequestCount = responseBundle.Entry.Count(entry => entry.Response.Status.StartsWith("2", StringComparison.Ordinal));
 
                     await _mediator.Publish(new BundleMetricsNotification(successfulRequestCount, BundleType.Batch), CancellationToken.None);
 
