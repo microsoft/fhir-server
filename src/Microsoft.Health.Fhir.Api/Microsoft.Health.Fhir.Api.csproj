@@ -23,9 +23,9 @@
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="$(AspNetPackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(RuntimePackageVersion)" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.Health.Api" Version="$(HealthcareSharedPackageVersion)" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="4.0.10" />
+    <PackageReference Include="Microsoft.Health.Api" Version="4.0.10" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="4.0.10" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
