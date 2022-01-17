@@ -153,7 +153,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CancelProcessingTasksAsync();
                 taskResultData = new TaskResultData(TaskResult.Canceled, taskCanceledEx.Message);
-                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (OperationCanceledException canceledEx)
             {
@@ -161,7 +160,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 await CancelProcessingTasksAsync();
                 taskResultData = new TaskResultData(TaskResult.Canceled, canceledEx.Message);
-                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (IntegrationDataStoreException integrationDataStoreEx)
             {
@@ -174,7 +172,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
-                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (ImportFileEtagNotMatchException eTagEx)
             {
@@ -187,7 +184,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
-                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (ImportProcessingException processingEx)
             {
@@ -200,7 +196,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 };
 
                 taskResultData = new TaskResultData(TaskResult.Fail, JsonConvert.SerializeObject(errorResult));
-                await SendImportMetricsNotification(taskResultData.Result);
             }
             catch (Exception ex)
             {
@@ -248,8 +243,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             if (taskResultData == null) // No exception
             {
                 taskResultData = new TaskResultData(TaskResult.Success, JsonConvert.SerializeObject(_orchestratorTaskContext.ImportResult));
-                await SendImportMetricsNotification(taskResultData.Result);
             }
+
+            await SendImportMetricsNotification(taskResultData.Result);
 
             return taskResultData;
         }
@@ -309,7 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             Dictionary<Uri, TaskInfo> result = new Dictionary<Uri, TaskInfo>();
 
             long beginSequenceId = _sequenceIdGenerator.GetCurrentSequenceId();
-            long totalSizeInBYtes = 0;
+            long totalSizeInBytes = 0;
 
             foreach (var input in _orchestratorInputData.Input)
             {
@@ -344,10 +340,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 beginSequenceId = endSequenceId;
 
-                totalSizeInBYtes += blobSizeInBytes;
+                totalSizeInBytes += blobSizeInBytes;
             }
 
-            _orchestratorTaskContext.TotalSizeInBytes = totalSizeInBYtes;
+            _orchestratorTaskContext.TotalSizeInBytes = totalSizeInBytes;
 
             return result;
         }

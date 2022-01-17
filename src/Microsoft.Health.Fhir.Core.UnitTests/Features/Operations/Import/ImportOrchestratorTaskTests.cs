@@ -106,6 +106,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(TaskResult.Fail, result.Result);
             Assert.Equal(HttpStatusCode.BadRequest, resultDetails.HttpStatusCode);
             Assert.NotEmpty(resultDetails.ErrorMessage);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Fail.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.DataSize == null &&
+                    notification.SucceedCount == null &&
+                    notification.FailedCount == null),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -160,6 +170,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             Assert.Equal(TaskResult.Fail, result.Result);
             Assert.Equal(HttpStatusCode.Unauthorized, resultDetails.HttpStatusCode);
             Assert.NotEmpty(resultDetails.ErrorMessage);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Fail.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.DataSize == null &&
+                    notification.SucceedCount == null &&
+                    notification.FailedCount == null),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -240,6 +260,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             await Assert.ThrowsAnyAsync<RetriableTaskException>(() => orchestratorTask.ExecuteAsync());
             ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
             Assert.Equal(ImportOrchestratorTaskProgress.InputResourcesValidated, context.Progress);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Fail.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.DataSize == null &&
+                    notification.SucceedCount == null &&
+                    notification.FailedCount == null),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -314,6 +344,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             await Assert.ThrowsAnyAsync<RetriableTaskException>(() => orchestratorTask.ExecuteAsync());
             ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
             Assert.Equal(ImportOrchestratorTaskProgress.PreprocessCompleted, context.Progress);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Fail.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.DataSize == null &&
+                    notification.SucceedCount == null &&
+                    notification.FailedCount == null),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -382,6 +422,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             await Assert.ThrowsAnyAsync<RetriableTaskException>(() => orchestratorTask.ExecuteAsync());
             ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
             Assert.Equal(ImportOrchestratorTaskProgress.SubTaskRecordsGenerated, context.Progress);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Fail.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.SucceedCount == null &&
+                    notification.FailedCount == null),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -464,6 +513,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
 
             ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
             Assert.Equal(ImportOrchestratorTaskProgress.SubTaskRecordsGenerated, context.Progress);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Fail.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.SucceedCount == null &&
+                    notification.FailedCount == null),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -554,6 +612,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             ImportOrchestratorTaskContext context = JsonConvert.DeserializeObject<ImportOrchestratorTaskContext>(latestContext);
             Assert.Equal(ImportOrchestratorTaskProgress.SubTasksCompleted, context.Progress);
             Assert.Equal(1, context.DataProcessingTasks.Count);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Fail.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.SucceedCount == 1 &&
+                    notification.FailedCount == 1),
+                Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -637,6 +704,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
             orchestratorTask.Cancel();
             TaskResultData taskResult = await orchestratorTask.ExecuteAsync();
             Assert.Equal(TaskResult.Canceled, taskResult.Result);
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Canceled.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.SucceedCount == null &&
+                    notification.FailedCount == null),
+                Arg.Any<CancellationToken>());
         }
 
         private static async Task VerifyCommonOrchestratorTaskAsync(int inputFileCount, int concurrentCount, int resumeFrom = -1)
@@ -787,6 +863,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                 Assert.True(orderedSurrogatedIdRanges[i].end > orderedSurrogatedIdRanges[i].begin);
                 Assert.True(orderedSurrogatedIdRanges[i].end <= orderedSurrogatedIdRanges[i + 1].begin);
             }
+
+            _ = mediator.Received().Publish(
+                Arg.Is<ImportTaskMetricsNotification>(
+                    notification => notification.Id == importOrchestratorTaskInputData.TaskId &&
+                    notification.Status == TaskResult.Success.ToString() &&
+                    notification.CreatedTime == importOrchestratorTaskInputData.TaskCreateTime &&
+                    notification.SucceedCount == resultDetails.Output.Sum(o => o.Count) &&
+                    notification.FailedCount == resultDetails.Error.Sum(e => e.Count)),
+                Arg.Any<CancellationToken>());
         }
     }
 }
