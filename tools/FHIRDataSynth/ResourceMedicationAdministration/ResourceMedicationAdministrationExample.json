@@ -1,0 +1,22 @@
+{
+  "resourceType": "MedicationAdministration",
+  "id": "18db0fd0-3305-9e00-eefb-af605a02c6d9",
+  "status": "completed",
+  "medicationCodeableConcept": {
+    "coding": [
+      {
+        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+        "code": "1740467",
+        "display": "2 ML Ondansetron 2 MG/ML Injection"
+      }
+    ],
+    "text": "2 ML Ondansetron 2 MG/ML Injection"
+  },
+  "subject": {
+    "reference": "Patient/3907abd0-d13a-2447-a69c-c60182d5ecd9"
+  },
+  "context": {
+    "reference": "Encounter/f6f1aac7-e5fb-d2c5-5f09-c1be33389fe8"
+  },
+  "effectiveDateTime": "1990-06-10T15:43:13+00:00"
+}

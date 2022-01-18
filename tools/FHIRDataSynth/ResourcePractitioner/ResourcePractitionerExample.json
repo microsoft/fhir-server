@@ -1,0 +1,41 @@
+{
+  "resourceType": "Practitioner",
+  "id": "7a940c0c-3301-3bf9-915f-323084439934",
+  "identifier": [
+    {
+      "system": "http://hl7.org/fhir/sid/us-npi",
+      "value": "9999999729"
+    }
+  ],
+  "active": true,
+  "name": [
+    {
+      "family": "Borer986",
+      "given": [
+        "Damaris45"
+      ],
+      "prefix": [
+        "Dr."
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "system": "email",
+      "value": "Damaris45.Borer986@example.com",
+      "use": "work"
+    }
+  ],
+  "address": [
+    {
+      "line": [
+        "585 LEBANON STREET"
+      ],
+      "city": "MELROSE",
+      "state": "MA",
+      "postalCode": "02176",
+      "country": "US"
+    }
+  ],
+  "gender": "female"
+}
