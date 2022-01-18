@@ -455,7 +455,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await _mediator.Received().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
 
             Assert.Equal(type == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, notification.FhirOperation);
-            Assert.Equal(successfulCalls, notification.ApiCalls);
+            Assert.Equal(successfulCalls, notification.SuccessfulApiCalls);
         }
 
         [Fact]

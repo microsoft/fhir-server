@@ -206,9 +206,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     await ExecuteAllRequests(responseBundle);
                     var response = new BundleResponse(responseBundle.ToResourceElement());
 
-                    int successfulRequestCount = responseBundle.Entry.Count(entry => entry.Response.Status.StartsWith("2", StringComparison.Ordinal));
-
-                    await _mediator.Publish(new BundleMetricsNotification(successfulRequestCount, BundleType.Batch), CancellationToken.None);
+                    await PublishNotification(responseBundle, BundleType.Batch);
 
                     return response;
                 }
@@ -227,9 +225,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     var response = await ExecuteTransactionForAllRequests(responseBundle);
 
-                    int successfulRequestCount = responseBundle.Entry.Count(entry => entry.Response.Status.StartsWith("2", StringComparison.Ordinal));
-
-                    await _mediator.Publish(new BundleMetricsNotification(successfulRequestCount, BundleType.Transaction), CancellationToken.None);
+                    await PublishNotification(responseBundle, BundleType.Transaction);
 
                     return response;
                 }
@@ -240,6 +236,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
             }
+        }
+
+        private async Task PublishNotification(Hl7.Fhir.Model.Bundle responseBundle, BundleType bundleType)
+        {
+            var apiCallResults = new Dictionary<string, int>();
+            foreach (var entry in responseBundle.Entry)
+            {
+                var status = entry.Response.Status;
+                if (apiCallResults.ContainsKey(status))
+                {
+                    apiCallResults[status]++;
+                }
+                else
+                {
+                    apiCallResults[status] = 1;
+                }
+            }
+
+            await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType), CancellationToken.None);
         }
 
         private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
