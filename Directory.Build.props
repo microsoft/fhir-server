@@ -27,7 +27,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <RuntimePackageVersion>6.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>6.0.0</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>4.0.6</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>4.0.10</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>3.6.0</Hl7FhirVersion>
   </PropertyGroup>
 

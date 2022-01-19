@@ -1,4 +1,4 @@
-/*************************************************************
+﻿/*************************************************************
     This migration removes the existing primary key clustered index and adds a clustered index on Id column in the ResourceChangeData table.
     The migration is "online" meaning the server is fully available during the upgrade, but it can be very time-consuming.
     For reference, a resource change data table with 10 million records took around 25 minutes to complete 
