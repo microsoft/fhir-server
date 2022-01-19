@@ -409,9 +409,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
         // PUT calls are mocked to succeed while POST calls are mocked to fail.
         [Theory]
-        [InlineData(BundleType.Batch, HTTPVerb.POST, HTTPVerb.PUT, 1)]
-        [InlineData(BundleType.Transaction, HTTPVerb.PUT, HTTPVerb.PUT, 2)]
-        public async Task GivenABundleWithMultipleCalls_WhenProcessed_ThenANotificationWillBeEmitted(BundleType type, HTTPVerb method1, HTTPVerb method2, int successfulCalls)
+        [InlineData(BundleType.Batch, HTTPVerb.POST, HTTPVerb.PUT, 1, 1)]
+        [InlineData(BundleType.Transaction, HTTPVerb.PUT, HTTPVerb.PUT, 2, 0)]
+        public async Task GivenABundleWithMultipleCalls_WhenProcessed_ThenANotificationWillBeEmitted(BundleType type, HTTPVerb method1, HTTPVerb method2, int code200s, int code404s)
         {
             var bundle = new Hl7.Fhir.Model.Bundle
             {
@@ -455,7 +455,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             await _mediator.Received().Publish(Arg.Any<BundleMetricsNotification>(), Arg.Any<CancellationToken>());
 
             Assert.Equal(type == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction, notification.FhirOperation);
-            Assert.Equal(successfulCalls, notification.SuccessfulApiCalls);
+
+            var results = notification.ApiCallResults;
+
+            Assert.Equal(code200s, results["200"]);
+
+            if (code404s > 0)
+            {
+                Assert.Equal(code404s, results["404"]);
+            }
+            else
+            {
+                Assert.Equal(1, results.Keys.Count);
+            }
         }
 
         [Fact]
