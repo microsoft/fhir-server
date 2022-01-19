@@ -1,0 +1,901 @@
+# Examples of FHIR compartment searches.
+
+@hostname = localhost:44348
+
+### Get the bearer token, if authentication is enabled
+# @name bearer
+POST https://{{hostname}}/connect/token
+content-type: application/x-www-form-urlencoded
+
+grant_type=client_credentials
+&client_id=globalAdminServicePrincipal
+&client_secret=globalAdminServicePrincipal
+&scope=fhir-api
+
+###
+# Create an explanation of benefit resource that references 
+# the patient with the id "patient".
+# This will be in the patient's compartment.
+PUT {{hostname}}/ExplanationOfBenefit/explanationofbenefit1
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "explanationofbenefit1",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the ExplanationOfBenefit</div>"
+  },
+  "identifier": [
+    {
+      "system": "http://www.BenefitsInc.com/fhir/explanationofbenefit",
+      "value": "987654321"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "oral"
+      }
+    ]
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/patient"
+  },
+  "created": "2014-08-16",
+  "enterer": {
+    "reference": "Practitioner/1"
+  },
+  "insurer": {
+    "reference": "Organization/3"
+  },
+  "provider": {
+    "reference": "Practitioner/1"
+  },
+  "payee": {
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/payeetype",
+          "code": "provider"
+        }
+      ]
+    },
+    "party": {
+      "reference": "Organization/2"
+    }
+  },
+  "facility": {
+    "reference": "Location/1"
+  },
+  "claim": {
+    "reference": "Claim/100150"
+  },
+  "claimResponse": {
+    "reference": "ClaimResponse/R3500"
+  },
+  "outcome": "complete",
+  "disposition": "Claim settled as per contract.",
+  "careTeam": [
+    {
+      "sequence": 1,
+      "provider": {
+        "reference": "Practitioner/example"
+      }
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/9876B1"
+      }
+    }
+  ],
+  "item": [
+    {
+      "sequence": 1,
+      "careTeamSequence": [
+        1
+      ],
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/ex-USCLS",
+            "code": "1205"
+          }
+        ]
+      },
+      "servicedDate": "2014-08-16",
+      "unitPrice": {
+        "value": 135.57,
+        "currency": "USD"
+      },
+      "net": {
+        "value": 135.57,
+        "currency": "USD"
+      },
+      "udi": [
+        {
+          "reference": "Device/example"
+        }
+      ],
+      "encounter": [
+        {
+          "reference": "Encounter/example"
+        }
+      ],
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "code": "eligible"
+              }
+            ]
+          },
+          "amount": {
+            "value": 120.00,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "code": "eligpercent"
+              }
+            ]
+          },
+          "value": 0.80
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "code": "benefit"
+              }
+            ]
+          },
+          "amount": {
+            "value": 96.00,
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 2,
+      "careTeamSequence": [
+        1
+      ],
+      "productOrService": {
+        "coding": [
+          {
+            "code": "group"
+          }
+        ]
+      },
+      "servicedDate": "2014-08-16",
+      "net": {
+        "value": 200.00,
+        "currency": "USD"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "code": "benefit"
+              }
+            ]
+          },
+          "amount": {
+            "value": 180.00,
+            "currency": "USD"
+          }
+        }
+      ],
+      "detail": [
+        {
+          "sequence": 1,
+          "productOrService": {
+            "coding": [
+              {
+                "code": "group"
+              }
+            ]
+          },
+          "net": {
+            "value": 200.00,
+            "currency": "USD"
+          },
+          "udi": [
+            {
+              "reference": "Device/example"
+            }
+          ],
+          "adjudication": [
+            {
+              "category": {
+                "coding": [
+                  {
+                    "code": "benefit"
+                  }
+                ]
+              },
+              "amount": {
+                "value": 180.00,
+                "currency": "USD"
+              }
+            }
+          ],
+          "subDetail": [
+            {
+              "sequence": 1,
+              "productOrService": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/ex-USCLS",
+                    "code": "1205"
+                  }
+                ]
+              },
+              "unitPrice": {
+                "value": 200.00,
+                "currency": "USD"
+              },
+              "net": {
+                "value": 200.00,
+                "currency": "USD"
+              },
+              "udi": [
+                {
+                  "reference": "Device/example"
+                }
+              ],
+              "adjudication": [
+                {
+                  "category": {
+                    "coding": [
+                      {
+                        "code": "eligible"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "value": 200.00,
+                    "currency": "USD"
+                  }
+                },
+                {
+                  "category": {
+                    "coding": [
+                      {
+                        "code": "eligpercent"
+                      }
+                    ]
+                  },
+                  "value": 0.90
+                },
+                {
+                  "category": {
+                    "coding": [
+                      {
+                        "code": "benefit"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "value": 180.00,
+                    "currency": "USD"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "code": "submitted"
+          }
+        ]
+      },
+      "amount": {
+        "value": 135.57,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "code": "benefit"
+          }
+        ]
+      },
+      "amount": {
+        "value": 96.00,
+        "currency": "USD"
+      }
+    }
+  ]
+}
+
+###
+# Create another explanation of benefit resource that references
+# the patient with the id "patient".
+# This will be in the patient's compartment.
+PUT {{hostname}}/ExplanationOfBenefit/explanationofbenefit2
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "ExplanationOfBenefit",
+  "id": "explanationofbenefit2",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the ExplanationOfBenefit</div>"
+  },
+  "identifier": [
+    {
+      "system": "http://www.BenefitsInc.com/fhir/explanationofbenefit",
+      "value": "987654321"
+    }
+  ],
+  "status": "active",
+  "type": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/claim-type",
+        "code": "oral"
+      }
+    ]
+  },
+  "use": "claim",
+  "patient": {
+    "reference": "Patient/patient"
+  },
+  "created": "2014-08-16",
+  "enterer": {
+    "reference": "Practitioner/1"
+  },
+  "insurer": {
+    "reference": "Organization/3"
+  },
+  "provider": {
+    "reference": "Practitioner/1"
+  },
+  "payee": {
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/payeetype",
+          "code": "provider"
+        }
+      ]
+    },
+    "party": {
+      "reference": "Organization/2"
+    }
+  },
+  "facility": {
+    "reference": "Location/1"
+  },
+  "claim": {
+    "reference": "Claim/100150"
+  },
+  "claimResponse": {
+    "reference": "ClaimResponse/R3500"
+  },
+  "outcome": "complete",
+  "disposition": "Claim settled as per contract.",
+  "careTeam": [
+    {
+      "sequence": 1,
+      "provider": {
+        "reference": "Practitioner/example"
+      }
+    }
+  ],
+  "insurance": [
+    {
+      "focal": true,
+      "coverage": {
+        "reference": "Coverage/9876B1"
+      }
+    }
+  ],
+  "item": [
+    {
+      "sequence": 1,
+      "careTeamSequence": [
+        1
+      ],
+      "productOrService": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/ex-USCLS",
+            "code": "1205"
+          }
+        ]
+      },
+      "servicedDate": "2014-08-16",
+      "unitPrice": {
+        "value": 135.57,
+        "currency": "USD"
+      },
+      "net": {
+        "value": 135.57,
+        "currency": "USD"
+      },
+      "udi": [
+        {
+          "reference": "Device/example"
+        }
+      ],
+      "encounter": [
+        {
+          "reference": "Encounter/example"
+        }
+      ],
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "code": "eligible"
+              }
+            ]
+          },
+          "amount": {
+            "value": 120.00,
+            "currency": "USD"
+          }
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "code": "eligpercent"
+              }
+            ]
+          },
+          "value": 0.80
+        },
+        {
+          "category": {
+            "coding": [
+              {
+                "code": "benefit"
+              }
+            ]
+          },
+          "amount": {
+            "value": 96.00,
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "sequence": 2,
+      "careTeamSequence": [
+        1
+      ],
+      "productOrService": {
+        "coding": [
+          {
+            "code": "group"
+          }
+        ]
+      },
+      "servicedDate": "2014-08-16",
+      "net": {
+        "value": 200.00,
+        "currency": "USD"
+      },
+      "adjudication": [
+        {
+          "category": {
+            "coding": [
+              {
+                "code": "benefit"
+              }
+            ]
+          },
+          "amount": {
+            "value": 180.00,
+            "currency": "USD"
+          }
+        }
+      ],
+      "detail": [
+        {
+          "sequence": 1,
+          "productOrService": {
+            "coding": [
+              {
+                "code": "group"
+              }
+            ]
+          },
+          "net": {
+            "value": 200.00,
+            "currency": "USD"
+          },
+          "udi": [
+            {
+              "reference": "Device/example"
+            }
+          ],
+          "adjudication": [
+            {
+              "category": {
+                "coding": [
+                  {
+                    "code": "benefit"
+                  }
+                ]
+              },
+              "amount": {
+                "value": 180.00,
+                "currency": "USD"
+              }
+            }
+          ],
+          "subDetail": [
+            {
+              "sequence": 1,
+              "productOrService": {
+                "coding": [
+                  {
+                    "system": "http://terminology.hl7.org/CodeSystem/ex-USCLS",
+                    "code": "1205"
+                  }
+                ]
+              },
+              "unitPrice": {
+                "value": 200.00,
+                "currency": "USD"
+              },
+              "net": {
+                "value": 200.00,
+                "currency": "USD"
+              },
+              "udi": [
+                {
+                  "reference": "Device/example"
+                }
+              ],
+              "adjudication": [
+                {
+                  "category": {
+                    "coding": [
+                      {
+                        "code": "eligible"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "value": 200.00,
+                    "currency": "USD"
+                  }
+                },
+                {
+                  "category": {
+                    "coding": [
+                      {
+                        "code": "eligpercent"
+                      }
+                    ]
+                  },
+                  "value": 0.90
+                },
+                {
+                  "category": {
+                    "coding": [
+                      {
+                        "code": "benefit"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "value": 180.00,
+                    "currency": "USD"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "total": [
+    {
+      "category": {
+        "coding": [
+          {
+            "code": "submitted"
+          }
+        ]
+      },
+      "amount": {
+        "value": 135.57,
+        "currency": "USD"
+      }
+    },
+    {
+      "category": {
+        "coding": [
+          {
+            "code": "benefit"
+          }
+        ]
+      },
+      "amount": {
+        "value": 96.00,
+        "currency": "USD"
+      }
+    }
+  ]
+}
+
+###
+# Create a procedure that references the patient with the id "patient".
+# This will be in the patient's compartment.
+PUT https://{{hostname}}/Procedure/appendectomy
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Procedure",
+  "id": "appendectomy",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Routine Appendectomy</div>"
+  },
+  "status": "completed",
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "80146002",
+        "display": "Appendectomy (Procedure)"
+      }
+    ],
+    "text": "Appendectomy"
+  },
+  "subject": {
+    "reference": "Patient/patient"
+  },
+  "recorder": {
+    "reference": "Practitioner/dude",
+    "display": "Dr Adam Careful"
+  },
+  "performer": [
+    {
+      "actor": {
+        "reference": "Practitioner/dude",
+        "display": "Dr Adam Careful"
+      }
+    }
+  ],
+  "followUp": [
+    {
+      "text": "ROS 5 days  - 2013-04-10"
+    }
+  ],
+  "note": [
+    {
+      "text": "Routine Appendectomy. Appendix was inflamed and in retro-caecal position"
+    }
+  ]
+}
+
+###
+# Run patient everything, but filter by explanation of benefit
+# resources.
+# This should return the two explanation of benefit resources
+# in the patient's compartment.
+GET {{hostname}}/Patient/patient/$everything?_type=ExplanationOfBenefit
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Get everything from the patient's compartment.
+# This should return two explanations of benefits and one procedure.
+GET {{hostname}}/Patient/patient/*
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Get the patient's compartment, but filter for explanation of benefit
+# and observation resources.
+# This should return two explanation of benefit resources.
+GET {{hostname}}/Patient/patient/*?_type=ExplanationOfBenefit,Observation
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Create an adverse event that references the related person with the
+# id "relatedperson".
+# This will be in the related person's compartment.
+PUT {{hostname}}/AdverseEvent/adverseevent
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "AdverseEvent",
+  "id": "adverseevent",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: example</p><p><b>identifier</b>: 49476534</p><p><b>actuality</b>: actual</p><p><b>category</b>: Product Use Error <span>(Details : {http://terminology.hl7.org/CodeSystem/adverse-event-category code 'product-use-error' = 'Product Use Error', given as 'Product Use Error'})</span></p><p><b>event</b>: This was a mild rash on the left forearm <span>(Details : {SNOMED CT code '304386008' = 'O/E - itchy rash', given as 'O/E - itchy rash'})</span></p><p><b>subject</b>: <a>Patient/example</a></p><p><b>date</b>: 29/01/2017 12:34:56 PM</p><p><b>seriousness</b>: Non-serious <span>(Details : {http://terminology.hl7.org/CodeSystem/adverse-event-seriousness code 'Non-serious' = 'Non-serious', given as 'Non-serious'})</span></p><p><b>severity</b>: Mild <span>(Details : {http://terminology.hl7.org/CodeSystem/adverse-event-severity code 'mild' = 'Mild', given as 'Mild'})</span></p><p><b>recorder</b>: <a>Practitioner/example</a></p><h3>SuspectEntities</h3><table><tr><td>-</td><td><b>Instance</b></td></tr><tr><td>*</td><td><a>Medication/example</a></td></tr></table></div>"
+  },
+  "identifier": {
+    "system": "http://acme.com/ids/patients/risks",
+    "value": "49476534"
+  },
+  "actuality": "actual",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/adverse-event-category",
+          "code": "product-use-error",
+          "display": "Product Use Error"
+        }
+      ]
+    }
+  ],
+  "event": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "304386008",
+        "display": "O/E - itchy rash"
+      }
+    ],
+    "text": "This was a mild rash on the left forearm"
+  },
+  "subject": {
+    "reference": "Patient/example"
+  },
+  "date": "2017-01-29T12:34:56+00:00",
+  "seriousness": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/adverse-event-seriousness",
+        "code": "Non-serious",
+        "display": "Non-serious"
+      }
+    ]
+  },
+  "severity": {
+    "coding": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/adverse-event-severity",
+        "code": "mild",
+        "display": "Mild"
+      }
+    ]
+  },
+  "recorder": {
+    "reference": "RelatedPerson/relatedperson"
+  },
+  "suspectEntity": [
+    {
+      "instance": {
+        "reference": "Medication/example"
+      }
+    }
+  ]
+}
+
+###
+# Create a care team resoure that references the related person with
+# the id "relatedperson".
+# This will be in the related person's compartment.
+PUT {{hostname}}/CareTeam/careteam
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "CareTeam",
+  "id": "careteam",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Care Team</div>"
+  },
+  "contained": [
+    {
+      "resourceType": "Practitioner",
+      "id": "pr1",
+      "name": [
+        {
+          "family": "Dietician",
+          "given": [
+            "Dorothy"
+          ]
+        }
+      ]
+    }
+  ],
+  "identifier": [
+    {
+      "value": "12345"
+    }
+  ],
+  "status": "active",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "LA27976-2",
+          "display": "Encounter-focused care team"
+        }
+      ]
+    }
+  ],
+  "name": "Peter James Charlmers Care Plan for Inpatient Encounter",
+  "subject": {
+    "reference": "Patient/example",
+    "display": "Peter James Chalmers"
+  },
+  "encounter": {
+    "reference": "Encounter/example"
+  },
+  "period": {
+    "end": "2013-01-01"
+  },
+  "participant": [
+    {
+      "role": [
+        {
+          "text": "responsiblePerson"
+        }
+      ],
+      "member": {
+        "reference": "RelatedPerson/relatedperson",
+        "display": "Maurice Jones"
+      }
+    },
+    {
+      "role": [
+        {
+          "text": "adviser"
+        }
+      ],
+      "member": {
+        "reference": "#pr1",
+        "display": "Dorothy Dietition"
+      },
+      "onBehalfOf": {
+        "reference": "Organization/f001"
+      },
+      "period": {
+        "end": "2013-01-01"
+      }
+    }
+  ],
+  "managingOrganization": [
+    {
+      "reference": "Organization/f001"
+    }
+  ]
+}
+
+###
+# Get everything from the related person's compartment.
+GET {{hostname}}/RelatedPerson/relatedperson/*
+Authorization: Bearer {{bearer.response.body.access_token}}
+
