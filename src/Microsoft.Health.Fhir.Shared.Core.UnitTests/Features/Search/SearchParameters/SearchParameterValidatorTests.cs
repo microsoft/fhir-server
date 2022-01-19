@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -30,8 +29,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchParameterValidatorTests()
         {
-            _searchParameterDefinitionManager.TryGetSearchParameter(Arg.Is<Uri>(uri => uri != new Uri("http://duplicate")), out _).Returns(false);
-            _searchParameterDefinitionManager.TryGetSearchParameter(new Uri("http://duplicate"), out _).Returns(true);
+            _searchParameterDefinitionManager.TryGetSearchParameter(Arg.Is<string>(uri => uri != "http://duplicate"), out _).Returns(false);
+            _searchParameterDefinitionManager.TryGetSearchParameter("http://duplicate", out _).Returns(true);
             _searchParameterDefinitionManager.TryGetSearchParameter("Patient", Arg.Is<string>(code => code != "duplicate"), out _).Returns(false);
             _searchParameterDefinitionManager.TryGetSearchParameter("Patient", "duplicate", out _).Returns(true);
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));

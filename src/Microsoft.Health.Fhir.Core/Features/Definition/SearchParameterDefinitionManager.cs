@@ -54,12 +54,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _mediator = mediator;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
             TypeLookup = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
-            UrlLookup = new ConcurrentDictionary<Uri, SearchParameterInfo>();
+            UrlLookup = new ConcurrentDictionary<string, SearchParameterInfo>();
             _searchServiceFactory = searchServiceFactory;
             _logger = logger;
         }
 
-        internal ConcurrentDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
+        internal ConcurrentDictionary<string, SearchParameterInfo> UrlLookup { get; set; }
 
         // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter code.
         internal ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> TypeLookup { get; }
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 searchParameters.TryGetValue(code, out searchParameter);
         }
 
-        public SearchParameterInfo GetSearchParameter(Uri definitionUri)
+        public SearchParameterInfo GetSearchParameter(string definitionUri)
         {
             if (UrlLookup.TryGetValue(definitionUri, out SearchParameterInfo value))
             {
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
-        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value)
+        public bool TryGetSearchParameter(string definitionUri, out SearchParameterInfo value)
         {
             return UrlLookup.TryGetValue(definitionUri, out value);
         }
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             SearchParameterInfo searchParameterInfo = null;
 
-            if (!UrlLookup.TryRemove(new Uri(url), out searchParameterInfo))
+            if (!UrlLookup.TryRemove(url, out searchParameterInfo))
             {
                 throw new ResourceNotFoundException(string.Format(Resources.CustomSearchParameterNotfound, url));
             }

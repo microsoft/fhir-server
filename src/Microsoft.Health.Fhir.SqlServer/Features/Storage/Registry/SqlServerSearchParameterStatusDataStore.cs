@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             SearchParameterInfo paramInfo = null;
                             try
                             {
-                                paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri);
+                                paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri.OriginalString);
                             }
                             catch (SearchParameterNotSupportedException)
                             {

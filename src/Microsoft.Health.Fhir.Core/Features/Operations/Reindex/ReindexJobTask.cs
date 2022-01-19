@@ -706,7 +706,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.Resources);
             foreach (var searchParam in _reindexJobRecord.SearchParams)
             {
-                var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(new Uri(searchParam));
+                var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(searchParam);
                 if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes))
                 {
                     fullyIndexedParamUris.Add(searchParam);

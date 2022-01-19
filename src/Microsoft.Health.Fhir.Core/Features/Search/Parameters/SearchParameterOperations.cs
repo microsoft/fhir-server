@@ -235,7 +235,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     continue;
                 }
 
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri, out var existingSearchParam))
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Uri.OriginalString, out var existingSearchParam))
                 {
                     // if the search parameter exists we should delete the old information currently stored
                     DeleteSearchParameter(searchParam.Uri.OriginalString);
