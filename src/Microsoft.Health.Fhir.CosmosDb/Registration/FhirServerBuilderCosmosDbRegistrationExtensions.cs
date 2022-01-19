@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Operations;
 using Microsoft.Health.Fhir.CosmosDb.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
+using Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
@@ -221,6 +222,10 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<PurgeOperationCapabilityProvider>()
                 .Transient()
                 .AsImplementedInterfaces();
+
+            services.Add<CompartmentSearchRewriter>()
+                .Singleton()
+                .AsService<ICosmosExpressionRewriter>();
 
             return fhirServerBuilder;
         }

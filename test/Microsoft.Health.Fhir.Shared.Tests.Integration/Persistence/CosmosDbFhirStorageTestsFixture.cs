@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
+using Microsoft.Health.Fhir.CosmosDb.Features.Search.Expressions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
@@ -188,6 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _cosmosDataStoreConfiguration,
                 cosmosDbPhysicalPartitionInfo,
                 new QueryPartitionStatisticsCache(),
+                Enumerable.Empty<ICosmosExpressionRewriter>(),
                 NullLogger<FhirCosmosSearchService>.Instance);
 
             await _searchParameterDefinitionManager.EnsureInitializedAsync(CancellationToken.None);
