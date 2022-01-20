@@ -8,19 +8,19 @@ GO
 /******************************************************************
   Table - dbo.TokenText table
 *******************************************************************/
+
 -- Deleting duplicate rows based on all columns
 EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.TokenText'
 GO
-
-WITH cte AS (
+;WITH CTE AS (
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory, ROW_NUMBER() 
     OVER (
 		PARTITION BY ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory
-		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory
+		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId, Text
 	) row_num
 	FROM dbo.TokenText
 )
-DELETE FROM cte WHERE row_num > 1
+DELETE FROM CTE WHERE row_num > 1
 GO
 
 -- Create nonclustered primary key on the set of non-nullable columns that makes it unique
@@ -40,6 +40,21 @@ GO
 /******************************************************************
   Table - dbo.DateTimeSearchParam table
 *******************************************************************/
+
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.DateTimeSearchParam'
+GO
+;WITH CTE AS (
+    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax
+		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId
+	) row_num
+	FROM dbo.DateTimeSearchParam
+)
+DELETE FROM CTE WHERE row_num > 1
+GO
+
 -- Create nonclustered primary key on the set of non-nullable columns that makes it unique
 IF NOT EXISTS (
     SELECT * 
@@ -87,6 +102,21 @@ GO
 /******************************************************************
   Table - dbo.QuantitySearchParam table
 *******************************************************************/
+
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.QuantitySearchParam'
+GO
+;WITH CTE AS (
+    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory
+		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue
+	) row_num
+	FROM dbo.QuantitySearchParam
+)
+DELETE FROM CTE WHERE row_num > 1
+GO
+
 -- Backfill table dbo.QuantitySearchParam with non-null QuantityCodeId value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill table dbo.QuantitySearchParam'
 UPDATE dbo.QuantitySearchParam
