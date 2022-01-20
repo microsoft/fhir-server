@@ -10,7 +10,7 @@ GO
 *******************************************************************/
 
 -- Deleting duplicate rows based on all columns
-EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.TokenText'
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.TokenText';
 GO
 ;WITH CTE AS (
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory, ROW_NUMBER() 
@@ -20,7 +20,7 @@ GO
 	) row_num
 	FROM dbo.TokenText
 )
-DELETE FROM CTE WHERE row_num > 1
+DELETE FROM CTE WHERE row_num > 1;
 GO
 
 -- Create nonclustered primary key on the set of non-nullable columns that makes it unique
@@ -29,12 +29,12 @@ IF NOT EXISTS (
 	FROM sys.key_constraints 
 	WHERE name='PK_TokenText' AND type='PK')
 BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding PK_TokenText'
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PK_TokenText';
 	ALTER TABLE dbo.TokenText 
 	ADD CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
     WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId)
-END
+END;
 GO
 
 /******************************************************************
@@ -42,7 +42,7 @@ GO
 *******************************************************************/
 
 -- Deleting duplicate rows based on all columns
-EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.DateTimeSearchParam'
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.DateTimeSearchParam';
 GO
 ;WITH CTE AS (
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory, IsMin, IsMax, ROW_NUMBER() 
@@ -52,7 +52,7 @@ GO
 	) row_num
 	FROM dbo.DateTimeSearchParam
 )
-DELETE FROM CTE WHERE row_num > 1
+DELETE FROM CTE WHERE row_num > 1;
 GO
 
 -- Create nonclustered primary key on the set of non-nullable columns that makes it unique
@@ -61,18 +61,18 @@ IF NOT EXISTS (
 	FROM sys.key_constraints 
 	WHERE name='PK_DateTimeSearchParam' AND type='PK')
 BEGIN
-    EXEC dbo.LogSchemaMigrationProgress 'Adding PK_DateTimeSearchParam'
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PK_DateTimeSearchParam';
 	ALTER TABLE dbo.DateTimeSearchParam 
 	ADD CONSTRAINT PK_DateTimeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId) 
-END
+END;
 GO
 
 /************************************************************************
  Insert an entry with id 0 to dbo.QuantityCode table
 ************************************************************************/
-EXEC dbo.LogSchemaMigrationProgress 'Insert an entry with id 0 to dbo.QuantityCode table'
+EXEC dbo.LogSchemaMigrationProgress 'Insert an entry with id 0 to dbo.QuantityCode table';
 IF NOT EXISTS (SELECT 1 FROM dbo.QuantityCode WHERE QuantityCodeId = 0 AND value = '')
 BEGIN
     SET IDENTITY_INSERT dbo.QuantityCode ON;
@@ -87,7 +87,7 @@ GO
 /***************************************************************
  Insert an entry with id 0 to dbo.System table
 ****************************************************************/
-EXEC dbo.LogSchemaMigrationProgress 'Insert an entry with id 0 to dbo.System table'
+EXEC dbo.LogSchemaMigrationProgress 'Insert an entry with id 0 to dbo.System table';
 IF NOT EXISTS (SELECT 1 FROM dbo.System WHERE SystemId = 0 AND value = '')
 BEGIN
     SET IDENTITY_INSERT dbo.System ON;
@@ -104,7 +104,7 @@ GO
 *******************************************************************/
 
 -- Deleting duplicate rows based on all columns
-EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.QuantitySearchParam'
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.QuantitySearchParam';
 GO
 ;WITH CTE AS (
     SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory, ROW_NUMBER() 
@@ -114,18 +114,18 @@ GO
 	) row_num
 	FROM dbo.QuantitySearchParam
 )
-DELETE FROM CTE WHERE row_num > 1
+DELETE FROM CTE WHERE row_num > 1;
 GO
 
 -- Backfill table dbo.QuantitySearchParam with non-null QuantityCodeId value
-EXEC dbo.LogSchemaMigrationProgress 'Back-fill table dbo.QuantitySearchParam'
+EXEC dbo.LogSchemaMigrationProgress 'Back-fill column QuantityCodeId into the table dbo.QuantitySearchParam';
 UPDATE dbo.QuantitySearchParam
 SET QuantityCodeId = 0 
 WHERE QuantityCodeId IS NULL;
 GO
 
 -- Backfill table dbo.QuantitySearchParam with non-null SystemId value
-EXEC dbo.LogSchemaMigrationProgress 'Back-fill table dbo.QuantitySearchParam'
+EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId into the table dbo.QuantitySearchParam';
 UPDATE dbo.QuantitySearchParam
 SET SystemId = 0 
 WHERE SystemId IS NULL;
@@ -277,5 +277,5 @@ BEGIN
 	ADD CONSTRAINT PK_QuantitySearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, QuantityCodeId, HighValue, LowValue)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId) 
-END
+END;
 GO
