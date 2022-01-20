@@ -23,8 +23,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             row = new BulkQuantitySearchParamTableTypeV1Row(
                 offset,
                 searchParamId,
-                string.IsNullOrWhiteSpace(searchValue.System) ? SqlSearchConstants.NullSystemId : Model.GetSystemId(searchValue.System),
-                string.IsNullOrWhiteSpace(searchValue.Code) ? SqlSearchConstants.NullQuantityCodeId : Model.GetQuantityCodeId(searchValue.Code),
+                string.IsNullOrWhiteSpace(searchValue.System) ? SqlSearchConstants.NullId : Model.GetSystemId(searchValue.System),
+                string.IsNullOrWhiteSpace(searchValue.Code) ? SqlSearchConstants.NullId : Model.GetQuantityCodeId(searchValue.Code),
                 singleValue.HasValue ? singleValue : null,
                 singleValue.HasValue ? singleValue : searchValue.Low ?? (decimal?)VLatest.QuantitySearchParam.LowValue.MinValue,
                 singleValue.HasValue ? singleValue : searchValue.High ?? (decimal?)VLatest.QuantitySearchParam.HighValue.MaxValue);

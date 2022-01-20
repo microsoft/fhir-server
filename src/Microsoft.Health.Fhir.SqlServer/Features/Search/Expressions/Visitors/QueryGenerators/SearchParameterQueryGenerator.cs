@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case FieldName.TokenSystem:
                 case FieldName.QuantityCode:
                     context.StringBuilder.Append(" ( ");
-                    AppendColumnName(context, column, expression).Append(" = 0");
+                    AppendColumnName(context, column, expression).Append($" = {SqlSearchConstants.NullId}");
                     context.StringBuilder.Append(" OR ");
                     AppendColumnName(context, column, expression).Append(" IS NULL");
                     context.StringBuilder.Append(" ) ");
