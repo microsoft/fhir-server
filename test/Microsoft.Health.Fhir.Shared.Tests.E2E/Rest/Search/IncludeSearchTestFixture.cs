@@ -98,6 +98,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public Location Location { get; private set; }
 
+        public Location LocationPartOfSelf { get; private set; }
+
         protected override async Task OnInitializedAsync()
         {
             Tag = Guid.NewGuid().ToString();
@@ -179,6 +181,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
                 Meta = meta,
             })).Resource;
+
+            LocationPartOfSelf = (await TestFhirClient.CreateAsync(new Location
+            {
+                Meta = meta,
+            })).Resource;
+
+            LocationPartOfSelf.PartOf = new ResourceReference($"{LocationPartOfSelf.TypeName}/{LocationPartOfSelf.Id}");
+            LocationPartOfSelf = (await TestFhirClient.UpdateAsync(LocationPartOfSelf)).Resource;
 
             var group = new Group
             {
