@@ -5,6 +5,7 @@
 
 using System;
 using Microsoft.Health.Fhir.Core.Features.Metrics;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 {
@@ -19,6 +20,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             long? succeedCount,
             long? failedCount)
         {
+            FhirOperation = AuditEventSubType.Import;
+            ResourceType = null;
+
             Id = id;
             Status = status;
             CreatedTime = createdTime;

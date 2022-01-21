@@ -13,6 +13,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Core;
 using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.TaskManagement;
@@ -287,7 +288,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                 _orchestratorInputData.TaskId,
                 taskResult.ToString(),
                 _orchestratorInputData.TaskCreateTime,
-                DateTimeOffset.Now.ToUniversalTime(),
+                Clock.UtcNow,
                 _orchestratorTaskContext.TotalSizeInBytes,
                 succeedCount,
                 failedCount);
