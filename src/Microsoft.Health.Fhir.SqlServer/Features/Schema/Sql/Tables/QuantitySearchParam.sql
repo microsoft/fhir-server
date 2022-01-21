@@ -3,12 +3,12 @@
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SystemId int NULL,
-    QuantityCodeId int NULL,
+    SystemId int NOT NULL CONSTRAINT DF_QuantitySearchParam_SystemId DEFAULT 0,
+    QuantityCodeId int NOT NULL CONSTRAINT DF_QuantitySearchParam_QuantityCodeId DEFAULT 0,
     SingleValue decimal(18,6) NULL,
     LowValue decimal(18,6) NOT NULL,
     HighValue decimal(18,6) NOT NULL,
-    CONSTRAINT PK_QuantitySearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId)
+    CONSTRAINT PK_QuantitySearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, QuantityCodeId, HighValue, LowValue)
 	WITH (DATA_COMPRESSION = PAGE) 
 	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL

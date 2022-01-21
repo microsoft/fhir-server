@@ -5,6 +5,7 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
@@ -22,8 +23,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             row = new BulkQuantitySearchParamTableTypeV1Row(
                 offset,
                 searchParamId,
-                string.IsNullOrWhiteSpace(searchValue.System) ? default(int?) : Model.GetSystemId(searchValue.System),
-                string.IsNullOrWhiteSpace(searchValue.Code) ? default(int?) : Model.GetQuantityCodeId(searchValue.Code),
+                string.IsNullOrWhiteSpace(searchValue.System) ? SqlSearchConstants.NullId : Model.GetSystemId(searchValue.System),
+                string.IsNullOrWhiteSpace(searchValue.Code) ? SqlSearchConstants.NullId : Model.GetQuantityCodeId(searchValue.Code),
                 singleValue.HasValue ? singleValue : null,
                 singleValue.HasValue ? singleValue : searchValue.Low ?? (decimal?)VLatest.QuantitySearchParam.LowValue.MinValue,
                 singleValue.HasValue ? singleValue : searchValue.High ?? (decimal?)VLatest.QuantitySearchParam.HighValue.MaxValue);

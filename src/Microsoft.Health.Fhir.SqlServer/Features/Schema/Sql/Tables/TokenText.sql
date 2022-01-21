@@ -4,7 +4,10 @@
     ResourceSurrogateId         bigint              NOT NULL,
     SearchParamId               smallint            NOT NULL,
     Text                        nvarchar(400)       COLLATE Latin1_General_CI_AI NOT NULL,
-    IsHistory                   bit                 NOT NULL
+    IsHistory                   bit                 NOT NULL,
+    CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, Text)
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.TokenText SET ( LOCK_ESCALATION = AUTO )

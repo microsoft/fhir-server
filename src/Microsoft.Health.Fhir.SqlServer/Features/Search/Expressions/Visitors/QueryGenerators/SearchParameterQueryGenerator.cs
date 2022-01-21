@@ -258,7 +258,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new InvalidOperationException($"Unexpected missing field {expression.FieldName}");
             }
 
-            AppendColumnName(context, column, expression).Append(" IS NULL");
+            switch (expression.FieldName)
+            {
+                case FieldName.TokenSystem:
+                case FieldName.QuantityCode:
+                    context.StringBuilder.Append(" ( ");
+                    AppendColumnName(context, column, expression).Append($" = {SqlSearchConstants.NullId}");
+                    context.StringBuilder.Append(" OR ");
+                    AppendColumnName(context, column, expression).Append(" IS NULL");
+                    context.StringBuilder.Append(" ) ");
+                    break;
+
+                default:
+                    AppendColumnName(context, column, expression).Append(" IS NULL");
+                    break;
+            }
+
             return context;
         }
 

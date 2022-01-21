@@ -8,5 +8,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     internal static class SqlSearchConstants
     {
         public const string SortSentinelValueForCt = "sentinelSortValue";
+
+        public const int NullId = 0;
     }
 }
