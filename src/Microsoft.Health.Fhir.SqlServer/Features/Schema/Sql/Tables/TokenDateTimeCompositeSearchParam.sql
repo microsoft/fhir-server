@@ -3,12 +3,15 @@
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SystemId1 int NULL,
+    SystemId1 int NOT NULL CONSTRAINT DF_TokenDateTimeCompositeSearchParam_SystemId1 DEFAULT 0,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetime2(7) NOT NULL,
     EndDateTime2 datetime2(7) NOT NULL,
     IsLongerThanADay2 bit NOT NULL,
     IsHistory bit NOT NULL,
+    CONSTRAINT PK_TokenDateTimeCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2)
+    WITH (DATA_COMPRESSION = PAGE) 
+	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.TokenDateTimeCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
