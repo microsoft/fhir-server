@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // save the list of search parameters to the reindexjob document
-            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.ToString()))
+            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.OriginalString))
             {
                 _reindexJobRecord.SearchParams.Add(searchParams);
             }
