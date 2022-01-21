@@ -3,11 +3,14 @@
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SystemId1 int NULL,
+    SystemId1 int NOT NULL CONSTRAINT DF_TokenTokenCompositeSearchParam_SystemId1 DEFAULT 0,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    SystemId2 int NULL,
+    SystemId2 int NOT NULL CONSTRAINT DF_TokenTokenCompositeSearchParam_SystemId2 DEFAULT 0,
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    IsHistory bit NOT NULL
+    IsHistory bit NOT NULL,
+    CONSTRAINT PK_TokenTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceSurrogateId, SearchParamId, ResourceTypeId, SystemId1, Code1, SystemId2, Code2)
+    WITH (DATA_COMPRESSION = PAGE) 
+	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
