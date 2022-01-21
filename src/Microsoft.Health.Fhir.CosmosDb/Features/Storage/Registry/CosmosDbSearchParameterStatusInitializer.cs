@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             {
                 var statuses = await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken);
 
-                foreach (var status in statuses.Where(x => _configuration.InitialSortParameterUris.Contains(x.Uri.ToString())))
+                foreach (var status in statuses.Where(x => _configuration.InitialSortParameterUris.Contains(x.Uri.OriginalString)))
                 {
                     status.SortStatus = SortParameterStatus.Enabled;
                 }

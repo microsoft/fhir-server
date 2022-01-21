@@ -26,12 +26,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         private readonly string _invalidEntriesFile = "SearchParametersWithInvalidEntries.json";
         private readonly string _invalidDefinitionsFile = "SearchParametersWithInvalidDefinitions.json";
         private readonly string _validEntriesFile = "SearchParameters.json";
-        private readonly ConcurrentDictionary<Uri, SearchParameterInfo> _uriDictionary;
+        private readonly ConcurrentDictionary<string, SearchParameterInfo> _uriDictionary;
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> _resourceTypeDictionary;
 
         public SearchParameterDefinitionBuilderTests()
         {
-            _uriDictionary = new ConcurrentDictionary<Uri, SearchParameterInfo>();
+            _uriDictionary = new ConcurrentDictionary<string, SearchParameterInfo>();
             _resourceTypeDictionary = new ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>>();
         }
 
