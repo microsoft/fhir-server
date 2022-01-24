@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
         public override PractitionerSibling CreateOriginal(ResourceGroupProcessor processor, Practitioner.Rootobject json)
         {
-            PractitionerSibling r = new PractitionerSibling();
+            PractitionerSibling r = default(PractitionerSibling);
             r.id = json.id;
             return r;
         }
@@ -36,7 +36,7 @@ namespace ResourceProcessorNamespace
             int unused = int.MinValue;
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
-            PractitionerSibling r = new PractitionerSibling();
+            PractitionerSibling r = default(PractitionerSibling);
             r.id = cloneJson.id;
             return r;
         }

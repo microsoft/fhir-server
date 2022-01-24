@@ -73,7 +73,7 @@ namespace ResourceProcessorNamespace
 
             protected override void InitializeFHIRExample(StructureDefinition.Rootobject json, int initializer)
             {
-                InitializeFHIRExampleS(json, initializer);
+                InitializeFHIRExampleS(json);
             }
 
             private static StructureDefinition.Rootobject LoadFHIRExampleFileS()
@@ -82,7 +82,7 @@ namespace ResourceProcessorNamespace
                 return JsonSerializer.Deserialize<StructureDefinition.Rootobject>(text);
             }
 
-            private static void InitializeFHIRExampleS(StructureDefinition.Rootobject json, int initializer)
+            private static void InitializeFHIRExampleS(StructureDefinition.Rootobject json)
             {
                 json.id = Guid.NewGuid().ToString();
             }
@@ -90,7 +90,7 @@ namespace ResourceProcessorNamespace
             public static int GetResourceSize()
             {
                 StructureDefinition.Rootobject json = LoadFHIRExampleFileS();
-                InitializeFHIRExampleS(json, 0);
+                InitializeFHIRExampleS(json);
                 return JsonSerializer.Serialize(json).Length;
             }
 

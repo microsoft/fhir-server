@@ -103,7 +103,7 @@ namespace ResourceProcessorNamespace
             public static int GetResourceSize()
             {
                 Communication.Rootobject json = LoadFHIRExampleFileS();
-                PatientSibling initializer = new PatientSibling();
+                PatientSibling initializer = default(PatientSibling);
                 initializer.id = Guid.NewGuid().ToString();
                 InitializeFHIRExampleS(json, initializer);
                 return JsonSerializer.Serialize(json).Length;

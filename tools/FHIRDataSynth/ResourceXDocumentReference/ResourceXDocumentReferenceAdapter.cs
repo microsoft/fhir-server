@@ -38,7 +38,7 @@ namespace ResourceProcessorNamespace
             {
                 for (int i = 0; i < cloneJson.author.Length; i++)
                 {
-                    if (cloneJson.author[i].reference.StartsWith("#"))
+                    if (cloneJson.author[i].reference.StartsWith("#", StringComparison.Ordinal))
                     {
                         continue;
                     }
@@ -114,7 +114,7 @@ namespace ResourceProcessorNamespace
 
                 foreach (DocumentReference.Author a in json.author)
                 {
-                    if (a.reference.StartsWith("#"))
+                    if (a.reference.StartsWith("#", StringComparison.Ordinal))
                     {
                         continue;
                     }
@@ -279,7 +279,7 @@ namespace ResourceProcessorNamespace
             public static int GetResourceSize()
             {
                 DocumentReference.Rootobject json = LoadFHIRExampleFileS();
-                EncounterSibling initializer = new EncounterSibling();
+                EncounterSibling initializer = default(EncounterSibling);
                 initializer.id = Guid.NewGuid().ToString();
                 initializer.subjectRef = ResourceGroupProcessor.PatientPrefix + Guid.NewGuid().ToString();
                 initializer.participantRef = ResourceGroupProcessor.PractitionerPrefix + Guid.NewGuid().ToString();

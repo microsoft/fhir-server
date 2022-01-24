@@ -21,7 +21,7 @@ using System.Diagnostics.CodeAnalysis;
 
 // [assembly: SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1502:Element should not be on a single line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1005:Single line comments should begin with single space", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1129:Do not use default value type constructor", Justification = "<TODO>", Scope = "module")]
+// [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1129:Do not use default value type constructor", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1002:Semicolons should be spaced correctly", Justification = "<PenTODOding>", Scope = "module")]
 [assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "<TODO>", Scope = "module")]
@@ -42,24 +42,24 @@ using System.Diagnostics.CodeAnalysis;
 // [assembly: SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1501:Statement should not be on a single line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1413:Use trailing comma in multi-line initializers", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1314:Type parameter names should begin with T", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1313:Parameter names should begin with lower-case letter", Justification = "<TODO>", Scope = "module")]
+// [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1313:Parameter names should begin with lower-case letter", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1128:Put constructor initializers on their own line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1127:Generic type constraints should be on their own line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1122:Use string.Empty for empty strings", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1121:Use built-in type alias", Justification = "<TODO>", Scope = "module")]
+// [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1121:Use built-in type alias", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1117:Parameters should be on same line or separate lines", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1107:Code should not contain multiple statements on one line", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Design", "CA1056:URI-like properties should not be strings", Justification = "<TODO>", Scope = "module")]
+// [assembly: SuppressMessage("Design", "CA1056:URI-like properties should not be strings", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("Style", "IDE0090:Use 'new(...)'", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Style", "IDE0007:Use implicit type", Justification = "<TODO>", Scope = "module")]
 
+// [assembly: SuppressMessage("Style", "IDE0007:Use implicit type", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Performance", "CA1805:Do not initialize unnecessarily", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Globalization", "CA1310:Specify StringComparison for correctness", Justification = "<TODO>", Scope = "module")]
+// [assembly: SuppressMessage("Globalization", "CA1310:Specify StringComparison for correctness", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("Style", "IDE0044:Add readonly modifier", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0063:Use simple 'using' statement", Justification = "<TODO>", Scope = "module")]
@@ -76,18 +76,20 @@ using System.Diagnostics.CodeAnalysis;
 [assembly: SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("Globalization", "CA1305:Specify IFormatProvider", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Style", "IDE0049:Simplify Names", Justification = "<TODO>", Scope = "module")]
 
+// [assembly: SuppressMessage("Style", "IDE0049:Simplify Names", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("Design", "CA1724:NAME CONFLICT", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("Design", "CA1812:JSON SERIALIZER INSTANTIATION", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1000:Keywords should be spaced correctly", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("CodeQuality", "IDE0051:Remove unused private modules", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Usage", "CA2234:Pass system uri objects instead of strings", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Performance", "CA1806:Do not ignore method results", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Globalization", "CA1307:Specify StringComparison for clarity", Justification = "<TODO>", Scope = "module")]
 
+// [assembly: SuppressMessage("Usage", "CA2234:Pass system uri objects instead of strings", Justification = "<TODO>", Scope = "module")]
+[assembly: SuppressMessage("Performance", "CA1806:Do not ignore method results", Justification = "<TODO>", Scope = "module")]
+
+// [assembly: SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "<TODO>", Scope = "module")]
+[assembly: SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "<TODO>", Scope = "module")]
+
+// [assembly: SuppressMessage("Globalization", "CA1307:Specify StringComparison for clarity", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0004:Remove Unnecessary Cast", Justification = "<TODO>", Scope = "module")]

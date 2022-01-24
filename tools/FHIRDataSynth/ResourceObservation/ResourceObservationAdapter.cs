@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
         public override ObservationSibling CreateOriginal(ResourceGroupProcessor processor, Observation.Rootobject json)
         {
-            ObservationSibling r = new ObservationSibling();
+            ObservationSibling r = default(ObservationSibling);
             r.id = json.id;
             /*if (json.encounter != null)
             {
@@ -50,7 +50,7 @@ namespace ResourceProcessorNamespace
             int unused = int.MinValue;
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
-            ObservationSibling r = new ObservationSibling();
+            ObservationSibling r = default(ObservationSibling);
             r.id = cloneJson.id;
             /*if (cloneJson.encounter != null)
             {

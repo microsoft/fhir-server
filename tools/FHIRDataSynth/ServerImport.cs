@@ -370,7 +370,8 @@ namespace FHIRDataSynth
             bool resultNotReady = false;
             foreach (ImportResult importResult in resultCollection.importResult)
             {
-                using (HttpResponseMessage response = await client.GetAsync(importResult.importResultUrl))
+                Uri uri = new Uri(importResult.importResultUrl);
+                using (HttpResponseMessage response = await client.GetAsync(uri))
                 {
                     response.EnsureSuccessStatusCode();
                     string responseBody = await response.Content.ReadAsStringAsync();

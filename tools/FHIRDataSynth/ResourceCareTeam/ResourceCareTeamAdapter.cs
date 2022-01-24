@@ -13,7 +13,7 @@ namespace ResourceProcessorNamespace
     {
         public override CareTeamSibling CreateOriginal(ResourceGroupProcessor processor, CareTeam.Rootobject json)
         {
-            CareTeamSibling ret = new CareTeamSibling();
+            CareTeamSibling ret = default(CareTeamSibling);
             ret.id = json.id;
             /*if (json.subject != null)
             {
@@ -76,7 +76,7 @@ namespace ResourceProcessorNamespace
             int unused = int.MinValue;
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
-            CareTeamSibling r = new CareTeamSibling();
+            CareTeamSibling r = default(CareTeamSibling);
             r.id = cloneJson.id;
             return r;
         }
@@ -270,7 +270,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (p.member.reference != null)
                         {
-                            if (p.member.reference.StartsWith(ResourceGroupProcessor.PatientPrefix))
+                            if (p.member.reference.StartsWith(ResourceGroupProcessor.PatientPrefix, StringComparison.Ordinal))
                             {
                                 if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
                                 {
@@ -278,7 +278,7 @@ namespace ResourceProcessorNamespace
                                     return false;
                                 }
                             }
-                            else if (p.member.reference.StartsWith(ResourceGroupProcessor.PractitionerPrefix))
+                            else if (p.member.reference.StartsWith(ResourceGroupProcessor.PractitionerPrefix, StringComparison.Ordinal))
                             {
                                 if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                                 {
@@ -286,7 +286,7 @@ namespace ResourceProcessorNamespace
                                     return false;
                                 }
                             }
-                            else if (p.member.reference.StartsWith(ResourceGroupProcessor.OrganizationPrefix))
+                            else if (p.member.reference.StartsWith(ResourceGroupProcessor.OrganizationPrefix, StringComparison.Ordinal))
                             {
                                 if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
                                 {

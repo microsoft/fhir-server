@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
         public override OrganizationSibling CreateOriginal(ResourceGroupProcessor processor, Organization.Rootobject json)
         {
-            OrganizationSibling r = new OrganizationSibling();
+            OrganizationSibling r = default(OrganizationSibling);
             r.id = json.id;
             return r;
         }
@@ -41,7 +41,7 @@ namespace ResourceProcessorNamespace
             int unused = int.MinValue;
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
-            OrganizationSibling r = new OrganizationSibling();
+            OrganizationSibling r = default(OrganizationSibling);
             r.id = cloneJson.id;
             return r;
         }

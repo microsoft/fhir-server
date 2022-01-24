@@ -89,7 +89,7 @@ namespace ResourceProcessorNamespace
             string rt = GetResourceType(originalJson);
             string id = GetId(originalJson);
 
-            int index = originalReference.IndexOf('/');
+            int index = originalReference.IndexOf('/', StringComparison.Ordinal);
             if (index < 0)
             {
                 throw new ResourceProcessorException(rgd, rt, id, $"Invalid reference {originalReference} in CloneOrLimit()."); // Should never happen!

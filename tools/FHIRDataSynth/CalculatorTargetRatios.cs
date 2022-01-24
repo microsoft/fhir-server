@@ -134,9 +134,9 @@ namespace FHIRDataSynth
 
         private delegate int GetResourceSizeDelegate();
 
-        private static void AddCalculationDataX(BlendProfile blendProfile, Dictionary<string, CalculationData> calculationData, GetResourceSizeDelegate GetResourceSize, string resourceName)
+        private static void AddCalculationDataX(BlendProfile blendProfile, Dictionary<string, CalculationData> calculationData, GetResourceSizeDelegate getResourceSize, string resourceName)
         {
-            int resourceSize = GetResourceSize();
+            int resourceSize = getResourceSize();
             CalculationData cd = new CalculationData();
             cd.resourceInputSize = resourceSize * (long)UsedResourceGroupsCount;
             cd.linesCount = 1;

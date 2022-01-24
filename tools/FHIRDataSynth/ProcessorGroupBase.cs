@@ -39,7 +39,7 @@ namespace ResourceProcessorNamespace
 
         public long OutputResourcesSize { get => outputResourcesSize; }
 
-        public ResourcesResult(string resourceName)
+        public ResourcesResult()
         {
             inputResourcesCount = 0;
             inputResourcesSize = 0;
@@ -255,7 +255,7 @@ namespace ResourceProcessorNamespace
             }
 
             string prefix = $"{resourceRefName}/";
-            if (!resourceRef.StartsWith(prefix))
+            if (!resourceRef.StartsWith(prefix, StringComparison.Ordinal))
             {
                 LogWarning(GetResourceGroupDir(), resourceName, id, $"'{resourceRefName}' reference '{resourceRef}' does not start with '{prefix}'!");
                 select = false;
@@ -388,7 +388,7 @@ namespace ResourceProcessorNamespace
             }
 
             List<T> jsonList = new List<T>();
-            ResourcesResult result = new ResourcesResult(resourceName);
+            ResourcesResult result = new ResourcesResult();
             using (StreamReader r = await GetStreamReader(resourceName))
             {
                 string line;
@@ -461,7 +461,7 @@ namespace ResourceProcessorNamespace
             }
 
             List<T> jsonList = new List<T>();
-            ResourcesResult result = new ResourcesResult(resourceName);
+            ResourcesResult result = new ResourcesResult();
             {
                 HashSet<string> duplicateIdsCheck = new HashSet<string>();
                 foreach (ResourceAdapter<T, TS>.EnumeratorItem item in adapter)

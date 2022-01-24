@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
         public override PatientSibling CreateOriginal(ResourceGroupProcessor processor, Patient.Rootobject json)
         {
-            PatientSibling r = new PatientSibling();
+            PatientSibling r = default(PatientSibling);
             r.id = json.id;
             return r;
         }
@@ -36,7 +36,7 @@ namespace ResourceProcessorNamespace
             int unused = int.MinValue;
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
-            PatientSibling r = new PatientSibling();
+            PatientSibling r = default(PatientSibling);
             r.id = cloneJson.id;
             return r;
         }

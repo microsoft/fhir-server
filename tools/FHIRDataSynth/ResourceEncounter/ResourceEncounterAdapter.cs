@@ -14,7 +14,7 @@ namespace ResourceProcessorNamespace
     {
         public override EncounterSibling CreateOriginal(ResourceGroupProcessor processor, Encounter.Rootobject json)
         {
-            EncounterSibling r = new EncounterSibling();
+            EncounterSibling r = default(EncounterSibling);
             r.id = json.id;
             r.subjectRef = json.subject?.reference;
 

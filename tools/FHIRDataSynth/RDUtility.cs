@@ -67,7 +67,7 @@ internal class RDUtility
                 }
 
                 blobContentLenghts.Add(blobItem.Name, blobItem.Properties.ContentLength ?? 0);
-                int delimiter = blobItem.Name.IndexOf('/');
+                int delimiter = blobItem.Name.IndexOf('/', StringComparison.Ordinal);
                 if (delimiter < 0)
                 {
                     throw new Exception("Incorrect blob path!");
@@ -230,7 +230,7 @@ internal class RDUtility
 
             if (json.patient.reference != null)
             {
-                if (json.patient.reference.StartsWith("Patient/"))
+                if (json.patient.reference.StartsWith("Patient/", StringComparison.Ordinal))
                 {
                     blobInfo.patientRefIds.Add(json.patient.reference.Substring("Patient/".Length));
                 }
@@ -242,7 +242,7 @@ internal class RDUtility
 
             if (json.subject.reference != null)
             {
-                if (json.subject.reference.StartsWith("Patient/"))
+                if (json.subject.reference.StartsWith("Patient/", StringComparison.Ordinal))
                 {
                     blobInfo.patientRefIds.Add(json.subject.reference.Substring("Patient/".Length));
                 }

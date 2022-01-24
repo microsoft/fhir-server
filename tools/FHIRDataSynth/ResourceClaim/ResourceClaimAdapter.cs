@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
         public override ClaimSibling CreateOriginal(ResourceGroupProcessor processor, Claim.Rootobject json)
         {
-            ClaimSibling r = new ClaimSibling();
+            ClaimSibling r = default(ClaimSibling);
             r.id = json.id;
             return r;
         }
@@ -57,7 +57,7 @@ namespace ResourceProcessorNamespace
             int unused = int.MinValue;
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
-            ClaimSibling r = new ClaimSibling();
+            ClaimSibling r = default(ClaimSibling);
             r.id = cloneJson.id;
             return r;
         }

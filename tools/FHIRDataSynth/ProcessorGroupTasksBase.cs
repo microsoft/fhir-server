@@ -153,7 +153,7 @@ namespace ResourceProcessorNamespace
                 LogInfo($"TOTALS {targetProfile.name}:");
                 foreach (KeyValuePair<string, ResourcesResult> r in totals)
                 {
-                    LogInfo($"{r.Key}: {r.Value.InputSelectedResorcesCount}, {r.Value.OutputResourcesCount}, {String.Format("{0:0.000000}", r.Value.OutputResourcesCount / totalResourcesCount * 100)}%");
+                    LogInfo($"{r.Key}: {r.Value.InputSelectedResorcesCount}, {r.Value.OutputResourcesCount}, {string.Format("{0:0.000000}", r.Value.OutputResourcesCount / totalResourcesCount * 100)}%");
                 }
             }
             catch (Exception ex)

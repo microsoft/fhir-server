@@ -94,7 +94,7 @@ namespace FHIRDataSynth
                 }
                 else
                 {
-                    Console.WriteLine(String.Join(' ', args));
+                    Console.WriteLine(string.Join(' ', args));
                     Console.WriteLine();
 
                     const string fileCommand = "file";
