@@ -469,7 +469,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             string continuationToken,
             CancellationToken cancellationToken)
         {
-            SearchParameterInfo clinicalDateInfo = _searchParameterDefinitionManager.GetSearchParameter(SearchParameterNames.ClinicalDateUri);
+            SearchParameterInfo clinicalDateInfo = _searchParameterDefinitionManager.GetSearchParameter(SearchParameterNames.ClinicalDateUri.OriginalString);
             List<string> dateResourceTypes = types.Any()
                 ? clinicalDateInfo.BaseResourceTypes.Intersect(types).ToList()
                 : clinicalDateInfo.BaseResourceTypes.ToList();
@@ -519,7 +519,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Everything
             CancellationToken cancellationToken)
         {
             var nonDateResourceTypes = new List<string>();
-            SearchParameterInfo clinicalDateInfo = _searchParameterDefinitionManager.GetSearchParameter(SearchParameterNames.ClinicalDateUri);
+            SearchParameterInfo clinicalDateInfo = _searchParameterDefinitionManager.GetSearchParameter(SearchParameterNames.ClinicalDateUri.OriginalString);
 
             if (_compartmentDefinitionManager.TryGetResourceTypes(CompartmentType.Patient, out HashSet<string> compartmentResourceTypes))
             {

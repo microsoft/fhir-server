@@ -1,5 +1,7 @@
 # DESCRIPTION: 	
 # Deploys the CI environment in case the persistant resources are deleted or broken.
+# This pipeline is only needed if CI is broken. It can be months between runs.
+# As CI is a persistant environment this pipeline should not be run unless needed.
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
@@ -9,6 +11,17 @@ variables:
 - template: build-variables.yml
 
 stages:
+- stage: UpdateVersion
+  displayName: 'Determine Semver'
+  dependsOn: []
+  jobs:
+  - job: Semver
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/update-semver.yml 
+
 - stage: DockerBuild  
   displayName: 'Build images'
   dependsOn:
@@ -41,7 +54,6 @@ stages:
   displayName: Setup AAD Test Environment
   dependsOn:
   - provisionEnvironment
-  - DockerBuild
   jobs:
   - job: setup
     pool:
@@ -52,7 +64,7 @@ stages:
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
   dependsOn:
-  - provisionEnvironment
+  - aadTestEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -63,14 +75,14 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
   dependsOn:
-  - provisionEnvironment
+  - aadTestEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -82,14 +94,14 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
 
 - stage: deployR4
   displayName: 'Deploy R4 Site'
   dependsOn:
-  - provisionEnvironment
+  - aadTestEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -100,14 +112,14 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
   dependsOn:
-  - provisionEnvironment
+  - aadTestEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -119,14 +131,14 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'
 
 - stage: deployR5
   displayName: 'Deploy R5 Site'
   dependsOn:
-  - provisionEnvironment
+  - aadTestEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -137,14 +149,14 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       reindexEnabled: true
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
   dependsOn:
-  - provisionEnvironment
+  - aadTestEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -156,6 +168,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
+      testEnvironmentUrl: $(TestApplicationResource)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: 'auto'

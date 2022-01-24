@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 ValueSets.SearchParamType.String,
                 new Uri("http://searchParam"));
 
-            _searchParameterDefinitionManager.GetSearchParameter(Arg.Any<Uri>()).Returns(searchParam);
+            _searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>()).Returns(searchParam);
 
             var (success, error) = await _reindexUtilities.UpdateSearchParameterStatus(paramUris, CancellationToken.None);
 
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var paramUris = new List<string>();
             paramUris.Add("http://searchParam");
 
-            _searchParameterDefinitionManager.When(s => s.GetSearchParameter(Arg.Any<Uri>()))
+            _searchParameterDefinitionManager.When(s => s.GetSearchParameter(Arg.Any<string>()))
                 .Do(e => throw new SearchParameterNotSupportedException("message"));
 
             var (success, error) = await _reindexUtilities.UpdateSearchParameterStatus(paramUris, CancellationToken.None);
