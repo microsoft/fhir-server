@@ -5,8 +5,8 @@ namespace ResourceProcessorNamespace
     struct MedicationRequestSibling
     {
         public string id;
-        //public EncounterSibling encounter;
     }
+
     class MedicationRequestAdapter : ResourceAdapter<MedicationRequest.Rootobject, MedicationRequestSibling>
     {
         public override MedicationRequestSibling CreateOriginal(ResourceGroupProcessor processor, MedicationRequest.Rootobject json)
@@ -20,8 +20,11 @@ namespace ResourceProcessorNamespace
             }*/
             return r;
         }
+
         public override string GetId(MedicationRequest.Rootobject json) { return json.id; }
+
         public override string GetResourceType(MedicationRequest.Rootobject json) { return json.resourceType; }
+
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, MedicationRequest.Rootobject originalJson, MedicationRequest.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
             cloneJson.subject.reference = CloneOrLimit(clone, originalJson, originalJson.subject.reference, refSiblingNumber, ref refSiblingNumberLimit);
@@ -29,11 +32,13 @@ namespace ResourceProcessorNamespace
             {
                 cloneJson.encounter.reference = CloneOrLimit(clone, originalJson, originalJson.encounter.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
+
             if (cloneJson.requester != null)
             {
                 cloneJson.requester.reference = CloneOrLimit(clone, originalJson, originalJson.requester.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
         }
+
         public override MedicationRequestSibling CreateClone(ResourceGroupProcessor processor, MedicationRequest.Rootobject originalJson, MedicationRequest.Rootobject cloneJson, int refSiblingNumber)
         {
             cloneJson.id = Guid.NewGuid().ToString();
@@ -48,6 +53,7 @@ namespace ResourceProcessorNamespace
             }*/
             return r;
         }
+
         public override bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, MedicationRequest.Rootobject json, out bool select)
         {
             select = true;
@@ -57,23 +63,27 @@ namespace ResourceProcessorNamespace
                 select = false;
                 return false;
             }
+
             if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.medicationRequestStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.encounter != null &&
                 !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.medicationRequestStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.requester != null &&
                 !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.medicationRequestStr, json.requester.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             return true;
         }
     }

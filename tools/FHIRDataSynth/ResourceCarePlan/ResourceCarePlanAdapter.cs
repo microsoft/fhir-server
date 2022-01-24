@@ -5,14 +5,18 @@ namespace ResourceProcessorNamespace
     struct CarePlanSibling
     {
     }
+
     class CarePlanAdapter : ResourceAdapter<CarePlan.Rootobject, CarePlanSibling>
     {
         public override CarePlanSibling CreateOriginal(ResourceGroupProcessor processor, CarePlan.Rootobject json)
         {
             return default;
         }
+
         public override string GetId(CarePlan.Rootobject json) { return json.id; }
+
         public override string GetResourceType(CarePlan.Rootobject json) { return json.resourceType; }
+
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, CarePlan.Rootobject originalJson, CarePlan.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
             cloneJson.subject.reference = CloneOrLimit(clone, originalJson, originalJson.subject.reference, refSiblingNumber, ref refSiblingNumberLimit);
@@ -20,6 +24,7 @@ namespace ResourceProcessorNamespace
             {
                 cloneJson.encounter.reference = CloneOrLimit(clone, originalJson, originalJson.encounter.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
+
             if (cloneJson.careTeam != null)
             {
                 for (int i = 0; i < cloneJson.careTeam.Length; i++)
@@ -28,10 +33,10 @@ namespace ResourceProcessorNamespace
                 }
             }
         }
+
         public override CarePlanSibling CreateClone(
             ResourceGroupProcessor processor,
-            // WARNING! originalJson MUST not be modified, member classes of originalJson MUST not be asigned to cloneJson!
-            CarePlan.Rootobject originalJson,
+            CarePlan.Rootobject originalJson, // WARNING! originalJson MUST not be modified, member classes of originalJson MUST not be asigned to cloneJson!
             CarePlan.Rootobject cloneJson,
             int refSiblingNumber)
         {
@@ -106,6 +111,7 @@ namespace ResourceProcessorNamespace
             */
             return default;
         }
+
         public override bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, CarePlan.Rootobject json, out bool select)
         {
             string resName = ResourceGroupProcessor.carePlanStr;
@@ -117,16 +123,19 @@ namespace ResourceProcessorNamespace
                 select = false;
                 return false;
             }
+
             if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.encounter != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.careTeam != null)
             {
                 if (json.careTeam.Length == 0)
@@ -135,6 +144,7 @@ namespace ResourceProcessorNamespace
                     select = false;
                     return false;
                 }
+
                 foreach (CarePlan.Careteam ct in json.careTeam)
                 {
                     if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.reference, ResourceGroupProcessor.careTeamStr, processor.careTeams, processor.careTeamIdsRemoved, ref select))
@@ -144,6 +154,7 @@ namespace ResourceProcessorNamespace
                     }
                 }
             }
+
             return true;
         }
     }

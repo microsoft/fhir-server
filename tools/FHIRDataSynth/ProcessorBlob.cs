@@ -18,6 +18,7 @@ class BlobResourceGroupProcessor : ResourceGroupProcessor
     BlobContainerClient inputBlobContainerClient;
     BlobServiceClient outputBlobServiceClient;
     BlobContainerClient outputBlobContainerClient;
+
     public override string GetResourceGroupDir() { return resourceGroupDir; }
 
     public BlobResourceGroupProcessor(string inputConnectionString, string inputBlobContainerName, string resourceGroupDir, string outputConnectionString, string outputBlobContainerName)
@@ -26,6 +27,7 @@ class BlobResourceGroupProcessor : ResourceGroupProcessor
         {
             throw new ArgumentException($"Input blob container name '{inputBlobContainerName}' is same as output blob container name '{outputBlobContainerName}'!");
         }
+
         this.resourceGroupDir = resourceGroupDir;
         this.outputConnectionString = outputConnectionString;
         this.outputBlobContainerName = outputBlobContainerName;
@@ -38,21 +40,25 @@ class BlobResourceGroupProcessor : ResourceGroupProcessor
             outputBlobContainerClient = outputBlobServiceClient.GetBlobContainerClient(outputBlobContainerName);
         }
     }
-    protected async override Task MakeOutputResourceGroupDirAsync()// TODO: not public
+
+    protected async override Task MakeOutputResourceGroupDirAsync()
     {
         if (outputBlobContainerClient != null)
         {
             await outputBlobContainerClient.CreateIfNotExistsAsync();
         }
     }
+
     public override void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message)
     {
         Console.WriteLine($"INFO: {resourceGroupDir}{resourceName}/{resourceId}: {message}");
     }
+
     public override void LogWarning(string resourceGroupDir, string resourceName, string resourceId, string message)
     {
         Console.WriteLine($"WARNING: {resourceGroupDir}{resourceName}/{resourceId}: {message}");
     }
+
     /*protected async override Task<ResourcesReturn> ProcessResourcesStreamAsync<T>(string resourceName, HashSet<string> patients, double dbSyntheaRatio)
     {
         if (inputBlobContainerName == outputBlobContainerName)
@@ -85,6 +91,7 @@ class BlobResourceGroupProcessor : ResourceGroupProcessor
         Stream inputStream = await inputBlobClient.OpenReadAsync();
         return new StreamReader(inputStream, Encoding.UTF8, false, 1024 * 1024);
     }
+
     protected async override Task<StreamWriter> GetStreamWriter(string resourceName)
     {
         string blobName = resourceGroupDir + resourceName + RDUtility.ResourcesExtension;
@@ -94,11 +101,14 @@ class BlobResourceGroupProcessor : ResourceGroupProcessor
         {
             throw new Exception($"Blob {blobName} already exists in container {outputBlobContainerName}.");
         }
+
         Stream blobStream = await blobClient.OpenWriteAsync(true, new BlockBlobOpenWriteOptions() { BufferSize = 2 * 1024 * 1024 });
         return new StreamWriter(blobStream, new UTF8Encoding(false), 2 * 1024 * 1024);
     }
+
     protected override bool OnlyVerifyInput { get => outputConnectionString == null || outputBlobContainerName == null; }
 }
+
 class BlobResourceProcessor : ResourceProcessor
 {
     private const string outputBlobContainerNamePrefix = "blend-";
@@ -106,12 +116,14 @@ class BlobResourceProcessor : ResourceProcessor
     string inputBlobContainerName;
     string outputConnectionString;
     string outputBlobContainerName;
+
     public BlobResourceProcessor(string inputConnectionString, string inputBlobContainerName, string outputConnectionString, string outputBlobContainerName)
     {
         if (inputBlobContainerName == outputBlobContainerName)
         {
             throw new ArgumentException($"Input blob container name '{inputBlobContainerName}' is same as output blob container name '{outputBlobContainerName}'!");
         }
+
         this.inputConnectionString = inputConnectionString;
         this.inputBlobContainerName = inputBlobContainerName;
         this.outputConnectionString = outputConnectionString;
@@ -121,18 +133,22 @@ class BlobResourceProcessor : ResourceProcessor
             this.outputBlobContainerName = outputBlobContainerNamePrefix + outputBlobContainerName;
         }
     }
+
     protected override void LogInfo(string message)
     {
         Console.WriteLine($"INFO: {message}");
     }
+
     protected override void LogError(string message)
     {
         Console.WriteLine($"ERROR: {message}");
     }
+
     protected async override Task<SortedSet<string>> GetResourceGroupDirsAsync()
     {
         return await GetResourceGroupDirsAsync(inputConnectionString, inputBlobContainerName);
     }
+
     public static async Task<SortedSet<string>> GetResourceGroupDirsAsync(string inputConnectionString, string inputBlobContainerName)
     {
         SortedSet<string> ret = new SortedSet<string>();
@@ -142,8 +158,10 @@ class BlobResourceProcessor : ResourceProcessor
         {
             ret.Add(blobHierarchyItem.Prefix);
         }
+
         return ret;
     }
+
     protected override ResourceGroupProcessor GetNewResourceGroupProcessor(string resourceGroupDir)
     {
         return new BlobResourceGroupProcessor(inputConnectionString, inputBlobContainerName, resourceGroupDir, outputConnectionString, outputBlobContainerName);

@@ -5,8 +5,8 @@ namespace ResourceProcessorNamespace
     struct ObservationSibling
     {
         public string id;
-        //public EncounterSibling encounter;
     }
+
     class ObservationAdapter : ResourceAdapter<Observation.Rootobject, ObservationSibling>
     {
         public override ObservationSibling CreateOriginal(ResourceGroupProcessor processor, Observation.Rootobject json)
@@ -20,19 +20,24 @@ namespace ResourceProcessorNamespace
             }*/
             return r;
         }
+
         public override string GetId(Observation.Rootobject json) { return json.id; }
+
         public override string GetResourceType(Observation.Rootobject json) { return json.resourceType; }
+
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Observation.Rootobject originalJson, Observation.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
             if (cloneJson.subject != null)
             {
                 cloneJson.subject.reference = CloneOrLimit(clone, originalJson, originalJson.subject.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
+
             if (cloneJson.encounter != null)
             {
                 cloneJson.encounter.reference = CloneOrLimit(clone, originalJson, originalJson.encounter.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
         }
+
         public override ObservationSibling CreateClone(ResourceGroupProcessor processor, Observation.Rootobject originalJson, Observation.Rootobject cloneJson, int refSiblingNumber)
         {
             cloneJson.id = Guid.NewGuid().ToString();
@@ -47,6 +52,7 @@ namespace ResourceProcessorNamespace
             }*/
             return r;
         }
+
         public override bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, Observation.Rootobject json, out bool select)
         {
             select = true;
@@ -56,12 +62,14 @@ namespace ResourceProcessorNamespace
                 select = false;
                 return false;
             }
+
             if (json.encounter != null &&
                 !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.observationStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             return true;
         }
     }

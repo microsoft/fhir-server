@@ -15,6 +15,7 @@ namespace FHIRDataSynth
                 throw new Exception($"Invalid task count '{s}.");
             }
         }
+
         static void ValidateTargetRatiosFile(string pathName, out TargetRatios targetRatios)
         {
             targetRatios = null;
@@ -22,6 +23,7 @@ namespace FHIRDataSynth
             {
                 throw new Exception($"Invalid target ratios path or file name '{pathName}',  or insufficient permission.");
             }
+
             try
             {
                 targetRatios = JsonSerializer.Deserialize<TargetRatios>(File.ReadAllText(pathName));
@@ -35,10 +37,12 @@ namespace FHIRDataSynth
                 throw new Exception($"Error reading target ratios file {pathName}. ({ex.Message})", ex);
             }
         }
+
         class TargetRatios
         {
             public TargetProfile[] targetRatios { get; set; }
         }
+
         static int Main(string[] args)
         {
             try
@@ -117,28 +121,40 @@ namespace FHIRDataSynth
                                 {
                                     throw new Exception("Invalid number of input parameters.");
                                 }
+
                                 if (!CalculatorTargetRatios.IsValidBlobContainerName(args[1]))
                                 {
                                     throw new Exception($"Invalid blend profile name '{args[1]}'. Follow Azure Blob naming rules.");
                                 }
+
                                 inContainerName = args[1];
                                 if (!CalculatorTargetRatios.IsValidBlobContainerName(args[2]))
                                 {
                                     throw new Exception($"Invalid blend profile name '{args[2]}'. Follow Azure Blob naming rules.");
                                 }
+
                                 outContainerName = args[2];
                                 ValidateTaskCount(args[3], out taskCount);
                                 ValidateTargetRatiosFile(args[4], out targetRatios);
                                 connectionString = args[5];
-                                if (args.Length == 7) { outConnectionString = args[6]; }
-                                else { outConnectionString = connectionString; }
+                                if (args.Length == 7)
+                                {
+                                    outConnectionString = args[6];
+                                }
+                                else
+                                {
+                                    outConnectionString = connectionString;
+                                }
+
                                 foreach (TargetProfile tp in targetRatios.targetRatios)
                                 {
                                     BlobResourceProcessor blobResourceProcessor = new BlobResourceProcessor(connectionString, inContainerName, outConnectionString, outContainerName + "-" + tp.name);
                                     blobResourceProcessor.Process(taskCount, tp);
                                 }
+
                                 ret = 0;
                             }
+
                             break;
                         case verifyBlobCommand:
                             {
@@ -151,10 +167,12 @@ namespace FHIRDataSynth
                                 {
                                     throw new Exception("Invalid number of input parameters.");
                                 }
+
                                 if (!CalculatorTargetRatios.IsValidBlobContainerName(args[1]))
                                 {
                                     throw new Exception($"Invalid blend profile name '{args[1]}'. Follow Azure Blob naming rules.");
                                 }
+
                                 inContainerName = args[1];
                                 ValidateTaskCount(args[2], out taskCount);
                                 ValidateTargetRatiosFile(args[3], out targetRatios);
@@ -164,8 +182,10 @@ namespace FHIRDataSynth
                                     BlobResourceProcessor blobResourceProcessor = new BlobResourceProcessor(connectionString, inContainerName + "-" + tp.name, null, null);
                                     blobResourceProcessor.Process(taskCount, tp);
                                 }
+
                                 ret = 0;
                             }
+
                             break;
                         case fileCommand:
                             {
@@ -178,6 +198,7 @@ namespace FHIRDataSynth
                                 {
                                     throw new Exception("Invalid number of input parameters.");
                                 }
+
                                 inDir = args[1];
                                 outDir = args[2];
                                 ValidateTaskCount(args[3], out taskCount);
@@ -187,8 +208,10 @@ namespace FHIRDataSynth
                                     RDResourceProcessor rdResourceProcessor = new RDResourceProcessor(inDir, outDir + "-" + tp.name);
                                     rdResourceProcessor.Process(taskCount, tp);
                                 }
+
                                 ret = 0;
                             }
+
                             break;
                         case verifyFileCommand:
                             {
@@ -200,6 +223,7 @@ namespace FHIRDataSynth
                                 {
                                     throw new Exception("Invalid number of input parameters.");
                                 }
+
                                 inDir = args[1];
                                 ValidateTaskCount(args[2], out taskCount);
                                 ValidateTargetRatiosFile(args[3], out targetRatios);
@@ -208,8 +232,10 @@ namespace FHIRDataSynth
                                     RDResourceProcessor rdResourceProcessor = new RDResourceProcessor(inDir + "-" + tp.name, null);
                                     rdResourceProcessor.Process(taskCount, tp);
                                 }
+
                                 ret = 0;
                             }
+
                             break;
                         case targetCommand:
                             {
@@ -217,6 +243,7 @@ namespace FHIRDataSynth
                                 {
                                     throw new Exception("Invalid number of input parameters.");
                                 }
+
                                 string blobGroupsInfoPath = args[1];
                                 string oneGroupInfoPath = args[2];
                                 string blendRatiosFilePath = args[3];
@@ -225,6 +252,7 @@ namespace FHIRDataSynth
                                 CalculatorTargetRatios.Calculate(blobGroupsInfoPath, oneGroupInfoPath, blendRatiosFilePath, targetRatiosPath, targetRatiosPathCsv);
                                 ret = 0;
                             }
+
                             break;
                         case importCommand:
                             {
@@ -232,6 +260,7 @@ namespace FHIRDataSynth
                                 {
                                     throw new Exception("Invalid number of input parameters.");
                                 }
+
                                 string serverUrl = args[1];
                                 string resourceGroupCount = args[2];
                                 string inputUrl = args[3];
@@ -241,6 +270,7 @@ namespace FHIRDataSynth
                                 ServerImport.Import(serverUrl, resourceGroupCount, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString).Wait();
                                 ret = 0;
                             }
+
                             break;
                         case isFinishedCommand:
                             {
@@ -248,12 +278,20 @@ namespace FHIRDataSynth
                                 {
                                     throw new Exception("Invalid number of input parameters.");
                                 }
+
                                 string importResultFileName = args[1];
                                 Task<bool> t = ServerImport.IsImportFinished(importResultFileName);
                                 t.Wait();
-                                if (t.Result) ret = 0;
-                                else ret = 1;// Retry later.
+                                if (t.Result)
+                                {
+                                    ret = 0;
+                                }
+                                else
+                                {
+                                    ret = 1; // Retry later.
+                                }
                             }
+
                             break;
                         default:
                             {
@@ -261,17 +299,20 @@ namespace FHIRDataSynth
                             }
                     }
                 }
+
                 Console.WriteLine($"End time: {DateTime.Now}");
                 Console.WriteLine($"Execution time: {DateTime.Now - startTime}");
-                //Console.WriteLine("Press enter to close application.");
-                //Console.ReadLine();
+
+                // Console.WriteLine("Press enter to close application.");
+                // Console.ReadLine();
                 return ret;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"ERROR! {ex.Message}");
-                //Console.WriteLine("Press enter to close application.");
-                //Console.ReadLine();
+
+                // Console.WriteLine("Press enter to close application.");
+                // Console.ReadLine();
                 return -1;
             }
         }

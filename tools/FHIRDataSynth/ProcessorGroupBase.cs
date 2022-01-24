@@ -22,14 +22,23 @@ namespace ResourceProcessorNamespace
         public int outputCreatedResourcesCount;
         public int outputResourcesCount;
         public long outputResourcesSize;
+
         public int InputResourcesCount { get => inputResourcesCount; }
+
         public long InputResourcesSize { get => inputResourcesSize; }
+
         public int InputValidResorcesCount { get => inputValidResorcesCount; }
+
         public int InputSelectedResorcesCount { get => inputSelectedResorcesCount; }
+
         public int InputRemovedResourcesCount { get => inputRemovedResourcesCount; }
+
         public int OutputCreatedResourcesCount { get => outputCreatedResourcesCount; }
+
         public int OutputResourcesCount { get => outputResourcesCount; }
+
         public long OutputResourcesSize { get => outputResourcesSize; }
+
         public ResourcesResult(string resourceName)
         {
             inputResourcesCount = 0;
@@ -41,6 +50,7 @@ namespace ResourceProcessorNamespace
             outputResourcesCount = 0;
             outputResourcesSize = 0;
         }
+
         public ResourcesResult(
             int inputResourcesCount,
             long inputResourcesSize,
@@ -60,7 +70,8 @@ namespace ResourceProcessorNamespace
             this.outputResourcesCount = outputResourcesCount;
             this.outputResourcesSize = outputResourcesSize;
         }
-        public void Add(ResourcesResult a)// TODO: to derived class so base is readonly?
+
+        public void Add(ResourcesResult a) // TODO: to derived class so base is readonly?
         {
             inputResourcesCount += a.inputResourcesCount;
             inputResourcesSize += a.inputResourcesSize;
@@ -71,27 +82,35 @@ namespace ResourceProcessorNamespace
             outputResourcesCount += a.outputResourcesCount;
             outputResourcesSize += a.outputResourcesSize;
         }
+
         public void LogInfo(ResourceGroupProcessor resourceGroupProcessor, string resourceGroupDir, string resourceName)
         {
             resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, "-----------------------------------------------");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(        inputResourcesCount)} : {inputResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(         inputResourcesSize)} : {inputResourcesSize}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(    inputValidResorcesCount)} : {inputValidResorcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof( inputSelectedResorcesCount)} : {inputSelectedResorcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof( inputRemovedResourcesCount)} : {inputRemovedResourcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputResourcesCount)} : {inputResourcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputResourcesSize)} : {inputResourcesSize}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputValidResorcesCount)} : {inputValidResorcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputSelectedResorcesCount)} : {inputSelectedResorcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputRemovedResourcesCount)} : {inputRemovedResourcesCount}");
             resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(outputCreatedResourcesCount)} : {outputCreatedResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(       outputResourcesCount)} : {outputResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(        outputResourcesSize)} : {outputResourcesSize}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(outputResourcesCount)} : {outputResourcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(outputResourcesSize)} : {outputResourcesSize}");
         }
     }
+
     abstract class ResourceGroupProcessor
     {
-        abstract public void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message);// TODO: async?
-        abstract public void LogWarning(string resourceGroupDir, string resourceName, string resourceId, string message);// TODO: asinc?
+        abstract public void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message);
+
+        abstract public void LogWarning(string resourceGroupDir, string resourceName, string resourceId, string message);
+
         abstract protected Task MakeOutputResourceGroupDirAsync();
+
         abstract public string GetResourceGroupDir();
+
         abstract protected Task<StreamReader> GetStreamReader(string resourceName);
+
         abstract protected Task<StreamWriter> GetStreamWriter(string resourceName);
+
         abstract protected bool OnlyVerifyInput { get; }
 
         public Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>> allergyIntolerances = new Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>>();
@@ -194,12 +213,14 @@ namespace ResourceProcessorNamespace
                 LogWarning(GetResourceGroupDir(), resourceName, id, $"Resource id is null!");
                 return false;
             }
+
             if (resourceType != resourceName)
             {
                 LogWarning(GetResourceGroupDir(), resourceName, id, $"Invalid resource type, expected {resourceName}, found {resourceType}!");
                 duplicateIdsCheck.Add(id);
                 return false;
             }
+
             if (duplicateIdsCheck.Contains(id))
             {
                 // Repeat resurce id.
@@ -207,14 +228,23 @@ namespace ResourceProcessorNamespace
                 {
                     LogWarning(GetResourceGroupDir(), resourceName, id, $"Repeat resource id '{id}'!");
                 }
+
                 duplicateIdsCheck.Add(id);
                 return false;
             }
+
             duplicateIdsCheck.Add(id);
             return true;
         }
-        public bool ValidateResourceRefAndSelect<T>(string id, string resourceName, string resourceRef, string resourceRefName,
-            Dictionary<string, ResourceSiblingsContainer<T>> resourcesCollection, HashSet<string> resourcesRemovedSet, ref bool select)
+
+        public bool ValidateResourceRefAndSelect<T>(
+            string id,
+            string resourceName,
+            string resourceRef,
+            string resourceRefName,
+            Dictionary<string, ResourceSiblingsContainer<T>> resourcesCollection,
+            HashSet<string> resourcesRemovedSet,
+            ref bool select)
             where T : struct
         {
             if (resourceRef == null)
@@ -223,6 +253,7 @@ namespace ResourceProcessorNamespace
                 select = false;
                 return false;
             }
+
             string prefix = $"{resourceRefName}/";
             if (!resourceRef.StartsWith(prefix))
             {
@@ -230,12 +261,14 @@ namespace ResourceProcessorNamespace
                 select = false;
                 return false;
             }
+
             string resourceRefId = resourceRef.Substring(prefix.Length);
             if (resourcesCollection.ContainsKey(resourceRefId))
             {
                 // select &= true;
                 return true;
             }
+
             if (resourcesRemovedSet.Contains(resourceRefId))
             {
                 select = false;
@@ -248,10 +281,18 @@ namespace ResourceProcessorNamespace
                 return false;
             }
         }
-        private async Task ResizeResources<T, U>(string resourceName, TargetProfile targetProfile, List<T> jsonList, StreamWriter w,
-            JsonSerializerOptions options, Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection, HashSet<string> resourcesRemovedSet,
+
+        private async Task ResizeResources<T, U>(
+            string resourceName,
+            TargetProfile targetProfile,
+            List<T> jsonList,
+            StreamWriter w,
+            JsonSerializerOptions options,
+            Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection,
+            HashSet<string> resourcesRemovedSet,
             ResourceAdapter<T, U> adapter,
-            ResourcesResult result, Dictionary<string, ResourcesResult> ret)
+            ResourcesResult result,
+            Dictionary<string, ResourcesResult> ret)
             where T : class
             where U : struct
         {
@@ -263,7 +304,8 @@ namespace ResourceProcessorNamespace
                 {
                     for (int i = 0; i < requiredOutputCount; i++)
                     {
-                        T json = jsonList[i]; jsonList[i] = default(T);
+                        T json = jsonList[i];
+                        jsonList[i] = default(T);
                         ResourceSiblingsContainer<U> siblingsContainer = new ResourceSiblingsContainer<U>(new U[1] { adapter.CreateOriginal(this, json) });
                         resourcesCollection.Add(adapter.GetId(json), siblingsContainer);
                         string line = JsonSerializer.Serialize<T>(json, options);
@@ -271,9 +313,11 @@ namespace ResourceProcessorNamespace
                         result.outputResourcesCount++;
                         result.outputResourcesSize += line.Length;
                     }
+
                     for (int i = requiredOutputCount; i < jsonList.Count; i++)
                     {
-                        T json = jsonList[i]; jsonList[i] = default(T);
+                        T json = jsonList[i];
+                        jsonList[i] = default(T);
                         resourcesRemovedSet.Add(adapter.GetId(json));
                         result.inputRemovedResourcesCount++;
                     }
@@ -283,8 +327,9 @@ namespace ResourceProcessorNamespace
                     List<U> siblingsList = new List<U>(1000);
                     for (int i = 0; i < jsonList.Count; i++)
                     {
-                        siblingsList.Clear();// IMPORTANT, must be at the begining of the main loop!
-                        T json = jsonList[i]; jsonList[i] = default(T);
+                        siblingsList.Clear(); // IMPORTANT, must be at the begining of the main loop!
+                        T json = jsonList[i];
+                        jsonList[i] = default(T);
                         siblingsList.Add(adapter.CreateOriginal(this, json));
                         string line = JsonSerializer.Serialize<T>(json, options);
                         await w.WriteLineAsync(line);
@@ -309,25 +354,38 @@ namespace ResourceProcessorNamespace
                                 refSiblingNumber++;
                             }
                         }
+
                         ResourceSiblingsContainer<U> resourceAndClones = new ResourceSiblingsContainer<U>(siblingsList.ToArray());
                         resourcesCollection.Add(adapter.GetId(json), resourceAndClones);
                     }
                 }
             }
+
             if (result.outputResourcesCount <= 0)
             {
                 // TODO: what if no resources at this point (for example we need at least one patient), must retain at least one or even create one.
                 LogWarning(GetResourceGroupDir(), resourceName, null, $"No resources of type '{resourceName}' in output!");
             }
+
             ret.Add(resourceName, result);
         }
-        async Task ProcessResources<T, U>(string resourceName, ResourceAdapter<T, U> adapter, TargetProfile targetProfile, JsonSerializerOptions options,
-            Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection, HashSet<string> resourcesRemovedSet, Dictionary<string, ResourcesResult> ret)
-            where T: class
+
+        async Task ProcessResources<T, U>(
+            string resourceName,
+            ResourceAdapter<T, U> adapter,
+            TargetProfile targetProfile,
+            JsonSerializerOptions options,
+            Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection,
+            HashSet<string> resourcesRemovedSet,
+            Dictionary<string, ResourcesResult> ret)
+            where T : class
             where U : struct
         {
             adapter.Initialize(this, options);
-            if ((!targetProfile.ratios.TryGetValue(resourceName, out double ratio)) || (ratio <= 0)) return;// Nothing to do.
+            if ((!targetProfile.ratios.TryGetValue(resourceName, out double ratio)) || (ratio <= 0))
+            {
+                return; // Nothing to do.
+            }
 
             List<T> jsonList = new List<T>();
             ResourcesResult result = new ResourcesResult(resourceName);
@@ -335,14 +393,22 @@ namespace ResourceProcessorNamespace
             {
                 string line;
                 HashSet<string> duplicateIdsCheck = new HashSet<string>();
-                while ((line = await r.ReadLineAsync()) != null)// TODO: optimization, we can stop the loop once required number of items is reached?
+                while ((line = await r.ReadLineAsync()) != null) // TODO: optimization, we can stop the loop once required number of items is reached?
                 {
                     result.inputResourcesCount++;
                     result.inputResourcesSize += line.Length;
                     T json = JsonSerializer.Deserialize<T>(line);
 
-                    if (!ValidateIdAndResourceType(adapter.GetId(json), adapter.GetResourceType(json), resourceName, duplicateIdsCheck)) continue;
-                    if (!adapter.ValidateResourceRefsAndSelect(this, json, out bool select)) continue;
+                    if (!ValidateIdAndResourceType(adapter.GetId(json), adapter.GetResourceType(json), resourceName, duplicateIdsCheck))
+                    {
+                        continue;
+                    }
+
+                    if (!adapter.ValidateResourceRefsAndSelect(this, json, out bool select))
+                    {
+                        continue;
+                    }
+
                     result.inputValidResorcesCount++;
                     if (OnlyVerifyInput || !select)
                     {
@@ -355,6 +421,7 @@ namespace ResourceProcessorNamespace
                     }
                 }
             }
+
             if (OnlyVerifyInput)
             {
                 result.outputResourcesCount = result.inputResourcesCount;
@@ -369,9 +436,16 @@ namespace ResourceProcessorNamespace
                 }
             }
         }
-        async Task ProcessResourcesX<T, U>(string resourceName, ResourceAdapter<T, U> adapter, TargetProfile targetProfile, JsonSerializerOptions options,
-            Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection, HashSet<string> resourcesRemovedSet, Dictionary<string, ResourcesResult> ret)
-            where T: class
+
+        async Task ProcessResourcesX<T, U>(
+            string resourceName,
+            ResourceAdapter<T, U> adapter,
+            TargetProfile targetProfile,
+            JsonSerializerOptions options,
+            Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection,
+            HashSet<string> resourcesRemovedSet,
+            Dictionary<string, ResourcesResult> ret)
+            where T : class
             where U : struct
         {
             adapter.Initialize(this, options);
@@ -381,7 +455,10 @@ namespace ResourceProcessorNamespace
                 return;
             }
 
-            if ((!targetProfile.ratios.TryGetValue(resourceName, out double ratio)) || (ratio <= 0)) return;// Nothing to do.
+            if ((!targetProfile.ratios.TryGetValue(resourceName, out double ratio)) || (ratio <= 0))
+            {
+                return; // Nothing to do.
+            }
 
             List<T> jsonList = new List<T>();
             ResourcesResult result = new ResourcesResult(resourceName);
@@ -390,9 +467,18 @@ namespace ResourceProcessorNamespace
                 foreach (ResourceAdapter<T, U>.EnumeratorItem item in adapter)
                 {
                     result.inputResourcesSize += item.size;
-                    if (!ValidateIdAndResourceType(adapter.GetId(item.json), adapter.GetResourceType(item.json), resourceName, duplicateIdsCheck)) continue;
-                    if (!adapter.ValidateResourceRefsAndSelect(this, item.json, out bool select)) continue;
+                    if (!ValidateIdAndResourceType(adapter.GetId(item.json), adapter.GetResourceType(item.json), resourceName, duplicateIdsCheck))
+                    {
+                        continue;
+                    }
+
+                    if (!adapter.ValidateResourceRefsAndSelect(this, item.json, out bool select))
+                    {
+                        continue;
+                    }
+
                     result.inputValidResorcesCount++;
+
                     if (OnlyVerifyInput || !select)
                     {
                         resourcesRemovedSet.Add(adapter.GetId(item.json));
@@ -403,8 +489,10 @@ namespace ResourceProcessorNamespace
                         jsonList.Add(item.json);
                     }
                 }
+
                 result.inputResourcesCount = 1;
             }
+
             if (OnlyVerifyInput)
             {
                 result.outputResourcesCount = result.inputResourcesCount;
@@ -419,13 +507,14 @@ namespace ResourceProcessorNamespace
                 }
             }
         }
-        public async Task<Dictionary<string, ResourcesResult>> NEW_ProcessResourceGroupAsync(TargetProfile targetProfile)//TODO: not public
+
+        public async Task<Dictionary<string, ResourcesResult>> ProcessResourceGroupAsync(TargetProfile targetProfile)
         {
             await MakeOutputResourceGroupDirAsync();
             JsonSerializerOptions options = new()
             {
-                //Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,// DANGEROUS!, use carefully if needed.
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                // Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,// DANGEROUS!, use carefully if needed.
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             };
             Dictionary<string, ResourcesResult> ret = new Dictionary<string, ResourcesResult>();
 

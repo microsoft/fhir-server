@@ -16,6 +16,7 @@ namespace FHIRDataSynth
 
         public const string ResourcesTotalSizeHeader = "ResourceName,Bytes";
         public const string OneResourceGroupInfoHeader = "Resource Name,Ids Count,Duplicate Ids Count,Patient Refs Not Patient,Subject Refs Not Patient,Patient Ref Ids Count,Intersect Patients PatientRefs Count,Lines Count,Lines Length Sum";
+
         public static bool IsValidBlobContainerName(string s)
         {
             return s != null && s.Length > 0 && s.All(c => char.IsDigit(c) || char.IsLower(c) || c == '-') && char.IsLetterOrDigit(s[0]) && char.IsLetterOrDigit(s[s.Length - 1]);
@@ -28,21 +29,29 @@ namespace FHIRDataSynth
             public long resourceInputSize = 0;
             public double blendRatio = 0;
         }
+
         class BlendProfile
         {
             public string BlendName { get; set; }
+
             public Dictionary<string, double> BlendRatios { get; set; }
         }
+
         class BlendRatios
         {
             public BlendProfile[] BlendProfiles { get; set; }
         }
+
         class OutputResourceGroupSize
         {
             public int OutputResourceGroupsCount { get; }
+
             public double GBPerResourceGroup { get; }
+
             public double BytesPerResourceGroup { get => GBPerResourceGroup * 1024 * 1024 * 1024; }
+
             public string Text { get; }
+
             public OutputResourceGroupSize(double gbPerResourceGroup, string text, int outputResourceGroupsCount)
             {
                 GBPerResourceGroup = gbPerResourceGroup;
@@ -50,12 +59,29 @@ namespace FHIRDataSynth
                 OutputResourceGroupsCount = outputResourceGroupsCount;
             }
         }
+
         public static void Calculate(string blobGroupsInfoPath, string oneGroupInfoPath, string blendRatiosFilePath, string targetRatiosPath, string targetRatiosPathCsv)
         {
-            if (Directory.Exists(targetRatiosPath)) throw new Exception($"Directory {targetRatiosPath} exists!");
-            if (File.Exists(targetRatiosPath)) throw new Exception($"File {targetRatiosPath} already exists!");
-            if (Directory.Exists(targetRatiosPathCsv)) throw new Exception($"Directory {targetRatiosPathCsv} exists!");
-            if (File.Exists(targetRatiosPathCsv)) throw new Exception($"File {targetRatiosPathCsv} already exists!");
+            if (Directory.Exists(targetRatiosPath))
+            {
+                throw new Exception($"Directory {targetRatiosPath} exists!");
+            }
+
+            if (File.Exists(targetRatiosPath))
+            {
+                throw new Exception($"File {targetRatiosPath} already exists!");
+            }
+
+            if (Directory.Exists(targetRatiosPathCsv))
+            {
+                throw new Exception($"Directory {targetRatiosPathCsv} exists!");
+            }
+
+            if (File.Exists(targetRatiosPathCsv))
+            {
+                throw new Exception($"File {targetRatiosPathCsv} already exists!");
+            }
+
             BlendRatios blendRatios;
             try
             {
@@ -73,7 +99,7 @@ namespace FHIRDataSynth
                 new OutputResourceGroupSize(0.01, "0-01gb-prg", 1),
                 new OutputResourceGroupSize(1, "1gb-prg", 1),
                 new OutputResourceGroupSize(2.5, "2-5gb-prg", 1),
-                new OutputResourceGroupSize(5, "5gb-prg", 1)
+                new OutputResourceGroupSize(5, "5gb-prg", 1),
             };
 
             using (StreamWriter streamWriter = new StreamWriter(targetRatiosPathCsv))
@@ -86,6 +112,7 @@ namespace FHIRDataSynth
                     {
                         throw new Exception($"Invalid blend profile name '{blendProfile.BlendName}' in file '{blendRatiosFilePath}'. Follow Azure Blob naming rules.");
                     }
+
                     foreach (OutputResourceGroupSize outputResourceGroupSize in outputResourceGroupSizes)
                     {
                         CalculateRatios(
@@ -99,11 +126,14 @@ namespace FHIRDataSynth
                         targetRatios.targetRatios.Add(targetProfile);
                     }
                 }
+
                 string targetRatiosStr = JsonSerializer.Serialize(targetRatios, new JsonSerializerOptions() { WriteIndented = true });
                 File.WriteAllText(targetRatiosPath, targetRatiosStr);
             }
         }
+
         delegate int GetResourceSizeDelegate();
+
         private static void AddCalculationDataX(BlendProfile blendProfile, Dictionary<string, CalculationData> calculationData, GetResourceSizeDelegate GetResourceSize, string resourceName)
         {
             int resourceSize = GetResourceSize();
@@ -116,9 +146,12 @@ namespace FHIRDataSynth
             {
                 cd.blendRatio = blendRatio;
             }
+
             calculationData.Add(resourceName, cd);
         }
+
         const double usedResourceGroupsCount = 800;
+
         private static void CalculateRatios(
             OutputResourceGroupSize outputResourceGroupSize,
             double actualResourceGroupsCount,
@@ -133,16 +166,25 @@ namespace FHIRDataSynth
             using (StreamReader streamReader = new StreamReader(blobGroupsInfoPath))
             {
                 string line = streamReader.ReadLine();
-                if (line != ResourcesTotalSizeHeader) throw new Exception($"Invalid header in '{blobGroupsInfoPath}'!");
+                if (line != ResourcesTotalSizeHeader)
+                {
+                    throw new Exception($"Invalid header in '{blobGroupsInfoPath}'!");
+                }
+
                 while ((line = streamReader.ReadLine()) != null)
                 {
                     string[] fields = line.Split(',');
-                    if (fields.Length != 2) throw new Exception($"Invalid number of columns in '{blobGroupsInfoPath}'!");
+                    if (fields.Length != 2)
+                    {
+                        throw new Exception($"Invalid number of columns in '{blobGroupsInfoPath}'!");
+                    }
+
                     string key = fields[0];
                     string value = fields[1];
                     calculationData[key] = new CalculationData();
+
                     // TODO: Use only 800 out of 803 resource groups. This way we can create different db sizes by simply using different
-                    // number of blended resource groups. For example if blended resource group size is 2.5GB then we use 4 resource groups for 10 GB db, 
+                    // number of blended resource groups. For example if blended resource group size is 2.5GB then we use 4 resource groups for 10 GB db,
                     // 40 for 100GB, 400for 1TB and all 800 for 2TB. blobGroupsInfoPath should point to a json file instead of csv and should contain
                     // number of resource groups (803 at the moment).
                     calculationData[key].resourceInputSize = (long)((double)long.Parse(value) * (usedResourceGroupsCount / actualResourceGroupsCount));
@@ -157,23 +199,32 @@ namespace FHIRDataSynth
             using (StreamReader streamReader = new StreamReader(oneGroupInfoPath))
             {
                 string line = streamReader.ReadLine();
-                if (line != OneResourceGroupInfoHeader) throw new Exception($"Invalid header in '{blobGroupsInfoPath}'!");
+                if (line != OneResourceGroupInfoHeader)
+                {
+                    throw new Exception($"Invalid header in '{blobGroupsInfoPath}'!");
+                }
+
                 while ((line = streamReader.ReadLine()) != null)
                 {
                     string[] fields = line.Split(',');
-                    if (fields.Length != 9) throw new Exception($"Invalid number of columns in '{blobGroupsInfoPath}'!");
+                    if (fields.Length != 9)
+                    {
+                        throw new Exception($"Invalid number of columns in '{blobGroupsInfoPath}'!");
+                    }
+
                     string key = fields[0];
                     if (!calculationData.ContainsKey(key))
                     {
                         throw new Exception($"Mismatch between resource names in files '{blobGroupsInfoPath}' and '{oneGroupInfoPath}'");
                     }
+
                     calculationData[key].linesCount = int.Parse(fields[7]);
                     calculationData[key].linesLengthSum = long.Parse(fields[8]);
                     oneGroupResources.Add(key);
                 }
             }
 
-            if (oneGroupResources.Count != (oneGroupResources.Intersect(calculationData.Keys).Count()))
+            if (oneGroupResources.Count != oneGroupResources.Intersect(calculationData.Keys).Count())
             {
                 throw new Exception($"Mismatch between resource names in files '{blobGroupsInfoPath}' and '{oneGroupInfoPath}'");
             }
@@ -186,7 +237,10 @@ namespace FHIRDataSynth
 
             // Normalize blend ratio just in case.
             double sumBlend = calculationData.Sum(d => d.Value.blendRatio);
-            foreach (var d in calculationData) d.Value.blendRatio = d.Value.blendRatio / sumBlend;
+            foreach (var d in calculationData)
+            {
+                d.Value.blendRatio = d.Value.blendRatio / sumBlend;
+            }
 
             // TODO, take into account newline in blob.
             // TODO, take into account data compression in FHIR server.
@@ -196,19 +250,20 @@ namespace FHIRDataSynth
             foreach (KeyValuePair<string, CalculationData> data in calculationData)
             {
                 CalculationData d = data.Value;
-                double resourceAvgSize = ((double)d.linesLengthSum) / d.linesCount;// Resource average size calculated from the first resource group.
-                double resourceAvgSizeByBlendRatio = resourceAvgSize * d.blendRatio;// Scaled by blend ratio, gives ratio between resource type total sizes.
+                double resourceAvgSize = ((double)d.linesLengthSum) / d.linesCount; // Resource average size calculated from the first resource group.
+                double resourceAvgSizeByBlendRatio = resourceAvgSize * d.blendRatio; // Scaled by blend ratio, gives ratio between resource type total sizes.
                 sumResourceAvgSizeByBlendRatio += resourceAvgSizeByBlendRatio;
             }
+
             targeProfile = new TargetProfile();
             targeProfile.name = blendProfile.BlendName + "-" + outputResourceGroupSize.Text;
             foreach (KeyValuePair<string, CalculationData> data in calculationData)
             {
                 CalculationData d = data.Value;
-                double resourceAvgSize = ((double)d.linesLengthSum) / d.linesCount;// Resource average size calculated from the first resource group.
-                double resourceAvgSizeByBlendRatio = resourceAvgSize * d.blendRatio;// Scaled by blend ratio, gives ratio between resource type total sizes.
-                double resourceOutputSize = (outputResourceGroupSize.BytesPerResourceGroup * usedResourceGroupsCount) * (resourceAvgSizeByBlendRatio / sumResourceAvgSizeByBlendRatio);// Resource type total size for all resource groups.
-                double resourceOutputCount = resourceOutputSize / resourceAvgSize;// Resource type total count for all resource groups.
+                double resourceAvgSize = ((double)d.linesLengthSum) / d.linesCount; // Resource average size calculated from the first resource group.
+                double resourceAvgSizeByBlendRatio = resourceAvgSize * d.blendRatio; // Scaled by blend ratio, gives ratio between resource type total sizes.
+                double resourceOutputSize = (outputResourceGroupSize.BytesPerResourceGroup * usedResourceGroupsCount) * (resourceAvgSizeByBlendRatio / sumResourceAvgSizeByBlendRatio); // Resource type total size for all resource groups.
+                double resourceOutputCount = resourceOutputSize / resourceAvgSize; // Resource type total count for all resource groups.
                 double resourceOutputInputRatio = resourceOutputSize / d.resourceInputSize;
                 double resourceInputCount = d.resourceInputSize / resourceAvgSize;
                 double resourcesToBeCreatedOrDeleted = resourceOutputCount - resourceInputCount;

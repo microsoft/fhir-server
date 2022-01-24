@@ -18,37 +18,50 @@ namespace FHIRDataSynth
         public class ImportParameters
         {
             public string resourceType { get; set; }
+
             public List<Parameter> parameter { get; set; }
         }
 
         public class Parameter
         {
             public string name { get; set; }
+
             public string valueString { get; set; }
+
             public Part[] part { get; set; }
         }
 
         public class Part
         {
             public string name { get; set; }
+
             public string valueString { get; set; }
+
             public string valueUri { get; set; }
         }
 
         public class ImportResult
         {
             public ImportParameters importParameters { get; set; }
+
             public bool responseSuccess { get; set; }
+
             public int? responseStatusCode { get; set; }
+
             public string responseStatusCodeString { get; set; }
+
             public string responseReasonPhrase { get; set; }
+
             public string error { get; set; }
+
             public string importResultUrl { get; set; }
         }
+
         public class ImportResultCollection
         {
             public List<ImportResult> importResult { get; set; }
         }
+
         private static async Task<bool> ImportSingle(Uri uri, string importParametersJsonString, HttpClient client, ImportResult currentResult)
         {
             HttpRequestMessage request = new HttpRequestMessage()
@@ -66,23 +79,32 @@ namespace FHIRDataSynth
                 currentResult.responseReasonPhrase = response.ReasonPhrase;
                 if (!response.IsSuccessStatusCode)
                 {
-                    if (response.StatusCode == System.Net.HttpStatusCode.Conflict) return true;
+                    if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                    {
+                        return true;
+                    }
+
                     throw new Exception("Server did not return success code.");
                 }
+
                 Uri contentLocation = response.Content.Headers.ContentLocation;
                 if (contentLocation == null)
                 {
                     throw new Exception($"Server did not return Content-Location header.");
                 }
+
                 if (contentLocation.Segments == null || contentLocation.Segments.Length != 4 || contentLocation.Segments[0] != "/" ||
                     contentLocation.Segments[1] != "_operations/" || contentLocation.Segments[2] != "import/")
                 {
                     throw new Exception($"Server returned unrecognized Content-Location header {contentLocation}.");
                 }
+
                 currentResult.importResultUrl = contentLocation.ToString();
             }
+
             return false;
         }
+
         private static async Task ImportSingleBlobPerServerCall(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString)
         {
             if (inputUrl.EndsWith('/'))
@@ -125,7 +147,11 @@ namespace FHIRDataSynth
             HttpClient client = new HttpClient();
             foreach (string dir in dirs)
             {
-                if (resourceGroupCount < 1) break;
+                if (resourceGroupCount < 1)
+                {
+                    break;
+                }
+
                 resourceGroupCount--;
 
                 await foreach (BlobHierarchyItem blobHierarchyItem in blobContainerClient.GetBlobsByHierarchyAsync(prefix: dir))
@@ -158,7 +184,7 @@ namespace FHIRDataSynth
                         Console.WriteLine($"  Importing {currentResult.importParameters}");
                         while (await ImportSingle(uri, importParametersJsonString, client, currentResult))
                         {
-                            await Task.Delay(500);// Server busy, retry later.
+                            await Task.Delay(500); // Server busy, retry later.
                         }
                     }
                     catch (Exception ex)
@@ -166,9 +192,11 @@ namespace FHIRDataSynth
                         currentResult.responseSuccess = false;
                         currentResult.error = ex.Message;
                     }
+
                     success &= currentResult.responseSuccess;
                 }
             }
+
             JsonSerializerOptions resultOptions = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, WriteIndented = true };
             string resultString = JsonSerializer.Serialize(result, resultOptions);
             File.WriteAllText(importResultFileName, resultString);
@@ -181,6 +209,7 @@ namespace FHIRDataSynth
                 Console.WriteLine($"Server import failed. See file '{importResultFileName}' for more info.");
             }
         }
+
         private static async Task ImportMultipleBlobsPerServerCall(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString)
         {
             if (inputUrl.EndsWith('/'))
@@ -218,7 +247,11 @@ namespace FHIRDataSynth
             SortedSet<string> dirs = new SortedSet<string>();
             foreach (string dir in dirsAll)
             {
-                if (resourceGroupCount < 1) break;// TODO: if we add extra loop move this
+                if (resourceGroupCount < 1)
+                {
+                    break; // TODO: if we add extra loop move this
+                }
+
                 dirs.Add(dir);
                 resourceGroupCount--;
             }
@@ -254,6 +287,7 @@ namespace FHIRDataSynth
                         importParametersJson.parameter.Add(p);
                     }
                 }
+
                 importParametersJson.parameter.Add(new Parameter() { name = "storageDetail", part = new Part[1] { new Part() { name = "type", valueString = "azure-blob" } } });
                 string importParametersJsonString = JsonSerializer.Serialize(importParametersJson, options);
 
@@ -261,11 +295,11 @@ namespace FHIRDataSynth
 
                 // Make server call using import parameter.
                 Console.WriteLine($"  Server import call...");
-                try// Main reason for this try block is to capture SendAsync exceptions.
+                try // Main reason for this try block is to capture SendAsync exceptions.
                 {
                     while (await ImportSingle(uri, importParametersJsonString, client, currentResult))
                     {
-                        await Task.Delay(500);// Server busy, retry later.
+                        await Task.Delay(500); // Server busy, retry later.
                     }
                 }
                 catch (Exception ex)
@@ -273,8 +307,10 @@ namespace FHIRDataSynth
                     currentResult.responseSuccess = false;
                     currentResult.error = ex.Message;
                 }
+
                 success &= currentResult.responseSuccess;
             }
+
             JsonSerializerOptions resultOptions = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, WriteIndented = true };
             string resultString = JsonSerializer.Serialize(result, resultOptions);
             File.WriteAllText(importResultFileName, resultString);
@@ -287,32 +323,41 @@ namespace FHIRDataSynth
                 Console.WriteLine($"Server import failed. See file '{importResultFileName}' for more info.");
             }
         }
+
         public static async Task Import(string serverUrl, string resourceGroupCountStr, string inputUrl, string inputBlobContainerName, string importResultFileName, string inputConnectionString)
         {
-            //await ImportSingleBlobPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString);
+            // await ImportSingleBlobPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString);
             await ImportMultipleBlobsPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString);
         }
 
         public class ServerImportResult
         {
             public DateTime transactionTime { get; set; }
+
             public string request { get; set; }
+
             public Output[] output { get; set; }
+
             public Error[] error { get; set; }
         }
 
         public class Output
         {
             public string type { get; set; }
+
             public int count { get; set; }
+
             public string inputUrl { get; set; }
         }
 
         public class Error
         {
             public string type { get; set; }
+
             public int count { get; set; }
+
             public string inputUrl { get; set; }
+
             public string url { get; set; }
         }
 
@@ -334,6 +379,7 @@ namespace FHIRDataSynth
                     {
                         resultNotReady = true;
                     }
+
                     ServerImportResult serverImportResult = JsonSerializer.Deserialize<ServerImportResult>(responseBody);
                     if (serverImportResult.error != null && serverImportResult.error.Length != 0)
                     {
@@ -341,7 +387,12 @@ namespace FHIRDataSynth
                     }
                 }
             }
-            if (error) throw new Exception("Import failed, errors detected.");
+
+            if (error)
+            {
+                throw new Exception("Import failed, errors detected.");
+            }
+
             if (resultNotReady)
             {
                 Console.WriteLine("Import results not available, try later.");

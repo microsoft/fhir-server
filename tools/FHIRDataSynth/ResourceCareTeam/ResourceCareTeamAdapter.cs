@@ -8,6 +8,7 @@ namespace ResourceProcessorNamespace
         /*public string encounterRef;
         public string subjectRef;*/
     }
+
     class CareTeamAdapter : ResourceAdapter<CareTeam.Rootobject, CareTeamSibling>
     {
         public override CareTeamSibling CreateOriginal(ResourceGroupProcessor processor, CareTeam.Rootobject json)
@@ -25,18 +26,23 @@ namespace ResourceProcessorNamespace
             return ret;*/
             return ret;
         }
+
         public override string GetId(CareTeam.Rootobject json) { return json.id; }
+
         public override string GetResourceType(CareTeam.Rootobject json) { return json.resourceType; }
+
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, CareTeam.Rootobject originalJson, CareTeam.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
             if (cloneJson.subject != null)
             {
                 cloneJson.subject.reference = CloneOrLimit(clone, originalJson, originalJson.subject.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
+
             if (cloneJson.encounter != null)
             {
                 cloneJson.encounter.reference = CloneOrLimit(clone, originalJson, originalJson.encounter.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
+
             if (cloneJson.participant != null)
             {
                 for (int i = 0; i < cloneJson.participant.Length; i++)
@@ -48,6 +54,7 @@ namespace ResourceProcessorNamespace
                     }
                 }
             }
+
             if (cloneJson.managingOrganization != null)
             {
                 for (int i = 0; i < cloneJson.managingOrganization.Length; i++)
@@ -56,6 +63,7 @@ namespace ResourceProcessorNamespace
                 }
             }
         }
+
         public override CareTeamSibling CreateClone(ResourceGroupProcessor processor, CareTeam.Rootobject originalJson, CareTeam.Rootobject cloneJson, int refSiblingNumber)
         {
             cloneJson.id = Guid.NewGuid().ToString();
@@ -66,6 +74,7 @@ namespace ResourceProcessorNamespace
             r.id = cloneJson.id;
             return r;
         }
+
         /*public override CareTeamSibling CreateClone(
             ResourceGroupProcessor processor,
             // WARNING! originalJson MUST not be modified, member classes of originalJson MUST not be asigned to cloneJson!
@@ -233,11 +242,13 @@ namespace ResourceProcessorNamespace
                 select = false;
                 return false;
             }
+
             if (json.encounter != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.participant != null)
             {
                 if (json.participant.Length == 0)
@@ -246,6 +257,7 @@ namespace ResourceProcessorNamespace
                     select = false;
                     return false;
                 }
+
                 foreach (CareTeam.Participant p in json.participant)
                 {
                     if (p.member != null)
@@ -292,6 +304,7 @@ namespace ResourceProcessorNamespace
                     }
                 }
             }
+
             if (json.managingOrganization != null)
             {
                 if (json.managingOrganization.Length == 0)
@@ -300,6 +313,7 @@ namespace ResourceProcessorNamespace
                     select = false;
                     return false;
                 }
+
                 foreach (CareTeam.Managingorganization m in json.managingOrganization)
                 {
                     if (!processor.ValidateResourceRefAndSelect(json.id, resName, m.reference, ResourceGroupProcessor.organizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
@@ -309,6 +323,7 @@ namespace ResourceProcessorNamespace
                     }
                 }
             }
+
             return true;
         }
     }

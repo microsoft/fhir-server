@@ -6,6 +6,7 @@ namespace ResourceProcessorNamespace
     {
         public string id;
     }
+
     class ClaimAdapter : ResourceAdapter<Claim.Rootobject, ClaimSibling>
     {
         public override ClaimSibling CreateOriginal(ResourceGroupProcessor processor, Claim.Rootobject json)
@@ -14,8 +15,11 @@ namespace ResourceProcessorNamespace
             r.id = json.id;
             return r;
         }
+
         public override string GetId(Claim.Rootobject json) { return json.id; }
+
         public override string GetResourceType(Claim.Rootobject json) { return json.resourceType; }
+
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Claim.Rootobject originalJson, Claim.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
             cloneJson.patient.reference = CloneOrLimit(clone, originalJson, originalJson.patient.reference, refSiblingNumber, ref refSiblingNumberLimit);
@@ -24,6 +28,7 @@ namespace ResourceProcessorNamespace
             {
                 cloneJson.prescription.reference = CloneOrLimit(clone, originalJson, originalJson.prescription.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
+
             if (cloneJson.item != null)
             {
                 for (int i = 0; i < cloneJson.item.Length; i++)
@@ -39,6 +44,7 @@ namespace ResourceProcessorNamespace
                 }
             }
         }
+
         public override ClaimSibling CreateClone(ResourceGroupProcessor processor, Claim.Rootobject originalJson, Claim.Rootobject cloneJson, int refSiblingNumber)
         {
             cloneJson.id = Guid.NewGuid().ToString();
@@ -49,6 +55,7 @@ namespace ResourceProcessorNamespace
             r.id = cloneJson.id;
             return r;
         }
+
         /*public override ClaimSibling CreateClone(ResourceGroupProcessor processor, Claim.Rootobject originalJson, Claim.Rootobject cloneJson, int refSiblingNumber)
         {
             cloneJson.id = Guid.NewGuid().ToString();
@@ -116,28 +123,33 @@ namespace ResourceProcessorNamespace
                 select = false;
                 return false;
             }
+
             if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.claimStr, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.provider == null)
             {
                 processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.claimStr, json.id, "Property 'provider' is null!");
                 select = false;
                 return false;
             }
+
             if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.claimStr, json.provider.reference, ResourceGroupProcessor.organizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.prescription != null &&
                 !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.claimStr, json.prescription.reference, ResourceGroupProcessor.medicationRequestStr, processor.medicationRequests, processor.medicationRequestIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.item != null)
             {
                 if (json.item.Length < 1)
@@ -146,6 +158,7 @@ namespace ResourceProcessorNamespace
                     select = false;
                     return false;
                 }
+
                 for (int i = 0; i < json.item.Length; i++)
                 {
                     if (json.item[i].encounter != null)
@@ -156,6 +169,7 @@ namespace ResourceProcessorNamespace
                             select = false;
                             return false;
                         }
+
                         for (int j = 0; j < json.item[i].encounter.Length; j++)
                         {
                             if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.claimStr, json.item[i].encounter[j].reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
@@ -167,6 +181,7 @@ namespace ResourceProcessorNamespace
                     }
                 }
             }
+
             return true;
         }
     }

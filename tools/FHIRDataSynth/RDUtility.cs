@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 class RDUtility
 {
     public static string ResourcesExtension { get; } = ".ndjson";
+
     public static async Task DownloadBlobGroupAsync(string connectionString, string containerName, string blobGroupDir, string localPath)
     {
         try
@@ -23,6 +24,7 @@ class RDUtility
                 // Safety check, so we don't start overwriting if we already downloaded.
                 throw new Exception($"Directory '{localPath + blobGroupDir}' already exists!");
             }
+
             Directory.CreateDirectory(localPath + blobGroupDir);
             BlobServiceClient blobServiceClient = new BlobServiceClient(connectionString);
             BlobContainerClient blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
@@ -41,8 +43,12 @@ class RDUtility
             Console.WriteLine($"ERROR: {ex.Message}");
         }
     }
-    public static async Task GetResourceBlobsInfoAsync(string connectionString, string blobContainerName,
-        string resourceBlobsInfoPath, string resourceBlobsInfoTotalsPath)
+
+    public static async Task GetResourceBlobsInfoAsync(
+        string connectionString,
+        string blobContainerName,
+        string resourceBlobsInfoPath,
+        string resourceBlobsInfoTotalsPath)
     {
         try
         {
@@ -55,15 +61,24 @@ class RDUtility
             await foreach (BlobItem blobItem in blobContainerClient.GetBlobsAsync())
             {
                 string extension = Path.GetExtension(blobItem.Name);
-                if (extension != ".ndjson") continue;
+                if (extension != ".ndjson")
+                {
+                    continue;
+                }
+
                 blobContentLenghts.Add(blobItem.Name, blobItem.Properties.ContentLength ?? 0);
                 int delimiter = blobItem.Name.IndexOf('/');
-                if (delimiter < 0) throw new Exception("Incorrect blob path!");
+                if (delimiter < 0)
+                {
+                    throw new Exception("Incorrect blob path!");
+                }
+
                 string blobGroupDirName = blobItem.Name.Substring(0, delimiter + 1);
                 string resourceName = blobItem.Name.Substring(delimiter + 1);
                 blobGroupDirNames.Add(blobGroupDirName);
                 resourceNames.Add(resourceName);
             }
+
             using (StreamWriter stream = new StreamWriter(resourceBlobsInfoPath))
             {
                 int groupDirNumber = 1;
@@ -73,32 +88,37 @@ class RDUtility
                     stream.Write($",{Path.GetFileNameWithoutExtension(resourceName)}");
                     resourceTotalContantLenghts[resourceName] = 0;
                 }
+
                 stream.WriteLine();
                 foreach (string blobGroupDirName in blobGroupDirNames)
                 {
                     stream.Write($"{groupDirNumber++},{blobGroupDirName}");
                     foreach (string resourceName in resourceNames)
                     {
-
                         long blobContentLength;
                         blobContentLenghts.TryGetValue(blobGroupDirName + resourceName, out blobContentLength);
                         stream.Write($",{blobContentLength}");
                         resourceTotalContantLenghts[resourceName] = blobContentLength + resourceTotalContantLenghts[resourceName];
                     }
+
                     stream.WriteLine();
                 }
+
                 long total = 0;
                 foreach (string resourceName in resourceNames)
                 {
                     total += resourceTotalContantLenghts[resourceName];
                 }
+
                 stream.Write($"TOTAL,{total}");
                 foreach (string resourceName in resourceNames)
                 {
                     stream.Write($",{resourceTotalContantLenghts[resourceName]}");
                 }
+
                 stream.WriteLine();
             }
+
             using (StreamWriter stream = new StreamWriter(resourceBlobsInfoTotalsPath))
             {
                 stream.WriteLine(CalculatorTargetRatios.ResourcesTotalSizeHeader);
@@ -113,6 +133,7 @@ class RDUtility
             Console.WriteLine($"ERROR: {ex.Message}");
         }
     }
+
     public static void WriteSingleResourceExamples(string localPath, string blobGroupDir, string singleResourceExamplesDir)
     {
         try
@@ -127,6 +148,7 @@ class RDUtility
                     {
                         continue;
                     }
+
                     string firstLine = streamReader.ReadLine();
                     string outputFileName = Path.GetFileNameWithoutExtension(fileName);
                     File.WriteAllText(singleResourceExamplesDir + outputFileName + ".json", firstLine);
@@ -138,6 +160,7 @@ class RDUtility
             Console.WriteLine($"ERROR: {ex.Message}");
         }
     }
+
     private class BlobInfo
     {
         public HashSet<string> ids = new HashSet<string>();
@@ -147,6 +170,7 @@ class RDUtility
         public HashSet<string> patientRefIds = new HashSet<string>();
         public int linesCount = 0;
         public long linesLengthSum = 0;
+
         public void ConsoleWriteLine(string resourceName, HashSet<string> patientIds)
         {
             Console.WriteLine($"### {resourceName} info:");
@@ -160,20 +184,26 @@ class RDUtility
             Console.WriteLine($"  linesLengthSum = {linesLengthSum}.");
             Console.WriteLine($"###");
         }
+
         public string Line(string resourceName, HashSet<string> patientIds)
         {
             return $"{resourceName},{ids.Count},{duplicateIds},{patientsRefsNotPatient},{subjectsRefsNotPatient},{patientRefIds.Count},{patientIds.Intersect(patientRefIds).Count()},{linesCount},{linesLengthSum}";
         }
     }
+
     public struct ReferenceJSON
     {
         public string reference { get; set; }
     }
+
     public abstract class RDResourceJSON
     {
         public string resourceType { get; set; }
+
         public string id { get; set; }
+
         public ReferenceJSON patient { get; set; }
+
         public ReferenceJSON subject { get; set; }
     }
 
@@ -185,27 +215,54 @@ class RDUtility
         string line;
         while ((line = streamReader.ReadLine()) != null)
         {
-            if (lineNumber % 100000 == 0) Console.WriteLine($"  {resourceName} line {lineNumber}.");
+            if (lineNumber % 100000 == 0)
+            {
+                Console.WriteLine($"  {resourceName} line {lineNumber}.");
+            }
+
             lineNumber++;
             blobInfo.linesLengthSum += line.Length;
             RDResourceJSON json = JsonSerializer.Deserialize<RDResourceJSON>(line);
-            if (json.resourceType != resourceName) { throw new Exception($"Expected {resourceName}, found {json.resourceType}!"); }
+            if (json.resourceType != resourceName)
+            {
+                throw new Exception($"Expected {resourceName}, found {json.resourceType}!");
+            }
+
             if (json.patient.reference != null)
             {
-                if (json.patient.reference.StartsWith("Patient/")) blobInfo.patientRefIds.Add(json.patient.reference.Substring("Patient/".Length));
-                else blobInfo.patientsRefsNotPatient++;
+                if (json.patient.reference.StartsWith("Patient/"))
+                {
+                    blobInfo.patientRefIds.Add(json.patient.reference.Substring("Patient/".Length));
+                }
+                else
+                {
+                    blobInfo.patientsRefsNotPatient++;
+                }
             }
+
             if (json.subject.reference != null)
             {
-                if (json.subject.reference.StartsWith("Patient/")) blobInfo.patientRefIds.Add(json.subject.reference.Substring("Patient/".Length));
-                else blobInfo.subjectsRefsNotPatient++;
+                if (json.subject.reference.StartsWith("Patient/"))
+                {
+                    blobInfo.patientRefIds.Add(json.subject.reference.Substring("Patient/".Length));
+                }
+                else
+                {
+                    blobInfo.subjectsRefsNotPatient++;
+                }
             }
-            if (!blobInfo.ids.Add(json.id)) { blobInfo.duplicateIds++; }
+
+            if (!blobInfo.ids.Add(json.id))
+            {
+                blobInfo.duplicateIds++;
+            }
         }
+
         blobInfo.linesCount = lineNumber;
         Console.WriteLine($"### {resourceName} processing end.");
         return blobInfo;
     }
+
     public static void GetBlobGroupInfo(string localPath, string blobGroupDir, string outputPath)
     {
         try
@@ -215,6 +272,7 @@ class RDUtility
                 // Safety check, so we don't start overwriting if we already calculated.
                 throw new Exception($"File '{outputPath}' already exists!");
             }
+
             Dictionary<string, BlobInfo> blobInfo = new Dictionary<string, BlobInfo>();
             string[] fileEntries = Directory.GetFiles(localPath + blobGroupDir);
             foreach (string fileName in fileEntries)
@@ -223,16 +281,19 @@ class RDUtility
                 {
                     continue;
                 }
+
                 string resourceName = Path.GetFileNameWithoutExtension(fileName);
                 using (StreamReader streamReader = new StreamReader(fileName))
                 {
                     blobInfo.Add(resourceName, GetBlobInfo(resourceName, streamReader));
                 }
             }
+
             foreach (KeyValuePair<string, BlobInfo> info in blobInfo)
             {
                 info.Value.ConsoleWriteLine(info.Key, blobInfo["Patient"].ids);
             }
+
             using (StreamWriter streamWriter = new StreamWriter(outputPath))
             {
                 streamWriter.WriteLine(CalculatorTargetRatios.OneResourceGroupInfoHeader);

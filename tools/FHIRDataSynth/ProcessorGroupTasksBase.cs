@@ -8,26 +8,46 @@ namespace ResourceProcessorNamespace
     class TargetProfile
     {
         public string name { get; set; }
+
         public int resourceGroupsCount { get; set; }
+
         public Dictionary<string, double> ratios { get; set; } = new Dictionary<string, double>();
+
         public void Validate()
         {
-            if (resourceGroupsCount < 0) throw new ApplicationException($"TargetProfil member 'resourceGroupsCount' contains invalid value {resourceGroupsCount}, must be 0 or greater.");
+            if (resourceGroupsCount < 0)
+            {
+                throw new ApplicationException($"TargetProfil member 'resourceGroupsCount' contains invalid value {resourceGroupsCount}, must be 0 or greater.");
+            }
+
             foreach (KeyValuePair<string, double> r in ratios)
             {
-                if (r.Value < 0) throw new ApplicationException($"TargetProfile member 'ratios[{r.Key}]' contains invalid value {r.Value}, must 0 or greater.");
+                if (r.Value < 0)
+                {
+                    throw new ApplicationException($"TargetProfile member 'ratios[{r.Key}]' contains invalid value {r.Value}, must 0 or greater.");
+                }
             }
         }
     }
+
     abstract class ResourceProcessor
     {
         abstract protected void LogInfo(string message);
+
         abstract protected void LogError(string message);
+
         abstract protected Task<SortedSet<string>> GetResourceGroupDirsAsync();
+
         abstract protected ResourceGroupProcessor GetNewResourceGroupProcessor(string resourceGroupDir);
-        private Task[] MakeResourceGroupTasks(Task[] currentResourceGroupTasks, int finishedResourceGroupTaskIndex,
-            SortedSet<string> resourceGroupDirs, int resourceGroupTasksCount, Dictionary<Task, string> tasksGroupDir,
-            TargetProfile targetProfile, int taskStartDelay)
+
+        private Task[] MakeResourceGroupTasks(
+            Task[] currentResourceGroupTasks,
+            int finishedResourceGroupTaskIndex,
+            SortedSet<string> resourceGroupDirs,
+            int resourceGroupTasksCount,
+            Dictionary<Task, string> tasksGroupDir,
+            TargetProfile targetProfile,
+            int taskStartDelay)
         {
             Task[] newResourceGroupTasks;
             if (currentResourceGroupTasks != null)
@@ -41,12 +61,13 @@ namespace ResourceProcessorNamespace
                         newResourceGroupTasks[j++] = currentResourceGroupTasks[i];
                     }
                 }
+
                 if (j < newResourceGroupTasks.Length)
                 {
                     string resourceGroupDir = resourceGroupDirs.First();
                     resourceGroupDirs.Remove(resourceGroupDir);
                     ResourceGroupProcessor rgp = GetNewResourceGroupProcessor(resourceGroupDir);
-                    Task t = rgp.NEW_ProcessResourceGroupAsync(targetProfile);
+                    Task t = rgp.ProcessResourceGroupAsync(targetProfile);
                     tasksGroupDir.Add(t, resourceGroupDir);
                     newResourceGroupTasks[j] = t;
                 }
@@ -59,21 +80,33 @@ namespace ResourceProcessorNamespace
                     string resourceGroupDir = resourceGroupDirs.First();
                     resourceGroupDirs.Remove(resourceGroupDir);
                     ResourceGroupProcessor rgp = GetNewResourceGroupProcessor(resourceGroupDir);
-                    Task t = rgp.NEW_ProcessResourceGroupAsync(targetProfile);
+                    Task t = rgp.ProcessResourceGroupAsync(targetProfile);
                     tasksGroupDir.Add(t, resourceGroupDir);
                     newResourceGroupTasks[i] = t;
-                    if (taskStartDelay > 0) Task.Delay(taskStartDelay).Wait();
+                    if (taskStartDelay > 0)
+                    {
+                        Task.Delay(taskStartDelay).Wait();
+                    }
                 }
             }
+
             return newResourceGroupTasks;
         }
+
         public void Process(int resourceGroupTasksCount, TargetProfile targetProfile, int taskStartDelay = 0)
         {
             try
             {
-                if (resourceGroupTasksCount < 1) throw new ArgumentException("Must be larger than 0.", nameof(resourceGroupTasksCount));
+                if (resourceGroupTasksCount < 1)
+                {
+                    throw new ArgumentException("Must be larger than 0.", nameof(resourceGroupTasksCount));
+                }
+
                 targetProfile.Validate();
-                if (taskStartDelay < 0) throw new ArgumentException("Must be equal or larger than 0.", nameof(taskStartDelay));
+                if (taskStartDelay < 0)
+                {
+                    throw new ArgumentException("Must be equal or larger than 0.", nameof(taskStartDelay));
+                }
 
                 Task<SortedSet<string>> groupDirsTask = GetResourceGroupDirsAsync();
                 groupDirsTask.Wait();
@@ -82,6 +115,7 @@ namespace ResourceProcessorNamespace
                 {
                     throw new ArgumentOutOfRangeException($"Resource groups count ({targetProfile.resourceGroupsCount}) in target ratios file is greater than the actual number of resource groups ({allResourceGroupDirs.Count}).");
                 }
+
                 SortedSet<string> resourceGroupDirs = new SortedSet<string>(allResourceGroupDirs.Take(targetProfile.resourceGroupsCount));
 
                 Dictionary<string, ResourcesResult> totals = new Dictionary<string, ResourcesResult>();
@@ -95,7 +129,7 @@ namespace ResourceProcessorNamespace
                     Task<Dictionary<string, ResourcesResult>> task = (Task<Dictionary<string, ResourcesResult>>)resourceGroupTasks[finishedResourceGroupTaskIndex];
                     if (!task.IsCompletedSuccessfully)
                     {
-                        LogError($"Resource group {tasksGroupDir[task]} task failed.{(task.Exception == null ? "" : " " + task.Exception.Message)}");
+                        LogError($"Resource group {tasksGroupDir[task]} task failed.{(task.Exception == null ? string.Empty : " " + task.Exception.Message)}");
                     }
                     else
                     {
@@ -113,6 +147,7 @@ namespace ResourceProcessorNamespace
                         }
                     }
                 }
+
                 double totalResourcesCount = totals.Sum(r => r.Value.OutputResourcesCount);
                 LogInfo($"---------------------------------------------------------");
                 LogInfo($"TOTALS {targetProfile.name}:");

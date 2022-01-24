@@ -5,14 +5,18 @@ namespace ResourceProcessorNamespace
     struct ExplanationOfBenefitSibling
     {
     }
+
     class ExplanationOfBenefitAdapter : ResourceAdapter<ExplanationOfBenefit.Rootobject, ExplanationOfBenefitSibling>
     {
         public override ExplanationOfBenefitSibling CreateOriginal(ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject json)
         {
             return default;
         }
+
         public override string GetId(ExplanationOfBenefit.Rootobject json) { return json.id; }
+
         public override string GetResourceType(ExplanationOfBenefit.Rootobject json) { return json.resourceType; }
+
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject originalJson, ExplanationOfBenefit.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
             if (cloneJson.contained != null)
@@ -27,6 +31,7 @@ namespace ResourceProcessorNamespace
                         {
                             c.requester.reference = CloneOrLimit(clone, originalJson, originalJson.contained[i].requester.reference, refSiblingNumber, ref refSiblingNumberLimit);
                         }
+
                         if (c.performer != null)
                         {
                             for (int j = 0; j < c.performer.Length; j++)
@@ -35,18 +40,20 @@ namespace ResourceProcessorNamespace
                             }
                         }
                     }
-                    else if(c.resourceType == "Coverage")
+                    else if (c.resourceType == "Coverage")
                     {
                         c.beneficiary.reference = CloneOrLimit(clone, originalJson, originalJson.contained[i].beneficiary.reference, refSiblingNumber, ref refSiblingNumberLimit);
                     }
                 }
             }
+
             cloneJson.patient.reference = CloneOrLimit(clone, originalJson, originalJson.patient.reference, refSiblingNumber, ref refSiblingNumberLimit);
             cloneJson.provider.reference = CloneOrLimit(clone, originalJson, originalJson.provider.reference, refSiblingNumber, ref refSiblingNumberLimit);
             if (cloneJson.claim != null)
             {
                 cloneJson.claim.reference = CloneOrLimit(clone, originalJson, originalJson.claim.reference, refSiblingNumber, ref refSiblingNumberLimit);
             }
+
             if (cloneJson.careTeam != null)
             {
                 for (int i = 0; i < cloneJson.careTeam.Length; i++)
@@ -54,6 +61,7 @@ namespace ResourceProcessorNamespace
                     cloneJson.careTeam[i].provider.reference = CloneOrLimit(clone, originalJson, originalJson.careTeam[i].provider.reference, refSiblingNumber, ref refSiblingNumberLimit);
                 }
             }
+
             if (cloneJson.item != null)
             {
                 for (int i = 0; i < cloneJson.item.Length; i++)
@@ -69,6 +77,7 @@ namespace ResourceProcessorNamespace
                 }
             }
         }
+
         public override ExplanationOfBenefitSibling CreateClone(ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject originalJson, ExplanationOfBenefit.Rootobject cloneJson, int refSiblingNumber)
         {
             cloneJson.id = Guid.NewGuid().ToString();
@@ -76,6 +85,7 @@ namespace ResourceProcessorNamespace
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
             return default;
         }
+
         /*public override ExplanationOfBenefitSibling CreateClone(
             ResourceGroupProcessor processor,
             // WARNING! originalJson MUST not be modified, member classes of originalJson MUST not be asigned to cloneJson!
@@ -204,7 +214,7 @@ namespace ResourceProcessorNamespace
         public override bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject json, out bool select)
         {
             string resName = ResourceGroupProcessor.explanationOfBenefitStr;
-            bool s = true;
+            select = true;
             if (json.contained != null)
             {
                 if (json.contained.Length == 0)
@@ -213,6 +223,7 @@ namespace ResourceProcessorNamespace
                     select = false;
                     return false;
                 }
+
                 for (int i = 0; i < json.contained.Length; i++)
                 {
                     ExplanationOfBenefit.Contained c = json.contained[i];
@@ -224,16 +235,19 @@ namespace ResourceProcessorNamespace
                             select = false;
                             return false;
                         }
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref s))
+
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
                         }
-                        if (c.requester != null && !processor.ValidateResourceRefAndSelect(json.id, resName, c.requester.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref s))
+
+                        if (c.requester != null && !processor.ValidateResourceRefAndSelect(json.id, resName, c.requester.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
                         }
+
                         if (c.performer != null)
                         {
                             if (c.performer.Length == 0)
@@ -242,9 +256,10 @@ namespace ResourceProcessorNamespace
                                 select = false;
                                 return false;
                             }
+
                             foreach (ExplanationOfBenefit.Performer p in c.performer)
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref s))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
@@ -260,7 +275,8 @@ namespace ResourceProcessorNamespace
                             select = false;
                             return false;
                         }
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.beneficiary.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref s))
+
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.beneficiary.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
@@ -274,33 +290,39 @@ namespace ResourceProcessorNamespace
                     }
                 }
             }
+
             if (json.patient == null)
             {
                 processor.LogWarning(processor.GetResourceGroupDir(), resName, json.id, "Property 'patient' is null!");
                 select = false;
                 return false;
             }
-            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref s))
+
+            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.provider == null)
             {
                 processor.LogWarning(processor.GetResourceGroupDir(), resName, json.id, "Property 'provider' is null!");
                 select = false;
                 return false;
             }
-            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.provider.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref s))
+
+            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.provider.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
-            if (json.claim != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.claim.reference, ResourceGroupProcessor.claimStr, processor.claims, processor.claimIdsRemoved, ref s))
+
+            if (json.claim != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.claim.reference, ResourceGroupProcessor.claimStr, processor.claims, processor.claimIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
+
             if (json.careTeam != null)
             {
                 if (json.careTeam.Length == 0)
@@ -309,6 +331,7 @@ namespace ResourceProcessorNamespace
                     select = false;
                     return false;
                 }
+
                 foreach (ExplanationOfBenefit.Careteam ct in json.careTeam)
                 {
                     if (ct.provider == null)
@@ -317,13 +340,15 @@ namespace ResourceProcessorNamespace
                         select = false;
                         return false;
                     }
-                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.provider.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref s))
+
+                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.provider.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                     {
                         select = false;
                         return false;
                     }
                 }
             }
+
             if (json.item != null)
             {
                 if (json.item.Length == 0)
@@ -332,6 +357,7 @@ namespace ResourceProcessorNamespace
                     select = false;
                     return false;
                 }
+
                 foreach (ExplanationOfBenefit.Item i in json.item)
                 {
                     if (i.encounter != null)
@@ -342,10 +368,10 @@ namespace ResourceProcessorNamespace
                             select = false;
                             return false;
                         }
+
                         foreach (ExplanationOfBenefit.Encounter e in i.encounter)
                         {
-
-                            if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref s))
+                            if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
                             {
                                 select = false;
                                 return false;
@@ -354,7 +380,7 @@ namespace ResourceProcessorNamespace
                     }
                 }
             }
-            select = s;
+
             return true;
         }
     }
