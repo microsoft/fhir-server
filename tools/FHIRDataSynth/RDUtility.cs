@@ -1,15 +1,15 @@
-﻿using Azure;
-using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
-using FHIRDataSynth;
-using ResourceProcessorNamespace;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using FHIRDataSynth;
+using ResourceProcessorNamespace;
 
 internal class RDUtility
 {
