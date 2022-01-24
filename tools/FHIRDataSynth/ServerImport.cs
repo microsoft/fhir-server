@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace FHIRDataSynth
 {
-    class ServerImport
+    internal class ServerImport
     {
         public class ImportParameters
         {

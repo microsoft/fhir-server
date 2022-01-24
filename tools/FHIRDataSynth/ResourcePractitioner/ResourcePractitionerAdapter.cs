@@ -2,12 +2,12 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct PractitionerSibling
+    internal struct PractitionerSibling
     {
         public string id;
     }
 
-    class PractitionerAdapter : ResourceAdapter<Practitioner.Rootobject, PractitionerSibling>
+    internal class PractitionerAdapter : ResourceAdapter<Practitioner.Rootobject, PractitionerSibling>
     {
         public override PractitionerSibling CreateOriginal(ResourceGroupProcessor processor, Practitioner.Rootobject json)
         {
@@ -16,11 +16,19 @@ namespace ResourceProcessorNamespace
             return r;
         }
 
-        public override string GetId(Practitioner.Rootobject json) { return json.id; }
+        public override string GetId(Practitioner.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Practitioner.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Practitioner.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
-        protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Practitioner.Rootobject originalJson, Practitioner.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit) { }
+        protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Practitioner.Rootobject originalJson, Practitioner.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
+        {
+        }
 
         public override PractitionerSibling CreateClone(ResourceGroupProcessor processor, Practitioner.Rootobject originalJson, Practitioner.Rootobject cloneJson, int refSiblingNumber)
         {

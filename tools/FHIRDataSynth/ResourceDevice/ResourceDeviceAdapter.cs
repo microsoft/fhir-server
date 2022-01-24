@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct DeviceSibling
+    internal struct DeviceSibling
     {
     }
 
-    class DeviceAdapter : ResourceAdapter<Device.Rootobject, DeviceSibling>
+    internal class DeviceAdapter : ResourceAdapter<Device.Rootobject, DeviceSibling>
     {
         public override DeviceSibling CreateOriginal(ResourceGroupProcessor processor, Device.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(Device.Rootobject json) { return json.id; }
+        public override string GetId(Device.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Device.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Device.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Device.Rootobject originalJson, Device.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -38,7 +44,7 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.patient != null)
             {
-                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.deviceStr, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select);
+                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DeviceStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select);
             }
 
             return true;

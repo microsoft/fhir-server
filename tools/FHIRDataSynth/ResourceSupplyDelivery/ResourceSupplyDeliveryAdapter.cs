@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct SupplyDeliverySibling
+    internal struct SupplyDeliverySibling
     {
     }
 
-    class SupplyDeliveryAdapter : ResourceAdapter<SupplyDelivery.Rootobject, SupplyDeliverySibling>
+    internal class SupplyDeliveryAdapter : ResourceAdapter<SupplyDelivery.Rootobject, SupplyDeliverySibling>
     {
         public override SupplyDeliverySibling CreateOriginal(ResourceGroupProcessor processor, SupplyDelivery.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(SupplyDelivery.Rootobject json) { return json.id; }
+        public override string GetId(SupplyDelivery.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(SupplyDelivery.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(SupplyDelivery.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, SupplyDelivery.Rootobject originalJson, SupplyDelivery.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -37,7 +43,7 @@ namespace ResourceProcessorNamespace
         {
             select = true;
             if (json.patient != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.supplyDeliveryStr, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.SupplyDeliveryStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;

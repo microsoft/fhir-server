@@ -8,18 +8,20 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-class BlobResourceGroupProcessor : ResourceGroupProcessor
+internal class BlobResourceGroupProcessor : ResourceGroupProcessor
 {
-    string resourceGroupDir;
-    string outputConnectionString;
-    string outputBlobContainerName;
+    private string resourceGroupDir;
+    private string outputConnectionString;
+    private string outputBlobContainerName;
+    private BlobServiceClient inputBlobServiceClient;
+    private BlobContainerClient inputBlobContainerClient;
+    private BlobServiceClient outputBlobServiceClient;
+    private BlobContainerClient outputBlobContainerClient;
 
-    BlobServiceClient inputBlobServiceClient;
-    BlobContainerClient inputBlobContainerClient;
-    BlobServiceClient outputBlobServiceClient;
-    BlobContainerClient outputBlobContainerClient;
-
-    public override string GetResourceGroupDir() { return resourceGroupDir; }
+    public override string GetResourceGroupDir()
+    {
+        return resourceGroupDir;
+    }
 
     public BlobResourceGroupProcessor(string inputConnectionString, string inputBlobContainerName, string resourceGroupDir, string outputConnectionString, string outputBlobContainerName)
     {
@@ -109,13 +111,13 @@ class BlobResourceGroupProcessor : ResourceGroupProcessor
     protected override bool OnlyVerifyInput { get => outputConnectionString == null || outputBlobContainerName == null; }
 }
 
-class BlobResourceProcessor : ResourceProcessor
+internal class BlobResourceProcessor : ResourceProcessor
 {
-    private const string outputBlobContainerNamePrefix = "blend-";
-    string inputConnectionString;
-    string inputBlobContainerName;
-    string outputConnectionString;
-    string outputBlobContainerName;
+    private const string OutputBlobContainerNamePrefix = "blend-";
+    private string inputConnectionString;
+    private string inputBlobContainerName;
+    private string outputConnectionString;
+    private string outputBlobContainerName;
 
     public BlobResourceProcessor(string inputConnectionString, string inputBlobContainerName, string outputConnectionString, string outputBlobContainerName)
     {
@@ -130,7 +132,7 @@ class BlobResourceProcessor : ResourceProcessor
         this.outputBlobContainerName = null;
         if (outputBlobContainerName != null)
         {
-            this.outputBlobContainerName = outputBlobContainerNamePrefix + outputBlobContainerName;
+            this.outputBlobContainerName = OutputBlobContainerNamePrefix + outputBlobContainerName;
         }
     }
 

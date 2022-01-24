@@ -2,7 +2,7 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct EncounterSibling
+    internal struct EncounterSibling
     {
         public string id;
         public string subjectRef; // Patient.
@@ -10,7 +10,7 @@ namespace ResourceProcessorNamespace
         public string serviceProviderRef; // Organization.
     }
 
-    class EncounterAdapter : ResourceAdapter<Encounter.Rootobject, EncounterSibling>
+    internal class EncounterAdapter : ResourceAdapter<Encounter.Rootobject, EncounterSibling>
     {
         public override EncounterSibling CreateOriginal(ResourceGroupProcessor processor, Encounter.Rootobject json)
         {
@@ -28,9 +28,15 @@ namespace ResourceProcessorNamespace
             return r;
         }
 
-        public override string GetId(Encounter.Rootobject json) { return json.id; }
+        public override string GetId(Encounter.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Encounter.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Encounter.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Encounter.Rootobject originalJson, Encounter.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -81,14 +87,14 @@ namespace ResourceProcessorNamespace
         {
             select = true;
             if (json.subject != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.encounterStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.serviceProvider != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.encounterStr, json.serviceProvider.reference, ResourceGroupProcessor.organizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.serviceProvider.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -98,7 +104,7 @@ namespace ResourceProcessorNamespace
             {
                 if (json.participant.Length < 1)
                 {
-                    processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.encounterStr, json.id, "Property 'participants' contains 0 elements!");
+                    processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.EncounterStr, json.id, "Property 'participants' contains 0 elements!");
                     select = false;
                     return false;
                 }
@@ -106,7 +112,7 @@ namespace ResourceProcessorNamespace
                 for (int i = 0; i < json.participant.Length; i++)
                 {
                     if (json.participant[i].individual != null &&
-                        !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.encounterStr, json.participant[i].individual.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                        !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.participant[i].individual.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                     {
                         select = false;
                         return false;

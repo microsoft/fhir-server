@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace FHIRDataSynth
 {
-    class Program
+    internal class Program
     {
-        static void ValidateTaskCount(string s, out int tasksCount)
+        private static void ValidateTaskCount(string s, out int tasksCount)
         {
             if (!(int.TryParse(s, out tasksCount) && tasksCount > 0 && tasksCount <= 256))
             {
@@ -16,7 +16,7 @@ namespace FHIRDataSynth
             }
         }
 
-        static void ValidateTargetRatiosFile(string pathName, out TargetRatios targetRatios)
+        private static void ValidateTargetRatiosFile(string pathName, out TargetRatios targetRatios)
         {
             targetRatios = null;
             if (!File.Exists(pathName))
@@ -38,12 +38,12 @@ namespace FHIRDataSynth
             }
         }
 
-        class TargetRatios
+        private class TargetRatios
         {
             public TargetProfile[] targetRatios { get; set; }
         }
 
-        static int Main(string[] args)
+        private static int Main(string[] args)
         {
             try
             {

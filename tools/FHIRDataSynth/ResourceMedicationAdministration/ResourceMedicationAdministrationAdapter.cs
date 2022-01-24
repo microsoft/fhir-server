@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct MedicationAdministrationSibling
+    internal struct MedicationAdministrationSibling
     {
     }
 
-    class MedicationAdministrationAdapter : ResourceAdapter<MedicationAdministration.Rootobject, MedicationAdministrationSibling>
+    internal class MedicationAdministrationAdapter : ResourceAdapter<MedicationAdministration.Rootobject, MedicationAdministrationSibling>
     {
         public override MedicationAdministrationSibling CreateOriginal(ResourceGroupProcessor processor, MedicationAdministration.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(MedicationAdministration.Rootobject json) { return json.id; }
+        public override string GetId(MedicationAdministration.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(MedicationAdministration.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(MedicationAdministration.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, MedicationAdministration.Rootobject originalJson, MedicationAdministration.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -39,19 +45,19 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.subject == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.medicationAdministrationStr, json.id, "Property 'subject' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.MedicationAdministrationStr, json.id, "Property 'subject' is null!");
                 select = false;
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.medicationAdministrationStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.MedicationAdministrationStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.context != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.medicationAdministrationStr, json.context.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.MedicationAdministrationStr, json.context.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;

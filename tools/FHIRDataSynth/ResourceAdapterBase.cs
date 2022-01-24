@@ -5,18 +5,20 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    class ResourceProcessorException : Exception
+    internal class ResourceProcessorException : Exception
     {
         public ResourceProcessorException(string resourceGroupDir, string resourceName, string resourceId, string message)
             : base($"{resourceGroupDir}/{resourceName}/{resourceId}: {message}")
-        { }
+        {
+        }
 
         public ResourceProcessorException(string resourceGroupDir, string resourceRef, string message)
             : base($"{resourceGroupDir}/{resourceRef}: {message}")
-        { }
+        {
+        }
     }
 
-    struct ResourceSiblingsContainer<T>
+    internal struct ResourceSiblingsContainer<T>
         where T : struct
     {
         private T[] siblings;
@@ -44,9 +46,9 @@ namespace ResourceProcessorNamespace
         }
     }
 
-    abstract class ResourceAdapter<T, U>
+    internal abstract class ResourceAdapter<T, TS>
         where T : class
-        where U : struct
+        where TS : struct
     {
         protected ResourceGroupProcessor processor;
         protected JsonSerializerOptions options;
@@ -57,15 +59,18 @@ namespace ResourceProcessorNamespace
             this.options = options;
         }
 
-        public abstract U CreateOriginal(ResourceGroupProcessor processor, T json);
+        public abstract TS CreateOriginal(ResourceGroupProcessor processor, T json);
 
         public abstract string GetId(T json);
 
-        public virtual void SetId(T json, string id, ResourceGroupProcessor processor) { throw new NotImplementedException($"SetId called on resource other than '{ResourceGroupProcessor.organizationStr}'"); }
+        public virtual void SetId(T json, string id, ResourceGroupProcessor processor)
+        {
+            throw new NotImplementedException($"SetId called on resource other than '{ResourceGroupProcessor.OrganizationStr}'");
+        }
 
         public abstract string GetResourceType(T json);
 
-        public abstract U CreateClone(ResourceGroupProcessor processor, T originalJson, T cloneJson, int refSiblingNumber); // WARNING! originalJson MUST not be modified, member classes of originalJson MUST not be asigned to cloneJson!
+        public abstract TS CreateClone(ResourceGroupProcessor processor, T originalJson, T cloneJson, int refSiblingNumber); // WARNING! originalJson MUST not be modified, member classes of originalJson MUST not be asigned to cloneJson!
 
         public abstract bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, T json, out bool select);
 
@@ -245,7 +250,10 @@ namespace ResourceProcessorNamespace
         }
 
         // Enumerator.
-        public virtual IEnumerator<EnumeratorItem> GetEnumerator() { throw new NotImplementedException(); }
+        public virtual IEnumerator<EnumeratorItem> GetEnumerator()
+        {
+            throw new NotImplementedException();
+        }
 
         public class EnumeratorItem
         {
@@ -253,11 +261,11 @@ namespace ResourceProcessorNamespace
             public T json;
         }
 
-        public abstract class EnumeratorBase<V> : IEnumerator<EnumeratorItem>
+        public abstract class EnumeratorBase<TS1> : IEnumerator<EnumeratorItem>
         {
             protected abstract T LoadFHIRExampleFile();
 
-            protected abstract void InitializeFHIRExample(T json, V initializer);
+            protected abstract void InitializeFHIRExample(T json, TS1 initializer);
 
             private ResourceGroupProcessor processor;
             private JsonSerializerOptions options;
@@ -273,7 +281,7 @@ namespace ResourceProcessorNamespace
 
             protected abstract bool InitializerMoveNext();
 
-            protected abstract V InitializerCurrent { get; }
+            protected abstract TS1 InitializerCurrent { get; }
 
             public bool MoveNext()
             {
@@ -283,7 +291,7 @@ namespace ResourceProcessorNamespace
                 }
                 else
                 {
-                    V initializer = InitializerCurrent;
+                    TS1 initializer = InitializerCurrent;
                     if (currentItem.json == null)
                     {
                         currentItem.json = LoadFHIRExampleFile();

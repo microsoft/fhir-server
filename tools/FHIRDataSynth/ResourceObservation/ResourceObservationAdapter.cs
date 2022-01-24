@@ -2,12 +2,12 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct ObservationSibling
+    internal struct ObservationSibling
     {
         public string id;
     }
 
-    class ObservationAdapter : ResourceAdapter<Observation.Rootobject, ObservationSibling>
+    internal class ObservationAdapter : ResourceAdapter<Observation.Rootobject, ObservationSibling>
     {
         public override ObservationSibling CreateOriginal(ResourceGroupProcessor processor, Observation.Rootobject json)
         {
@@ -21,9 +21,15 @@ namespace ResourceProcessorNamespace
             return r;
         }
 
-        public override string GetId(Observation.Rootobject json) { return json.id; }
+        public override string GetId(Observation.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Observation.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Observation.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Observation.Rootobject originalJson, Observation.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -57,14 +63,14 @@ namespace ResourceProcessorNamespace
         {
             select = true;
             if (json.subject != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.observationStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ObservationStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.encounter != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.observationStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ObservationStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;

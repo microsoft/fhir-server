@@ -11,7 +11,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-class RDUtility
+internal class RDUtility
 {
     public static string ResourcesExtension { get; } = ".ndjson";
 

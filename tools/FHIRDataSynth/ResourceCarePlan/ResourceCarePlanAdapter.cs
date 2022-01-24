@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct CarePlanSibling
+    internal struct CarePlanSibling
     {
     }
 
-    class CarePlanAdapter : ResourceAdapter<CarePlan.Rootobject, CarePlanSibling>
+    internal class CarePlanAdapter : ResourceAdapter<CarePlan.Rootobject, CarePlanSibling>
     {
         public override CarePlanSibling CreateOriginal(ResourceGroupProcessor processor, CarePlan.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(CarePlan.Rootobject json) { return json.id; }
+        public override string GetId(CarePlan.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(CarePlan.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(CarePlan.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, CarePlan.Rootobject originalJson, CarePlan.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -114,7 +120,7 @@ namespace ResourceProcessorNamespace
 
         public override bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, CarePlan.Rootobject json, out bool select)
         {
-            string resName = ResourceGroupProcessor.carePlanStr;
+            string resName = ResourceGroupProcessor.CarePlanStr;
             select = true;
 
             if (json.subject == null)
@@ -124,13 +130,13 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
-            if (json.encounter != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+            if (json.encounter != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -147,7 +153,7 @@ namespace ResourceProcessorNamespace
 
                 foreach (CarePlan.Careteam ct in json.careTeam)
                 {
-                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.reference, ResourceGroupProcessor.careTeamStr, processor.careTeams, processor.careTeamIdsRemoved, ref select))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.reference, ResourceGroupProcessor.CareTeamStr, processor.careTeams, processor.careTeamIdsRemoved, ref select))
                     {
                         select = false;
                         return false;

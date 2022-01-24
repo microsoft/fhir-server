@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct ProcedureSibling
+    internal struct ProcedureSibling
     {
     }
 
-    class ProcedureAdapter : ResourceAdapter<Procedure.Rootobject, ProcedureSibling>
+    internal class ProcedureAdapter : ResourceAdapter<Procedure.Rootobject, ProcedureSibling>
     {
         public override ProcedureSibling CreateOriginal(ResourceGroupProcessor processor, Procedure.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(Procedure.Rootobject json) { return json.id; }
+        public override string GetId(Procedure.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Procedure.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Procedure.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Procedure.Rootobject originalJson, Procedure.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -39,19 +45,19 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.subject == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.procedureStr, json.id, "Property 'subject' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ProcedureStr, json.id, "Property 'subject' is null!");
                 select = false;
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.procedureStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ProcedureStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.encounter != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.procedureStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ProcedureStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;

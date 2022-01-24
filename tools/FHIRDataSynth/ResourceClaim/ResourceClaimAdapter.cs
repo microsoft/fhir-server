@@ -2,12 +2,12 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct ClaimSibling
+    internal struct ClaimSibling
     {
         public string id;
     }
 
-    class ClaimAdapter : ResourceAdapter<Claim.Rootobject, ClaimSibling>
+    internal class ClaimAdapter : ResourceAdapter<Claim.Rootobject, ClaimSibling>
     {
         public override ClaimSibling CreateOriginal(ResourceGroupProcessor processor, Claim.Rootobject json)
         {
@@ -16,9 +16,15 @@ namespace ResourceProcessorNamespace
             return r;
         }
 
-        public override string GetId(Claim.Rootobject json) { return json.id; }
+        public override string GetId(Claim.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Claim.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Claim.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Claim.Rootobject originalJson, Claim.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -119,12 +125,12 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.patient == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.claimStr, json.id, "Property 'patient' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ClaimStr, json.id, "Property 'patient' is null!");
                 select = false;
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.claimStr, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -132,19 +138,19 @@ namespace ResourceProcessorNamespace
 
             if (json.provider == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.claimStr, json.id, "Property 'provider' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ClaimStr, json.id, "Property 'provider' is null!");
                 select = false;
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.claimStr, json.provider.reference, ResourceGroupProcessor.organizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.provider.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.prescription != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.claimStr, json.prescription.reference, ResourceGroupProcessor.medicationRequestStr, processor.medicationRequests, processor.medicationRequestIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.prescription.reference, ResourceGroupProcessor.MedicationRequestStr, processor.medicationRequests, processor.medicationRequestIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -154,7 +160,7 @@ namespace ResourceProcessorNamespace
             {
                 if (json.item.Length < 1)
                 {
-                    processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.claimStr, json.id, "Property 'item' contains no elements!");
+                    processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ClaimStr, json.id, "Property 'item' contains no elements!");
                     select = false;
                     return false;
                 }
@@ -165,14 +171,14 @@ namespace ResourceProcessorNamespace
                     {
                         if (json.item[i].encounter.Length < 1)
                         {
-                            processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.claimStr, json.id, "Property 'item[i].encounter.Lemgth' contains no elements!");
+                            processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ClaimStr, json.id, "Property 'item[i].encounter.Lemgth' contains no elements!");
                             select = false;
                             return false;
                         }
 
                         for (int j = 0; j < json.item[i].encounter.Length; j++)
                         {
-                            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.claimStr, json.item[i].encounter[j].reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.item[i].encounter[j].reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
                             {
                                 select = false;
                                 return false;

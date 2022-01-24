@@ -2,12 +2,12 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct MedicationRequestSibling
+    internal struct MedicationRequestSibling
     {
         public string id;
     }
 
-    class MedicationRequestAdapter : ResourceAdapter<MedicationRequest.Rootobject, MedicationRequestSibling>
+    internal class MedicationRequestAdapter : ResourceAdapter<MedicationRequest.Rootobject, MedicationRequestSibling>
     {
         public override MedicationRequestSibling CreateOriginal(ResourceGroupProcessor processor, MedicationRequest.Rootobject json)
         {
@@ -21,9 +21,15 @@ namespace ResourceProcessorNamespace
             return r;
         }
 
-        public override string GetId(MedicationRequest.Rootobject json) { return json.id; }
+        public override string GetId(MedicationRequest.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(MedicationRequest.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(MedicationRequest.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, MedicationRequest.Rootobject originalJson, MedicationRequest.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -59,26 +65,26 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.subject == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.medicationRequestStr, json.id, "Property 'subject' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.MedicationRequestStr, json.id, "Property 'subject' is null!");
                 select = false;
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.medicationRequestStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.MedicationRequestStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.encounter != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.medicationRequestStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.MedicationRequestStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.requester != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.medicationRequestStr, json.requester.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.MedicationRequestStr, json.requester.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
             {
                 select = false;
                 return false;

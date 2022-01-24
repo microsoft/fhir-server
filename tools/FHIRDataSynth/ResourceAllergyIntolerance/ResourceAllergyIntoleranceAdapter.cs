@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct AllergyIntoleranceSibling
+    internal struct AllergyIntoleranceSibling
     {
     }
 
-    class AllergyIntoleranceAdapter : ResourceAdapter<AllergyIntolerance.Rootobject, AllergyIntoleranceSibling>
+    internal class AllergyIntoleranceAdapter : ResourceAdapter<AllergyIntolerance.Rootobject, AllergyIntoleranceSibling>
     {
         public override AllergyIntoleranceSibling CreateOriginal(ResourceGroupProcessor processor, AllergyIntolerance.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(AllergyIntolerance.Rootobject json) { return json.id; }
+        public override string GetId(AllergyIntolerance.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(AllergyIntolerance.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(AllergyIntolerance.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, AllergyIntolerance.Rootobject originalJson, AllergyIntolerance.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -35,12 +41,12 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.patient == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.allergyIntoleranceStr, json.id, "Property 'patient' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.AllergyIntoleranceStr, json.id, "Property 'patient' is null!");
                 select = false;
                 return false;
             }
 
-            return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.allergyIntoleranceStr, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select);
+            return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.AllergyIntoleranceStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select);
         }
     }
 }

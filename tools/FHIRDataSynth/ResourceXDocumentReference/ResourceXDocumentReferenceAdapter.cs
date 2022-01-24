@@ -6,20 +6,26 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    struct DocumentReferenceSibling
+    internal struct DocumentReferenceSibling
     {
     }
 
-    class DocumentReferenceAdapter : ResourceAdapter<DocumentReference.Rootobject, DocumentReferenceSibling>
+    internal class DocumentReferenceAdapter : ResourceAdapter<DocumentReference.Rootobject, DocumentReferenceSibling>
     {
         public override DocumentReferenceSibling CreateOriginal(ResourceGroupProcessor processor, DocumentReference.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(DocumentReference.Rootobject json) { return json.id; }
+        public override string GetId(DocumentReference.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(DocumentReference.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(DocumentReference.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, DocumentReference.Rootobject originalJson, DocumentReference.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -86,12 +92,12 @@ namespace ResourceProcessorNamespace
 
         public override bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, DocumentReference.Rootobject json, out bool select)
         {
-            string resName = ResourceGroupProcessor.documentReferenceStr;
+            string resName = ResourceGroupProcessor.DocumentReferenceStr;
             bool s = true;
 
             if (
                 json.subject != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref s))
             {
                 select = false;
                 return false;
@@ -113,7 +119,7 @@ namespace ResourceProcessorNamespace
                         continue;
                     }
 
-                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, a.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref s))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, a.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref s))
                     {
                         select = false;
                         return false;
@@ -123,7 +129,7 @@ namespace ResourceProcessorNamespace
 
             if (
                 json.authenticator != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, resName, json.authenticator.reference, ResourceGroupProcessor.organizationStr, processor.organizations, processor.organizationIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, resName, json.authenticator.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref s))
             {
                 select = false;
                 return false;
@@ -131,7 +137,7 @@ namespace ResourceProcessorNamespace
 
             if (
                 json.custodian != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, resName, json.custodian.reference, ResourceGroupProcessor.organizationStr, processor.organizations, processor.organizationIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, resName, json.custodian.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref s))
             {
                 select = false;
                 return false;
@@ -150,7 +156,7 @@ namespace ResourceProcessorNamespace
 
                     foreach (DocumentReference.Encounter e in json.context.encounter)
                     {
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref s))
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref s))
                         {
                             select = false;
                             return false;
@@ -160,7 +166,7 @@ namespace ResourceProcessorNamespace
 
                 if (
                     json.context.sourcePatientInfo != null &&
-                    !processor.ValidateResourceRefAndSelect(json.id, resName, json.context.sourcePatientInfo.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref s))
+                    !processor.ValidateResourceRefAndSelect(json.id, resName, json.context.sourcePatientInfo.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref s))
                 {
                     select = false;
                     return false;
@@ -177,7 +183,7 @@ namespace ResourceProcessorNamespace
 
                     foreach (DocumentReference.Related r in json.context.related)
                     {
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, r.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref s))
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, r.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref s))
                         {
                             select = false;
                             return false;
@@ -198,17 +204,30 @@ namespace ResourceProcessorNamespace
 
         public class Enumerator : EnumeratorBase<EncounterSibling>
         {
-            Dictionary<string, ResourceSiblingsContainer<EncounterSibling>>.Enumerator enumerator;
+            private Dictionary<string, ResourceSiblingsContainer<EncounterSibling>>.Enumerator enumerator;
 
-            protected override bool InitializerMoveNext() { return enumerator.MoveNext(); }
+            protected override bool InitializerMoveNext()
+            {
+                return enumerator.MoveNext();
+            }
 
             protected override EncounterSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
 
-            public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options) : base(processor, options) { enumerator = processor.encounters.GetEnumerator(); }
+            public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
+                : base(processor, options)
+            {
+                enumerator = processor.encounters.GetEnumerator();
+            }
 
-            protected override DocumentReference.Rootobject LoadFHIRExampleFile() { return LoadFHIRExampleFileS(); }
+            protected override DocumentReference.Rootobject LoadFHIRExampleFile()
+            {
+                return LoadFHIRExampleFileS();
+            }
 
-            protected override void InitializeFHIRExample(DocumentReference.Rootobject json, EncounterSibling initializer) { InitializeFHIRExampleS(json, initializer); }
+            protected override void InitializeFHIRExample(DocumentReference.Rootobject json, EncounterSibling initializer)
+            {
+                InitializeFHIRExampleS(json, initializer);
+            }
 
             private static DocumentReference.Rootobject LoadFHIRExampleFileS()
             {
@@ -254,7 +273,7 @@ namespace ResourceProcessorNamespace
                     json.custodian = null;
                 }
 
-                json.context.encounter[0].reference = ResourceGroupProcessor.encounterPrefix + initializer.id;
+                json.context.encounter[0].reference = ResourceGroupProcessor.EncounterPrefix + initializer.id;
             }
 
             public static int GetResourceSize()
@@ -262,16 +281,22 @@ namespace ResourceProcessorNamespace
                 DocumentReference.Rootobject json = LoadFHIRExampleFileS();
                 EncounterSibling initializer = new EncounterSibling();
                 initializer.id = Guid.NewGuid().ToString();
-                initializer.subjectRef = ResourceGroupProcessor.patientPrefix + Guid.NewGuid().ToString();
-                initializer.participantRef = ResourceGroupProcessor.practitionerPrefix + Guid.NewGuid().ToString();
-                initializer.serviceProviderRef = ResourceGroupProcessor.organizationPrefix + Guid.NewGuid().ToString();
+                initializer.subjectRef = ResourceGroupProcessor.PatientPrefix + Guid.NewGuid().ToString();
+                initializer.participantRef = ResourceGroupProcessor.PractitionerPrefix + Guid.NewGuid().ToString();
+                initializer.serviceProviderRef = ResourceGroupProcessor.OrganizationPrefix + Guid.NewGuid().ToString();
                 InitializeFHIRExampleS(json, initializer);
                 return JsonSerializer.Serialize(json).Length;
             }
 
-            public override void Reset() { ((IEnumerator)enumerator).Reset(); }
+            public override void Reset()
+            {
+                ((IEnumerator)enumerator).Reset();
+            }
 
-            public override void Dispose() { enumerator.Dispose(); }
+            public override void Dispose()
+            {
+                enumerator.Dispose();
+            }
         }
     }
 }

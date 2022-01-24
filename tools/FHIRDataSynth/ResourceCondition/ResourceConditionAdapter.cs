@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct ConditionSibling
+    internal struct ConditionSibling
     {
     }
 
-    class ConditionAdapter : ResourceAdapter<Condition.Rootobject, ConditionSibling>
+    internal class ConditionAdapter : ResourceAdapter<Condition.Rootobject, ConditionSibling>
     {
         public override ConditionSibling CreateOriginal(ResourceGroupProcessor processor, Condition.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(Condition.Rootobject json) { return json.id; }
+        public override string GetId(Condition.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Condition.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Condition.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Condition.Rootobject originalJson, Condition.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -39,12 +45,12 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.subject == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.conditionStr, json.id, "Property 'subject' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ConditionStr, json.id, "Property 'subject' is null!");
                 select = false;
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.conditionStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ConditionStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -52,7 +58,7 @@ namespace ResourceProcessorNamespace
 
             if (json.encounter != null)
             {
-                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.conditionStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select);
+                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ConditionStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select);
             }
 
             return true;

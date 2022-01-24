@@ -4,20 +4,26 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    struct StructureDefinitionSibling
+    internal struct StructureDefinitionSibling
     {
     }
 
-    class StructureDefinitionAdapter : ResourceAdapter<StructureDefinition.Rootobject, StructureDefinitionSibling>
+    internal class StructureDefinitionAdapter : ResourceAdapter<StructureDefinition.Rootobject, StructureDefinitionSibling>
     {
         public override StructureDefinitionSibling CreateOriginal(ResourceGroupProcessor processor, StructureDefinition.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(StructureDefinition.Rootobject json) { return json.id; }
+        public override string GetId(StructureDefinition.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(StructureDefinition.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(StructureDefinition.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, StructureDefinition.Rootobject originalJson, StructureDefinition.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -45,7 +51,7 @@ namespace ResourceProcessorNamespace
 
         public class Enumerator : EnumeratorBase<int>
         {
-            int enumerator = -1;
+            private int enumerator = -1;
 
             protected override bool InitializerMoveNext()
             {
@@ -55,11 +61,20 @@ namespace ResourceProcessorNamespace
 
             protected override int InitializerCurrent { get => enumerator; }
 
-            public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options) : base(processor, options) { }
+            public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
+                : base(processor, options)
+            {
+            }
 
-            protected override StructureDefinition.Rootobject LoadFHIRExampleFile() { return LoadFHIRExampleFileS(); }
+            protected override StructureDefinition.Rootobject LoadFHIRExampleFile()
+            {
+                return LoadFHIRExampleFileS();
+            }
 
-            protected override void InitializeFHIRExample(StructureDefinition.Rootobject json, int initializer) { InitializeFHIRExampleS(json, initializer); }
+            protected override void InitializeFHIRExample(StructureDefinition.Rootobject json, int initializer)
+            {
+                InitializeFHIRExampleS(json, initializer);
+            }
 
             private static StructureDefinition.Rootobject LoadFHIRExampleFileS()
             {
@@ -79,9 +94,14 @@ namespace ResourceProcessorNamespace
                 return JsonSerializer.Serialize(json).Length;
             }
 
-            public override void Reset() { enumerator = -1; }
+            public override void Reset()
+            {
+                enumerator = -1;
+            }
 
-            public override void Dispose() { }
+            public override void Dispose()
+            {
+            }
         }
     }
 }

@@ -5,13 +5,16 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-class FileResourceGroupProcessor : ResourceGroupProcessor
+internal class FileResourceGroupProcessor : ResourceGroupProcessor
 {
     private readonly string storePath;
     private readonly string resourceGroupDir;
     private readonly string blendPath;
 
-    public override string GetResourceGroupDir() { return resourceGroupDir; }
+    public override string GetResourceGroupDir()
+    {
+        return resourceGroupDir;
+    }
 
     public FileResourceGroupProcessor(string storePath, string resourceGroupDir, string blendPath)
     {
@@ -73,9 +76,9 @@ class FileResourceGroupProcessor : ResourceGroupProcessor
     }
 }
 
-class RDResourceProcessor : ResourceProcessor
+internal class RDResourceProcessor : ResourceProcessor
 {
-    private const string outputBlobContainerNamePrefix = "blend-";
+    private const string OutputBlobContainerNamePrefix = "blend-";
     private readonly string storePath;
     private readonly string blendPath;
 
@@ -88,7 +91,7 @@ class RDResourceProcessor : ResourceProcessor
             string verifyBlendDir = Path.GetFileName(storePath);
 
             // verifyBlendParent.EndsWith check is for case we are writing into root dir. Then verifyBlendParent ends with Path.DirectorySeparatorChar, no need to add one.
-            this.storePath = verifyBlendParent + (verifyBlendParent.EndsWith(Path.DirectorySeparatorChar) ? string.Empty : Path.DirectorySeparatorChar) + outputBlobContainerNamePrefix + verifyBlendDir + Path.DirectorySeparatorChar;
+            this.storePath = verifyBlendParent + (verifyBlendParent.EndsWith(Path.DirectorySeparatorChar) ? string.Empty : Path.DirectorySeparatorChar) + OutputBlobContainerNamePrefix + verifyBlendDir + Path.DirectorySeparatorChar;
         }
         else
         {
@@ -101,7 +104,7 @@ class RDResourceProcessor : ResourceProcessor
 
             string blendParent = Path.GetDirectoryName(blendPath);
             string blendDir = Path.GetFileName(blendPath);
-            this.blendPath = blendParent + Path.DirectorySeparatorChar + outputBlobContainerNamePrefix + blendDir + Path.DirectorySeparatorChar;
+            this.blendPath = blendParent + Path.DirectorySeparatorChar + OutputBlobContainerNamePrefix + blendDir + Path.DirectorySeparatorChar;
         }
     }
 

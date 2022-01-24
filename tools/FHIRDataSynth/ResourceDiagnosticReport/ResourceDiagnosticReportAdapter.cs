@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct DiagnosticReportSibling
+    internal struct DiagnosticReportSibling
     {
     }
 
-    class DiagnosticReportAdapter : ResourceAdapter<DiagnosticReport.Rootobject, DiagnosticReportSibling>
+    internal class DiagnosticReportAdapter : ResourceAdapter<DiagnosticReport.Rootobject, DiagnosticReportSibling>
     {
         public override DiagnosticReportSibling CreateOriginal(ResourceGroupProcessor processor, DiagnosticReport.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(DiagnosticReport.Rootobject json) { return json.id; }
+        public override string GetId(DiagnosticReport.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(DiagnosticReport.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(DiagnosticReport.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, DiagnosticReport.Rootobject originalJson, DiagnosticReport.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -50,14 +56,14 @@ namespace ResourceProcessorNamespace
         {
             bool s = true;
             if (json.subject != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.diagnosticReportStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref s))
             {
                 select = false;
                 return false;
             }
 
             if (json.encounter != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.diagnosticReportStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref s))
             {
                 select = false;
                 return false;
@@ -67,14 +73,14 @@ namespace ResourceProcessorNamespace
             {
                 if (json.result.Length < 1)
                 {
-                    processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.diagnosticReportStr, json.id, "Property 'result' contains 0 elements!");
+                    processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.DiagnosticReportStr, json.id, "Property 'result' contains 0 elements!");
                     select = false;
                     return false;
                 }
 
                 for (int i = 0; i < json.result.Length; i++)
                 {
-                    if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.diagnosticReportStr, json.result[i].reference, ResourceGroupProcessor.observationStr, processor.observations, processor.observationIdsRemoved, ref s))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.result[i].reference, ResourceGroupProcessor.ObservationStr, processor.observations, processor.observationIdsRemoved, ref s))
                     {
                         select = false;
                         return false;

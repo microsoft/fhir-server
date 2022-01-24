@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct ImagingStudySibling
+    internal struct ImagingStudySibling
     {
     }
 
-    class ImagingStudyAdapter : ResourceAdapter<ImagingStudy.Rootobject, ImagingStudySibling>
+    internal class ImagingStudyAdapter : ResourceAdapter<ImagingStudy.Rootobject, ImagingStudySibling>
     {
         public override ImagingStudySibling CreateOriginal(ResourceGroupProcessor processor, ImagingStudy.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(ImagingStudy.Rootobject json) { return json.id; }
+        public override string GetId(ImagingStudy.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(ImagingStudy.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(ImagingStudy.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, ImagingStudy.Rootobject originalJson, ImagingStudy.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -39,19 +45,19 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.subject == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.imagingStudyStr, json.id, "Property 'subject' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ImagingStudyStr, json.id, "Property 'subject' is null!");
                 select = false;
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.imagingStudyStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ImagingStudyStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.encounter != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.imagingStudyStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ImagingStudyStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;

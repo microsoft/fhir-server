@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct ExplanationOfBenefitSibling
+    internal struct ExplanationOfBenefitSibling
     {
     }
 
-    class ExplanationOfBenefitAdapter : ResourceAdapter<ExplanationOfBenefit.Rootobject, ExplanationOfBenefitSibling>
+    internal class ExplanationOfBenefitAdapter : ResourceAdapter<ExplanationOfBenefit.Rootobject, ExplanationOfBenefitSibling>
     {
         public override ExplanationOfBenefitSibling CreateOriginal(ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(ExplanationOfBenefit.Rootobject json) { return json.id; }
+        public override string GetId(ExplanationOfBenefit.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(ExplanationOfBenefit.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(ExplanationOfBenefit.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject originalJson, ExplanationOfBenefit.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -213,7 +219,7 @@ namespace ResourceProcessorNamespace
         }*/
         public override bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject json, out bool select)
         {
-            string resName = ResourceGroupProcessor.explanationOfBenefitStr;
+            string resName = ResourceGroupProcessor.ExplanationOfBenefitStr;
             select = true;
             if (json.contained != null)
             {
@@ -236,13 +242,13 @@ namespace ResourceProcessorNamespace
                             return false;
                         }
 
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
                         }
 
-                        if (c.requester != null && !processor.ValidateResourceRefAndSelect(json.id, resName, c.requester.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                        if (c.requester != null && !processor.ValidateResourceRefAndSelect(json.id, resName, c.requester.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
@@ -259,7 +265,7 @@ namespace ResourceProcessorNamespace
 
                             foreach (ExplanationOfBenefit.Performer p in c.performer)
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
@@ -276,7 +282,7 @@ namespace ResourceProcessorNamespace
                             return false;
                         }
 
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.beneficiary.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.beneficiary.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
@@ -284,7 +290,7 @@ namespace ResourceProcessorNamespace
                     }
                     else
                     {
-                        processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.explanationOfBenefitStr, json.id, "Property 'contained[n]' contains resource type other than 'ServiceRequest' or 'Coverage'!");
+                        processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ExplanationOfBenefitStr, json.id, "Property 'contained[n]' contains resource type other than 'ServiceRequest' or 'Coverage'!");
                         select = false;
                         return false;
                     }
@@ -298,7 +304,7 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -311,13 +317,13 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.provider.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.provider.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
-            if (json.claim != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.claim.reference, ResourceGroupProcessor.claimStr, processor.claims, processor.claimIdsRemoved, ref select))
+            if (json.claim != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.claim.reference, ResourceGroupProcessor.ClaimStr, processor.claims, processor.claimIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -341,7 +347,7 @@ namespace ResourceProcessorNamespace
                         return false;
                     }
 
-                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.provider.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.provider.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                     {
                         select = false;
                         return false;
@@ -371,7 +377,7 @@ namespace ResourceProcessorNamespace
 
                         foreach (ExplanationOfBenefit.Encounter e in i.encounter)
                         {
-                            if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                            if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
                             {
                                 select = false;
                                 return false;

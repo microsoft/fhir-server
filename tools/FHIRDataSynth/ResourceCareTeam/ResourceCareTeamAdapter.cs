@@ -2,14 +2,14 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct CareTeamSibling
+    internal struct CareTeamSibling
     {
         public string id;
         /*public string encounterRef;
         public string subjectRef;*/
     }
 
-    class CareTeamAdapter : ResourceAdapter<CareTeam.Rootobject, CareTeamSibling>
+    internal class CareTeamAdapter : ResourceAdapter<CareTeam.Rootobject, CareTeamSibling>
     {
         public override CareTeamSibling CreateOriginal(ResourceGroupProcessor processor, CareTeam.Rootobject json)
         {
@@ -27,9 +27,15 @@ namespace ResourceProcessorNamespace
             return ret;
         }
 
-        public override string GetId(CareTeam.Rootobject json) { return json.id; }
+        public override string GetId(CareTeam.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(CareTeam.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(CareTeam.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, CareTeam.Rootobject originalJson, CareTeam.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -234,16 +240,16 @@ namespace ResourceProcessorNamespace
         }*/
         public override bool ValidateResourceRefsAndSelect(ResourceGroupProcessor processor, CareTeam.Rootobject json, out bool select)
         {
-            string resName = ResourceGroupProcessor.careTeamStr;
+            string resName = ResourceGroupProcessor.CareTeamStr;
             select = true;
 
-            if (json.subject != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (json.subject != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
-            if (json.encounter != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+            if (json.encounter != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -264,25 +270,25 @@ namespace ResourceProcessorNamespace
                     {
                         if (p.member.reference != null)
                         {
-                            if (p.member.reference.StartsWith(ResourceGroupProcessor.patientPrefix))
+                            if (p.member.reference.StartsWith(ResourceGroupProcessor.PatientPrefix))
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
                                 }
                             }
-                            else if (p.member.reference.StartsWith(ResourceGroupProcessor.practitionerPrefix))
+                            else if (p.member.reference.StartsWith(ResourceGroupProcessor.PractitionerPrefix))
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.practitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
                                 }
                             }
-                            else if (p.member.reference.StartsWith(ResourceGroupProcessor.organizationPrefix))
+                            else if (p.member.reference.StartsWith(ResourceGroupProcessor.OrganizationPrefix))
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.organizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
@@ -316,7 +322,7 @@ namespace ResourceProcessorNamespace
 
                 foreach (CareTeam.Managingorganization m in json.managingOrganization)
                 {
-                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, m.reference, ResourceGroupProcessor.organizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, m.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
                     {
                         select = false;
                         return false;

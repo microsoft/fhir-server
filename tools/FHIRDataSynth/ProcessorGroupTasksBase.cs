@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace ResourceProcessorNamespace
 {
-    class TargetProfile
+    internal class TargetProfile
     {
         public string name { get; set; }
 
@@ -30,15 +30,15 @@ namespace ResourceProcessorNamespace
         }
     }
 
-    abstract class ResourceProcessor
+    internal abstract class ResourceProcessor
     {
-        abstract protected void LogInfo(string message);
+        protected abstract void LogInfo(string message);
 
-        abstract protected void LogError(string message);
+        protected abstract void LogError(string message);
 
-        abstract protected Task<SortedSet<string>> GetResourceGroupDirsAsync();
+        protected abstract Task<SortedSet<string>> GetResourceGroupDirsAsync();
 
-        abstract protected ResourceGroupProcessor GetNewResourceGroupProcessor(string resourceGroupDir);
+        protected abstract ResourceGroupProcessor GetNewResourceGroupProcessor(string resourceGroupDir);
 
         private Task[] MakeResourceGroupTasks(
             Task[] currentResourceGroupTasks,

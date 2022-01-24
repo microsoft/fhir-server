@@ -6,20 +6,26 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    struct CommunicationSibling
+    internal struct CommunicationSibling
     {
     }
 
-    class CommunicationAdapter : ResourceAdapter<Communication.Rootobject, CommunicationSibling>
+    internal class CommunicationAdapter : ResourceAdapter<Communication.Rootobject, CommunicationSibling>
     {
         public override CommunicationSibling CreateOriginal(ResourceGroupProcessor processor, Communication.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(Communication.Rootobject json) { return json.id; }
+        public override string GetId(Communication.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Communication.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Communication.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Communication.Rootobject originalJson, Communication.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -42,7 +48,7 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.subject != null)
             {
-                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.documentReferenceStr, json.subject.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select);
+                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DocumentReferenceStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select);
             }
 
             select = true;
@@ -57,17 +63,30 @@ namespace ResourceProcessorNamespace
 
         public class Enumerator : EnumeratorBase<PatientSibling>
         {
-            Dictionary<string, ResourceSiblingsContainer<PatientSibling>>.Enumerator enumerator;
+            private Dictionary<string, ResourceSiblingsContainer<PatientSibling>>.Enumerator enumerator;
 
-            protected override bool InitializerMoveNext() { return enumerator.MoveNext(); }
+            protected override bool InitializerMoveNext()
+            {
+                return enumerator.MoveNext();
+            }
 
             protected override PatientSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
 
-            public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options) : base(processor, options) { enumerator = processor.patients.GetEnumerator(); }
+            public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
+                : base(processor, options)
+            {
+                enumerator = processor.patients.GetEnumerator();
+            }
 
-            protected override Communication.Rootobject LoadFHIRExampleFile() { return LoadFHIRExampleFileS(); }
+            protected override Communication.Rootobject LoadFHIRExampleFile()
+            {
+                return LoadFHIRExampleFileS();
+            }
 
-            protected override void InitializeFHIRExample(Communication.Rootobject json, PatientSibling initializer) { InitializeFHIRExampleS(json, initializer); }
+            protected override void InitializeFHIRExample(Communication.Rootobject json, PatientSibling initializer)
+            {
+                InitializeFHIRExampleS(json, initializer);
+            }
 
             private static Communication.Rootobject LoadFHIRExampleFileS()
             {
@@ -78,7 +97,7 @@ namespace ResourceProcessorNamespace
             private static void InitializeFHIRExampleS(Communication.Rootobject json, PatientSibling initializer)
             {
                 json.id = Guid.NewGuid().ToString();
-                json.subject.reference = ResourceGroupProcessor.patientPrefix + initializer.id;
+                json.subject.reference = ResourceGroupProcessor.PatientPrefix + initializer.id;
             }
 
             public static int GetResourceSize()
@@ -90,9 +109,15 @@ namespace ResourceProcessorNamespace
                 return JsonSerializer.Serialize(json).Length;
             }
 
-            public override void Reset() { ((IEnumerator)enumerator).Reset(); }
+            public override void Reset()
+            {
+                ((IEnumerator)enumerator).Reset();
+            }
 
-            public override void Dispose() { enumerator.Dispose(); }
+            public override void Dispose()
+            {
+                enumerator.Dispose();
+            }
         }
     }
 }

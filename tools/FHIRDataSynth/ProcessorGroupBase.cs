@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace ResourceProcessorNamespace
 {
-    class ResourcesResult
+    internal class ResourcesResult
     {
         public int inputResourcesCount;
         public long inputResourcesSize;
@@ -97,21 +97,21 @@ namespace ResourceProcessorNamespace
         }
     }
 
-    abstract class ResourceGroupProcessor
+    internal abstract class ResourceGroupProcessor
     {
-        abstract public void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message);
+        public abstract void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message);
 
-        abstract public void LogWarning(string resourceGroupDir, string resourceName, string resourceId, string message);
+        public abstract void LogWarning(string resourceGroupDir, string resourceName, string resourceId, string message);
 
-        abstract protected Task MakeOutputResourceGroupDirAsync();
+        protected abstract Task MakeOutputResourceGroupDirAsync();
 
-        abstract public string GetResourceGroupDir();
+        public abstract string GetResourceGroupDir();
 
-        abstract protected Task<StreamReader> GetStreamReader(string resourceName);
+        protected abstract Task<StreamReader> GetStreamReader(string resourceName);
 
-        abstract protected Task<StreamWriter> GetStreamWriter(string resourceName);
+        protected abstract Task<StreamWriter> GetStreamWriter(string resourceName);
 
-        abstract protected bool OnlyVerifyInput { get; }
+        protected abstract bool OnlyVerifyInput { get; }
 
         public Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>> allergyIntolerances = new Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>>();
         public HashSet<string> allergyIntoleranceIdsRemoved = new HashSet<string>();
@@ -152,61 +152,61 @@ namespace ResourceProcessorNamespace
         public Dictionary<string, ResourceSiblingsContainer<SupplyDeliverySibling>> supplyDeliveries = new Dictionary<string, ResourceSiblingsContainer<SupplyDeliverySibling>>();
         public HashSet<string> supplyDeliveryIdsRemoved = new HashSet<string>();
 
-        public const string allergyIntoleranceStr = "AllergyIntolerance";
-        public const string allergyIntolerancePrefix = allergyIntoleranceStr + "/";
-        public const string carePlanStr = "CarePlan";
-        public const string carePlanPrefix = carePlanStr + "/";
-        public const string careTeamStr = "CareTeam";
-        public const string careTeamPrefix = careTeamStr + "/";
-        public const string claimStr = "Claim";
-        public const string claimPrefix = claimStr + "/";
-        public const string conditionStr = "Condition";
-        public const string conditionPrefix = conditionStr + "/";
-        public const string deviceStr = "Device";
-        public const string devicePrefix = deviceStr + "/";
-        public const string diagnosticReportStr = "DiagnosticReport";
-        public const string diagnosticReportPrefix = diagnosticReportStr + "/";
-        public const string encounterStr = "Encounter";
-        public const string encounterPrefix = encounterStr + "/";
-        public const string explanationOfBenefitStr = "ExplanationOfBenefit";
-        public const string explanationOfBenefitPrefix = explanationOfBenefitStr + "/";
-        public const string imagingStudyStr = "ImagingStudy";
-        public const string imagingStudyPrefix = imagingStudyStr + "/";
-        public const string immunizationStr = "Immunization";
-        public const string immunizationPrefix = immunizationStr + "/";
-        public const string medicationAdministrationStr = "MedicationAdministration";
-        public const string medicationAdministrationPrefix = medicationAdministrationStr + "/";
-        public const string medicationRequestStr = "MedicationRequest";
-        public const string medicationRequestPrefix = medicationRequestStr + "/";
-        public const string observationStr = "Observation";
-        public const string observationPrefix = observationStr + "/";
-        public const string organizationStr = "Organization";
-        public const string organizationPrefix = organizationStr + "/";
-        public const string patientStr = "Patient";
-        public const string patientPrefix = patientStr + "/";
-        public const string practitionerStr = "Practitioner";
-        public const string practitionerPrefix = practitionerStr + "/";
-        public const string procedureStr = "Procedure";
-        public const string procedurePrefix = procedureStr + "/";
-        public const string supplyDeliveryStr = "SupplyDelivery";
-        public const string supplyDeliveryPrefix = supplyDeliveryStr + "/";
+        public const string AllergyIntoleranceStr = "AllergyIntolerance";
+        public const string AllergyIntolerancePrefix = AllergyIntoleranceStr + "/";
+        public const string CarePlanStr = "CarePlan";
+        public const string CarePlanPrefix = CarePlanStr + "/";
+        public const string CareTeamStr = "CareTeam";
+        public const string CareTeamPrefix = CareTeamStr + "/";
+        public const string ClaimStr = "Claim";
+        public const string ClaimPrefix = ClaimStr + "/";
+        public const string ConditionStr = "Condition";
+        public const string ConditionPrefix = ConditionStr + "/";
+        public const string DeviceStr = "Device";
+        public const string DevicePrefix = DeviceStr + "/";
+        public const string DiagnosticReportStr = "DiagnosticReport";
+        public const string DiagnosticReportPrefix = DiagnosticReportStr + "/";
+        public const string EncounterStr = "Encounter";
+        public const string EncounterPrefix = EncounterStr + "/";
+        public const string ExplanationOfBenefitStr = "ExplanationOfBenefit";
+        public const string ExplanationOfBenefitPrefix = ExplanationOfBenefitStr + "/";
+        public const string ImagingStudyStr = "ImagingStudy";
+        public const string ImagingStudyPrefix = ImagingStudyStr + "/";
+        public const string ImmunizationStr = "Immunization";
+        public const string ImmunizationPrefix = ImmunizationStr + "/";
+        public const string MedicationAdministrationStr = "MedicationAdministration";
+        public const string MedicationAdministrationPrefix = MedicationAdministrationStr + "/";
+        public const string MedicationRequestStr = "MedicationRequest";
+        public const string MedicationRequestPrefix = MedicationRequestStr + "/";
+        public const string ObservationStr = "Observation";
+        public const string ObservationPrefix = ObservationStr + "/";
+        public const string OrganizationStr = "Organization";
+        public const string OrganizationPrefix = OrganizationStr + "/";
+        public const string PatientStr = "Patient";
+        public const string PatientPrefix = PatientStr + "/";
+        public const string PractitionerStr = "Practitioner";
+        public const string PractitionerPrefix = PractitionerStr + "/";
+        public const string ProcedureStr = "Procedure";
+        public const string ProcedurePrefix = ProcedureStr + "/";
+        public const string SupplyDeliveryStr = "SupplyDelivery";
+        public const string SupplyDeliveryPrefix = SupplyDeliveryStr + "/";
 
-        public const string documentReferenceStr = "DocumentReference";
-        public const string documentReferencePrefix = documentReferenceStr + "/";
+        public const string DocumentReferenceStr = "DocumentReference";
+        public const string DocumentReferencePrefix = DocumentReferenceStr + "/";
         public Dictionary<string, ResourceSiblingsContainer<DocumentReferenceSibling>> documentReferences = new Dictionary<string, ResourceSiblingsContainer<DocumentReferenceSibling>>();
         public HashSet<string> documentReferenceIdsRemoved = new HashSet<string>();
 
-        public const string structureDefinitionStr = "StructureDefinition";
-        public const string structureDefinitionPrefix = structureDefinitionStr + "/";
+        public const string StructureDefinitionStr = "StructureDefinition";
+        public const string StructureDefinitionPrefix = StructureDefinitionStr + "/";
         public Dictionary<string, ResourceSiblingsContainer<StructureDefinitionSibling>> structureDefinitions = new Dictionary<string, ResourceSiblingsContainer<StructureDefinitionSibling>>();
         public HashSet<string> structureDefinitionIdsRemoved = new HashSet<string>();
 
-        public const string communicationStr = "Communication";
-        public const string communicationPrefix = communicationStr + "/";
+        public const string CommunicationStr = "Communication";
+        public const string CommunicationPrefix = CommunicationStr + "/";
         public Dictionary<string, ResourceSiblingsContainer<CommunicationSibling>> communications = new Dictionary<string, ResourceSiblingsContainer<CommunicationSibling>>();
         public HashSet<string> communicationIdsRemoved = new HashSet<string>();
 
-        bool ValidateIdAndResourceType(string id, string resourceType, string resourceName, HashSet<string> duplicateIdsCheck)
+        private bool ValidateIdAndResourceType(string id, string resourceType, string resourceName, HashSet<string> duplicateIdsCheck)
         {
             if (id == null)
             {
@@ -282,19 +282,19 @@ namespace ResourceProcessorNamespace
             }
         }
 
-        private async Task ResizeResources<T, U>(
+        private async Task ResizeResources<T, TS>(
             string resourceName,
             TargetProfile targetProfile,
             List<T> jsonList,
             StreamWriter w,
             JsonSerializerOptions options,
-            Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection,
+            Dictionary<string, ResourceSiblingsContainer<TS>> resourcesCollection,
             HashSet<string> resourcesRemovedSet,
-            ResourceAdapter<T, U> adapter,
+            ResourceAdapter<T, TS> adapter,
             ResourcesResult result,
             Dictionary<string, ResourcesResult> ret)
             where T : class
-            where U : struct
+            where TS : struct
         {
             if (targetProfile.ratios.ContainsKey(resourceName) && jsonList.Count > 0)
             {
@@ -306,7 +306,7 @@ namespace ResourceProcessorNamespace
                     {
                         T json = jsonList[i];
                         jsonList[i] = default(T);
-                        ResourceSiblingsContainer<U> siblingsContainer = new ResourceSiblingsContainer<U>(new U[1] { adapter.CreateOriginal(this, json) });
+                        ResourceSiblingsContainer<TS> siblingsContainer = new ResourceSiblingsContainer<TS>(new TS[1] { adapter.CreateOriginal(this, json) });
                         resourcesCollection.Add(adapter.GetId(json), siblingsContainer);
                         string line = JsonSerializer.Serialize<T>(json, options);
                         await w.WriteLineAsync(line);
@@ -324,7 +324,7 @@ namespace ResourceProcessorNamespace
                 }
                 else
                 {
-                    List<U> siblingsList = new List<U>(1000);
+                    List<TS> siblingsList = new List<TS>(1000);
                     for (int i = 0; i < jsonList.Count; i++)
                     {
                         siblingsList.Clear(); // IMPORTANT, must be at the begining of the main loop!
@@ -355,7 +355,7 @@ namespace ResourceProcessorNamespace
                             }
                         }
 
-                        ResourceSiblingsContainer<U> resourceAndClones = new ResourceSiblingsContainer<U>(siblingsList.ToArray());
+                        ResourceSiblingsContainer<TS> resourceAndClones = new ResourceSiblingsContainer<TS>(siblingsList.ToArray());
                         resourcesCollection.Add(adapter.GetId(json), resourceAndClones);
                     }
                 }
@@ -370,16 +370,16 @@ namespace ResourceProcessorNamespace
             ret.Add(resourceName, result);
         }
 
-        async Task ProcessResources<T, U>(
+        private async Task ProcessResources<T, TS>(
             string resourceName,
-            ResourceAdapter<T, U> adapter,
+            ResourceAdapter<T, TS> adapter,
             TargetProfile targetProfile,
             JsonSerializerOptions options,
-            Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection,
+            Dictionary<string, ResourceSiblingsContainer<TS>> resourcesCollection,
             HashSet<string> resourcesRemovedSet,
             Dictionary<string, ResourcesResult> ret)
             where T : class
-            where U : struct
+            where TS : struct
         {
             adapter.Initialize(this, options);
             if ((!targetProfile.ratios.TryGetValue(resourceName, out double ratio)) || (ratio <= 0))
@@ -437,16 +437,16 @@ namespace ResourceProcessorNamespace
             }
         }
 
-        async Task ProcessResourcesX<T, U>(
+        private async Task ProcessResourcesX<T, TS>(
             string resourceName,
-            ResourceAdapter<T, U> adapter,
+            ResourceAdapter<T, TS> adapter,
             TargetProfile targetProfile,
             JsonSerializerOptions options,
-            Dictionary<string, ResourceSiblingsContainer<U>> resourcesCollection,
+            Dictionary<string, ResourceSiblingsContainer<TS>> resourcesCollection,
             HashSet<string> resourcesRemovedSet,
             Dictionary<string, ResourcesResult> ret)
             where T : class
-            where U : struct
+            where TS : struct
         {
             adapter.Initialize(this, options);
             if (OnlyVerifyInput)
@@ -464,7 +464,7 @@ namespace ResourceProcessorNamespace
             ResourcesResult result = new ResourcesResult(resourceName);
             {
                 HashSet<string> duplicateIdsCheck = new HashSet<string>();
-                foreach (ResourceAdapter<T, U>.EnumeratorItem item in adapter)
+                foreach (ResourceAdapter<T, TS>.EnumeratorItem item in adapter)
                 {
                     result.inputResourcesSize += item.size;
                     if (!ValidateIdAndResourceType(adapter.GetId(item.json), adapter.GetResourceType(item.json), resourceName, duplicateIdsCheck))
@@ -518,35 +518,35 @@ namespace ResourceProcessorNamespace
             };
             Dictionary<string, ResourcesResult> ret = new Dictionary<string, ResourcesResult>();
 
-            await ProcessResourcesX(structureDefinitionStr, new StructureDefinitionAdapter(), targetProfile, options, structureDefinitions, structureDefinitionIdsRemoved, ret);
+            await ProcessResourcesX(StructureDefinitionStr, new StructureDefinitionAdapter(), targetProfile, options, structureDefinitions, structureDefinitionIdsRemoved, ret);
 
-            await ProcessResources(patientStr, new PatientAdapter(), targetProfile, options, patients, patientIdsRemoved, ret);
+            await ProcessResources(PatientStr, new PatientAdapter(), targetProfile, options, patients, patientIdsRemoved, ret);
 
-            await ProcessResourcesX(communicationStr, new CommunicationAdapter(), targetProfile, options, communications, communicationIdsRemoved, ret);
+            await ProcessResourcesX(CommunicationStr, new CommunicationAdapter(), targetProfile, options, communications, communicationIdsRemoved, ret);
 
-            await ProcessResources(allergyIntoleranceStr, new AllergyIntoleranceAdapter(), targetProfile, options, allergyIntolerances, allergyIntoleranceIdsRemoved, ret);
-            await ProcessResources(deviceStr, new DeviceAdapter(), targetProfile, options, devices, deviceIdsRemoved, ret);
-            await ProcessResources(supplyDeliveryStr, new SupplyDeliveryAdapter(), targetProfile, options, supplyDeliveries, supplyDeliveryIdsRemoved, ret);
+            await ProcessResources(AllergyIntoleranceStr, new AllergyIntoleranceAdapter(), targetProfile, options, allergyIntolerances, allergyIntoleranceIdsRemoved, ret);
+            await ProcessResources(DeviceStr, new DeviceAdapter(), targetProfile, options, devices, deviceIdsRemoved, ret);
+            await ProcessResources(SupplyDeliveryStr, new SupplyDeliveryAdapter(), targetProfile, options, supplyDeliveries, supplyDeliveryIdsRemoved, ret);
 
-            await ProcessResources(organizationStr, new OrganizationAdapter(), targetProfile, options, organizations, organizationIdsRemoved, ret);
-            await ProcessResources(practitionerStr, new PractitionerAdapter(), targetProfile, options, practitioners, practitionerIdsRemoved, ret);
-            await ProcessResources(encounterStr, new EncounterAdapter(), targetProfile, options, encounters, encounterIdsRemoved, ret);
+            await ProcessResources(OrganizationStr, new OrganizationAdapter(), targetProfile, options, organizations, organizationIdsRemoved, ret);
+            await ProcessResources(PractitionerStr, new PractitionerAdapter(), targetProfile, options, practitioners, practitionerIdsRemoved, ret);
+            await ProcessResources(EncounterStr, new EncounterAdapter(), targetProfile, options, encounters, encounterIdsRemoved, ret);
 
-            await ProcessResourcesX(documentReferenceStr, new DocumentReferenceAdapter(), targetProfile, options, documentReferences, documentReferenceIdsRemoved, ret);
+            await ProcessResourcesX(DocumentReferenceStr, new DocumentReferenceAdapter(), targetProfile, options, documentReferences, documentReferenceIdsRemoved, ret);
 
-            await ProcessResources(careTeamStr, new CareTeamAdapter(), targetProfile, options, careTeams, careTeamIdsRemoved, ret);
-            await ProcessResources(carePlanStr, new CarePlanAdapter(), targetProfile, options, carePlans, carePlanIdsRemoved, ret);
-            await ProcessResources(medicationRequestStr, new MedicationRequestAdapter(), targetProfile, options, medicationRequests, medicationRequestIdsRemoved, ret);
-            await ProcessResources(claimStr, new ClaimAdapter(), targetProfile, options, claims, claimIdsRemoved, ret);
+            await ProcessResources(CareTeamStr, new CareTeamAdapter(), targetProfile, options, careTeams, careTeamIdsRemoved, ret);
+            await ProcessResources(CarePlanStr, new CarePlanAdapter(), targetProfile, options, carePlans, carePlanIdsRemoved, ret);
+            await ProcessResources(MedicationRequestStr, new MedicationRequestAdapter(), targetProfile, options, medicationRequests, medicationRequestIdsRemoved, ret);
+            await ProcessResources(ClaimStr, new ClaimAdapter(), targetProfile, options, claims, claimIdsRemoved, ret);
 
-            await ProcessResources(conditionStr, new ConditionAdapter(), targetProfile, options, conditions, conditionIdsRemoved, ret);
-            await ProcessResources(imagingStudyStr, new ImagingStudyAdapter(), targetProfile, options, imagingStudies, imagingStudyIdsRemoved, ret);
-            await ProcessResources(immunizationStr, new ImmunizationAdapter(), targetProfile, options, immunizations, immunizationIdsRemoved, ret);
-            await ProcessResources(medicationAdministrationStr, new MedicationAdministrationAdapter(), targetProfile, options, medicationAdministrations, medicationAdministrationIdsRemoved, ret);
-            await ProcessResources(procedureStr, new ProcedureAdapter(), targetProfile, options, procedures, procedureIdsRemoved, ret);
-            await ProcessResources(observationStr, new ObservationAdapter(), targetProfile, options, observations, observationIdsRemoved, ret);
-            await ProcessResources(diagnosticReportStr, new DiagnosticReportAdapter(), targetProfile, options, diagnosticReports, diagnosticReportIdsRemoved, ret);
-            await ProcessResources(explanationOfBenefitStr, new ExplanationOfBenefitAdapter(), targetProfile, options, explanationOfBenefits, explanationOfBenefitIdsRemoved, ret);
+            await ProcessResources(ConditionStr, new ConditionAdapter(), targetProfile, options, conditions, conditionIdsRemoved, ret);
+            await ProcessResources(ImagingStudyStr, new ImagingStudyAdapter(), targetProfile, options, imagingStudies, imagingStudyIdsRemoved, ret);
+            await ProcessResources(ImmunizationStr, new ImmunizationAdapter(), targetProfile, options, immunizations, immunizationIdsRemoved, ret);
+            await ProcessResources(MedicationAdministrationStr, new MedicationAdministrationAdapter(), targetProfile, options, medicationAdministrations, medicationAdministrationIdsRemoved, ret);
+            await ProcessResources(ProcedureStr, new ProcedureAdapter(), targetProfile, options, procedures, procedureIdsRemoved, ret);
+            await ProcessResources(ObservationStr, new ObservationAdapter(), targetProfile, options, observations, observationIdsRemoved, ret);
+            await ProcessResources(DiagnosticReportStr, new DiagnosticReportAdapter(), targetProfile, options, diagnosticReports, diagnosticReportIdsRemoved, ret);
+            await ProcessResources(ExplanationOfBenefitStr, new ExplanationOfBenefitAdapter(), targetProfile, options, explanationOfBenefits, explanationOfBenefitIdsRemoved, ret);
 
             return ret;
         }

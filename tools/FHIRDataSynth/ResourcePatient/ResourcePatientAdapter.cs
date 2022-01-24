@@ -2,12 +2,12 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct PatientSibling
+    internal struct PatientSibling
     {
         public string id;
     }
 
-    class PatientAdapter : ResourceAdapter<Patient.Rootobject, PatientSibling>
+    internal class PatientAdapter : ResourceAdapter<Patient.Rootobject, PatientSibling>
     {
         public override PatientSibling CreateOriginal(ResourceGroupProcessor processor, Patient.Rootobject json)
         {
@@ -16,11 +16,19 @@ namespace ResourceProcessorNamespace
             return r;
         }
 
-        public override string GetId(Patient.Rootobject json) { return json.id; }
+        public override string GetId(Patient.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Patient.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Patient.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
-        protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Patient.Rootobject originalJson, Patient.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit) { }
+        protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Patient.Rootobject originalJson, Patient.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
+        {
+        }
 
         public override PatientSibling CreateClone(ResourceGroupProcessor processor, Patient.Rootobject originalJson, Patient.Rootobject cloneJson, int refSiblingNumber)
         {

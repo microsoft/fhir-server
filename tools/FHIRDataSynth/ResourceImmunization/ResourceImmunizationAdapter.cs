@@ -2,20 +2,26 @@
 
 namespace ResourceProcessorNamespace
 {
-    struct ImmunizationSibling
+    internal struct ImmunizationSibling
     {
     }
 
-    class ImmunizationAdapter : ResourceAdapter<Immunization.Rootobject, ImmunizationSibling>
+    internal class ImmunizationAdapter : ResourceAdapter<Immunization.Rootobject, ImmunizationSibling>
     {
         public override ImmunizationSibling CreateOriginal(ResourceGroupProcessor processor, Immunization.Rootobject json)
         {
             return default;
         }
 
-        public override string GetId(Immunization.Rootobject json) { return json.id; }
+        public override string GetId(Immunization.Rootobject json)
+        {
+            return json.id;
+        }
 
-        public override string GetResourceType(Immunization.Rootobject json) { return json.resourceType; }
+        public override string GetResourceType(Immunization.Rootobject json)
+        {
+            return json.resourceType;
+        }
 
         protected override void IterateReferences(bool clone, ResourceGroupProcessor processor, Immunization.Rootobject originalJson, Immunization.Rootobject cloneJson, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
@@ -39,19 +45,19 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.patient == null)
             {
-                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.immunizationStr, json.id, "Property 'patient' is null!");
+                processor.LogWarning(processor.GetResourceGroupDir(), ResourceGroupProcessor.ImmunizationStr, json.id, "Property 'patient' is null!");
                 select = false;
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.immunizationStr, json.patient.reference, ResourceGroupProcessor.patientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ImmunizationStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.encounter != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.immunizationStr, json.encounter.reference, ResourceGroupProcessor.encounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ImmunizationStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
