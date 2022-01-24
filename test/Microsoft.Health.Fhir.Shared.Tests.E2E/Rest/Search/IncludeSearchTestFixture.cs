@@ -182,10 +182,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                 Meta = meta,
             })).Resource;
 
-            LocationPartOfSelf = (await TestFhirClient.CreateAsync(new Location
-            {
-                Meta = meta,
-            })).Resource;
+            LocationPartOfSelf = (await TestFhirClient.CreateAsync(new Location())).Resource;
 
             LocationPartOfSelf.PartOf = new ResourceReference($"{LocationPartOfSelf.TypeName}/{LocationPartOfSelf.Id}");
             LocationPartOfSelf = (await TestFhirClient.UpdateAsync(LocationPartOfSelf)).Resource;
