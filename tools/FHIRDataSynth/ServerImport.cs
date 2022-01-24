@@ -375,7 +375,7 @@ namespace FHIRDataSynth
                 {
                     response.EnsureSuccessStatusCode();
                     string responseBody = await response.Content.ReadAsStringAsync();
-                    responseBody.Trim();
+                    responseBody = responseBody.Trim();
                     if (responseBody == null || responseBody.Length == 0)
                     {
                         resultNotReady = true;
