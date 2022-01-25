@@ -93,7 +93,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
+        public async Task<UpsertOutcome> UpsertAsync(
+            ResourceWrapper resource,
+            WeakETag weakETag,
+            bool allowCreate,
+            bool keepHistory,
+            CancellationToken cancellationToken,
+            bool requireETagOnUpdate = false)
         {
             int? eTag = weakETag == null
                 ? null

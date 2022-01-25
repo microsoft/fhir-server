@@ -107,7 +107,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             WeakETag weakETag,
             bool allowCreate,
             bool keepHistory,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool requireETagOnUpdate = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -142,6 +143,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     throw new CosmosException(e.Message, HttpStatusCode.RequestTimeout, e.SubStatusCode, e.ActivityId, e.RequestCharge);
                 }
+            }
+
+            if (requireETagOnUpdate && weakETag == null)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
             }
 
             while (true)
