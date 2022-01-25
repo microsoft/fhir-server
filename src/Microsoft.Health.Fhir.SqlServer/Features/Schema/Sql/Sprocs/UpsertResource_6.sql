@@ -5,7 +5,7 @@
 
 --
 -- STORED PROCEDURE
---     UpsertResource_5
+--     UpsertResource_6
 --
 -- DESCRIPTION
 --     Creates or updates (including marking deleted) a FHIR resource
@@ -70,7 +70,7 @@
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_5
+CREATE PROCEDURE dbo.UpsertResource_6
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -86,7 +86,7 @@ CREATE PROCEDURE dbo.UpsertResource_5
     @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
     @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
     @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
-    @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY,
+    @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY,
     @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
     @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY,
     @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY,
@@ -331,7 +331,7 @@ SELECT DISTINCT @resourceTypeId,
                 Text,
                 0
 FROM   @tokenTextSearchParams;
-INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax)
+INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax, TextHash)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
@@ -339,7 +339,8 @@ SELECT DISTINCT @resourceTypeId,
                 TextOverflow,
                 0,
                 IsMin,
-                IsMax
+                IsMax,
+                TextHash
 FROM   @stringSearchParams;
 INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
 SELECT DISTINCT @resourceTypeId,

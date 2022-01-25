@@ -1,9 +1,9 @@
 ﻿/*************************************************************
-    Stored procedures - ReindexResource_2
+    Stored procedures - ReindexResource_3
 **************************************************************/
 --
 -- STORED PROCEDURE
---     ReindexResource_2
+--     ReindexResource_3
 --
 -- DESCRIPTION
 --     Updates the search indices of a given resource
@@ -50,7 +50,7 @@
 --     @tokenNumberNumberCompositeSearchParams
 --         * Extracted token$number$number search params
 --
-CREATE PROCEDURE dbo.ReindexResource_2
+CREATE PROCEDURE dbo.ReindexResource_3
     @resourceTypeId smallint,
     @resourceId varchar(64),
     @eTag int = NULL,
@@ -60,7 +60,7 @@ CREATE PROCEDURE dbo.ReindexResource_2
     @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
     @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
     @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
-    @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY,
+    @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY,
     @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
     @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY,
     @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY,
@@ -182,7 +182,7 @@ SELECT DISTINCT @resourceTypeId,
                 Text,
                 0
 FROM   @tokenTextSearchParams;
-INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax)
+INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax, TextHash)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
@@ -190,7 +190,8 @@ SELECT DISTINCT @resourceTypeId,
                 TextOverflow,
                 0,
                 IsMin,
-                IsMax
+                IsMax,
+                TextHash
 FROM   @stringSearchParams;
 INSERT INTO dbo.UriSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
 SELECT DISTINCT @resourceTypeId,

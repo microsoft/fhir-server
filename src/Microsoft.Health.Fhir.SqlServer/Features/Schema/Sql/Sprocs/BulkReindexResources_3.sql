@@ -1,6 +1,6 @@
 ﻿--
 -- STORED PROCEDURE
---     BulkReindexResources_2
+--     BulkReindexResources_3
 --
 -- DESCRIPTION
 --     Updates the search indices of a batch of resources
@@ -44,14 +44,14 @@
 -- RETURN VALUE
 --     The number of resources that failed to reindex due to versioning conflicts.
 --
-CREATE PROCEDURE dbo.BulkReindexResources_2
+CREATE PROCEDURE dbo.BulkReindexResources_3
     @resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY,
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
     @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
     @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
     @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
-    @stringSearchParams dbo.BulkStringSearchParamTableType_2 READONLY,
+    @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY,
     @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
     @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY,
     @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY,
@@ -258,7 +258,7 @@ FROM   @tokenTextSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax)
+INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax, TextHash)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
@@ -266,7 +266,8 @@ SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 searchIndex.TextOverflow,
                 0,
                 searchIndex.IsMin,
-                searchIndex.IsMax
+                searchIndex.IsMax,
+                searchIndex.TextHash
 FROM   @stringSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex

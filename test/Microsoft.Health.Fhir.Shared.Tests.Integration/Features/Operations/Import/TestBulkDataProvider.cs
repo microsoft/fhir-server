@@ -5,6 +5,8 @@
 
 using System;
 using System.Data;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
@@ -104,7 +106,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
 
             for (int i = 0; i < count; ++i)
             {
-                StringSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkStringSearchParamTableTypeV2Row(0, 0, string.Empty, string.Empty, IsMin: true, IsMax: true));
+                string textHash;
+                using (SHA256 sha256Hash = SHA256.Create())
+                {
+                    textHash = BitConverter.ToString(sha256Hash.ComputeHash(Encoding.Unicode.GetBytes(string.Empty))).Replace("-", string.Empty, StringComparison.CurrentCultureIgnoreCase);
+                }
+
+                StringSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkStringSearchParamTableTypeV3Row(0, 0, string.Empty, string.Empty, IsMin: true, IsMax: true, TextHash: textHash));
             }
 
             return result;
