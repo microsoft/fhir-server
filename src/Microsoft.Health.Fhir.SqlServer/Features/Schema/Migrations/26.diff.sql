@@ -1112,7 +1112,7 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding TextHash column as nullable';
     ALTER TABLE dbo.StringSearchParam 
-        ADD TextHash varchar(64) NULL 
+        ADD TextHash varchar(64) COLLATE Latin1_General_100_CI_AI_SC NULL 
 END
 GO
 
@@ -1131,7 +1131,7 @@ BEGIN
 							END)),2))
 
     EXEC dbo.LogSchemaMigrationProgress 'Update TextHash as NOT NULL';
-    ALTER TABLE dbo.StringSearchParam ALTER COLUMN TextHash varchar(64) NOT NULL
+    ALTER TABLE dbo.StringSearchParam ALTER COLUMN TextHash varchar(64) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
 END
 GO
 
