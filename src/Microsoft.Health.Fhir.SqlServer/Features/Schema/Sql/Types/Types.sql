@@ -88,7 +88,7 @@ CREATE TYPE dbo.BulkStringSearchParamTableType_3 AS TABLE
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsMin bit NOT NULL,
     IsMax bit NOT NULL,
-    TextHash nvarchar(32) NOT NULL
+    TextHash varchar(64) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
 )
 
 /*************************************************************

@@ -1096,7 +1096,7 @@ BEGIN
         TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
         IsMin bit NOT NULL,
         IsMax bit NOT NULL,
-        TextHash nvarchar(32) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
+        TextHash varchar(64) COLLATE Latin1_General_100_CI_AI_SC NOT NULL
     )
 END
 GO
@@ -1112,7 +1112,7 @@ IF NOT EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding TextHash column as nullable';
     ALTER TABLE dbo.StringSearchParam 
-        ADD TextHash nvarchar(32) NULL 
+        ADD TextHash varchar(64) NULL 
 END
 GO
 
@@ -1124,14 +1124,14 @@ IF EXISTS (
 BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Backfilling values to TextHash column';
     UPDATE dbo.StringSearchParam 
-        SET TextHash = (CONVERT([nvarchar](32), (hashbytes('SHA2_256', CASE
+        SET TextHash = (CONVERT([varchar](64), (hashbytes('SHA2_256', CASE
 							WHEN [TextOverflow] IS NOT NULL
 							THEN [TextOverflow]
 							ELSE [Text]
 							END)),2))
 
     EXEC dbo.LogSchemaMigrationProgress 'Update TextHash as NOT NULL';
-    ALTER TABLE dbo.StringSearchParam ALTER COLUMN TextHash nvarchar(32) NOT NULL
+    ALTER TABLE dbo.StringSearchParam ALTER COLUMN TextHash varchar(64) NOT NULL
 END
 GO
 
