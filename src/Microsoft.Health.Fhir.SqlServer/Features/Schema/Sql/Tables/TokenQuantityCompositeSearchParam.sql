@@ -3,14 +3,17 @@
     ResourceTypeId smallint NOT NULL,
     ResourceSurrogateId bigint NOT NULL,
     SearchParamId smallint NOT NULL,
-    SystemId1 int NULL,
+    SystemId1 int NOT NULL CONSTRAINT DF_TokenQuantityCompositeSearchParam_SystemId1 DEFAULT 0,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    SystemId2 int NULL,
-    QuantityCodeId2 int NULL,
+    SystemId2 int NOT NULL CONSTRAINT DF_TokenQuantityCompositeSearchParam_SystemId2 DEFAULT 0,
+    QuantityCodeId2 int NOT NULL CONSTRAINT DF_TokenQuantityCompositeSearchParam_QuantityCodeId2 DEFAULT 0,
     SingleValue2 decimal(18,6) NULL,
-    LowValue2 decimal(18,6) NULL,
-    HighValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NOT NULL,
+    HighValue2 decimal(18,6) NOT NULL,
     IsHistory bit NOT NULL,
+    CONSTRAINT PK_TokenQuantityCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, QuantityCodeId2, LowValue2, HighValue2)
+    WITH (DATA_COMPRESSION = PAGE) 
+	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
