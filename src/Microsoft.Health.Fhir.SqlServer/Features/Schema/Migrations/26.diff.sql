@@ -1,4 +1,11 @@
-﻿
+﻿/*************************************************************
+    This migration passes in a new parameter to the upsert
+    stored procedure. The parameter tracks whether or not a
+    version check is required on an update, which ultimately
+    enables PUT creates when the versioning policy is set to
+    "versioned-update".
+**************************************************************/
+
 /*************************************************************
     Stored procedures for creating and deleting
 **************************************************************/
@@ -72,7 +79,7 @@
 -- RETURN VALUE
 --     The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_6
+CREATE OR ALTER PROCEDURE dbo.UpsertResource_6
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
