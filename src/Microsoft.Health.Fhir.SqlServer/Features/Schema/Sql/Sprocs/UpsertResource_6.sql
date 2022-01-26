@@ -5,7 +5,7 @@
 
 --
 -- STORED PROCEDURE
---     UpsertResource_5
+--     UpsertResource_6
 --
 -- DESCRIPTION
 --     Creates or updates (including marking deleted) a FHIR resource
@@ -26,6 +26,8 @@
 --         * Whether this resource marks the resource as deleted
 --     @keepHistory
 --         * Whether the existing version of the resource should be preserved
+--     @requireETagOnUpdate
+--         * True if this is a versioned update and an etag must be provided
 --     @requestMethod
 --         * The HTTP method/verb used for the request
 --     @searchParamHash
@@ -70,7 +72,7 @@
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_5
+CREATE PROCEDURE dbo.UpsertResource_6
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -78,6 +80,7 @@ CREATE PROCEDURE dbo.UpsertResource_5
     @allowCreate bit,
     @isDeleted bit,
     @keepHistory bit,
+    @requireETagOnUpdate bit,
     @requestMethod varchar(10),
     @searchParamHash varchar(64),
     @rawResource varbinary(max),
@@ -145,7 +148,14 @@ IF (@previousResourceSurrogateId IS NULL)
     END
 ELSE
     BEGIN
-	-- There is a previous version
+        -- There is a previous version
+        IF (@requireETagOnUpdate = 1
+            AND @etag IS NULL)
+            BEGIN
+                -- This is a versioned update and no version was specified
+                THROW 50412, 'Precondition failed', 1;
+            END
+
         IF (@isDeleted = 1
             AND @previousIsDeleted = 1)
             BEGIN
