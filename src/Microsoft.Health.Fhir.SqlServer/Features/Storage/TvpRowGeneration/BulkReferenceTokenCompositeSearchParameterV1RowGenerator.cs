@@ -5,6 +5,7 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
@@ -32,11 +33,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 row = new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(
                     offset,
                     searchParamId,
-                    reference1Row.BaseUri,
-                    reference1Row.ReferenceResourceTypeId,
+                    reference1Row.BaseUri == null ? string.Empty : reference1Row.BaseUri.ToString(),
+                    reference1Row.ReferenceResourceTypeId ?? SqlSearchConstants.NullId,
                     reference1Row.ReferenceResourceId,
                     reference1Row.ReferenceResourceVersion,
-                    token2Row.SystemId,
+                    token2Row.SystemId ?? SqlSearchConstants.NullId,
                     token2Row.Code);
 
                 return true;

@@ -262,6 +262,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
                 case FieldName.TokenSystem:
                 case FieldName.QuantityCode:
+                case FieldName.ReferenceResourceType:
                     context.StringBuilder.Append(" ( ");
                     AppendColumnName(context, column, expression).Append($" = {SqlSearchConstants.NullId}");
                     context.StringBuilder.Append(" OR ");

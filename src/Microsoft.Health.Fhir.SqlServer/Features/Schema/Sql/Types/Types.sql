@@ -242,6 +242,17 @@ CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
 
+CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
+    TextHash2 binary(32) NOT NULL
+)
+
 /*************************************************************
     Token$Number$Number Composite Search Param
 **************************************************************/

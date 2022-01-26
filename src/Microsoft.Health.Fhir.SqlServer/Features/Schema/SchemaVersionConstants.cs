@@ -20,7 +20,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int AddMinMaxForDateAndStringSearchParamVersion = (int)SchemaVersion.V18;
         public const int SupportsPartitionedResourceChangeDataVersion = (int)SchemaVersion.V20;
         public const int AddPrimaryKeyForResourceTable = (int)SchemaVersion.V25;
-        public const int AddTextHashForStringSearchParameterVersion = (int)SchemaVersion.V26;
+
+        // Added TextHash column to StringSearchParameter and TokenStringCompositeSearchParam.
+        // SystemId, QuantityCodeId and RespurceTypeId nullable columns are marked as NOT NULL. Respective tables are back-filled with index 0 instead of null values
+        public const int AddPrimaryKeyPart2 = (int)SchemaVersion.V26;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

@@ -222,6 +222,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[TokenTextTableType_1]"),
                 ("TableType", "[dbo].[StringSearchParamTableType_1]"),
                 ("TableType", "[dbo].[StringSearchParamTableType_2]"),
+                ("TableType", "[dbo].[TokenStringCompositeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[UriSearchParamTableType_1]"),
                 ("TableType", "[dbo].[NumberSearchParamTableType_1]"),
                 ("TableType", "[dbo].[QuantitySearchParamTableType_1]"),
@@ -235,6 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[BulkDateTimeSearchParamTableType_1]"),
                 ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
                 ("TableType", "[dbo].[BulkStringSearchParamTableType_2]"),
+                ("TableType", "[dbo].[BulkTokenStringCompositeSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(

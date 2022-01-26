@@ -5,6 +5,7 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
@@ -20,8 +21,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             row = new BulkReferenceSearchParamTableTypeV1Row(
                 offset,
                 searchParamId,
-                searchValue.BaseUri?.ToString(),
-                searchValue.ResourceType == null ? null : Model.GetResourceTypeId(searchValue.ResourceType),
+                searchValue.BaseUri == null ? string.Empty : searchValue.BaseUri.ToString(),
+                searchValue.ResourceType == null ? SqlSearchConstants.NullId : Model.GetResourceTypeId(searchValue.ResourceType),
                 searchValue.ResourceId,
                 ReferenceResourceVersion: null);
 
