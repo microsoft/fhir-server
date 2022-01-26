@@ -132,6 +132,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             organizationResource.UpdateCreate = true;
             organizationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.NoVersion;
 
+            CapabilityStatementMock.SetupMockResource(CapabilityStatement, ResourceType.Medication, null);
+            var medicationResource = CapabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Medication);
+            medicationResource.UpdateCreate = true;
+            medicationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
+
             ConformanceProvider = Substitute.For<ConformanceProviderBase>();
             ConformanceProvider.GetCapabilityStatementOnStartup().Returns(CapabilityStatement.ToTypedElement().ToResourceElement());
 
