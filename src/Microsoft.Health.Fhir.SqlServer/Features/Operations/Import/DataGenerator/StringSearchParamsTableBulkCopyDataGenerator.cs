@@ -14,13 +14,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 {
     internal class StringSearchParamsTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
     {
-        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkStringSearchParamTableTypeV2Row> _searchParamGenerator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkStringSearchParamTableTypeV3Row> _searchParamGenerator;
 
         internal StringSearchParamsTableBulkCopyDataGenerator()
         {
         }
 
-        public StringSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkStringSearchParamTableTypeV2Row> searchParamGenerator)
+        public StringSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkStringSearchParamTableTypeV3Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));
 
@@ -40,21 +40,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             EnsureArg.IsNotNull(table, nameof(table));
             EnsureArg.IsNotNull(input, nameof(input));
 
-            IEnumerable<BulkStringSearchParamTableTypeV2Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
+            IEnumerable<BulkStringSearchParamTableTypeV3Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkStringSearchParamTableTypeV2Row searchParam in searchParams)
+            foreach (BulkStringSearchParamTableTypeV3Row searchParam in searchParams)
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
         }
 
-        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkStringSearchParamTableTypeV2Row searchParam)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkStringSearchParamTableTypeV3Row searchParam)
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
             FillColumn(newRow, VLatest.StringSearchParam.Text.Metadata.Name, searchParam.Text);
             FillColumn(newRow, VLatest.StringSearchParam.TextOverflow.Metadata.Name, searchParam.TextOverflow);
             FillColumn(newRow, VLatest.StringSearchParam.IsMin.Metadata.Name, searchParam.IsMin);
             FillColumn(newRow, VLatest.StringSearchParam.IsMax.Metadata.Name, searchParam.IsMax);
+            FillColumn(newRow, VLatest.StringSearchParam.TextHash.Metadata.Name, searchParam.TextHash);
             table.Rows.Add(newRow);
         }
 
@@ -69,6 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.StringSearchParam.IsMin.Metadata.Name, VLatest.StringSearchParam.IsMin.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.StringSearchParam.IsMax.Metadata.Name, VLatest.StringSearchParam.IsMax.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.StringSearchParam.TextHash.Metadata.Name, VLatest.StringSearchParam.TextHash.Metadata.SqlDbType.GetGeneralType()));
         }
     }
 }

@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         public const int AddMinMaxForDateAndStringSearchParamVersion = (int)SchemaVersion.V18;
         public const int SupportsPartitionedResourceChangeDataVersion = (int)SchemaVersion.V20;
         public const int AddPrimaryKeyForResourceTable = (int)SchemaVersion.V25;
+        public const int AddTextHashForStringSearchParameterVersion = (int)SchemaVersion.V26;
 
         // It is currently used in Azure Healthcare APIs.
         public const int ParameterizedRemovePartitionFromResourceChangesVersion = (int)SchemaVersion.V21;

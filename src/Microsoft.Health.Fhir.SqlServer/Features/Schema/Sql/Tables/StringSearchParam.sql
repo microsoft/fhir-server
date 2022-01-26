@@ -1,4 +1,5 @@
-﻿CREATE TABLE dbo.StringSearchParam
+﻿
+CREATE TABLE dbo.StringSearchParam
 (
     ResourceTypeId              smallint            NOT NULL,
     ResourceSurrogateId         bigint              NOT NULL,
@@ -7,7 +8,11 @@
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsHistory bit NOT NULL,
     IsMin bit CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
-    IsMax bit CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL
+    IsMax bit CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL,
+    TextHash binary(32) NOT NULL,
+    CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, TextHash)
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
 )
 
 ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )
