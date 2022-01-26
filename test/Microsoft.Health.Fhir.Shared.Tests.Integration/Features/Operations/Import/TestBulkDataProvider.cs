@@ -103,15 +103,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             StringSearchParamsTableBulkCopyDataGenerator generator = new StringSearchParamsTableBulkCopyDataGenerator();
 
             DataTable result = generator.GenerateDataTable();
+            byte[] textHash;
+
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                textHash = sha256.ComputeHash(Encoding.Unicode.GetBytes(string.Empty));
+            }
 
             for (int i = 0; i < count; ++i)
             {
-                string textHash;
-                using (SHA256 sha256Hash = SHA256.Create())
-                {
-                    textHash = BitConverter.ToString(sha256Hash.ComputeHash(Encoding.Unicode.GetBytes(string.Empty))).Replace("-", string.Empty, StringComparison.CurrentCultureIgnoreCase);
-                }
-
                 StringSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkStringSearchParamTableTypeV3Row(0, 0, string.Empty, string.Empty, IsMin: true, IsMax: true, TextHash: textHash));
             }
 

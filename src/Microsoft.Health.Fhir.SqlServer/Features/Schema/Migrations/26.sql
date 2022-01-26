@@ -111,7 +111,7 @@ CREATE TYPE dbo.BulkStringSearchParamTableType_3 AS TABLE (
     TextOverflow  NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL,
     IsMin         BIT            NOT NULL,
     IsMax         BIT            NOT NULL,
-    TextHash      VARCHAR (64)   COLLATE Latin1_General_100_CI_AI_SC NOT NULL);
+    TextHash      BINARY (32)    NOT NULL);
 
 CREATE TYPE dbo.BulkUriSearchParamTableType_1 AS TABLE (
     Offset        INT           NOT NULL,
@@ -588,7 +588,7 @@ CREATE TABLE dbo.StringSearchParam (
     IsHistory           BIT            NOT NULL,
     IsMin               BIT            CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
     IsMax               BIT            CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL,
-    TextHash            VARCHAR (64)   COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextHash            BINARY (32)    NOT NULL,
     CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, TextHash) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 

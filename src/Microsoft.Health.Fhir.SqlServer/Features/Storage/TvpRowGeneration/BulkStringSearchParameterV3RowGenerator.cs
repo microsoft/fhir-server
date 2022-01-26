@@ -11,9 +11,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class BulkStringSearchParameterV3RowGenerator : BulkSearchParameterRowGenerator<StringSearchValue, BulkStringSearchParamTableTypeV3Row>
+    internal class BulkStringSearchParameterV3RowGenerator : BulkSearchParameterRowGenerator<StringSearchValue, BulkStringSearchParamTableTypeV3Row>, IDisposable
     {
         private readonly int _indexedTextMaxLength = (int)VLatest.StringSearchParam.Text.Metadata.MaxLength;
+        private SHA256 _sha256 = SHA256.Create();
 
         public BulkStringSearchParameterV3RowGenerator(SqlServerFhirModel model, SearchParameterToSearchValueTypeMap searchParameterTypeMap)
             : base(model, searchParameterTypeMap)
@@ -36,15 +37,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 overflow = null;
             }
 
-            string computedHash;
-            using (SHA256 sha256Hash = SHA256.Create())
-            {
-                var hashText = overflow != null ? overflow : indexedPrefix;
-                computedHash = BitConverter.ToString(sha256Hash.ComputeHash(Encoding.Unicode.GetBytes(hashText))).Replace("-", string.Empty, StringComparison.CurrentCultureIgnoreCase);
-            }
+            var hashText = overflow != null ? overflow : indexedPrefix;
+            byte[] computedHash = _sha256.ComputeHash(Encoding.Unicode.GetBytes(hashText));
 
             row = new BulkStringSearchParamTableTypeV3Row(offset, searchParamId, indexedPrefix, overflow, IsMin: searchValue.IsMin, IsMax: searchValue.IsMax, TextHash: computedHash);
+
             return true;
+        }
+
+        public void Dispose()
+        {
+            _sha256?.Dispose();
         }
     }
 }

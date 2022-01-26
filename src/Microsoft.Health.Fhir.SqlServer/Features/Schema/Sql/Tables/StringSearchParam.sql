@@ -9,7 +9,7 @@ CREATE TABLE dbo.StringSearchParam
     IsHistory bit NOT NULL,
     IsMin bit CONSTRAINT string_IsMin_Constraint DEFAULT 0 NOT NULL,
     IsMax bit CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL,
-    TextHash varchar(64) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextHash binary(32) NOT NULL,
     CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, TextHash)
     WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId),
