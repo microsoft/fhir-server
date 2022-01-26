@@ -173,5 +173,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains(updatedResource.Meta.VersionId, updateResponse.Headers.ETag.Tag);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
         }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenUpdateWithDuplicateStringSearchParam_TheServerShouldRespondSuccessfully()
+        {
+            var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var familyName = "Chalmers";
+            resourceToCreate.Name[1].Use = HumanName.NameUse.Official;
+            resourceToCreate.Name[1].Family = familyName;
+            resourceToCreate.Name[2].Use = HumanName.NameUse.Official;
+            resourceToCreate.Name[2].Family = familyName;
+            resourceToCreate.Id = Guid.NewGuid().ToString();
+            resourceToCreate.Meta = new Meta
+            {
+                VersionId = Guid.NewGuid().ToString(),
+                LastUpdated = DateTimeOffset.UtcNow.AddMilliseconds(-1),
+            };
+
+            using FhirResponse<Patient> createResponse = await _client.UpdateAsync(resourceToCreate);
+
+            Assert.Equal(System.Net.HttpStatusCode.Created, createResponse.StatusCode);
+        }
     }
 }
