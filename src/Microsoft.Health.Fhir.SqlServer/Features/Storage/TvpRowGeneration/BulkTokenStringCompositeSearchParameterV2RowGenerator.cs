@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -11,7 +12,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class BulkTokenStringCompositeSearchParameterV2RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, StringSearchValue component2), BulkTokenStringCompositeSearchParamTableTypeV2Row>
+    internal class BulkTokenStringCompositeSearchParameterV2RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, StringSearchValue component2), BulkTokenStringCompositeSearchParamTableTypeV2Row>, IDisposable
     {
         private readonly BulkTokenSearchParameterV1RowGenerator _tokenRowGenerator;
         private readonly BulkStringSearchParameterV1RowGenerator _stringV1RowGenerator;
