@@ -5,16 +5,15 @@
     Version                     int                     NOT NULL,
     IsHistory                   bit                     NOT NULL,
     ResourceSurrogateId         bigint                  NOT NULL,
-    CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId)
-    ON [Primary],
-    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsDeleted                   bit                     NOT NULL,
     RequestMethod               varchar(10)             NULL,
     RawResource                 varbinary(max)          NOT NULL,
     IsRawResourceMetaSet        bit                     NOT NULL DEFAULT 0,
-    SearchParamHash             varchar(64)             NULL
+    SearchParamHash             varchar(64)             NULL,
+
+    CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId)
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
 )
 
 ALTER TABLE dbo.Resource SET ( LOCK_ESCALATION = AUTO )

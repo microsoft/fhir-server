@@ -1,5 +1,6 @@
 /*************************************************************
-    This migration adds primary keys to the existing tables
+This migration adds primary key to the remaining tables and remove
+duplicate index from Resource table
 **************************************************************/
 
 EXEC dbo.LogSchemaMigrationProgress 'Beginning schema migration to version 26.';
@@ -1927,11 +1928,11 @@ SET @versionDiff = (SELECT COUNT(*)
                     WHERE  VersionProvided IS NOT NULL
                            AND VersionProvided <> VersionInDatabase);
 IF (@versionDiff > 0)
-    BEGIN
+BEGIN
         DELETE @computedValues
         WHERE  VersionProvided IS NOT NULL
                AND VersionProvided <> VersionInDatabase;
-    END
+END
 UPDATE resourceInDB
 SET    resourceInDB.SearchParamHash = resourceToReindex.SearchParamHash
 FROM   @computedValues AS resourceToReindex
@@ -2242,4 +2243,21 @@ FROM   @tokenNumberNumberCompositeSearchParams AS searchIndex
 SELECT @versionDiff;
 COMMIT TRANSACTION;
 
+GO
+
+/*************************************************************
+    Removes duplicate index from Resource table
+**************************************************************/
+
+-- Resource table
+-- Dropping unique constraint on ResourceSurrogateId column since unique index already exists on this column
+IF EXISTS (
+    SELECT * 
+	FROM sys.objects  
+	WHERE name='UQ_Resource_ResourceSurrogateId' AND type = 'UQ' AND OBJECT_NAME(parent_object_id) = N'Resource')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping UQ_Resource_ResourceSurrogateId'
+    ALTER TABLE dbo.Resource   
+    DROP CONSTRAINT UQ_Resource_ResourceSurrogateId
+END
 GO
