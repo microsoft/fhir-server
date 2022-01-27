@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 offset,
                 searchParamId,
                 searchValue.BaseUri == null ? string.Empty : searchValue.BaseUri.ToString(),
-                searchValue.ResourceType == null ? SqlSearchConstants.NullId : Model.GetResourceTypeId(searchValue.ResourceType),
+                string.IsNullOrWhiteSpace(searchValue.ResourceType) ? SqlSearchConstants.NullId : Model.GetResourceTypeId(searchValue.ResourceType),
                 searchValue.ResourceId,
                 ReferenceResourceVersion: null);
 

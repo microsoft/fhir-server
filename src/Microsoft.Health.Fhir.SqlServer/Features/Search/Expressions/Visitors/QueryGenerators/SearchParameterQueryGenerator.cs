@@ -258,6 +258,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new InvalidOperationException($"Unexpected missing field {expression.FieldName}");
             }
 
+            // With version 26 - AddPrimaryKeyPart2, SystemId, QuantityCodeId and ReferenceResourceTypeId are marked as NOT NULL with default value as 0. Tables are back-filled with Id 0 instead of NULL
+            // Below code is used by all the versions and to be backward compatible checking the Id against 0 and NULL (e.g. SystemId = 0 OR SystemId IS NULL)
             switch (expression.FieldName)
             {
                 case FieldName.TokenSystem:

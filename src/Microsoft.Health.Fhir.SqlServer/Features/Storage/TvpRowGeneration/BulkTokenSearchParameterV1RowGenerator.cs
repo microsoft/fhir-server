@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             row = new BulkTokenSearchParamTableTypeV1Row(
                 offset,
                 searchParamId,
-                searchValue.System == null ? SqlSearchConstants.NullId : Model.GetSystemId(searchValue.System),
+                string.IsNullOrWhiteSpace(searchValue.System) ? SqlSearchConstants.NullId : Model.GetSystemId(searchValue.System),
                 searchValue.Code);
 
             return true;
