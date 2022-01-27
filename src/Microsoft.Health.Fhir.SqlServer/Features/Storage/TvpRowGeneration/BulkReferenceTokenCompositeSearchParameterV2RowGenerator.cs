@@ -8,16 +8,16 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class BulkReferenceTokenCompositeSearchParameterV1RowGenerator : BulkCompositeSearchParameterRowGenerator<(ReferenceSearchValue component1, TokenSearchValue component2),
-        BulkReferenceTokenCompositeSearchParamTableTypeV1Row>
+    internal class BulkReferenceTokenCompositeSearchParameterV2RowGenerator : BulkCompositeSearchParameterRowGenerator<(ReferenceSearchValue component1, TokenSearchValue component2),
+        BulkReferenceTokenCompositeSearchParamTableTypeV2Row>
     {
-        private readonly BulkReferenceSearchParameterV1RowGenerator _referenceRowGenerator;
-        private readonly BulkTokenSearchParameterV1RowGenerator _tokenRowGenerator;
+        private readonly BulkReferenceSearchParameterV2RowGenerator _referenceRowGenerator;
+        private readonly BulkTokenSearchParameterV2RowGenerator _tokenRowGenerator;
 
-        public BulkReferenceTokenCompositeSearchParameterV1RowGenerator(
+        public BulkReferenceTokenCompositeSearchParameterV2RowGenerator(
             SqlServerFhirModel model,
-            BulkReferenceSearchParameterV1RowGenerator referenceRowGenerator,
-            BulkTokenSearchParameterV1RowGenerator tokenRowGenerator,
+            BulkReferenceSearchParameterV2RowGenerator referenceRowGenerator,
+            BulkTokenSearchParameterV2RowGenerator tokenRowGenerator,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap)
             : base(model, searchParameterTypeMap)
         {
@@ -29,15 +29,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             int offset,
             short searchParamId,
             (ReferenceSearchValue component1, TokenSearchValue component2) searchValue,
-            out BulkReferenceTokenCompositeSearchParamTableTypeV1Row row)
+            out BulkReferenceTokenCompositeSearchParamTableTypeV2Row row)
         {
             if (_referenceRowGenerator.TryGenerateRow(offset, searchParamId, searchValue.component1, out var reference1Row) &&
                 _tokenRowGenerator.TryGenerateRow(offset, searchParamId, searchValue.component2, out var token2Row))
             {
-                row = new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(
+                row = new BulkReferenceTokenCompositeSearchParamTableTypeV2Row(
                     offset,
                     searchParamId,
-                    reference1Row.BaseUri,
+                    reference1Row.BaseUri == null ? string.Empty : reference1Row.BaseUri.ToString(),
                     reference1Row.ReferenceResourceTypeId,
                     reference1Row.ReferenceResourceId,
                     reference1Row.ReferenceResourceVersion,

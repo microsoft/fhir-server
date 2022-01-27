@@ -57,20 +57,20 @@ CREATE PROCEDURE dbo.ReindexResource_3
     @searchParamHash varchar(64),
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
-    @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
-    @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
+    @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY,
+    @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY,
     @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
     @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY,
-    @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
-    @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY,
+    @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY,
+    @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY,
     @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY,
     @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY,
-    @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY,
-    @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY,
-    @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY,
-    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
+    @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY,
+    @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY,
+    @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY,
+    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY,
     @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY,
-    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

@@ -27,6 +27,16 @@ CREATE TYPE dbo.BulkReferenceSearchParamTableType_1 AS TABLE
     ReferenceResourceVersion int NULL
 )
 
+CREATE TYPE dbo.BulkReferenceSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceTypeId smallint NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion int NULL
+)
+
 /*************************************************************
     Token Search Param
 **************************************************************/
@@ -36,6 +46,14 @@ CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE
     Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId int NULL,
+    Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
+CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NOT NULL,
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
@@ -121,6 +139,15 @@ CREATE TYPE dbo.BulkNumberSearchParamTableType_1 AS TABLE
     HighValue decimal(18,6) NULL
 )
 
+CREATE TYPE dbo.BulkNumberSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NOT NULL,
+    HighValue decimal(18,6) NOT NULL
+)
+
 /*************************************************************
     Quantity Search Param
 **************************************************************/
@@ -136,6 +163,17 @@ CREATE TYPE dbo.BulkQuantitySearchParamTableType_1 AS TABLE
     SingleValue decimal(18,6) NULL,
     LowValue decimal(18,6) NULL,
     HighValue decimal(18,6) NULL
+)
+
+CREATE TYPE dbo.BulkQuantitySearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NOT NULL,
+    QuantityCodeId int NOT NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NOT NULL,
+    HighValue decimal(18,6) NOT NULL
 )
 
 /*************************************************************
@@ -182,6 +220,18 @@ CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_1 AS TABLE
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
+CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceTypeId1 smallint NOT NULL,
+    ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion1 int NULL,
+    SystemId2 int NOT NULL,
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
 /*************************************************************
     Token$Token Composite Search Param
 **************************************************************/
@@ -196,6 +246,16 @@ CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
+CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SystemId2 int NOT NULL,
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
 /*************************************************************
     Token$DateTime Composite Search Param
 **************************************************************/
@@ -205,6 +265,17 @@ CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 AS TABLE
     Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    StartDateTime2 datetimeoffset(7) NOT NULL,
+    EndDateTime2 datetimeoffset(7) NOT NULL,
+    IsLongerThanADay2 bit NOT NULL
+)
+
+CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NOT NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2 datetimeoffset(7) NOT NULL,
     EndDateTime2 datetimeoffset(7) NOT NULL,
@@ -228,6 +299,19 @@ CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_1 AS TABLE
     HighValue2 decimal(18,6) NULL
 )
 
+CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SystemId2 int NOT NULL,
+    QuantityCodeId2 int NOT NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NOT NULL,
+    HighValue2 decimal(18,6) NOT NULL
+)
+
 /*************************************************************
     Token$String Composite Search Param
 **************************************************************/
@@ -246,7 +330,7 @@ CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE
 (
     Offset int NOT NULL,
     SearchParamId smallint NOT NULL,
-    SystemId1 int NULL,
+    SystemId1 int NOT NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
@@ -274,6 +358,21 @@ CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
     SingleValue3 decimal(18,6) NULL,
     LowValue3 decimal(18,6) NULL,
     HighValue3 decimal(18,6) NULL,
+    HasRange bit NOT NULL
+)
+
+CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NOT NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NOT NULL,
+    HighValue2 decimal(18,6) NOT NULL,
+    SingleValue3 decimal(18,6) NULL,
+    LowValue3 decimal(18,6) NOT NULL,
+    HighValue3 decimal(18,6) NOT NULL,
     HasRange bit NOT NULL
 )
 

@@ -79,10 +79,24 @@ CREATE TYPE dbo.BulkReferenceSearchParamTableType_1 AS TABLE (
     ReferenceResourceId      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion INT           NULL);
 
+CREATE TYPE dbo.BulkReferenceSearchParamTableType_2 AS TABLE (
+    Offset                   INT           NOT NULL,
+    SearchParamId            SMALLINT      NOT NULL,
+    BaseUri                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceTypeId  SMALLINT      NOT NULL,
+    ReferenceResourceId      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion INT           NULL);
+
 CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE (
     Offset        INT           NOT NULL,
     SearchParamId SMALLINT      NOT NULL,
     SystemId      INT           NULL,
+    Code          VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
+
+CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE (
+    Offset        INT           NOT NULL,
+    SearchParamId SMALLINT      NOT NULL,
+    SystemId      INT           NOT NULL,
     Code          VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
 CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE (
@@ -125,6 +139,13 @@ CREATE TYPE dbo.BulkNumberSearchParamTableType_1 AS TABLE (
     LowValue      DECIMAL (18, 6) NULL,
     HighValue     DECIMAL (18, 6) NULL);
 
+CREATE TYPE dbo.BulkNumberSearchParamTableType_2 AS TABLE (
+    Offset        INT             NOT NULL,
+    SearchParamId SMALLINT        NOT NULL,
+    SingleValue   DECIMAL (18, 6) NULL,
+    LowValue      DECIMAL (18, 6) NOT NULL,
+    HighValue     DECIMAL (18, 6) NOT NULL);
+
 CREATE TYPE dbo.BulkQuantitySearchParamTableType_1 AS TABLE (
     Offset         INT             NOT NULL,
     SearchParamId  SMALLINT        NOT NULL,
@@ -133,6 +154,15 @@ CREATE TYPE dbo.BulkQuantitySearchParamTableType_1 AS TABLE (
     SingleValue    DECIMAL (18, 6) NULL,
     LowValue       DECIMAL (18, 6) NULL,
     HighValue      DECIMAL (18, 6) NULL);
+
+CREATE TYPE dbo.BulkQuantitySearchParamTableType_2 AS TABLE (
+    Offset         INT             NOT NULL,
+    SearchParamId  SMALLINT        NOT NULL,
+    SystemId       INT             NOT NULL,
+    QuantityCodeId INT             NOT NULL,
+    SingleValue    DECIMAL (18, 6) NULL,
+    LowValue       DECIMAL (18, 6) NOT NULL,
+    HighValue      DECIMAL (18, 6) NOT NULL);
 
 CREATE TYPE dbo.BulkDateTimeSearchParamTableType_1 AS TABLE (
     Offset           INT                NOT NULL,
@@ -160,6 +190,16 @@ CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_1 AS TABLE (
     SystemId2                 INT           NULL,
     Code2                     VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
+CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_2 AS TABLE (
+    Offset                    INT           NOT NULL,
+    SearchParamId             SMALLINT      NOT NULL,
+    BaseUri1                  VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceTypeId1  SMALLINT      NOT NULL,
+    ReferenceResourceId1      VARCHAR (64)  COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion1 INT           NULL,
+    SystemId2                 INT           NOT NULL,
+    Code2                     VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
+
 CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE (
     Offset        INT           NOT NULL,
     SearchParamId SMALLINT      NOT NULL,
@@ -168,10 +208,27 @@ CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE (
     SystemId2     INT           NULL,
     Code2         VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
 
+CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_2 AS TABLE (
+    Offset        INT           NOT NULL,
+    SearchParamId SMALLINT      NOT NULL,
+    SystemId1     INT           NOT NULL,
+    Code1         VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SystemId2     INT           NOT NULL,
+    Code2         VARCHAR (128) COLLATE Latin1_General_100_CS_AS NOT NULL);
+
 CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 AS TABLE (
     Offset            INT                NOT NULL,
     SearchParamId     SMALLINT           NOT NULL,
     SystemId1         INT                NULL,
+    Code1             VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
+    StartDateTime2    DATETIMEOFFSET (7) NOT NULL,
+    EndDateTime2      DATETIMEOFFSET (7) NOT NULL,
+    IsLongerThanADay2 BIT                NOT NULL);
+
+CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 AS TABLE (
+    Offset            INT                NOT NULL,
+    SearchParamId     SMALLINT           NOT NULL,
+    SystemId1         INT                NOT NULL,
     Code1             VARCHAR (128)      COLLATE Latin1_General_100_CS_AS NOT NULL,
     StartDateTime2    DATETIMEOFFSET (7) NOT NULL,
     EndDateTime2      DATETIMEOFFSET (7) NOT NULL,
@@ -188,6 +245,17 @@ CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_1 AS TABLE (
     LowValue2       DECIMAL (18, 6) NULL,
     HighValue2      DECIMAL (18, 6) NULL);
 
+CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE (
+    Offset          INT             NOT NULL,
+    SearchParamId   SMALLINT        NOT NULL,
+    SystemId1       INT             NOT NULL,
+    Code1           VARCHAR (128)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SystemId2       INT             NOT NULL,
+    QuantityCodeId2 INT             NOT NULL,
+    SingleValue2    DECIMAL (18, 6) NULL,
+    LowValue2       DECIMAL (18, 6) NOT NULL,
+    HighValue2      DECIMAL (18, 6) NOT NULL);
+
 CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE (
     Offset        INT            NOT NULL,
     SearchParamId SMALLINT       NOT NULL,
@@ -199,7 +267,7 @@ CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE (
 CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE (
     Offset        INT            NOT NULL,
     SearchParamId SMALLINT       NOT NULL,
-    SystemId1     INT            NULL,
+    SystemId1     INT            NOT NULL,
     Code1         VARCHAR (128)  COLLATE Latin1_General_100_CS_AS NOT NULL,
     Text2         NVARCHAR (256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow2 NVARCHAR (MAX) COLLATE Latin1_General_100_CI_AI_SC NULL,
@@ -216,6 +284,19 @@ CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE (
     SingleValue3  DECIMAL (18, 6) NULL,
     LowValue3     DECIMAL (18, 6) NULL,
     HighValue3    DECIMAL (18, 6) NULL,
+    HasRange      BIT             NOT NULL);
+
+CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE (
+    Offset        INT             NOT NULL,
+    SearchParamId SMALLINT        NOT NULL,
+    SystemId1     INT             NOT NULL,
+    Code1         VARCHAR (128)   COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SingleValue2  DECIMAL (18, 6) NULL,
+    LowValue2     DECIMAL (18, 6) NOT NULL,
+    HighValue2    DECIMAL (18, 6) NOT NULL,
+    SingleValue3  DECIMAL (18, 6) NULL,
+    LowValue3     DECIMAL (18, 6) NOT NULL,
+    HighValue3    DECIMAL (18, 6) NOT NULL,
     HasRange      BIT             NOT NULL);
 
 CREATE TYPE dbo.SearchParamTableType_1 AS TABLE (
@@ -1062,7 +1143,7 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.BulkReindexResources_3
-@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -1977,7 +2058,7 @@ RETURN @IsExecuted;
 
 GO
 CREATE PROCEDURE dbo.ReindexResource_3
-@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -2419,7 +2500,7 @@ COMMIT TRANSACTION;
 
 GO
 CREATE PROCEDURE dbo.UpsertResource_6
-@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0
+@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY, @isResourceChangeCaptureEnabled BIT=0
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

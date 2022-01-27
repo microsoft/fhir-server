@@ -132,6 +132,23 @@ GO
 DELETE FROM CTE WHERE row_num > 1;
 GO
 
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkQuantitySearchParamTableType_2'
+IF TYPE_ID(N'BulkQuantitySearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkQuantitySearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId int NOT NULL,
+        QuantityCodeId int NOT NULL,
+        SingleValue decimal(18,6) NULL,
+        LowValue decimal(18,6) NOT NULL,
+        HighValue decimal(18,6) NOT NULL
+    )
+END;
+GO
+
 -- Backfill table dbo.QuantitySearchParam with non-null QuantityCodeId value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill column QuantityCodeId into the table dbo.QuantitySearchParam';
 UPDATE dbo.QuantitySearchParam
@@ -316,6 +333,20 @@ GO
 DELETE FROM CTE WHERE ROW_NUM > 1;
 GO
 
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId int NOT NULL,
+        Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+    )
+END;
+GO
+
 -- Backfill table dbo.TokenSearchParam with non-null system value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId into the table dbo.TokenSearchParam';
 GO
@@ -406,6 +437,23 @@ GO
 	FROM dbo.TokenDateTimeCompositeSearchParam
 )
 DELETE FROM CTE WHERE ROW_NUM > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenDateTimeCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenDateTimeCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        StartDateTime2 datetimeoffset(7) NOT NULL,
+        EndDateTime2 datetimeoffset(7) NOT NULL,
+        IsLongerThanADay2 bit NOT NULL
+    )
+END;
 GO
 
 -- Backfill table dbo.TokenDateTimeCompositeSearchParam with non-null system value
@@ -594,6 +642,27 @@ GO
 DELETE FROM CTE WHERE ROW_NUM > 1;
 GO
 
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenNumberNumberCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenNumberNumberCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        SingleValue2 decimal(18,6) NULL,
+        LowValue2 decimal(18,6) NOT NULL,
+        HighValue2 decimal(18,6) NOT NULL,
+        SingleValue3 decimal(18,6) NULL,
+        LowValue3 decimal(18,6) NOT NULL,
+        HighValue3 decimal(18,6) NOT NULL,
+        HasRange bit NOT NULL
+    )
+END;
+GO
+
 -- Backfill table dbo.TokenNumberNumberCompositeSearchParam with non-null system value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId1 into the table dbo.TokenNumberNumberCompositeSearchParam';
 UPDATE dbo.TokenNumberNumberCompositeSearchParam
@@ -759,6 +828,25 @@ GO
 	FROM dbo.TokenQuantityCompositeSearchParam
 )
 DELETE FROM CTE WHERE ROW_NUM > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenQuantityCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenQuantityCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        SystemId2 int NOT NULL,
+        QuantityCodeId2 int NOT NULL,
+        SingleValue2 decimal(18,6) NULL,
+        LowValue2 decimal(18,6) NOT NULL,
+        HighValue2 decimal(18,6) NOT NULL
+    )
+END;
 GO
 
 --  Backfill table dbo.TokenQuantityCompositeSearchParam with non-null system and quantitycode value
@@ -986,6 +1074,22 @@ EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.TokenToken
 DELETE FROM CTE WHERE ROW_NUM > 1;
 GO
 
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenTokenCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenTokenCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        SystemId2 int NOT NULL,
+        Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+    )
+END;
+GO
+
 -- Backfill table dbo.TokenTokenCompositeSearchParam with non-null systemId value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId1 and SystemId2 into the table dbo.QuantitySearchParam';
 
@@ -1185,6 +1289,22 @@ GO
 DELETE FROM CTE WHERE ROW_NUM > 1;
 GO
 
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkReferenceSearchParamTableType_2'
+IF TYPE_ID(N'BulkReferenceSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkReferenceSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceTypeId smallint NOT NULL,
+        ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceVersion int NULL
+    )
+END;
+GO
+
 -- Backfill table dbo.ReferenceSearchParam with non-null system value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill column ReferenceResourceTypeId into the table dbo.ReferenceSearchParam';
 GO
@@ -1303,6 +1423,24 @@ GO
 	FROM dbo.ReferenceTokenCompositeSearchParam
 )
 DELETE FROM CTE WHERE ROW_NUM > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkReferenceTokenCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkReferenceTokenCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceTypeId1 smallint NOT NULL,
+        ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceVersion1 int NULL,
+        SystemId2 int NOT NULL,
+        Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+    )
+END;
 GO
 
 -- Backfill table dbo.ReferenceTokenCompositeSearchParam with non-null system value
@@ -1460,7 +1598,7 @@ BEGIN
     (
         Offset int NOT NULL,
         SearchParamId smallint NOT NULL,
-        SystemId1 int NULL,
+        SystemId1 int NOT NULL,
         Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
         Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
         TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
@@ -1605,6 +1743,25 @@ BEGIN
 END;
 GO
 
+/******************************************************************
+  Table - dbo.NumberSearchParam table
+*******************************************************************/
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkNumberSearchParamTableType_2'
+IF TYPE_ID(N'BulkNumberSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkNumberSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SingleValue decimal(18,6) NULL,
+        LowValue decimal(18,6) NOT NULL,
+        HighValue decimal(18,6) NOT NULL
+    )
+END;
+GO
+
 /*************************************************************
     Stored procedures for creating and deleting
 **************************************************************/
@@ -1677,7 +1834,7 @@ GO
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
 CREATE OR ALTER PROCEDURE dbo.UpsertResource_6
-@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0
+@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY, @isResourceChangeCaptureEnabled BIT=0
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -2074,7 +2231,7 @@ GO
 --         * Extracted token$number$number search params
 --
 CREATE OR ALTER PROCEDURE dbo.ReindexResource_3
-@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -2352,7 +2509,7 @@ GO
 --     The number of resources that failed to reindex due to versioning conflicts.
 --
 CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_3
-@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;

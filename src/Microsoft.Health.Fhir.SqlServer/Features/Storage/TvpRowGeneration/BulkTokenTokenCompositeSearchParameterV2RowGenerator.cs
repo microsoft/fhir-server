@@ -8,14 +8,14 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class BulkTokenTokenCompositeSearchParameterV1RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, TokenSearchValue component2),
-        BulkTokenTokenCompositeSearchParamTableTypeV1Row>
+    internal class BulkTokenTokenCompositeSearchParameterV2RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, TokenSearchValue component2),
+        BulkTokenTokenCompositeSearchParamTableTypeV2Row>
     {
-        private readonly BulkTokenSearchParameterV1RowGenerator _tokenRowGenerator;
+        private readonly BulkTokenSearchParameterV2RowGenerator _tokenRowGenerator;
 
-        public BulkTokenTokenCompositeSearchParameterV1RowGenerator(
+        public BulkTokenTokenCompositeSearchParameterV2RowGenerator(
             SqlServerFhirModel model,
-            BulkTokenSearchParameterV1RowGenerator tokenRowGenerator,
+            BulkTokenSearchParameterV2RowGenerator tokenRowGenerator,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap)
             : base(model, searchParameterTypeMap)
         {
@@ -26,12 +26,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             int offset,
             short searchParamId,
             (TokenSearchValue component1, TokenSearchValue component2) searchValue,
-            out BulkTokenTokenCompositeSearchParamTableTypeV1Row row)
+            out BulkTokenTokenCompositeSearchParamTableTypeV2Row row)
         {
             if (_tokenRowGenerator.TryGenerateRow(default, default, searchValue.component1, out var token1Row) &&
                 _tokenRowGenerator.TryGenerateRow(default, default, searchValue.component2, out var token2Row))
             {
-                row = new BulkTokenTokenCompositeSearchParamTableTypeV1Row(
+                row = new BulkTokenTokenCompositeSearchParamTableTypeV2Row(
                     offset,
                     searchParamId,
                     token1Row.SystemId,
