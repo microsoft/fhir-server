@@ -100,6 +100,21 @@ BEGIN
 END;
 GO
 
+/***************************************************************
+ Insert an entry with id 0 to dbo.ResourceType table
+****************************************************************/
+EXEC dbo.LogSchemaMigrationProgress 'Insert an entry with id 0 to dbo.ResourceType table';
+IF NOT EXISTS (SELECT 1 FROM dbo.ResourceType WHERE ResourceTypeId = 0 AND Name = '')
+BEGIN
+    SET IDENTITY_INSERT dbo.ResourceType ON;
+
+    Insert INTO dbo.ResourceType (ResourceTypeId, Name)
+    Values (0, '')
+
+    SET IDENTITY_INSERT dbo.ResourceType OFF;
+END;
+GO
+
 /******************************************************************
   Table - dbo.QuantitySearchParam table
 *******************************************************************/
@@ -116,6 +131,23 @@ GO
 	FROM dbo.QuantitySearchParam
 )
 DELETE FROM CTE WHERE row_num > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkQuantitySearchParamTableType_2'
+IF TYPE_ID(N'BulkQuantitySearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkQuantitySearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId int NOT NULL,
+        QuantityCodeId int NOT NULL,
+        SingleValue decimal(18,6) NULL,
+        LowValue decimal(18,6) NOT NULL,
+        HighValue decimal(18,6) NOT NULL
+    )
+END;
 GO
 
 -- Backfill table dbo.QuantitySearchParam with non-null QuantityCodeId value
@@ -207,6 +239,7 @@ GO
 -- Recreate dropped indexes consisting QuantityCodeId
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue';
     CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_SingleValue
     ON dbo.QuantitySearchParam
     (
@@ -227,6 +260,7 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue';
     CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_LowValue_HighValue
     ON dbo.QuantitySearchParam
     (
@@ -248,6 +282,7 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue';
     CREATE NONCLUSTERED INDEX IX_QuantitySearchParam_SearchParamId_QuantityCodeId_HighValue_LowValue
     ON dbo.QuantitySearchParam
     (
@@ -299,6 +334,20 @@ GO
 DELETE FROM CTE WHERE ROW_NUM > 1;
 GO
 
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId int NOT NULL,
+        Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+    )
+END;
+GO
+
 -- Backfill table dbo.TokenSearchParam with non-null system value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId into the table dbo.TokenSearchParam';
 GO
@@ -341,6 +390,7 @@ GO
 -- Recreate dropped indexes consisting systemId
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TokenSeachParam_SearchParamId_Code_SystemId')
 BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_TokenSeachParam_SearchParamId_Code_SystemId';
     CREATE NONCLUSTERED INDEX IX_TokenSeachParam_SearchParamId_Code_SystemId
     ON dbo.TokenSearchParam
     (
@@ -388,6 +438,23 @@ GO
 	FROM dbo.TokenDateTimeCompositeSearchParam
 )
 DELETE FROM CTE WHERE ROW_NUM > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenDateTimeCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenDateTimeCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        StartDateTime2 datetimeoffset(7) NOT NULL,
+        EndDateTime2 datetimeoffset(7) NOT NULL,
+        IsLongerThanADay2 bit NOT NULL
+    )
+END;
 GO
 
 -- Backfill table dbo.TokenDateTimeCompositeSearchParam with non-null system value
@@ -576,6 +643,27 @@ GO
 DELETE FROM CTE WHERE ROW_NUM > 1;
 GO
 
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenNumberNumberCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenNumberNumberCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        SingleValue2 decimal(18,6) NULL,
+        LowValue2 decimal(18,6) NOT NULL,
+        HighValue2 decimal(18,6) NOT NULL,
+        SingleValue3 decimal(18,6) NULL,
+        LowValue3 decimal(18,6) NOT NULL,
+        HighValue3 decimal(18,6) NOT NULL,
+        HasRange bit NOT NULL
+    )
+END;
+GO
+
 -- Backfill table dbo.TokenNumberNumberCompositeSearchParam with non-null system value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId1 into the table dbo.TokenNumberNumberCompositeSearchParam';
 UPDATE dbo.TokenNumberNumberCompositeSearchParam
@@ -741,6 +829,25 @@ GO
 	FROM dbo.TokenQuantityCompositeSearchParam
 )
 DELETE FROM CTE WHERE ROW_NUM > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenQuantityCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenQuantityCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        SystemId2 int NOT NULL,
+        QuantityCodeId2 int NOT NULL,
+        SingleValue2 decimal(18,6) NULL,
+        LowValue2 decimal(18,6) NOT NULL,
+        HighValue2 decimal(18,6) NOT NULL
+    )
+END;
 GO
 
 --  Backfill table dbo.TokenQuantityCompositeSearchParam with non-null system and quantitycode value
@@ -968,6 +1075,22 @@ EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.TokenToken
 DELETE FROM CTE WHERE ROW_NUM > 1;
 GO
 
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenTokenCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenTokenCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        SystemId2 int NOT NULL,
+        Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+    )
+END;
+GO
+
 -- Backfill table dbo.TokenTokenCompositeSearchParam with non-null systemId value
 EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId1 and SystemId2 into the table dbo.QuantitySearchParam';
 
@@ -1083,9 +1206,10 @@ WITH cte AS (
 	) row_num
 	FROM dbo.StringSearchParam
 )
-DELETE FROM cte WHERE row_num > 1
+DELETE FROM cte WHERE row_num > 1;
 GO
 
+-- Creating new type table
 EXEC dbo.LogSchemaMigrationProgress 'Adding BulkStringSearchParamTableType_3'
 IF TYPE_ID(N'BulkStringSearchParamTableType_3') IS NULL
 BEGIN
@@ -1099,12 +1223,10 @@ BEGIN
         IsMax bit NOT NULL,
         TextHash binary(32) NOT NULL
     )
-END
+END;
 GO
 
-/*************************************************************
-Insert TextHash column and backfill for existing rows
-**************************************************************/
+-- Add TextHash column to StringSearchParam
 EXEC dbo.LogSchemaMigrationProgress 'Adding TextHash column in dbo.StringSearchParam'
 IF NOT EXISTS (
     SELECT * 
@@ -1114,7 +1236,7 @@ BEGIN
     EXEC dbo.LogSchemaMigrationProgress 'Adding TextHash column as nullable';
     ALTER TABLE dbo.StringSearchParam 
         ADD TextHash binary(32) NULL 
-END
+END;
 GO
 
 -- Backfill values for TextHash column and update it as NOT NULL
@@ -1133,12 +1255,10 @@ BEGIN
 
     EXEC dbo.LogSchemaMigrationProgress 'Update TextHash as NOT NULL';
     ALTER TABLE dbo.StringSearchParam ALTER COLUMN TextHash binary(32) NOT NULL
-END
+END;
 GO
 
-/*************************************************************
-Add Primary key for dbo.StringSearchParam
-**************************************************************/
+-- Create nonclustered primary key on the set of non-nullable columns that makes it unique
 IF NOT EXISTS (
     SELECT * 
 	FROM sys.key_constraints 
@@ -1149,7 +1269,498 @@ BEGIN
 	ADD CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, TextHash)
 	WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END;
+GO
+
+/******************************************************************
+  Table - dbo.ReferenceSearchParam table
+*******************************************************************/
+
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.ReferenceSearchParam';
+GO
+;WITH CTE AS (
+    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory
+		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory
+	) ROW_NUM
+	FROM dbo.ReferenceSearchParam
+)
+DELETE FROM CTE WHERE ROW_NUM > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkReferenceSearchParamTableType_2'
+IF TYPE_ID(N'BulkReferenceSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkReferenceSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceTypeId smallint NOT NULL,
+        ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceVersion int NULL
+    )
+END;
+GO
+
+-- Backfill table dbo.ReferenceSearchParam with non-null system value
+EXEC dbo.LogSchemaMigrationProgress 'Back-fill column ReferenceResourceTypeId into the table dbo.ReferenceSearchParam';
+GO
+UPDATE dbo.ReferenceSearchParam
+SET ReferenceResourceTypeId = 0 
+WHERE ReferenceResourceTypeId IS NULL;
+GO
+
+EXEC dbo.LogSchemaMigrationProgress 'Back-fill column BaseUri into the table dbo.ReferenceSearchParam';
+GO
+UPDATE dbo.ReferenceSearchParam
+SET BaseUri = ''
+WHERE BaseUri IS NULL;
+GO
+
+-- Update BaseUri and ReferenceResourceTypeId column as NOT NULL
+IF ((SELECT COLUMNPROPERTY(OBJECT_ID('dbo.ReferenceSearchParam', 'U'), 'ReferenceResourceTypeId', 'AllowsNull')) = 1
+    OR (SELECT COLUMNPROPERTY(OBJECT_ID('dbo.ReferenceSearchParam', 'U'), 'BaseUri', 'AllowsNull')) = 1)
+BEGIN
+    -- Drop indexes that uses BaseUri and ReferenceResourceTypeId column
+	IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion')
+	BEGIN
+	    EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion';
+		DROP INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
+		ON dbo.ReferenceSearchParam
+	END;
+
+    -- Update ReferenceResourceTypeId column as non-nullable 
+    EXEC dbo.LogSchemaMigrationProgress 'Updating ReferenceResourceTypeId as NOT NULL';
+	ALTER TABLE dbo.ReferenceSearchParam
+	ALTER COLUMN ReferenceResourceTypeId smallint NOT NULL;
+
+    -- Update BaseUri column as non-nullable 
+    EXEC dbo.LogSchemaMigrationProgress 'Updating BaseUri as NOT NULL';
+	ALTER TABLE dbo.ReferenceSearchParam
+	ALTER COLUMN BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL;
+END;
+GO
+
+-- Adding default constraint to ReferenceResourceTypeId column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.default_constraints 
+	WHERE name='DF_ReferenceSearchParam_ReferenceResourceTypeId' AND type='D')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding default constraint to ReferenceResourceTypeId column'
+    ALTER TABLE dbo.ReferenceSearchParam
+    ADD CONSTRAINT DF_ReferenceSearchParam_ReferenceResourceTypeId
+    DEFAULT 0 FOR ReferenceResourceTypeId;
+END;
+GO
+
+-- Adding default constraint to BaseUri column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.default_constraints 
+	WHERE name='DF_ReferenceSearchParam_BaseUri' AND type='D')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding default constraint to BaseUri column'
+    ALTER TABLE dbo.ReferenceSearchParam
+    ADD CONSTRAINT DF_ReferenceSearchParam_BaseUri
+    DEFAULT '' FOR BaseUri;
+END;
+GO
+
+-- Recreate dropped indexes consisting systemId
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion';
+    CREATE NONCLUSTERED INDEX IX_ReferenceSearchParam_SearchParamId_ReferenceResourceTypeId_ReferenceResourceId_BaseUri_ReferenceResourceVersion
+    ON dbo.ReferenceSearchParam
+    (
+        ResourceTypeId,
+        SearchParamId,
+        ReferenceResourceId,
+        ReferenceResourceTypeId,
+        BaseUri,
+        ResourceSurrogateId
+    )
+    INCLUDE
+    (
+        ReferenceResourceVersion
+    )
+    WHERE IsHistory = 0
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END;
+
+-- Create nonclustered primary key on the set of non-nullable columns that makes it unique
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='PK_ReferenceSearchParam' AND type='PK')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PK_ReferenceSearchParam';
+	ALTER TABLE dbo.ReferenceSearchParam 
+	ADD CONSTRAINT PK_ReferenceSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId )
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END;
+GO
+
+/******************************************************************
+  Table - dbo.ReferenceTokenCompositeSearchParam table
+*******************************************************************/
+
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.ReferenceTokenCompositeSearchParam';
+GO
+;WITH CTE AS (
+    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory
+		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory
+	) ROW_NUM
+	FROM dbo.ReferenceTokenCompositeSearchParam
+)
+DELETE FROM CTE WHERE ROW_NUM > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkReferenceTokenCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkReferenceTokenCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceTypeId1 smallint NOT NULL,
+        ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        ReferenceResourceVersion1 int NULL,
+        SystemId2 int NOT NULL,
+        Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+    )
+END;
+GO
+
+-- Backfill table dbo.ReferenceTokenCompositeSearchParam with non-null system value
+EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId into the table dbo.ReferenceTokenCompositeSearchParam';
+GO
+UPDATE dbo.ReferenceTokenCompositeSearchParam
+SET BaseUri1 = '' 
+WHERE BaseUri1 IS NULL;
+GO
+
+EXEC dbo.LogSchemaMigrationProgress 'Back-fill column ReferenceResourceTypeId1 into the table dbo.ReferenceTokenCompositeSearchParam';
+GO
+UPDATE dbo.ReferenceTokenCompositeSearchParam
+SET ReferenceResourceTypeId1 = 0 
+WHERE ReferenceResourceTypeId1 IS NULL;
+GO
+
+EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId2 into the table dbo.ReferenceTokenCompositeSearchParam';
+GO
+UPDATE dbo.ReferenceTokenCompositeSearchParam
+SET SystemId2 = 0 
+WHERE SystemId2 IS NULL;
+GO
+
+-- Update BaseUri1, ReferenceResourceTypeId1 and SystemId2 column as NOT NULL
+IF ((SELECT COLUMNPROPERTY(OBJECT_ID('dbo.ReferenceTokenCompositeSearchParam', 'U'), 'BaseUri1', 'AllowsNull')) = 1
+   OR (SELECT COLUMNPROPERTY(OBJECT_ID('dbo.ReferenceTokenCompositeSearchParam', 'U'), 'ReferenceResourceTypeId1', 'AllowsNull')) = 1
+       OR (SELECT COLUMNPROPERTY(OBJECT_ID('dbo.ReferenceTokenCompositeSearchParam', 'U'), 'SystemId2', 'AllowsNull')) = 1)
+BEGIN
+    -- Drop indexes that uses systemId1 column
+	IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2')
+	BEGIN
+	    EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2';
+		DROP INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
+		ON dbo.ReferenceTokenCompositeSearchParam
+	END;
+
+    -- Update BaseUri1 column as non-nullable 
+    EXEC dbo.LogSchemaMigrationProgress 'Updating BaseUri1 as NOT NULL';
+	ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+	ALTER COLUMN BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL;
+
+    -- Update ReferenceResourceTypeId1 column as non-nullable 
+    EXEC dbo.LogSchemaMigrationProgress 'Updating ReferenceResourceTypeId1 as NOT NULL';
+	ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+	ALTER COLUMN ReferenceResourceTypeId1 smallint NOT NULL;
+
+    -- Update SystemId2 column as non-nullable 
+    EXEC dbo.LogSchemaMigrationProgress 'Updating SystemId2 as NOT NULL';
+	ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+	ALTER COLUMN SystemId2 INT NOT NULL;
+END;
+GO
+
+-- Adding default constraint to BaseUri1 column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.default_constraints 
+	WHERE name='DF_ReferenceTokenCompositeSearchParam_BaseUri1' AND type='D')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding default constraint to BaseUri1 column'
+    ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+    ADD CONSTRAINT DF_ReferenceTokenCompositeSearchParam_BaseUri1
+    DEFAULT '' FOR BaseUri1;
+END;
+GO
+
+-- Adding default constraint to ReferenceResourceTypeId1 column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.default_constraints 
+	WHERE name='DF_ReferenceTokenCompositeSearchParam_ReferenceResourceTypeId1' AND type='D')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding default constraint to ReferenceResourceTypeId1 column'
+    ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+    ADD CONSTRAINT DF_ReferenceTokenCompositeSearchParam_ReferenceResourceTypeId1
+    DEFAULT 0 FOR ReferenceResourceTypeId1;
+END;
+GO
+
+-- Adding default constraint to SystemId2 column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.default_constraints 
+	WHERE name='DF_ReferenceTokenCompositeSearchParam_SystemId2' AND type='D')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding default constraint to SystemId2 column'
+    ALTER TABLE dbo.ReferenceTokenCompositeSearchParam
+    ADD CONSTRAINT DF_ReferenceTokenCompositeSearchParam_SystemId2
+    DEFAULT 0 FOR SystemId2;
+END;
+GO
+
+-- Recreate dropped indexes consisting BaseUri1, ReferenceResourceTypeId1 and SystemId2
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2';
+    CREATE NONCLUSTERED INDEX IX_ReferenceTokenCompositeSearchParam_ReferenceResourceId1_Code2
+    ON dbo.ReferenceTokenCompositeSearchParam
+    (
+        ResourceTypeId,
+        SearchParamId,
+        ReferenceResourceId1,
+        Code2,
+        ResourceSurrogateId
+    )
+    INCLUDE
+    (
+        ReferenceResourceTypeId1,
+        BaseUri1,
+        SystemId2
+    )
+    WHERE IsHistory = 0
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END;
+
+-- Create nonclustered primary key on the set of non-nullable columns that makes it unique
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='PK_ReferenceTokenCompositeSearchParam' AND type='PK')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PK_ReferenceTokenCompositeSearchParam';
+	ALTER TABLE dbo.ReferenceTokenCompositeSearchParam 
+	ADD CONSTRAINT PK_ReferenceTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, SystemId2, Code2)
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END;
+GO
+
+/******************************************************************
+  Table - dbo.TokenStringCompositeSearchParam table
+*******************************************************************/
+
+-- Deleting duplicate rows based on all columns
+EXEC dbo.LogSchemaMigrationProgress 'Deleting redundant rows from dbo.TokenStringCompositeSearchParam';
+GO
+;WITH CTE AS (
+    SELECT ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory, ROW_NUMBER() 
+    OVER (
+		PARTITION BY ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory
+		ORDER BY ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory
+	) ROW_NUM
+	FROM dbo.TokenStringCompositeSearchParam
+)
+DELETE FROM CTE WHERE ROW_NUM > 1;
+GO
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkTokenStringCompositeSearchParamTableType_2'
+IF TYPE_ID(N'BulkTokenStringCompositeSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SystemId1 int NOT NULL,
+        Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+        Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+        TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL,
+        TextHash2 binary(32) NOT NULL
+    )
 END
+GO
+
+-- Adding TextHash2 column in dbo.TokenStringCompositeSearchParam
+EXEC dbo.LogSchemaMigrationProgress 'Adding TextHash2 column in dbo.TokenStringCompositeSearchParam'
+IF NOT EXISTS (
+    SELECT * 
+    FROM   sys.columns 
+    WHERE  object_id = OBJECT_ID('dbo.TokenStringCompositeSearchParam') AND name = 'TextHash2')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding TextHash2 column as nullable';
+    ALTER TABLE dbo.TokenStringCompositeSearchParam 
+        ADD TextHash2 binary(32) NULL 
+END
+GO
+
+-- Backfill values for TextHash2 column and update it as NOT NULL
+IF EXISTS (
+    SELECT * 
+    FROM   sys.columns 
+    WHERE  object_id = OBJECT_ID('dbo.TokenStringCompositeSearchParam') AND name = 'TextHash2' AND is_nullable = 1)
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Backfilling values to TextHash2 column';
+    UPDATE dbo.TokenStringCompositeSearchParam 
+        SET TextHash2 = (CONVERT([binary](32), (hashbytes('SHA2_256', CASE
+							WHEN [TextOverflow2] IS NOT NULL
+							THEN [TextOverflow2]
+							ELSE [Text2]
+							END)),2))
+
+    EXEC dbo.LogSchemaMigrationProgress 'Update TextHash2 as NOT NULL';
+    ALTER TABLE dbo.TokenStringCompositeSearchParam ALTER COLUMN TextHash2 binary(32) NOT NULL
+END
+GO
+
+-- Backfill table dbo.TokenStringCompositeSearchParam with non-null system value
+EXEC dbo.LogSchemaMigrationProgress 'Back-fill column SystemId into the table dbo.TokenStringCompositeSearchParam';
+GO
+UPDATE dbo.TokenStringCompositeSearchParam
+SET SystemId1 = 0 
+WHERE SystemId1 IS NULL;
+GO
+
+-- Update SystemId1 column as NOT NULL
+IF (SELECT COLUMNPROPERTY(OBJECT_ID('dbo.TokenStringCompositeSearchParam', 'U'), 'SystemId1', 'AllowsNull')) = 1
+BEGIN
+    -- Drop indexes that uses systemId1 column
+	IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2')
+	BEGIN
+	    EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2';
+		DROP INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
+		ON dbo.TokenStringCompositeSearchParam
+	END;
+
+	IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow')
+	BEGIN
+	    EXEC dbo.LogSchemaMigrationProgress 'Dropping IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow';
+		DROP INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
+		ON dbo.TokenStringCompositeSearchParam
+	END;
+
+    -- Update SystemId1 column as non-nullable 
+    EXEC dbo.LogSchemaMigrationProgress 'Updating SystemId1 as NOT NULL';
+	ALTER TABLE dbo.TokenStringCompositeSearchParam
+	ALTER COLUMN SystemId1 INT NOT NULL;
+END;
+GO
+
+-- Adding default constraint to SystemId1 column
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.default_constraints 
+	WHERE name='DF_TokenStringCompositeSearchParam_SystemId1' AND type='D')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding default constraint to SystemId1 column'
+    ALTER TABLE dbo.TokenStringCompositeSearchParam
+    ADD CONSTRAINT DF_TokenStringCompositeSearchParam_SystemId1
+    DEFAULT 0 FOR SystemId1;
+END;
+GO
+
+-- Recreate dropped indexes consisting systemId1
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2';
+    CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2
+    ON dbo.TokenStringCompositeSearchParam
+    (
+        ResourceTypeId,
+        SearchParamId,
+        Code1,
+        Text2,
+        ResourceSurrogateId
+    )
+    INCLUDE
+    (
+        SystemId1,
+        TextOverflow2 -- will not be needed when all servers are targeting at least this version.
+    )
+    WHERE IsHistory = 0
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Creating IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow';
+    CREATE NONCLUSTERED INDEX IX_TokenStringCompositeSearchParam_SearchParamId_Code1_Text2WithOverflow
+    ON dbo.TokenStringCompositeSearchParam
+    (
+        ResourceTypeId,
+        SearchParamId,
+        Code1,
+        Text2,
+        ResourceSurrogateId
+    )
+    INCLUDE
+    (
+        SystemId1
+    )
+    WHERE IsHistory = 0 AND TextOverflow2 IS NOT NULL
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END;
+
+-- Create nonclustered primary key on the set of non-nullable columns that makes it unique
+IF NOT EXISTS (
+    SELECT * 
+	FROM sys.key_constraints 
+	WHERE name='PK_TokenStringCompositeSearchParam' AND type='PK')
+BEGIN
+    EXEC dbo.LogSchemaMigrationProgress 'Adding PK_TokenStringCompositeSearchParam';
+	ALTER TABLE dbo.TokenStringCompositeSearchParam 
+	ADD CONSTRAINT PK_TokenStringCompositeSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, SearchParamId, ResourceSurrogateId, SystemId1, Code1, TextHash2)
+    WITH (DATA_COMPRESSION = PAGE)
+    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+END;
+GO
+
+/******************************************************************
+  Table - dbo.NumberSearchParam table
+*******************************************************************/
+
+-- Creating new type table
+EXEC dbo.LogSchemaMigrationProgress 'Adding BulkNumberSearchParamTableType_2'
+IF TYPE_ID(N'BulkNumberSearchParamTableType_2') IS NULL
+BEGIN
+    CREATE TYPE dbo.BulkNumberSearchParamTableType_2 AS TABLE
+    (
+        Offset int NOT NULL,
+        SearchParamId smallint NOT NULL,
+        SingleValue decimal(18,6) NULL,
+        LowValue decimal(18,6) NOT NULL,
+        HighValue decimal(18,6) NOT NULL
+    )
+END;
 GO
 
 /*************************************************************
@@ -1224,7 +1835,7 @@ GO
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
 CREATE OR ALTER PROCEDURE dbo.UpsertResource_6
-@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY, @isResourceChangeCaptureEnabled BIT=0
+@baseResourceSurrogateId BIGINT, @resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @allowCreate BIT, @isDeleted BIT, @keepHistory BIT, @requestMethod VARCHAR (10), @searchParamHash VARCHAR (64), @rawResource VARBINARY (MAX), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY, @isResourceChangeCaptureEnabled BIT=0
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -1536,7 +2147,7 @@ SELECT DISTINCT @resourceTypeId,
                 HighValue2,
                 0
 FROM   @tokenQuantityCompositeSearchParams;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory, TextHash2)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
@@ -1544,7 +2155,8 @@ SELECT DISTINCT @resourceTypeId,
                 Code1,
                 Text2,
                 TextOverflow2,
-                0
+                0,
+                TextHash2
 FROM   @tokenStringCompositeSearchParams;
 INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
 SELECT DISTINCT @resourceTypeId,
@@ -1620,7 +2232,7 @@ GO
 --         * Extracted token$number$number search params
 --
 CREATE OR ALTER PROCEDURE dbo.ReindexResource_3
-@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+@resourceTypeId SMALLINT, @resourceId VARCHAR (64), @eTag INT=NULL, @searchParamHash VARCHAR (64), @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -1821,7 +2433,7 @@ SELECT DISTINCT @resourceTypeId,
                 HighValue2,
                 0
 FROM   @tokenQuantityCompositeSearchParams;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory, TextHash2)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
@@ -1829,7 +2441,8 @@ SELECT DISTINCT @resourceTypeId,
                 Code1,
                 Text2,
                 TextOverflow2,
-                0
+                0,
+                TextHash2
 FROM   @tokenStringCompositeSearchParams;
 INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
 SELECT DISTINCT @resourceTypeId,
@@ -1897,7 +2510,7 @@ GO
 --     The number of resources that failed to reindex due to versioning conflicts.
 --
 CREATE OR ALTER PROCEDURE dbo.BulkReindexResources_3
-@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+@resourcesToReindex dbo.BulkReindexResourceTableType_1 READONLY, @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY, @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY, @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY, @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY, @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY, @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY, @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY, @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY, @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY, @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY, @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY, @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY, @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY, @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY, @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY, @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY
 AS
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -2209,7 +2822,7 @@ FROM   @tokenQuantityCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory, TextHash2)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
@@ -2217,7 +2830,8 @@ SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 searchIndex.Code1,
                 searchIndex.Text2,
                 searchIndex.TextOverflow2,
-                0
+                0,
+                searchIndex.TextHash2
 FROM   @tokenStringCompositeSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex

@@ -6,3 +6,10 @@
     CONSTRAINT PKC_ResourceType PRIMARY KEY CLUSTERED (Name)
     WITH (DATA_COMPRESSION = PAGE)
 )
+SET IDENTITY_INSERT dbo.ResourceType ON;
+
+Insert INTO dbo.ResourceType (ResourceTypeId, Name)
+Values (0, '')
+
+SET IDENTITY_INSERT dbo.ResourceType OFF;
+GO

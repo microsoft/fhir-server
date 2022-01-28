@@ -8,33 +8,33 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class BulkTokenDateTimeCompositeSearchParameterV1RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, DateTimeSearchValue component2),
-        BulkTokenDateTimeCompositeSearchParamTableTypeV1Row>
+    internal class BulkTokenDateTimeCompositeSearchParameterV2RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, DateTimeSearchValue component2),
+        BulkTokenDateTimeCompositeSearchParamTableTypeV2Row>
     {
-        private readonly BulkTokenSearchParameterV1RowGenerator _tokenRowGenerator;
-        private readonly BulkDateTimeSearchParameterV1RowGenerator _dateTimeV1RowGenerator;
+        private readonly BulkTokenSearchParameterV2RowGenerator _tokenRowGenerator;
+        private readonly BulkDateTimeSearchParameterV2RowGenerator _dateTimeV2RowGenerator;
 
-        public BulkTokenDateTimeCompositeSearchParameterV1RowGenerator(
+        public BulkTokenDateTimeCompositeSearchParameterV2RowGenerator(
             SqlServerFhirModel model,
-            BulkTokenSearchParameterV1RowGenerator tokenRowGenerator,
-            BulkDateTimeSearchParameterV1RowGenerator dateTimeV1RowGenerator,
+            BulkTokenSearchParameterV2RowGenerator tokenRowGenerator,
+            BulkDateTimeSearchParameterV2RowGenerator dateTimeV2RowGenerator,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap)
             : base(model, searchParameterTypeMap)
         {
             _tokenRowGenerator = tokenRowGenerator;
-            _dateTimeV1RowGenerator = dateTimeV1RowGenerator;
+            _dateTimeV2RowGenerator = dateTimeV2RowGenerator;
         }
 
         internal override bool TryGenerateRow(
             int offset,
             short searchParamId,
             (TokenSearchValue component1, DateTimeSearchValue component2) searchValue,
-            out BulkTokenDateTimeCompositeSearchParamTableTypeV1Row row)
+            out BulkTokenDateTimeCompositeSearchParamTableTypeV2Row row)
         {
             if (_tokenRowGenerator.TryGenerateRow(offset, default, searchValue.component1, out var token1Row) &&
-                _dateTimeV1RowGenerator.TryGenerateRow(offset, default, searchValue.component2, out var token2Row))
+                _dateTimeV2RowGenerator.TryGenerateRow(offset, default, searchValue.component2, out var token2Row))
             {
-                row = new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(
+                row = new BulkTokenDateTimeCompositeSearchParamTableTypeV2Row(
                     offset,
                     searchParamId,
                     token1Row.SystemId,

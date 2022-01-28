@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -258,20 +259,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new InvalidOperationException($"Unexpected missing field {expression.FieldName}");
             }
 
-            switch (expression.FieldName)
+            if (context.SchemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyPart2)
             {
-                case FieldName.TokenSystem:
-                case FieldName.QuantityCode:
-                    context.StringBuilder.Append(" ( ");
-                    AppendColumnName(context, column, expression).Append($" = {SqlSearchConstants.NullId}");
-                    context.StringBuilder.Append(" OR ");
-                    AppendColumnName(context, column, expression).Append(" IS NULL");
-                    context.StringBuilder.Append(" ) ");
-                    break;
+                // With version 26 - AddPrimaryKeyPart2, SystemId, QuantityCodeId and ReferenceResourceTypeId are marked as NOT NULL with default value as 0. Tables are back-filled with Id 0 instead of NULL
+                switch (expression.FieldName)
+                {
+                    case FieldName.TokenSystem:
+                    case FieldName.QuantityCode:
+                    case FieldName.ReferenceResourceType:
+                        AppendColumnName(context, column, expression).Append($" = {SqlSearchConstants.NullId}");
+                        break;
 
-                default:
-                    AppendColumnName(context, column, expression).Append(" IS NULL");
-                    break;
+                    default:
+                        AppendColumnName(context, column, expression).Append(" IS NULL");
+                        break;
+                }
+            }
+            else
+            {
+                AppendColumnName(context, column, expression).Append(" IS NULL");
             }
 
             return context;

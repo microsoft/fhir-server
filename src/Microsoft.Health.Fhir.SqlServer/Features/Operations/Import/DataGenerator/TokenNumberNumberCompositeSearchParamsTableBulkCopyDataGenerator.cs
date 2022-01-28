@@ -14,13 +14,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 {
     internal class TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
     {
-        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row> _searchParamGenerator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row> _searchParamGenerator;
 
         internal TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator()
         {
         }
 
-        public TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row> searchParamGenerator)
+        public TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));
 
@@ -40,15 +40,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             EnsureArg.IsNotNull(table, nameof(table));
             EnsureArg.IsNotNull(input, nameof(input));
 
-            IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
+            IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row searchParam in searchParams)
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
         }
 
-        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row searchParam)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkTokenNumberNumberCompositeSearchParamTableTypeV2Row searchParam)
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
             FillColumn(newRow, VLatest.TokenNumberNumberCompositeSearchParam.SystemId1.Metadata.Name, searchParam.SystemId1);

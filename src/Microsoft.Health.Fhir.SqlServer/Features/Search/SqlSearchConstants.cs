@@ -9,6 +9,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         public const string SortSentinelValueForCt = "sentinelSortValue";
 
-        public const int NullId = 0;
+        public const short NullId = 0;
     }
 }

@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
             short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.AddTextHashForStringSearchParameterVersion)
+            if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyPart2)
             {
                 VLatest.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
@@ -377,7 +377,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                if (_schemaInformation.Current >= SchemaVersionConstants.AddTextHashForStringSearchParameterVersion)
+                if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyPart2)
                 {
                     VLatest.BulkReindexResources.PopulateCommand(
                         sqlCommandWrapper,
@@ -477,7 +477,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                if (_schemaInformation.Current >= SchemaVersionConstants.AddTextHashForStringSearchParameterVersion)
+                if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyPart2)
                 {
                     VLatest.ReindexResource.PopulateCommand(
                         sqlCommandWrapper,

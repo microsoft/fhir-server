@@ -8,7 +8,8 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class BulkTokenStringCompositeSearchParameterV1RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, StringSearchValue component2), BulkTokenStringCompositeSearchParamTableTypeV1Row>
+    internal class BulkTokenStringCompositeSearchParameterV1RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, StringSearchValue component2),
+        BulkTokenStringCompositeSearchParamTableTypeV1Row>
     {
         private readonly BulkTokenSearchParameterV1RowGenerator _tokenRowGenerator;
         private readonly BulkStringSearchParameterV1RowGenerator _stringV1RowGenerator;

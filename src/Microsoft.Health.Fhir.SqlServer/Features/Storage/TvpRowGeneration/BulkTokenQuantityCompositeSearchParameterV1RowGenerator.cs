@@ -5,11 +5,11 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class BulkTokenQuantityCompositeSearchParameterV1RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, QuantitySearchValue component2), BulkTokenQuantityCompositeSearchParamTableTypeV1Row>
+    internal class BulkTokenQuantityCompositeSearchParameterV1RowGenerator : BulkCompositeSearchParameterRowGenerator<(TokenSearchValue component1, QuantitySearchValue component2),
+        BulkTokenQuantityCompositeSearchParamTableTypeV1Row>
     {
         private readonly BulkTokenSearchParameterV1RowGenerator _tokenRowGenerator;
         private readonly BulkQuantitySearchParameterV1RowGenerator _quantityV1RowGenerator;
@@ -37,13 +37,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 row = new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(
                     offset,
                     searchParamId,
-                    token1Row.SystemId ?? SqlSearchConstants.NullId,
+                    token1Row.SystemId,
                     token1Row.Code,
-                    token2Row.SystemId ?? SqlSearchConstants.NullId,
-                    token2Row.QuantityCodeId ?? SqlSearchConstants.NullId,
+                    token2Row.SystemId,
+                    token2Row.QuantityCodeId,
                     token2Row.SingleValue,
-                    token2Row.LowValue ?? token2Row.SingleValue,
-                    token2Row.HighValue ?? token2Row.SingleValue);
+                    token2Row.LowValue,
+                    token2Row.HighValue);
 
                 return true;
             }

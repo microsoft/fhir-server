@@ -1,4 +1,4 @@
-﻿
+
 /*************************************************************
     Stored procedures for creating and deleting
 **************************************************************/
@@ -83,20 +83,20 @@ CREATE PROCEDURE dbo.UpsertResource_6
     @rawResource varbinary(max),
     @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
-    @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
-    @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
+    @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY,
+    @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY,
     @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
     @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY,
-    @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
-    @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY,
+    @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY,
+    @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY,
     @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY,
     @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_2 READONLY,
-    @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY,
-    @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY,
-    @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY,
-    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
-    @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
-    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY,
+    @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_2 READONLY,
+    @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_2 READONLY,
+    @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_2 READONLY,
+    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_2 READONLY,
+    @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_2 READONLY,
+    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_2 READONLY,
     @isResourceChangeCaptureEnabled bit = 0
 AS
 SET NOCOUNT ON;
@@ -426,7 +426,7 @@ SELECT DISTINCT @resourceTypeId,
                 HighValue2,
                 0
 FROM   @tokenQuantityCompositeSearchParams;
-INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+INSERT INTO dbo.TokenStringCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory, TextHash2)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
@@ -434,7 +434,8 @@ SELECT DISTINCT @resourceTypeId,
                 Code1,
                 Text2,
                 TextOverflow2,
-                0
+                0,
+                TextHash2
 FROM   @tokenStringCompositeSearchParams;
 INSERT INTO dbo.TokenNumberNumberCompositeSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
 SELECT DISTINCT @resourceTypeId,
