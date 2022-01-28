@@ -474,7 +474,6 @@ CREATE TABLE dbo.Resource (
     RawResource          VARBINARY (MAX) NOT NULL,
     IsRawResourceMetaSet BIT             DEFAULT 0 NOT NULL,
     SearchParamHash      VARCHAR (64)    NULL,
-    CONSTRAINT UQ_Resource_ResourceSurrogateId UNIQUE (ResourceSurrogateId) ON [Primary],
     CONSTRAINT PKC_Resource PRIMARY KEY CLUSTERED (ResourceTypeId, ResourceSurrogateId) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
