@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchParameterDefinitionManager searchParameterDefinitionManager = await _fixture.GetSearchDefinitionManagerAsync();
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
-                .Select(x => (searchParameterDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
+                .Select(x => (searchParameterDefinitionManager.UrlLookup[x.DefinitionUrl.OriginalString].Type,
                     SearchParameterFixtureData.Compiler.Parse(x.Expression),
                     x.DefinitionUrl))
                 .ToArray();

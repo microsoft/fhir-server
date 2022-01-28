@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             // save the list of search parameters to the reindexjob document
-            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.ToString()))
+            foreach (var searchParams in notYetIndexedParams.Select(p => p.Url.OriginalString))
             {
                 _reindexJobRecord.SearchParams.Add(searchParams);
             }
@@ -706,7 +706,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var reindexedResourcesSet = new HashSet<string>(_reindexJobRecord.Resources);
             foreach (var searchParam in _reindexJobRecord.SearchParams)
             {
-                var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(new Uri(searchParam));
+                var searchParamInfo = _supportedSearchParameterDefinitionManager.GetSearchParameter(searchParam);
                 if (reindexedResourcesSet.IsSupersetOf(searchParamInfo.BaseResourceTypes))
                 {
                     fullyIndexedParamUris.Add(searchParam);

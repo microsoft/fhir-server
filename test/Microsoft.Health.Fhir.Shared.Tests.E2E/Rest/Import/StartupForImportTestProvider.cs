@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Shared.Tests.E2E;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
+using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
+using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
@@ -21,6 +23,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         public override void ConfigureServices(IServiceCollection services)
         {
             base.ConfigureServices(services);
+
+            services.Add<MetricHandler>()
+                .Singleton()
+                .AsService<INotificationHandler<ImportTaskMetricsNotification>>();
         }
     }
 }

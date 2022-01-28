@@ -72,10 +72,18 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             }
             else
             {
-                try
+                // Checks if the url is a valid url
+                if (!Uri.TryCreate(searchParam.Url, UriKind.Absolute, out _))
+                {
+                    validationFailures.Add(
+                          new ValidationFailure(
+                              nameof(searchParam.Url),
+                              string.Format(Resources.SearchParameterDefinitionInvalidDefinitionUri, searchParam.Url)));
+                }
+                else
                 {
                     // If a search parameter with the same uri exists already
-                    if (_searchParameterDefinitionManager.TryGetSearchParameter(new Uri(searchParam.Url), out _))
+                    if (_searchParameterDefinitionManager.TryGetSearchParameter(searchParam.Url, out _))
                     {
                         // And if this is a request to create a new search parameter
                         if (method.Equals(HttpPostName, StringComparison.OrdinalIgnoreCase))
@@ -106,13 +114,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 
                         CheckForConflictingCodeValue(searchParam, validationFailures);
                     }
-                }
-                catch (FormatException)
-                {
-                    validationFailures.Add(
-                          new ValidationFailure(
-                              nameof(searchParam.Url),
-                              string.Format(Resources.SearchParameterDefinitionInvalidDefinitionUri, searchParam.Url)));
                 }
             }
 

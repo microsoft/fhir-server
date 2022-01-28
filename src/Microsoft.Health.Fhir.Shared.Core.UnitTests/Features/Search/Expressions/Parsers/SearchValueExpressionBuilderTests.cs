@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 components: components);
             SearchParameterInfo searchParameter = searchParameter1;
 
-            _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(
+            _searchParameterDefinitionManager.GetSearchParameter(quantityUri.OriginalString).Returns(
                 new SearchParameter
                 {
                     Name = "quantity",

@@ -19,6 +19,8 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Import.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
+using Microsoft.Health.TaskManagement;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
@@ -33,11 +35,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
 
         private readonly TestFhirClient _client;
+        private readonly MetricHandler _metricHandler;
         private readonly ImportTestFixture<StartupForImportTestProvider> _fixture;
 
         public ImportTests(ImportTestFixture<StartupForImportTestProvider> fixture)
         {
             _client = fixture.TestFhirClient;
+            _metricHandler = fixture.MetricHandler;
             _fixture = fixture;
         }
 
@@ -45,6 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAUserWithImportPermissions_WhenImportData_TheServerShouldReturnSuccess()
         {
+            _metricHandler?.ResetCount();
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.BulkImportUser, TestApplications.NativeClient);
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
@@ -66,6 +71,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             await ImportCheckAsync(request, tempClient);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                Assert.NotNull(notification.DataSize);
+                Assert.Equal(resourceCount, notification.SucceedCount);
+                Assert.Equal(0, notification.FailedCount);
+            }
         }
 
         [Fact]
@@ -101,6 +119,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Fact]
         public async Task GivenImportOperationEnabled_WhenImportOperationTriggered_ThenDataShouldBeImported()
         {
+            _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
@@ -122,6 +141,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             await ImportCheckAsync(request);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                Assert.NotNull(notification.DataSize);
+                Assert.Equal(resourceCount, notification.SucceedCount);
+                Assert.Equal(0, notification.FailedCount);
+            }
         }
 
         [Fact]
@@ -163,6 +195,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
         [Fact]
         public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithoutEtag_ThenDataShouldBeImported()
         {
+            _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string _) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
@@ -183,11 +216,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             await ImportCheckAsync(request);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                Assert.NotNull(notification.DataSize);
+                Assert.Equal(resourceCount, notification.SucceedCount);
+                Assert.Equal(0, notification.FailedCount);
+            }
         }
 
         [Fact]
         public async Task GivenImportOperationEnabled_WhenImportResourceWithWrongType_ThenErrorLogShouldBeUploaded()
         {
+            _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
@@ -220,11 +267,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             ImportTaskResult result = JsonConvert.DeserializeObject<ImportTaskResult>(await response.Content.ReadAsStringAsync());
             Assert.Single(result.Error);
             Assert.NotEmpty(result.Error.First().Url);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                Assert.NotNull(notification.DataSize);
+                Assert.Equal(0, notification.SucceedCount);
+                Assert.Equal(resourceCount, notification.FailedCount);
+            }
         }
 
         [Fact]
         public async Task GivenImportOperationEnabled_WhenImportOperationTriggeredWithMultipleFiles_ThenDataShouldBeImported()
         {
+            _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-SinglePatientTemplate");
             string resourceId1 = Guid.NewGuid().ToString("N");
             string patientNdJsonResource1 = patientNdJsonResource.Replace("##PatientID##", resourceId1);
@@ -255,11 +316,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             await ImportCheckAsync(request);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count * 2;
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                Assert.NotNull(notification.DataSize);
+                Assert.Equal(resourceCount, notification.SucceedCount);
+                Assert.Equal(0, notification.FailedCount);
+            }
         }
 
         [Fact]
         public async Task GivenImportOperationEnabled_WhenImportInvalidResource_ThenErrorLogsShouldBeOutput()
         {
+            _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-InvalidPatient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
@@ -297,11 +372,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             string errorLoation = result.Error.ToArray()[0].Url;
             string[] errorContents = (await ImportTestHelper.DownloadFileAsync(errorLoation, _fixture.CloudStorageAccount)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
             Assert.Single(errorContents);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var resourceCount = Regex.Matches(patientNdJsonResource, "{\"resourceType\":").Count;
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Success.ToString(), notification.Status);
+                Assert.NotNull(notification.DataSize);
+                Assert.Equal(resourceCount, notification.SucceedCount);
+                Assert.Equal(1, notification.FailedCount);
+            }
         }
 
         [Fact]
         public async Task GivenImportOperationEnabled_WhenImportDuplicatedResource_ThenDupResourceShouldBeCleaned()
         {
+            _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-DupPatientTemplate");
             string resourceId = Guid.NewGuid().ToString("N");
             patientNdJsonResource = patientNdJsonResource.Replace("##PatientID##", resourceId);
@@ -328,11 +417,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 
             Patient patient = await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
             Assert.Equal(resourceId, patient.Id);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Equal(2, notificationList.Count);
+
+                var notification1 = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Success.ToString(), notification1.Status);
+                Assert.Equal(1, notification1.SucceedCount);
+                Assert.Equal(1, notification1.FailedCount);
+
+                var notification2 = notificationList[1] as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Success.ToString(), notification1.Status);
+                Assert.Equal(0, notification2.SucceedCount);
+                Assert.Equal(2, notification2.FailedCount);
+            }
         }
 
         [Fact]
         public async Task GivenImportOperationEnabled_WhenCancelImportTask_ThenTaskShouldBeCanceled()
         {
+            _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
@@ -354,14 +461,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             };
 
             Uri checkLocation = await ImportTestHelper.CreateImportTaskAsync(_client, request);
-            await _client.CancelImport(checkLocation);
+            var respone = await _client.CancelImport(checkLocation);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.CheckImportAsync(checkLocation));
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+
+            // wait task completed
+            while (respone.StatusCode != HttpStatusCode.Conflict)
+            {
+                respone = await _client.CancelImport(checkLocation);
+                await Task.Delay(TimeSpan.FromSeconds(3));
+            }
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Single(notificationList);
+                Assert.Equal(TaskResult.Canceled.ToString(), notification.Status);
+                Assert.Null(notification.SucceedCount);
+                Assert.Null(notification.FailedCount);
+            }
         }
 
         [Fact(Skip = "long running tests for invalid url")]
         public async Task GivenImportOperationEnabled_WhenImportInvalidResourceUrl_ThenBadRequestShouldBeReturned()
         {
+            _metricHandler?.ResetCount();
             var request = new ImportRequest()
             {
                 InputFormat = "application/fhir+ndjson",
@@ -389,11 +515,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                     }
                 });
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Fail.ToString(), notification.Status);
+                Assert.Null(notification.DataSize);
+                Assert.Null(notification.SucceedCount);
+                Assert.Null(notification.FailedCount);
+            }
         }
 
         [Fact]
         public async Task GivenImportOperationEnabled_WhenImportInvalidETag_ThenBadRequestShouldBeReturned()
         {
+            _metricHandler?.ResetCount();
             string patientNdJsonResource = Samples.GetNdJson("Import-Patient");
             patientNdJsonResource = Regex.Replace(patientNdJsonResource, "##PatientID##", m => Guid.NewGuid().ToString("N"));
             (Uri location, string etag) = await ImportTestHelper.UploadFileAsync(patientNdJsonResource, _fixture.CloudStorageAccount);
@@ -426,6 +565,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
                     }
                 });
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
+
+            // Only check metric for local tests
+            if (_fixture.IsUsingInProcTestServer)
+            {
+                var notificationList = _metricHandler.NotificationMapping[typeof(ImportTaskMetricsNotification)];
+                Assert.Single(notificationList);
+                var notification = notificationList.First() as ImportTaskMetricsNotification;
+                Assert.Equal(TaskResult.Fail.ToString(), notification.Status);
+                Assert.Null(notification.DataSize);
+                Assert.Null(notification.SucceedCount);
+                Assert.Null(notification.FailedCount);
+            }
         }
 
         [Fact]
