@@ -237,6 +237,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("TableType", "[dbo].[BulkStringSearchParamTableType_1]"),
                 ("TableType", "[dbo].[BulkStringSearchParamTableType_2]"),
                 ("TableType", "[dbo].[BulkTokenStringCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkNumberNumberSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkQuantitySearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkReferenceSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkReferenceTokenCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkTokenDateTimeCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkTokenNumberNumberCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkTokenQuantityCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkTokenSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkTokenTextSearchParamTableType_1]"),
+                ("TableType", "[dbo].[BulkTokenTokenCompositeSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(

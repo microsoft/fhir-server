@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
             FillColumn(newRow, VLatest.TokenText.Text.Metadata.Name, searchParam.Text);
+            FillColumn(newRow, VLatest.TokenText.TextHash.Metadata.Name, searchParam.TextHash);
 
             table.Rows.Add(newRow);
         }
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenText.Text.Metadata.Name, VLatest.TokenText.Text.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+            table.Columns.Add(new DataColumn(VLatest.TokenText.TextHash.Metadata.Name, VLatest.TokenText.TextHash.Metadata.SqlDbType.GetGeneralType()));
         }
 
         internal static IEnumerable<BulkTokenTextTableTypeV2Row> Distinct(IEnumerable<BulkTokenTextTableTypeV2Row> input)

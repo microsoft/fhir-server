@@ -1055,7 +1055,7 @@ BEGIN
         SystemId1,
         SystemId2
     )
-    WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
+    WHERE IsHistory = 0
     WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END;
@@ -1079,7 +1079,7 @@ BEGIN
         SystemId1,
         SystemId2
     )
-    WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
+    WHERE IsHistory = 0 AND
     WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END;
