@@ -14,8 +14,7 @@
     HasRange bit NOT NULL,
     IsHistory bit NOT NULL,
     CONSTRAINT PK_TokenNumberNumberCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, LowValue2, HighValue2, LowValue3, HighValue3)
-    WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+    WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.TokenNumberNumberCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )

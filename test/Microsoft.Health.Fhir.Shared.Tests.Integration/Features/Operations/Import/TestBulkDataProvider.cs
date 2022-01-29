@@ -199,10 +199,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             TokenTextSearchParamsTableBulkCopyDataGenerator generator = new TokenTextSearchParamsTableBulkCopyDataGenerator();
 
             DataTable result = generator.GenerateDataTable();
+            byte[] textHash;
+
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                textHash = sha256.ComputeHash(Encoding.Unicode.GetBytes(string.Empty));
+            }
 
             for (int i = 0; i < count; ++i)
             {
-                TokenTextSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenTextTableTypeV1Row(0, 0, string.Empty));
+                TokenTextSearchParamsTableBulkCopyDataGenerator.FillDataTable(result, resoureType, startSurrogatedId + i, new BulkTokenTextTableTypeV2Row(0, 0, string.Empty, textHash));
             }
 
             return result;

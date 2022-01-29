@@ -7,8 +7,7 @@
     Code                        varchar(128)            COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory                   bit                     NOT NULL,
     CONSTRAINT PK_TokenSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code)
-    WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+    WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.TokenSearchParam SET ( LOCK_ESCALATION = AUTO )

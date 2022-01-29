@@ -1,5 +1,4 @@
-﻿
-CREATE TABLE dbo.StringSearchParam
+﻿CREATE TABLE dbo.StringSearchParam
 (
     ResourceTypeId              smallint            NOT NULL,
     ResourceSurrogateId         bigint              NOT NULL,
@@ -11,8 +10,7 @@ CREATE TABLE dbo.StringSearchParam
     IsMax bit CONSTRAINT string_IsMax_Constraint DEFAULT 0 NOT NULL,
     TextHash binary(32) NOT NULL,
     CONSTRAINT PK_StringSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, TextHash)
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId),
+    WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.StringSearchParam SET ( LOCK_ESCALATION = AUTO )

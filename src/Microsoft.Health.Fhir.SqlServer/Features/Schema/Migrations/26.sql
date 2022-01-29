@@ -104,6 +104,12 @@ CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE (
     SearchParamId SMALLINT       NOT NULL,
     Text          NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL);
 
+CREATE TYPE dbo.BulkTokenTextTableType_2 AS TABLE (
+    Offset        INT            NOT NULL,
+    SearchParamId SMALLINT       NOT NULL,
+    Text          NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL,
+    TextHash      BINARY (32)    NOT NULL);
+
 CREATE TYPE dbo.BulkStringSearchParamTableType_1 AS TABLE (
     Offset        INT            NOT NULL,
     SearchParamId SMALLINT       NOT NULL,
@@ -842,14 +848,12 @@ CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Cod
 
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_LowValue2_HighValue2
     ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, LowValue2, HighValue2, ResourceSurrogateId)
-    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
-                                                         AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE NONCLUSTERED INDEX IX_TokenQuantityCompositeSearchParam_SearchParamId_Code1_QuantityCodeId2_HighValue2_LowValue2
     ON dbo.TokenQuantityCompositeSearchParam(ResourceTypeId, SearchParamId, Code1, HighValue2, LowValue2, ResourceSurrogateId)
-    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0
-                                                         AND LowValue2 IS NOT NULL WITH (DATA_COMPRESSION = PAGE)
+    INCLUDE(QuantityCodeId2, SystemId1, SystemId2) WHERE IsHistory = 0 WITH (DATA_COMPRESSION = PAGE)
     ON PartitionScheme_ResourceTypeId (ResourceTypeId);
 
 CREATE TABLE dbo.TokenSearchParam (
@@ -909,7 +913,8 @@ CREATE TABLE dbo.TokenText (
     SearchParamId       SMALLINT       NOT NULL,
     Text                NVARCHAR (400) COLLATE Latin1_General_CI_AI NOT NULL,
     IsHistory           BIT            NOT NULL,
-    CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
+    TextHash            BINARY (32)    NOT NULL,
+    CONSTRAINT PK_TokenText PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, TextHash) WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId (ResourceTypeId)
 );
 
 ALTER TABLE dbo.TokenText SET (LOCK_ESCALATION = AUTO);

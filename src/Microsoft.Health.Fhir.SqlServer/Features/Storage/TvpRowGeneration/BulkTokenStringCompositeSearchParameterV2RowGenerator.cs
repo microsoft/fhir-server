@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             if (_tokenRowGenerator.TryGenerateRow(default, default, searchValue.component1, out var token1Row) &&
                 _stringV2RowGenerator.TryGenerateRow(default, default, searchValue.component2, out var string2Row))
             {
-                var hashText = string2Row.TextOverflow != null ? string2Row.TextOverflow : string2Row.Text;
+                var hashText = string2Row.TextOverflow ?? string2Row.Text;
                 byte[] computedHash = _sha256.ComputeHash(Encoding.Unicode.GetBytes(hashText));
 
                 row = new BulkTokenStringCompositeSearchParamTableTypeV2Row(
@@ -47,8 +47,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                     token1Row.SystemId,
                     token1Row.Code,
                     string2Row.Text,
-                    TextOverflow2: string2Row.TextOverflow,
-                    TextHash2: computedHash);
+                    string2Row.TextOverflow,
+                    computedHash);
 
                 return true;
             }

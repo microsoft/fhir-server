@@ -12,8 +12,7 @@
     HighValue2 decimal(18,6) NOT NULL,
     IsHistory bit NOT NULL,
     CONSTRAINT PK_TokenQuantityCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, QuantityCodeId2, LowValue2, HighValue2)
-    WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+    WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.TokenQuantityCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )
@@ -63,7 +62,7 @@ INCLUDE
     SystemId1,
     SystemId2
 )
-WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 
@@ -83,6 +82,6 @@ INCLUDE
     SystemId1,
     SystemId2
 )
-WHERE IsHistory = 0 AND LowValue2 IS NOT NULL
+WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)
 ON PartitionScheme_ResourceTypeId(ResourceTypeId)

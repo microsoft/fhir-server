@@ -16,20 +16,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 {
     internal class TokenTextSearchParamsTableBulkCopyDataGenerator : SearchParamtersTableBulkCopyDataGenerator
     {
-        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenTextTableTypeV1Row> _searchParamGenerator;
+        private ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenTextTableTypeV2Row> _searchParamGenerator;
 
         internal TokenTextSearchParamsTableBulkCopyDataGenerator()
         {
         }
 
-        public TokenTextSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenTextTableTypeV1Row> searchParamGenerator)
+        public TokenTextSearchParamsTableBulkCopyDataGenerator(ITableValuedParameterRowGenerator<IReadOnlyList<ResourceWrapper>, BulkTokenTextTableTypeV2Row> searchParamGenerator)
         {
             EnsureArg.IsNotNull(searchParamGenerator, nameof(searchParamGenerator));
 
             _searchParamGenerator = searchParamGenerator;
         }
 
-        internal static BulkTokenTextTableTypeV1RowComparer Comparer { get; } = new BulkTokenTextTableTypeV1RowComparer();
+        internal static BulkTokenTextTableTypeV2RowComparer Comparer { get; } = new BulkTokenTextTableTypeV2RowComparer();
 
         internal override string TableName
         {
@@ -44,15 +44,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             EnsureArg.IsNotNull(table, nameof(table));
             EnsureArg.IsNotNull(input, nameof(input));
 
-            IEnumerable<BulkTokenTextTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
+            IEnumerable<BulkTokenTextTableTypeV2Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkTokenTextTableTypeV1Row searchParam in Distinct(searchParams))
+            foreach (BulkTokenTextTableTypeV2Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
         }
 
-        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkTokenTextTableTypeV1Row searchParam)
+        internal static void FillDataTable(DataTable table, short resourceTypeId, long resourceSurrogateId, BulkTokenTextTableTypeV2Row searchParam)
         {
             DataRow newRow = CreateNewRowWithCommonProperties(table, resourceTypeId, resourceSurrogateId, searchParam.SearchParamId);
             FillColumn(newRow, VLatest.TokenText.Text.Metadata.Name, searchParam.Text);
@@ -70,14 +70,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
         }
 
-        internal static IEnumerable<BulkTokenTextTableTypeV1Row> Distinct(IEnumerable<BulkTokenTextTableTypeV1Row> input)
+        internal static IEnumerable<BulkTokenTextTableTypeV2Row> Distinct(IEnumerable<BulkTokenTextTableTypeV2Row> input)
         {
             return input.Distinct(Comparer);
         }
 
-        internal class BulkTokenTextTableTypeV1RowComparer : IEqualityComparer<BulkTokenTextTableTypeV1Row>
+        internal class BulkTokenTextTableTypeV2RowComparer : IEqualityComparer<BulkTokenTextTableTypeV2Row>
         {
-            public bool Equals(BulkTokenTextTableTypeV1Row x, BulkTokenTextTableTypeV1Row y)
+            public bool Equals(BulkTokenTextTableTypeV2Row x, BulkTokenTextTableTypeV2Row y)
             {
                 if (x.SearchParamId == y.SearchParamId && string.Equals(x.Text, y.Text, StringComparison.OrdinalIgnoreCase))
                 {
@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                 return false;
             }
 
-            public int GetHashCode(BulkTokenTextTableTypeV1Row obj)
+            public int GetHashCode(BulkTokenTextTableTypeV2Row obj)
             {
                 int hashCode = obj.SearchParamId.GetHashCode() ^ (string.IsNullOrEmpty(obj.Text) ? 0 : obj.Text.GetHashCode(StringComparison.OrdinalIgnoreCase));
                 return hashCode.GetHashCode();

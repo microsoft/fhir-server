@@ -68,6 +68,14 @@ CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
 )
 
+CREATE TYPE dbo.BulkTokenTextTableType_2 AS TABLE
+(
+    Offset int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL,
+    TextHash binary(32) NOT NULL
+)
+
 /*************************************************************
     String Search Param
 **************************************************************/

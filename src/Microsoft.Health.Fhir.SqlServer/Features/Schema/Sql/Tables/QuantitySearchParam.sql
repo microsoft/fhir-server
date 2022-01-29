@@ -8,10 +8,9 @@
     SingleValue decimal(18,6) NULL,
     LowValue decimal(18,6) NOT NULL,
     HighValue decimal(18,6) NOT NULL,
+    IsHistory bit NOT NULL,
     CONSTRAINT PK_QuantitySearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, QuantityCodeId, HighValue, LowValue)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
-    IsHistory bit NOT NULL
+	WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.QuantitySearchParam SET ( LOCK_ESCALATION = AUTO )

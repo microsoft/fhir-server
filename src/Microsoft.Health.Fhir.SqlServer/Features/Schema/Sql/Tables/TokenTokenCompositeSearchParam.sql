@@ -9,8 +9,7 @@
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     IsHistory bit NOT NULL,
     CONSTRAINT PK_TokenTokenCompositeSearchParam PRIMARY KEY NONCLUSTERED(ResourceSurrogateId, SearchParamId, ResourceTypeId, SystemId1, Code1, SystemId2, Code2)
-    WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+    WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.TokenTokenCompositeSearchParam SET ( LOCK_ESCALATION = AUTO )

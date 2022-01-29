@@ -1,5 +1,4 @@
-﻿
-CREATE TABLE dbo.ReferenceSearchParam
+﻿CREATE TABLE dbo.ReferenceSearchParam
 (
     ResourceTypeId                      smallint                NOT NULL,
     ResourceSurrogateId                 bigint                  NOT NULL,
@@ -9,9 +8,8 @@ CREATE TABLE dbo.ReferenceSearchParam
     ReferenceResourceId                 varchar(64)             COLLATE Latin1_General_100_CS_AS NOT NULL,
     ReferenceResourceVersion            int                     NULL,
     IsHistory                           bit                     NOT NULL,
-    CONSTRAINT PK_ReferenceSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId )
-    WITH (DATA_COMPRESSION = PAGE)
-    ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+    CONSTRAINT PK_ReferenceSearchParam PRIMARY KEY NONCLUSTERED (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId)
+    WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.ReferenceSearchParam SET ( LOCK_ESCALATION = AUTO )

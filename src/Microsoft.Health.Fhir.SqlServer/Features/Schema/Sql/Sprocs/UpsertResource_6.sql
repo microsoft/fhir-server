@@ -85,7 +85,7 @@ CREATE PROCEDURE dbo.UpsertResource_6
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
     @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY,
     @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY,
-    @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
+    @tokenTextSearchParams dbo.BulkTokenTextTableType_2 READONLY,
     @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY,
     @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY,
     @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY,
@@ -324,12 +324,13 @@ SELECT DISTINCT @resourceTypeId,
                 Code,
                 0
 FROM   @tokenSearchParams;
-INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
+INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory, TextHash)
 SELECT DISTINCT @resourceTypeId,
                 @resourceSurrogateId,
                 SearchParamId,
                 Text,
-                0
+                0,
+                TextHash
 FROM   @tokenTextSearchParams;
 INSERT INTO dbo.StringSearchParam (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory, IsMin, IsMax, TextHash)
 SELECT DISTINCT @resourceTypeId,

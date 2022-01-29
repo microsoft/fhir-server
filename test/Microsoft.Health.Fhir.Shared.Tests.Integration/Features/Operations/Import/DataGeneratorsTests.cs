@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -104,17 +106,21 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         [Fact]
         public void GivenListTokenTextSearchParams_WhenDinstict_ThenRecordShouldBeDistinctCaseInsensitive()
         {
-            List<BulkTokenTextTableTypeV1Row> input = new List<BulkTokenTextTableTypeV1Row>()
-            {
-                new BulkTokenTextTableTypeV1Row(0, 1, "test"),
-                new BulkTokenTextTableTypeV1Row(0, 1, "Test"),
-                new BulkTokenTextTableTypeV1Row(0, 2, "Test"),
-                new BulkTokenTextTableTypeV1Row(0, 2, null),
-                new BulkTokenTextTableTypeV1Row(0, 3, "Test"),
-                new BulkTokenTextTableTypeV1Row(0, 3, string.Empty),
-            };
+            List<BulkTokenTextTableTypeV2Row> input;
 
-            Assert.Equal(5, TokenTextSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                input = new List<BulkTokenTextTableTypeV2Row>()
+                {
+                    new BulkTokenTextTableTypeV2Row(0, 1, "test", sha256.ComputeHash(Encoding.Unicode.GetBytes("test"))),
+                    new BulkTokenTextTableTypeV2Row(0, 1, "Test", sha256.ComputeHash(Encoding.Unicode.GetBytes("Test"))),
+                    new BulkTokenTextTableTypeV2Row(0, 2, "Test", sha256.ComputeHash(Encoding.Unicode.GetBytes("Test"))),
+                    new BulkTokenTextTableTypeV2Row(0, 3, "Test", sha256.ComputeHash(Encoding.Unicode.GetBytes("Test"))),
+                    new BulkTokenTextTableTypeV2Row(0, 3, string.Empty, sha256.ComputeHash(Encoding.Unicode.GetBytes(string.Empty))),
+                };
+            }
+
+            Assert.Equal(4, TokenTextSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
         }
 
         [Fact]

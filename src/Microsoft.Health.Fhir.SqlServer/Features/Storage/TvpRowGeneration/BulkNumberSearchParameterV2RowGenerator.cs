@@ -23,8 +23,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 offset,
                 searchParamId,
                 singleValue.HasValue ? singleValue : null,
-                (decimal)(singleValue.HasValue ? singleValue : searchValue.Low ?? (decimal?)VLatest.NumberSearchParam.LowValue.MinValue),
-                (decimal)(singleValue.HasValue ? singleValue : searchValue.High ?? (decimal?)VLatest.NumberSearchParam.HighValue.MaxValue));
+                (decimal)(singleValue.HasValue ? singleValue : searchValue.Low ?? VLatest.NumberSearchParam.LowValue.MinValue),
+                (decimal)(singleValue.HasValue ? singleValue : searchValue.High ?? VLatest.NumberSearchParam.HighValue.MaxValue));
 
             return true;
         }

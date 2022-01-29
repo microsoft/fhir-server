@@ -10,8 +10,7 @@
     IsMin bit CONSTRAINT date_IsMin_Constraint DEFAULT 0 NOT NULL,
     IsMax bit CONSTRAINT date_IsMax_Constraint DEFAULT 0 NOT NULL,
     CONSTRAINT PK_DateTimeSearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime)
-    WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId)
+    WITH (DATA_COMPRESSION = PAGE) ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 )
 
 ALTER TABLE dbo.DateTimeSearchParam SET ( LOCK_ESCALATION = AUTO )

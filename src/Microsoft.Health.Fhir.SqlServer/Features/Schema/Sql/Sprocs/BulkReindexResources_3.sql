@@ -50,7 +50,7 @@ CREATE PROCEDURE dbo.BulkReindexResources_3
     @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
     @referenceSearchParams dbo.BulkReferenceSearchParamTableType_2 READONLY,
     @tokenSearchParams dbo.BulkTokenSearchParamTableType_2 READONLY,
-    @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
+    @tokenTextSearchParams dbo.BulkTokenTextTableType_2 READONLY,
     @stringSearchParams dbo.BulkStringSearchParamTableType_3 READONLY,
     @numberSearchParams dbo.BulkNumberSearchParamTableType_2 READONLY,
     @quantitySearchParams dbo.BulkQuantitySearchParamTableType_2 READONLY,
@@ -248,12 +248,13 @@ FROM   @tokenSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex
        ON searchIndex.Offset = resourceToReindex.Offset;
-INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
+INSERT INTO dbo.TokenText (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory, TextHash)
 SELECT DISTINCT resourceToReindex.ResourceTypeId,
                 resourceToReindex.ResourceSurrogateId,
                 searchIndex.SearchParamId,
                 searchIndex.Text,
-                0
+                0,
+                searchIndex.TextHash
 FROM   @tokenTextSearchParams AS searchIndex
        INNER JOIN
        @computedValues AS resourceToReindex

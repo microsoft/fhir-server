@@ -259,7 +259,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new InvalidOperationException($"Unexpected missing field {expression.FieldName}");
             }
 
-            if (context.SchemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyPart2)
+            if (context.SchemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyForSearchParameterTables)
             {
                 // With version 26 - AddPrimaryKeyPart2, SystemId, QuantityCodeId and ReferenceResourceTypeId are marked as NOT NULL with default value as 0. Tables are back-filled with Id 0 instead of NULL
                 switch (expression.FieldName)

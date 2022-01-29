@@ -26,8 +26,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 string.IsNullOrWhiteSpace(searchValue.System) ? SqlSearchConstants.NullId : Model.GetSystemId(searchValue.System),
                 string.IsNullOrWhiteSpace(searchValue.Code) ? SqlSearchConstants.NullId : Model.GetQuantityCodeId(searchValue.Code),
                 singleValue.HasValue ? singleValue : null,
-                (decimal)(singleValue.HasValue ? singleValue : searchValue.Low ?? (decimal?)VLatest.QuantitySearchParam.LowValue.MinValue),
-                (decimal)(singleValue.HasValue ? singleValue : searchValue.High ?? (decimal?)VLatest.QuantitySearchParam.HighValue.MaxValue));
+                (decimal)(singleValue.HasValue ? singleValue : searchValue.Low ?? VLatest.QuantitySearchParam.LowValue.MinValue),
+                (decimal)(singleValue.HasValue ? singleValue : searchValue.High ?? VLatest.QuantitySearchParam.HighValue.MaxValue));
 
             return true;
         }
