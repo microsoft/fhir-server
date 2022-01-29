@@ -287,6 +287,62 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateQuantitySearchParam_ThenServerShouldRespondSuccessfully()
+        {
+            var observation = Samples.GetJsonSample("ObservationWithDuplicateQuantityValue").ToPoco<Observation>();
+
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateNumberSearchParam_ThenServerShouldRespondSuccessfully()
+        {
+            var riskAssessment = Samples.GetJsonSample("RiskAssessmentWithDuplicateNumberValue").ToPoco<RiskAssessment>();
+
+            using FhirResponse<RiskAssessment> response = await _client.CreateAsync(riskAssessment);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateUriSearchParam_ThenServerShouldRespondSuccessfully()
+        {
+            var observation = Samples.GetJsonSample("ObservationWithBloodPressure").ToPoco<Observation>();
+            var profile = new List<string>()
+            {
+                "http://hl7.org/fhir/StructureDefinition/vitalsigns",
+                "http://hl7.org/fhir/StructureDefinition/vitalsigns",
+            };
+            observation.Meta.Profile = profile;
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateCompartmentAssignment_ThenServerShouldRespondSuccessfully()
+        {
+            var observation = Samples.GetJsonSample("Observation-For-Patient-f001").ToPoco<Observation>();
+            var resourceReference = new List<ResourceReference>()
+            {
+                new ResourceReference("Practitioner/f006", "display1"),
+                new ResourceReference("Practitioner/f006", "display2"),
+                new ResourceReference("Practitioner/f006", string.Empty),
+                new ResourceReference("Practitioner/f006"),
+            };
+            observation.Performer = resourceReference;
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
         /// <summary>
         /// Malicious Url Data Source
         /// </summary>

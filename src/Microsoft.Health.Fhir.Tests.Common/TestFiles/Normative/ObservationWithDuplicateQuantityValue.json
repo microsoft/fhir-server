@@ -1,0 +1,65 @@
+﻿{
+    "resourceType": "Observation",
+    "status": "final",
+    "code": {
+        "coding": [
+            {
+                "code": "29463-7",
+                "display": "Body Weight"
+            }
+        ]
+    },
+    "component": [
+        {
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://loinc.org",
+                        "code": "20564-1",
+                        "display": "Oxygen saturation in blood"
+                    }
+                ]
+            },
+            "valueQuantity": {
+                "value": 20,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org",
+                "code": "%"
+            }
+        },
+        {
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://loinc.org",
+                        "code": "8310-5",
+                        "display": "Body temperature"
+                    }
+                ]
+            },
+            "valueQuantity": {
+                "value": 20,
+                "unit": "C",
+                "system": "http://unitsofmeasure.org",
+                "code": "Cel"
+            }
+        },
+        {
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://loinc.org",
+                        "code": "8310-5",
+                        "display": "Body temperature"
+                    }
+                ]
+            },
+            "valueQuantity": {
+                "value": 20,
+                "unit": "C",
+                "system": "http://unitsofmeasure.org",
+                "code": "Cel"
+            }
+        }
+    ]
+}

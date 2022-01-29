@@ -45,11 +45,13 @@
     <None Remove="TestFiles\Normative\Import-Patient.ndjson" />
     <None Remove="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
     <None Remove="TestFiles\Normative\MoneyWithWrongDecimal.json" />
+    <None Remove="TestFiles\Normative\ObservationWithDuplicateQuantityValue.json" />
     <None Remove="TestFiles\Normative\Profile-CarePlan-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
     <None Remove="TestFiles\Normative\Profile-Organization-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
+    <None Remove="TestFiles\Normative\RiskAssessmentWithDuplicateNumberValue.json" />
     <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
@@ -259,6 +261,8 @@
     <EmbeddedResource Include="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\RiskAssessmentWithDuplicateNumberValue.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithDuplicateQuantityValue.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />
