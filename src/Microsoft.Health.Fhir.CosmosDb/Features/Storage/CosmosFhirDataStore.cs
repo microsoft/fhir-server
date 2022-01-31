@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
         private static readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager = new();
         private readonly CoreFeatureConfiguration _coreFeatures;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
@@ -74,6 +75,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
         /// <param name="supportedSearchParameters">The supported search parameters</param>
+        /// <param name="modelInfoProvider">The model info provider to determine the FHIR version when handling resource conflicts.</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -82,7 +84,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
             IOptions<CoreFeatureConfiguration> coreFeatures,
-            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters)
+            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -100,6 +103,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
             _supportedSearchParameters = supportedSearchParameters;
             _coreFeatures = coreFeatures.Value;
+            _modelInfoProvider = modelInfoProvider;
         }
 
         public async Task<UpsertOutcome> UpsertAsync(
@@ -145,9 +149,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
             }
 
+            // If the versioning policy is set to versioned-update and no if-match header is provided
             if (requireETagOnUpdate && weakETag == null)
             {
-                throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Client Error
+                if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                {
+                    throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                }
+
+                throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
             }
 
             while (true)
@@ -184,6 +195,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
                 {
+                    // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
+                    if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                    {
+                        throw new ResourceConflictException(weakETag);
+                    }
+
                     throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                 }
 
