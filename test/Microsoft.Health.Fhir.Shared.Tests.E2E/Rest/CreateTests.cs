@@ -287,11 +287,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("ObservationWithDuplicateQuantityValue")]
+        [InlineData("ObservationWithDuplicateTextQuantityAndTokenSearchValue")]
+        [InlineData("ObservationWithDuplicateTokenTokenCompositeSearchValue")]
+        [InlineData("ObservationWithDuplicateDateTimeSearchValues")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenPostingToHttpWithDuplicateQuantitySearchParam_ThenServerShouldRespondSuccessfully()
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateSearchParam_ThenServerShouldRespondSuccessfully(string filename)
         {
-            var observation = Samples.GetJsonSample("ObservationWithDuplicateQuantityValue").ToPoco<Observation>();
+            // ObservationWithDuplicateTextQuantityAndTokenSearchValue - Duplicate values for TokenText, ReferenceSearchParam, TokenQuantityCompositeSearchParam and TokenSearchParam
+            // ObservationWithDuplicateTokenTokenCompositeSearchValue - Duplicate values for TokenTokenCompositeSearchParam
+            // ObservationWithDuplicateDateTimeSearchValues - Duplicate values for DateTimeSearchParam and TokenDateTimeCompositeSearchParam
+
+            var observation = Samples.GetJsonSample(filename).ToPoco<Observation>();
 
             using FhirResponse<Observation> response = await _client.CreateAsync(observation);
 
@@ -305,6 +313,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var riskAssessment = Samples.GetJsonSample("RiskAssessmentWithDuplicateNumberValue").ToPoco<RiskAssessment>();
 
             using FhirResponse<RiskAssessment> response = await _client.CreateAsync(riskAssessment);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+#if !Stu3
+        // For Stu3 - MolecularSEquence is unavailable
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateTokenNumberNumberCompositeSearchParam_ThenServerShouldRespondSuccessfully()
+        {
+            // Posts a request with duplicate values for TokenNumberNumberCompositeSearchParam
+            var molecularSequence = Samples.GetJsonSample("MolecularSequenceWithDuplicateTokenNumberNumberCompositeValues").ToPoco<Resource>();
+
+            using FhirResponse<Resource> response = await _client.CreateAsync(molecularSequence);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+#endif
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateReferenceTokenCompositeSearchParam_ThenServerShouldRespondSuccessfully()
+        {
+            // Posts a request with duplicate values for ReferenceTokenCompositeSearchParam
+            var documentReference = Samples.GetJsonSample("DocumentReferenceWithDuplicateReferenceTokenCompositeSearchValues").ToPoco<DocumentReference>();
+
+            using FhirResponse<DocumentReference> response = await _client.CreateAsync(documentReference);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenPostingToHttpWithDuplicateTokenStringCompositeSearchParam_ThenServerShouldRespondSuccessfully()
+        {
+            // Posts a request with duplicate values for TokenStringCompositeSearchParam
+            var observation = Samples.GetJsonSample("ObservationWithLongEyeColor").ToPoco<Observation>();
+
+            var codings = new List<Coding>()
+            {
+                new Coding("http://snomed.info/sct", "162806009"),
+                new Coding(string.Empty, "162806009"),
+                new Coding(null, "162806008"),
+            };
+            observation.Code.Coding = codings;
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }

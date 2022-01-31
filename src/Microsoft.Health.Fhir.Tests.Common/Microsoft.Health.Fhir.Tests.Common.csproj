@@ -40,6 +40,7 @@
     <None Remove="TestFiles\Normative\CarePlan.json" />
     <None Remove="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <None Remove="TestFiles\Normative\Coverage.json" />
+    <None Remove="TestFiles\Normative\DocumentReferenceWithDuplicateReferenceTokenCompositeSearchValues.json" />
     <None Remove="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
     <None Remove="TestFiles\Normative\Import-InvalidPatient.ndjson" />
     <None Remove="TestFiles\Normative\Import-Patient.ndjson" />
@@ -127,10 +128,14 @@
     <None Remove="TestFiles\Normative\Bundle-TransactionWithValidBundleEntry.json" />
     <None Remove="TestFiles\Normative\Bundle-TypeMissing.json" />
     <None Remove="TestFiles\Normative\list-example-long.json" />
+    <None Remove="TestFiles\Normative\MolecularSequenceWithDuplicateTokenNumberNumberCompositeValues.json" />
     <None Remove="TestFiles\Normative\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\Normative\ObservationWith20MinuteApgarScore.json" />
     <None Remove="TestFiles\Normative\ObservationWithBloodPressure.json" />
+    <None Remove="TestFiles\Normative\ObservationWithDuplicateDateTimeSearchValues.json" />
+    <None Remove="TestFiles\Normative\ObservationWithDuplicateTextQuantityAndTokenSearchValue.json" />
+    <None Remove="TestFiles\Normative\ObservationWithDuplicateTokenTokenCompositeSearchValue.json" />
     <None Remove="TestFiles\Normative\ObservationWithEyeColor.json" />
     <None Remove="TestFiles\Normative\ObservationWithInvalidStatus.json" />
     <None Remove="TestFiles\Normative\ObservationWithInvalidStatus.xml" />
@@ -210,11 +215,13 @@
     <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.json" />
+    <None Remove="TestFiles\Stu3\DocumentReferenceWithDuplicateReferenceTokenCompositeSearchValues.json" />
     <None Remove="TestFiles\Stu3\Immunization.json" />
     <None Remove="TestFiles\Stu3\Location-example-hq.json" />
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
     <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
     <None Remove="TestFiles\Stu3\ProvenanceHeader.json" />
+    <None Remove="TestFiles\Stu3\RiskAssessmentWithDuplicateNumberValue.json" />
     <None Remove="TestFiles\Stu3\Sequence.json" />
     <None Remove="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
     <None Remove="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />
@@ -257,6 +264,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Bundle-BinaryPatch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\Coverage.json" />
+    <EmbeddedResource Include="TestFiles\Normative\DocumentReferenceWithDuplicateReferenceTokenCompositeSearchValues.json" />
     <EmbeddedResource Include="TestFiles\Normative\Import-InvalidPatient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
@@ -276,6 +284,7 @@
     <EmbeddedResource Include="TestFiles\R4\CarePlan.json" />
     <EmbeddedResource Include="TestFiles\Normative\CodeSystem-careplan-category.json" />
     <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
+    <EmbeddedResource Include="TestFiles\Normative\MolecularSequenceWithDuplicateTokenNumberNumberCompositeValues.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Batch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBack.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithAllValidRoutes.json" />
@@ -297,6 +306,9 @@
     <EmbeddedResource Include="TestFiles\Normative\ObservationWith1MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWith20MinuteApgarScore.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithBloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithDuplicateDateTimeSearchValues.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithDuplicateTextQuantityAndTokenSearchValue.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithDuplicateTokenTokenCompositeSearchValue.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithLongEyeColor.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithEyeColor.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.json" />
@@ -406,6 +418,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReferenceWithDuplicateReferenceTokenCompositeSearchValues.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Immunization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\InvalidObservation.json" />
@@ -431,6 +444,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ResourceWrapperNoVersion.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ProvenanceHeader.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\RiskAssessmentWithDuplicateNumberValue.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Sequence.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-careplan.json" />

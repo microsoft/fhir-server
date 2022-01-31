@@ -1,0 +1,58 @@
+﻿{
+    "resourceType": "Observation",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p></div>"
+    },
+    "status": "final",
+    "category": [
+        {
+            "coding": [
+                {
+                    "system": "http://hl7.org/fhir/observation-category",
+                    "code": "vital-signs",
+                    "display": "Vital Signs"
+                }
+            ]
+        }
+    ],
+    "code": {
+        "coding": [
+            {
+                "code": "29463-7",
+                "display": "Body Weight"
+            },
+            {
+                "code": "29463-7",
+                "display": "Body Weight"
+            },
+            {
+                "system": "http://acme.org/devices/clinical-codes",
+                "code": "29463-8",
+                "display": "Body Weight"
+            },
+            {
+                "system": "",
+                "code": "29463-8",
+                "display": "Body Weight"
+            },
+            {
+                "system": "",
+                "code": "29463-8",
+                "display": "Body Weight"
+            },
+            {
+                "code": "29463-9",
+                "display": "Body Weight"
+            }
+        ]
+    },
+    "subject": {
+        "reference": "Patient/example"
+    },
+    "effectiveDateTime": "2015-01-01",
+    "valuePeriod": {
+        "start": "2016-03-28",
+        "end": "2019-04-21"
+    }
+}

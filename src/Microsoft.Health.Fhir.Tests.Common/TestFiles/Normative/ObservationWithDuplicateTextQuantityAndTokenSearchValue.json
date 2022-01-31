@@ -1,0 +1,195 @@
+﻿{
+    "resourceType": "Observation",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p></div>"
+    },
+    "status": "final",
+    "category": [
+        {
+            "coding": [
+                {
+                    "system": "http://hl7.org/fhir/observation-category",
+                    "code": "vital-signs",
+                    "display": "Vital Signs"
+                }
+            ]
+        }
+    ],
+    "code": {
+        "coding": [
+            {
+                "code": "29463-7",
+                "display": "Body Weight with same text & code without system"
+            },
+            {
+                "code": "29463-7",
+                "display": "Body Weight with same text & code without system"
+            },
+            {
+                "code": "29463-6",
+                "display": "body weight with different casing text without system"
+            },
+            {
+                "code": "29463-6",
+                "display": "BODY WEIGHT with different casing text without system"
+            },
+            {
+                "system": "http://loinc.org/test",
+                "code": "29463-8",
+                "display": "Body Weight with identitcal coding"
+            },
+            {
+                "system": "http://loinc.org/test",
+                "code": "29463-8",
+                "display": "Body Weight with identitcal coding"
+            },
+            {
+                "system": "http://loinc.org",
+                "code": "29463-1",
+                "display": "Body Weight same text & system but different code"
+            },
+            {
+                "system": "http://loinc.org",
+                "code": "29463-2",
+                "display": "Body Weight same text & system but different code"
+            },
+            {
+                "system": "http://loinc.org/test1",
+                "code": "3141-9",
+                "display": "Body Weight Measured with and without system"
+            },
+            {
+                "system": "",
+                "code": "3141-9",
+                "display": "Body Weight Measured with and without system"
+            },
+            {
+                "system": "http://loinc.org/test2",
+                "code": "",
+                "display": ""
+            },
+            {
+                "system": "",
+                "code": "",
+                "display": ""
+            },
+            {
+                "system": "http://loinc.org",
+                "code": "3141-8"
+            },
+            {
+                "system": "http://snomed.info/sct",
+                "code": "27113001",
+                "display": "Body weight"
+            },
+            {
+                "system": "http://acme.org/devices/clinical-codes",
+                "code": "body-weight",
+                "display": "Body Weight"
+            },
+            {
+                "system": "http://healthvault.com/vocabularies/vital-statistics",
+                "code": "Wgt",
+                "display": "Body Weight"
+            }
+        ]
+    },
+    "component": [
+        {
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://loinc.org",
+                        "code": "20564-1",
+                        "display": "Oxygen saturation in blood"
+                    }
+                ]
+            },
+            "valueQuantity": {
+                "value": 20,
+                "unit": "%",
+                "system": "http://unitsofmeasure.org/test",
+                "code": "%"
+            }
+        },
+        {
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://loinc.org",
+                        "code": "8310-5",
+                        "display": "Body temperature"
+                    }
+                ]
+            },
+            "valueQuantity": {
+                "value": 20,
+                "unit": "C",
+                "system": "http://unitsofmeasure.org/test",
+                "code": "%"
+            }
+        },
+        {
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://loinc.org",
+                        "code": "8310-5",
+                        "display": "Body temperature"
+                    }
+                ]
+            },
+            "valueQuantity": {
+                "value": 20,
+                "unit": "C",
+                "system": "http://unitsofmeasure.org/test",
+                "code": "%"
+            }
+        },
+        {
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://loinc.org",
+                        "code": "8310-5",
+                        "display": "Body temperature"
+                    }
+                ]
+            },
+            "valueQuantity": {
+                "value": 20,
+                "unit": "C",
+                "system": "http://unitsofmeasure.org/test",
+                "code": "Cel"
+            }
+        },
+        {
+            "code": {
+                "coding": [
+                    {
+                        "system": "http://loinc.org",
+                        "code": "8310-5",
+                        "display": "Body temperature"
+                    }
+                ]
+            },
+            "valueQuantity": {
+                "value": 21,
+                "unit": "C",
+                "system": "http://unitsofmeasure.org/test",
+                "code": "Cel"
+            }
+        }
+    ],
+    "subject": {
+        "reference": "Patient/example"
+    },
+    "effectiveDateTime": "2016-03-28",
+    "valueQuantity": {
+        "value": 67,
+        "unit": "kg",
+        "system": "",
+        "code": ""
+    }
+}
