@@ -1079,7 +1079,7 @@ BEGIN
         SystemId1,
         SystemId2
     )
-    WHERE IsHistory = 0 AND
+    WHERE IsHistory = 0
     WITH (DATA_COMPRESSION = PAGE, ONLINE=ON)
     ON PartitionScheme_ResourceTypeId(ResourceTypeId)
 END;
