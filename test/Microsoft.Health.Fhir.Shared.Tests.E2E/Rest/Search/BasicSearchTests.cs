@@ -511,12 +511,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
         }
 
-        [Fact]
+        [Theory]
+        [InlineData("https://testSystem")]
+        [InlineData("")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenResourceWithHistory_WhenSearchedWithParams_ThenOnlyCurrentVersionShouldBeReturned()
+        public async Task GivenResourceWithHistory_WhenSearchedWithParams_ThenOnlyCurrentVersionShouldBeReturned(string system)
         {
             // Create a coding that can be used to limit search to only the items within this test
-            var testCoding = new Coding("https://testSystem", Guid.NewGuid().ToString());
+            var testCoding = new Coding(system, Guid.NewGuid().ToString());
 
             // Add the coding and set the observation status
             var originalObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
