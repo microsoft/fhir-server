@@ -8,6 +8,7 @@ using System.Data;
 using System.Linq;
 using System.Reflection;
 using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import;
+using Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerator;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Xunit;
@@ -98,6 +99,22 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             DataTable table = TestBulkDataProvider.GenerateTokenTextSearchParamsTable(1, 1000, 103);
             ValidataDataTable(VLatest.TokenText, table);
+        }
+
+        [Fact]
+        public void GivenListTokenTextSearchParams_WhenDinstict_ThenRecordShouldBeDistinctCaseInsensitive()
+        {
+            List<BulkTokenTextTableTypeV1Row> input = new List<BulkTokenTextTableTypeV1Row>()
+            {
+                new BulkTokenTextTableTypeV1Row(0, 1, "test"),
+                new BulkTokenTextTableTypeV1Row(0, 1, "Test"),
+                new BulkTokenTextTableTypeV1Row(0, 2, "Test"),
+                new BulkTokenTextTableTypeV1Row(0, 2, null),
+                new BulkTokenTextTableTypeV1Row(0, 3, "Test"),
+                new BulkTokenTextTableTypeV1Row(0, 3, string.Empty),
+            };
+
+            Assert.Equal(5, TokenTextSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
         }
 
         [Fact]

@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly ICosmosDbCollectionPhysicalPartitionInfo _physicalPartitionInfo;
         private readonly QueryPartitionStatisticsCache _queryPartitionStatisticsCache;
+        private readonly Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>> _expressionRewriters;
         private readonly ILogger<FhirCosmosSearchService> _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
         private readonly SearchParameterInfo _resourceIdSearchParameter;
@@ -53,6 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             CosmosDataStoreConfiguration cosmosConfig,
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             QueryPartitionStatisticsCache queryPartitionStatisticsCache,
+            IEnumerable<ICosmosExpressionRewriter> expressionRewriters,
             ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -62,6 +64,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(cosmosConfig, nameof(cosmosConfig));
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(queryPartitionStatisticsCache, nameof(queryPartitionStatisticsCache));
+            EnsureArg.IsNotNull(expressionRewriters, nameof(expressionRewriters));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
@@ -73,6 +76,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _logger = logger;
             _resourceTypeSearchParameter = SearchParameterInfo.ResourceTypeSearchParameter;
             _resourceIdSearchParameter = new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id);
+
+            _expressionRewriters = new Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>>(() => expressionRewriters
+                .OrderBy(x => x.Order)
+                .Cast<IExpressionVisitorWithInitialContext<object, Expression>>()
+                .Append(DateTimeEqualityRewriter.Instance)
+                .ToArray());
         }
 
         public override async Task<SearchResult> SearchAsync(
@@ -82,8 +91,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             // we're going to mutate searchOptions, so clone it first so the caller of this method does not see the changes.
             searchOptions = searchOptions.Clone();
 
-            // rewrite DateTime range expressions to be more efficient
-            searchOptions.Expression = searchOptions.Expression?.AcceptVisitor(DateTimeEqualityRewriter.Instance);
+            if (searchOptions.Expression != null)
+            {
+                // Apply Cosmos specific expression rewriters
+                searchOptions.Expression = _expressionRewriters.Value
+                    .Aggregate(searchOptions.Expression, (e, rewriter) => e.AcceptVisitor(rewriter));
+            }
 
             // pull out the _include and _revinclude expressions.
             bool hasIncludeOrRevIncludeExpressions = ExtractIncludeAndChainedExpressions(

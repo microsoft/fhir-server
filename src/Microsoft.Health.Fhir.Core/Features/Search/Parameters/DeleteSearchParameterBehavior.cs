@@ -15,7 +15,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public class DeleteSearchParameterBehavior<TDeleteResourceRequest, TDeleteResourceResponse> : IPipelineBehavior<TDeleteResourceRequest, TDeleteResourceResponse>
-        where TDeleteResourceRequest : DeleteResourceRequest
+        where TDeleteResourceRequest : DeleteResourceRequest, IRequest<TDeleteResourceResponse>
     {
         private ISearchParameterOperations _searchParameterOperations;
         private IFhirDataStore _fhirDataStore;

@@ -3,6 +3,8 @@
 **************************************************************/
 CREATE TABLE [dbo].[TaskInfo](
 	[TaskId] [varchar](64) NOT NULL,
+    CONSTRAINT PKC_TaskInfo PRIMARY KEY CLUSTERED (TaskId)
+    WITH (DATA_COMPRESSION = PAGE),
 	[QueueId] [varchar](64) NOT NULL,
 	[Status] [smallint] NOT NULL,
     [TaskTypeId] [smallint] NOT NULL,
@@ -15,8 +17,3 @@ CREATE TABLE [dbo].[TaskInfo](
 	[TaskContext] [varchar](max) NULL,
     [Result] [varchar](max) NULL
 ) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
-
-CREATE UNIQUE CLUSTERED INDEX IXC_Task on [dbo].[TaskInfo]
-(
-    TaskId
-)

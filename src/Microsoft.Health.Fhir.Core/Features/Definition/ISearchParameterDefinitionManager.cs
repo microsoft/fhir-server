@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
@@ -60,14 +59,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="definitionUri">The search parameter definition URL.</param>
         /// <param name="value">The SearchParameterInfo pertaining to the specified <paramref name="definitionUri"/></param>
         /// <returns>True if the search parameter is found <paramref name="definitionUri"/>.</returns>
-        public bool TryGetSearchParameter(Uri definitionUri, out SearchParameterInfo value);
+        public bool TryGetSearchParameter(string definitionUri, out SearchParameterInfo value);
 
         /// <summary>
         /// Retrieves the search parameter with <paramref name="definitionUri"/>.
         /// </summary>
         /// <param name="definitionUri">The search parameter definition URL.</param>
         /// <returns>The search parameter with the given <paramref name="definitionUri"/>.</returns>
-        SearchParameterInfo GetSearchParameter(Uri definitionUri);
+        SearchParameterInfo GetSearchParameter(string definitionUri);
 
         /// <summary>
         /// Updates the existing resource type - search parameter hash mapping with the given new values.

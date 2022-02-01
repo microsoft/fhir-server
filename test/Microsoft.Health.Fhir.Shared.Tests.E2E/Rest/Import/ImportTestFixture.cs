@@ -4,15 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using MediatR;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations.Import;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Rest.Metric;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
 {
     public class ImportTestFixture<T> : HttpIntegrationTestFixture<T>
     {
         private const string LocalIntegrationStoreConnectionString = "UseDevelopmentStorage=true";
+        private MetricHandler _metricHandler;
 
         public ImportTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
@@ -39,6 +44,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Import
             }
 
             CloudStorageAccount = storageAccount;
+        }
+
+        public MetricHandler MetricHandler
+        {
+            get => _metricHandler ?? (_metricHandler = (MetricHandler)(TestFhirServer as InProcTestFhirServer)?.Server.Host.Services.GetRequiredService<INotificationHandler<ImportTaskMetricsNotification>>());
         }
 
         public CloudStorageAccount CloudStorageAccount { get; private set; }

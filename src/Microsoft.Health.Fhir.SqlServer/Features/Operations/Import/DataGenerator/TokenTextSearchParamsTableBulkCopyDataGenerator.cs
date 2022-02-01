@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _searchParamGenerator = searchParamGenerator;
         }
 
+        internal static BulkTokenTextTableTypeV1RowComparer Comparer { get; } = new BulkTokenTextTableTypeV1RowComparer();
+
         internal override string TableName
         {
             get
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             IEnumerable<BulkTokenTextTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkTokenTextTableTypeV1Row searchParam in searchParams)
+            foreach (BulkTokenTextTableTypeV1Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
@@ -64,6 +68,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenText.Text.Metadata.Name, VLatest.TokenText.Text.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+        }
+
+        internal static IEnumerable<BulkTokenTextTableTypeV1Row> Distinct(IEnumerable<BulkTokenTextTableTypeV1Row> input)
+        {
+            return input.Distinct(Comparer);
+        }
+
+        internal class BulkTokenTextTableTypeV1RowComparer : IEqualityComparer<BulkTokenTextTableTypeV1Row>
+        {
+            public bool Equals(BulkTokenTextTableTypeV1Row x, BulkTokenTextTableTypeV1Row y)
+            {
+                if (x.SearchParamId == y.SearchParamId && string.Equals(x.Text, y.Text, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            public int GetHashCode(BulkTokenTextTableTypeV1Row obj)
+            {
+                int hashCode = obj.SearchParamId.GetHashCode() ^ (string.IsNullOrEmpty(obj.Text) ? 0 : obj.Text.GetHashCode(StringComparison.OrdinalIgnoreCase));
+                return hashCode.GetHashCode();
+            }
         }
     }
 }

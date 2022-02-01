@@ -440,12 +440,12 @@ namespace Microsoft.Health.Fhir.Client
             return response.Content.Headers.ContentLocation;
         }
 
-        public async Task CancelImport(Uri contentLocation, CancellationToken cancellationToken = default)
+        public async Task<HttpResponseMessage> CancelImport(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
             message.Headers.Add("Prefer", "respond-async");
 
-            await HttpClient.SendAsync(message, cancellationToken);
+            return await HttpClient.SendAsync(message, cancellationToken);
         }
 
         public async Task<HttpResponseMessage> CheckImportAsync(Uri contentLocation, CancellationToken cancellationToken = default)

@@ -119,20 +119,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
             var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses(cancellationToken))
-                .ToDictionary(x => x.Uri);
+                .ToDictionary(x => x.Uri.OriginalString);
 
             foreach (string uri in searchParameterUris)
             {
                 _logger.LogTrace("Setting the search parameter status of '{uri}' to '{newStatus}'", uri, status.ToString());
 
-                var searchParamUri = new Uri(uri);
-
-                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
+                SearchParameterInfo paramInfo = _searchParameterDefinitionManager.GetSearchParameter(uri);
                 updated.Add(paramInfo);
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
                 paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
 
-                if (parameters.TryGetValue(searchParamUri, out var existingStatus))
+                if (parameters.TryGetValue(uri, out var existingStatus))
                 {
                     existingStatus.LastUpdated = Clock.UtcNow;
                     existingStatus.Status = status;
@@ -151,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     {
                         LastUpdated = Clock.UtcNow,
                         Status = status,
-                        Uri = searchParamUri,
+                        Uri = new Uri(uri),
                     });
                 }
             }
@@ -191,7 +189,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             foreach (var paramStatus in updatedSearchParameterStatus)
             {
-                if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri, out var param))
+                if (_searchParameterDefinitionManager.TryGetSearchParameter(paramStatus.Uri.OriginalString, out var param))
                 {
                     var tempStatus = EvaluateSearchParamStatus(paramStatus);
 

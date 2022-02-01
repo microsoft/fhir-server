@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             _searchParameterDefinitionManager.AllSearchParameters
                 .Returns(_searchParameterInfos);
 
-            _searchParameterDefinitionManager.GetSearchParameter(new Uri(ResourceQuery))
+            _searchParameterDefinitionManager.GetSearchParameter(ResourceQuery)
                 .Returns(_queryParameter);
 
             _searchParameterSupportResolver
