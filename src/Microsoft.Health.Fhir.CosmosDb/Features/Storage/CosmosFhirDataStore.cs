@@ -19,11 +19,13 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
+using Microsoft.Health.Core.Features.Context;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
         private readonly Lazy<ISupportedSearchParameterDefinitionManager> _supportedSearchParameters;
+        private readonly IPartitioningStrategy _partitioningStrategy;
 
         private static readonly HardDelete _hardDelete = new HardDelete();
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
@@ -74,6 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
         /// <param name="supportedSearchParameters">The supported search parameters</param>
+        /// <param name="partitioningStrategy">Defines data partitioning strategy</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -82,7 +86,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
             IOptions<CoreFeatureConfiguration> coreFeatures,
-            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters)
+            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters,
+            IPartitioningStrategy partitioningStrategy)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -92,6 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(supportedSearchParameters, nameof(supportedSearchParameters));
+            EnsureArg.IsNotNull(partitioningStrategy, nameof(partitioningStrategy));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
@@ -99,6 +105,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _supportedSearchParameters = supportedSearchParameters;
+            _partitioningStrategy = partitioningStrategy;
             _coreFeatures = coreFeatures.Value;
         }
 
@@ -111,7 +118,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
+            var cosmosWrapper = new FhirCosmosResourceWrapper(resource, _partitioningStrategy.GetStoragePartition(resource));
             UpdateSortIndex(cosmosWrapper);
 
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
@@ -270,7 +277,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 (IReadOnlyList<FhirCosmosResourceWrapper> results, _) = await _retryExceptionPolicyFactory.RetryPolicy.ExecuteAsync(() =>
                     ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
                         sqlQuerySpec,
-                        new QueryRequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
+                        new QueryRequestOptions { PartitionKey = new PartitionKey(_partitioningStrategy.GetSearchPartitionOrNull()) },
                         cancellationToken: cancellationToken));
 
                 return results.Count == 0 ? null : results[0];
@@ -279,7 +286,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 return await _containerScope.Value
-                    .ReadItemAsync<FhirCosmosResourceWrapper>(key.Id, new PartitionKey(key.ToPartitionKey()), cancellationToken: cancellationToken);
+                    .ReadItemAsync<FhirCosmosResourceWrapper>(key.Id, new PartitionKey(_partitioningStrategy.GetSearchPartitionOrNull()), cancellationToken: cancellationToken);
             }
             catch (CosmosException exception) when (exception.StatusCode == HttpStatusCode.NotFound)
             {
@@ -333,7 +340,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
             EnsureArg.IsNotNull(weakETag, nameof(weakETag));
 
-            var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
+            var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper, _partitioningStrategy.GetStoragePartition(resourceWrapper));
             UpdateSortIndex(cosmosWrapper);
 
             try

@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     internal class FhirCosmosResourceWrapper : ResourceWrapper
     {
-        public FhirCosmosResourceWrapper(ResourceWrapper resource)
+        public FhirCosmosResourceWrapper(ResourceWrapper resource, string partitionKey)
             : this(
                   EnsureArg.IsNotNull(resource, nameof(resource)).ResourceId,
                   resource.Version,
@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                   resource.SearchIndices,
                   resource.CompartmentIndices,
                   resource.LastModifiedClaims,
+                  partitionKey,
                   resource.SearchParameterHash)
         {
         }
@@ -47,10 +48,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            string partitionKey,
             string searchParameterHash = null)
             : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims, searchParameterHash)
         {
             IsHistory = history;
+            PartitionKey = EnsureArg.IsNotNullOrEmpty(partitionKey);
 
             UpdateSortIndex(searchIndices);
         }
@@ -94,7 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public override IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; set; }
 
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
-        public string PartitionKey => ToResourceKey().ToPartitionKey();
+        public string PartitionKey { get; set; }
 
         [JsonProperty(KnownDocumentProperties.ReferencesToInclude)]
         public IReadOnlyList<ResourceTypeAndId> ReferencesToInclude { get; set; }

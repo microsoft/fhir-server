@@ -13,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -226,6 +227,16 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CompartmentSearchRewriter>()
                 .Singleton()
                 .AsService<ICosmosExpressionRewriter>();
+
+            // The current / default partitioning strategy, each resource instance (+history) gets its own partition.
+            ////services.Add<ResourceIdPartitioningStrategy>()
+            ////    .Scoped()
+            ////    .AsImplementedInterfaces();
+
+            // Partitions data by Patient Compartment, search queries require a parameter from the compartment to identify the partition.
+            services.Add<PatientCompartmentPartitioningStrategy>()
+                .Scoped()
+                .AsImplementedInterfaces();
 
             return fhirServerBuilder;
         }

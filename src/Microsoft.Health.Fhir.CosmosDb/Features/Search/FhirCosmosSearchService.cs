@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private readonly CosmosDataStoreConfiguration _cosmosConfig;
         private readonly ICosmosDbCollectionPhysicalPartitionInfo _physicalPartitionInfo;
         private readonly QueryPartitionStatisticsCache _queryPartitionStatisticsCache;
+        private readonly IPartitioningStrategy _partitioningStrategy;
         private readonly Lazy<IReadOnlyCollection<IExpressionVisitorWithInitialContext<object, Expression>>> _expressionRewriters;
         private readonly ILogger<FhirCosmosSearchService> _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
@@ -55,6 +56,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             ICosmosDbCollectionPhysicalPartitionInfo physicalPartitionInfo,
             QueryPartitionStatisticsCache queryPartitionStatisticsCache,
             IEnumerable<ICosmosExpressionRewriter> expressionRewriters,
+            IPartitioningStrategy partitioningStrategy,
             ILogger<FhirCosmosSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -65,6 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             EnsureArg.IsNotNull(physicalPartitionInfo, nameof(physicalPartitionInfo));
             EnsureArg.IsNotNull(queryPartitionStatisticsCache, nameof(queryPartitionStatisticsCache));
             EnsureArg.IsNotNull(expressionRewriters, nameof(expressionRewriters));
+            EnsureArg.IsNotNull(partitioningStrategy, nameof(partitioningStrategy));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirDataStore = fhirDataStore;
@@ -73,6 +76,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             _cosmosConfig = cosmosConfig;
             _physicalPartitionInfo = physicalPartitionInfo;
             _queryPartitionStatisticsCache = queryPartitionStatisticsCache;
+            _partitioningStrategy = partitioningStrategy;
             _logger = logger;
             _resourceTypeSearchParameter = SearchParameterInfo.ResourceTypeSearchParameter;
             _resourceIdSearchParameter = new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id);
@@ -390,6 +394,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                               new QueryRequestOptions
                               {
                                   MaxItemCount = searchOptions.MaxItemCount,
+                                  PartitionKey = GetPartitionKey(),
                               };
 
             // If the database has many physical physical partitions, and this query is selective, we will want to instruct
@@ -537,6 +542,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             var feedOptions = new QueryRequestOptions
             {
                 MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency, // execute counts across all partitions
+                PartitionKey = GetPartitionKey(),
             };
 
             return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
@@ -687,7 +693,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         // The previous iteration executed sequentially and did not retrieve the desired number of results. We will switch to parallel execution.
                         // Note that we are not passing in the continuation token, because if we do, the SDK does not execute in parallel.
 
-                        var queryRequestOptionsOverride = new QueryRequestOptions { MaxItemCount = searchOptions.MaxItemCount, MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency };
+                        var queryRequestOptionsOverride = new QueryRequestOptions
+                        {
+                            MaxItemCount = searchOptions.MaxItemCount,
+                            MaxConcurrency = _cosmosConfig.ParallelQueryOptions.MaxQueryConcurrency,
+                            PartitionKey = GetPartitionKey(),
+                        };
 
                         includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                             query,
@@ -727,6 +738,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             }
 
             return true;
+        }
+
+        private PartitionKey? GetPartitionKey()
+        {
+            var partitionKey = _partitioningStrategy.GetSearchPartitionOrNull();
+
+            if (!string.IsNullOrEmpty(partitionKey))
+            {
+                return new PartitionKey(partitionKey);
+            }
+
+            if (_partitioningStrategy.AllowsCrossPartitionQueries)
+            {
+                return null;
+            }
+
+            throw new BadRequestException("Partition key must be provided.");
         }
 
         private static bool ExtractIncludeAndChainedExpressions(
