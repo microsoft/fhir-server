@@ -153,7 +153,7 @@ ELSE
             AND @etag IS NULL)
             BEGIN
                 -- This is a versioned update and no version was specified
-                THROW 50412, 'Precondition failed', 1;
+                THROW 50400, 'Bad request', 1;
             END
 
         IF (@isDeleted = 1

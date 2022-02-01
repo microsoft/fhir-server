@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -73,7 +74,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
-            SchemaInformation schemaInformation)
+            SchemaInformation schemaInformation,
+            IModelInfoProvider modelInfoProvider)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -89,9 +91,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -152,15 +155,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
+                            // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
+                            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                            {
+                                throw new ResourceConflictException(weakETag);
+                            }
 
-                            // A null eTag on a precondition failed exception indicates that the request required the
-                            // version to be specified in the if-match header, but it was not provided.
-                            // Otherwise, a precondition failed exception is raised on an invalid if-match header or
-                            // a SQL concurrency issue.
-                            string message = eTag == null ? string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName)
-                                : string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId);
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
 
-                            throw new PreconditionFailedException(message);
                         case SqlErrorCodes.NotFound:
                             if (weakETag != null)
                             {
@@ -172,8 +174,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                         case SqlErrorCodes.TimeoutExpired:
                             throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
+                        case 50400: // TODO: Add this to SQL error codes in AB#88286
+                            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                            {
+                                throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                            }
+
+                            throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                         default:
-                            _logger.LogError(e, "Error from SQL database on upsert");
+                            _logger.LogError(e, "Error from SQL data.base on upsert");
                             throw;
                     }
                 }

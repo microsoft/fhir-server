@@ -2406,7 +2406,7 @@ ELSE
         IF (@requireETagOnUpdate = 1
             AND @etag IS NULL)
             BEGIN
-                THROW 50412, 'Precondition failed', 1;
+                THROW 50400, 'Bad request', 1;
             END
         IF (@isDeleted = 1
             AND @previousIsDeleted = 1)
