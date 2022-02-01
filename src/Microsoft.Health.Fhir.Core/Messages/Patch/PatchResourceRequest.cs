@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
     public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
     {
-        public PatchResourceRequest(ResourceKey resourceKey, object payload, WeakETag weakETag = null)
+        public PatchResourceRequest(ResourceKey resourceKey, IPatchPayload payload, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
             EnsureArg.IsNotNull(payload, nameof(payload));
@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             WeakETag = weakETag;
         }
 
-        public object Payload { get; }
+        public IPatchPayload Payload { get; }
 
         public ResourceKey ResourceKey { get; }
 

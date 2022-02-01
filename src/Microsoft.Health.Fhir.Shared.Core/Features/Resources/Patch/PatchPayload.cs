@@ -14,11 +14,12 @@ using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public abstract class PatchPayload
+    public abstract class PatchPayload : IPatchPayload
     {
         internal static ISet<string> ImmutableProperties =>
             new HashSet<string>

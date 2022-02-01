@@ -57,15 +57,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, key.ResourceType, key.Id));
             }
 
-            if (request.Payload is PatchPayload patchPayload)
-            {
-                var patchedResource = patchPayload.Patch(currentDoc, request.WeakETag);
-                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
-            }
-            else
-            {
-                throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, "Payload must be of type PatchPayload."));
-            }
+            var patchedResource = request.Payload.Patch(currentDoc, request.WeakETag);
+            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
         }
     }
 }

@@ -44,15 +44,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
         public override async Task<UpsertResourceResponse> HandleSingleMatch(ConditionalPatchResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
         {
-            if (request.Payload is PatchPayload patchPayload)
-            {
-                var patchedResource = patchPayload.Patch(match.Resource, request.WeakETag);
-                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
-            }
-            else
-            {
-                throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, "Payload must be of type PatchPayload."));
-            }
+            var patchedResource = request.Payload.Patch(match.Resource, request.WeakETag);
+            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
         }
     }
 }

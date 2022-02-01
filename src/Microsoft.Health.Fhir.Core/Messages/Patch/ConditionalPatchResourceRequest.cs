@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 
         public ConditionalPatchResourceRequest(
             string resourceType,
-            object payload,
+            IPatchPayload payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             WeakETag weakETag = null)
             : base(resourceType, conditionalParameters)
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             WeakETag = weakETag;
         }
 
-        public object Payload { get; }
+        public IPatchPayload Payload { get; }
 
         public WeakETag WeakETag { get; }
 
