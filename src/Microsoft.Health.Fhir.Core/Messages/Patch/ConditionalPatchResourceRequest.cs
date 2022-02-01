@@ -5,28 +5,30 @@
 
 using System;
 using System.Collections.Generic;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
-    public sealed class ConditionalPatchResourceRequest<TData> : ConditionalResourceRequest<UpsertResourceResponse>
-        where TData : notnull
+    public sealed class ConditionalPatchResourceRequest : ConditionalResourceRequest<UpsertResourceResponse>
     {
         private static readonly string[] Capabilities = new string[1] { "conditionalPatch = true" };
 
         public ConditionalPatchResourceRequest(
             string resourceType,
-            TData patchDocument,
+            object payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             WeakETag weakETag = null)
             : base(resourceType, conditionalParameters)
         {
-            PatchDocument = patchDocument;
+            EnsureArg.IsNotNull(payload, nameof(payload));
+
+            Payload = payload;
             WeakETag = weakETag;
         }
 
-        public TData PatchDocument { get; }
+        public object Payload { get; }
 
         public WeakETag WeakETag { get; }
 

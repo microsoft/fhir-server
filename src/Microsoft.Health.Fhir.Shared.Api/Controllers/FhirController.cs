@@ -34,10 +34,10 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -419,7 +419,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Consumes("application/json-patch+json")]
         public async Task<IActionResult> PatchJson(string typeParameter, string idParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
-            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), patchDocument, ifMatchHeader, HttpContext.RequestAborted);
+            var payload = new JsonPatchPayload(patchDocument);
+            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), payload, ifMatchHeader, HttpContext.RequestAborted);
 
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -437,14 +438,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> ConditionalPatchJson(string typeParameter, [FromBody] JsonPatchDocument patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
+            var payload = new JsonPatchPayload(patchDocument);
 
-            UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalPatchResourceRequest<JsonPatchDocument>(typeParameter, patchDocument, conditionalParameters, ifMatchHeader),
-                HttpContext.RequestAborted);
-
-            SaveOutcome saveOutcome = response.Outcome;
-
-            return ToSaveOutcomeResult(saveOutcome);
+            UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(typeParameter, payload, conditionalParameters, ifMatchHeader, HttpContext.RequestAborted);
+            return ToSaveOutcomeResult(response.Outcome);
         }
 
         /// <summary>
@@ -460,7 +457,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Consumes("application/fhir+json")]
         public async Task<IActionResult> PatchFhir(string typeParameter, string idParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
-            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), paramsResource, ifMatchHeader, HttpContext.RequestAborted);
+            var payload = new FhirParameterPatchPayload(paramsResource);
+            UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), payload, ifMatchHeader, HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
 
@@ -477,14 +475,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
+            var payload = new FhirParameterPatchPayload(paramsResource);
 
-            UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
-                new ConditionalPatchResourceRequest<Parameters>(typeParameter, paramsResource, conditionalParameters, ifMatchHeader),
-                HttpContext.RequestAborted);
-
-            SaveOutcome saveOutcome = response.Outcome;
-
-            return ToSaveOutcomeResult(saveOutcome);
+            UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(typeParameter, payload, conditionalParameters, ifMatchHeader, HttpContext.RequestAborted);
+            return ToSaveOutcomeResult(response.Outcome);
         }
 
         /// <summary>

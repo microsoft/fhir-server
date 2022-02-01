@@ -8,11 +8,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -66,22 +65,25 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result;
         }
 
-        public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, JsonPatchDocument patchDocument, WeakETag weakETag = null, CancellationToken cancellationToken = default)
+        public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, PatchPayload payload, WeakETag weakETag = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(key, nameof(key));
+            EnsureArg.IsNotNull(payload, nameof(payload));
 
-            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest<JsonPatchDocument>(key, patchDocument, weakETag), cancellationToken);
+            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest(key, payload, weakETag), cancellationToken);
 
             return result;
         }
 
-        public static async Task<UpsertResourceResponse> PatchResourceAsync(this IMediator mediator, ResourceKey key, Parameters paramsResource, WeakETag weakETag = null, CancellationToken cancellationToken = default)
+        public static async Task<UpsertResourceResponse> ConditionalPatchResourceAsync(this IMediator mediator, string typeParameter, PatchPayload payload, IReadOnlyList<Tuple<string, string>> conditionalParameters, WeakETag weakETag = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(key, nameof(key));
+            EnsureArg.IsNotNull(typeParameter, nameof(typeParameter));
+            EnsureArg.IsNotNull(payload, nameof(payload));
+            EnsureArg.IsNotNull(conditionalParameters, nameof(conditionalParameters));
 
-            UpsertResourceResponse result = await mediator.Send(new PatchResourceRequest<Parameters>(key, paramsResource, weakETag), cancellationToken);
+            UpsertResourceResponse result = await mediator.Send(new ConditionalPatchResourceRequest(typeParameter, payload, conditionalParameters, weakETag), cancellationToken);
 
             return result;
         }

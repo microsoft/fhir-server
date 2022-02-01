@@ -45,12 +45,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\MemberMatch\MemberMatchResourceValidator.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\BasePatchService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchPayload.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\ConditionalPatchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\FhirParametersExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\PatchResourceHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\JsonPatchService.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirParameterPatchService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\JsonPatchPayload.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirParameterPatchPayload.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\FhirPathPatchBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Helpers\ElementModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Patch\FhirPathPatch\Operations\EOperationType.cs" />

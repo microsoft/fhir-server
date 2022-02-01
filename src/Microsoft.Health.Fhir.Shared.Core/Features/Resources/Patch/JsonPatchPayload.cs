@@ -4,29 +4,29 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Hl7.FhirPath;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.JsonPatch.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public class JsonPatchService : BasePatchService<JsonPatchDocument>
+    public class JsonPatchPayload : PatchPayload
     {
-        public JsonPatchService(IModelInfoProvider modelInfoProvider)
-        : base(modelInfoProvider)
+        public JsonPatchPayload(JsonPatchDocument patchDocument)
         {
+            EnsureArg.IsNotNull(patchDocument, nameof(patchDocument));
+            PatchDocument = patchDocument;
         }
 
-        protected override void Validate(ResourceWrapper currentDoc, WeakETag eTag, JsonPatchDocument patchDocument)
+        public JsonPatchDocument PatchDocument { get; }
+
+        internal override void Validate(ResourceWrapper currentDoc, WeakETag eTag)
         {
             if (currentDoc.IsHistory)
             {
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, eTag.VersionId));
             }
 
-            foreach (var operation in patchDocument.Operations)
+            foreach (var operation in PatchDocument.Operations)
             {
                 if (operation.OperationType == AspNetCore.JsonPatch.Operations.OperationType.Invalid)
                 {
@@ -47,11 +47,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
         }
 
-        protected override Resource GetPatchedJsonResource(FhirJsonNode node, JsonPatchDocument operations)
+        internal override Resource GetPatchedJsonResource(FhirJsonNode node)
         {
             try
             {
-                operations.ApplyTo(node.JsonObject);
+                PatchDocument.ApplyTo(node.JsonObject);
             }
             catch (JsonPatchException e)
             {

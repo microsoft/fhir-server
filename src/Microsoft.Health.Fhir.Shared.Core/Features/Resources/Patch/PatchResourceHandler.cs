@@ -18,10 +18,9 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public class PatchResourceHandler<TData> : BaseResourceHandler, IRequestHandler<PatchResourceRequest<TData>, UpsertResourceResponse>
+    public class PatchResourceHandler : BaseResourceHandler, IRequestHandler<PatchResourceRequest, UpsertResourceResponse>
     {
         private readonly IMediator _mediator;
-        private readonly BasePatchService<TData> _patchService;
 
         public PatchResourceHandler(
             IMediator mediator,
@@ -29,18 +28,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
-            IAuthorizationService<DataActions> authorizationService,
-            BasePatchService<TData> patchService)
+            IAuthorizationService<DataActions> authorizationService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(patchService, nameof(patchService));
-
             _mediator = mediator;
-            _patchService = patchService;
         }
 
-        public async Task<UpsertResourceResponse> Handle(PatchResourceRequest<TData> request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> Handle(PatchResourceRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
@@ -62,9 +57,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, key.ResourceType, key.Id));
             }
 
-            var patchedResource = _patchService.Patch(currentDoc, request.PatchDocument, request.WeakETag);
-
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
+            if (request.Payload is PatchPayload patchPayload)
+            {
+                var patchedResource = patchPayload.Patch(currentDoc, request.WeakETag);
+                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
+            }
+            else
+            {
+                throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, "Payload must be of type PatchPayload."));
+            }
         }
     }
 }

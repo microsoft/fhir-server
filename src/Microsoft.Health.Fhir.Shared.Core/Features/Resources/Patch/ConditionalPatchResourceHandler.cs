@@ -19,9 +19,8 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public class ConditionalPatchResourceHandler<TData> : ConditionalResourceHandler<ConditionalPatchResourceRequest<TData>, UpsertResourceResponse>
+    public class ConditionalPatchResourceHandler : ConditionalResourceHandler<ConditionalPatchResourceRequest, UpsertResourceResponse>
     {
-        private readonly BasePatchService<TData> _patchService;
         private readonly IMediator _mediator;
 
         public ConditionalPatchResourceHandler(
@@ -31,27 +30,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ISearchService searchService,
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
-            BasePatchService<TData> patchService,
             IAuthorizationService<DataActions> authorizationService)
             : base(searchService, fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(patchService, nameof(patchService));
-
             _mediator = mediator;
-            _patchService = patchService;
         }
 
-        public override Task<UpsertResourceResponse> HandleNoMatch(ConditionalPatchResourceRequest<TData> request, CancellationToken cancellationToken)
+        public override Task<UpsertResourceResponse> HandleNoMatch(ConditionalPatchResourceRequest request, CancellationToken cancellationToken)
         {
             throw new ResourceNotFoundException("Resource not found");
         }
 
-        public override async Task<UpsertResourceResponse> HandleSingleMatch(ConditionalPatchResourceRequest<TData> request, SearchResultEntry match, CancellationToken cancellationToken)
+        public override async Task<UpsertResourceResponse> HandleSingleMatch(ConditionalPatchResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
         {
-            TData resource = request.PatchDocument;
-            var patchedResource = _patchService.Patch(match.Resource, resource, request.WeakETag);
-            return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
+            if (request.Payload is PatchPayload patchPayload)
+            {
+                var patchedResource = patchPayload.Patch(match.Resource, request.WeakETag);
+                return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
+            }
+            else
+            {
+                throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, "Payload must be of type PatchPayload."));
+            }
         }
     }
 }

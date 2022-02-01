@@ -18,17 +18,8 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public abstract class BasePatchService<T>
+    public abstract class PatchPayload
     {
-        protected BasePatchService(IModelInfoProvider modelInfoProvider)
-        {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-
-            this.ModelInfoProvider = modelInfoProvider;
-        }
-
-        protected IModelInfoProvider ModelInfoProvider { get; private set; }
-
         internal static ISet<string> ImmutableProperties =>
             new HashSet<string>
             {
@@ -39,15 +30,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 "Resource.text.status",
             };
 
-        protected abstract void Validate(ResourceWrapper currentDoc, WeakETag eTag, T patchDocument);
+        internal abstract void Validate(ResourceWrapper currentDoc, WeakETag eTag);
 
-        protected abstract Resource GetPatchedJsonResource(FhirJsonNode node, T operations);
+        internal abstract Resource GetPatchedJsonResource(FhirJsonNode node);
 
-        public ResourceElement Patch(ResourceWrapper resourceToPatch, T paramsResource, WeakETag weakETag)
+        public ResourceElement Patch(ResourceWrapper resourceToPatch, WeakETag weakETag)
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
 
-            Validate(resourceToPatch, weakETag, paramsResource);
+            Validate(resourceToPatch, weakETag);
 
             var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
 
@@ -55,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             ITypedElement resource = node.ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
             (string path, object result)[] preState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
-            Resource patchedResource = GetPatchedJsonResource(node, paramsResource);
+            Resource patchedResource = GetPatchedJsonResource(node);
 
             (string path, object result)[] postState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
             if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))

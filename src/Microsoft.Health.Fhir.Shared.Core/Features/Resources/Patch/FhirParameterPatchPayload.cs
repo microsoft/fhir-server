@@ -4,25 +4,28 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 using FhirPathPatch;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public class FhirParameterPatchService : BasePatchService<Parameters>
+    public class FhirParameterPatchPayload : PatchPayload
     {
-        public FhirParameterPatchService(IModelInfoProvider modelInfoProvider)
-        : base(modelInfoProvider)
+        public FhirParameterPatchPayload(Parameters fhirPatchParameters)
         {
+            EnsureArg.IsNotNull(fhirPatchParameters, nameof(fhirPatchParameters));
+            FhirPatchParameters = fhirPatchParameters;
         }
 
-        protected override void Validate(ResourceWrapper currentDoc, WeakETag eTag, Parameters patchDocument)
+        public Parameters FhirPatchParameters { get; }
+
+        internal override void Validate(ResourceWrapper currentDoc, WeakETag eTag)
         {
             if (currentDoc.IsHistory)
             {
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
 
             var context = new System.ComponentModel.DataAnnotations.ValidationContext(currentDoc);
-            var results = patchDocument.Validate(context);
+            var results = FhirPatchParameters.Validate(context);
 
             foreach (var result in results)
             {
@@ -46,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
         }
 
-        protected override Resource GetPatchedJsonResource(FhirJsonNode node, Parameters operations)
+        internal override Resource GetPatchedJsonResource(FhirJsonNode node)
         {
             Resource resourcePoco;
             try
@@ -61,17 +64,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
             try
             {
-                return new FhirPathPatchBuilder(resourcePoco, operations).Apply();
+                return new FhirPathPatchBuilder(resourcePoco, FhirPatchParameters).Apply();
             }
             catch (InvalidOperationException e)
             {
                 // Invalid patch input
-                throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
+                throw new RequestNotValidException(e.Message);
             }
             catch (FormatException e)
             {
                 // Invalid output POCO
-                throw new RequestNotValidException(e.Message, OperationOutcomeConstants.IssueType.Processing);
+                throw new RequestNotValidException(e.Message);
             }
         }
     }

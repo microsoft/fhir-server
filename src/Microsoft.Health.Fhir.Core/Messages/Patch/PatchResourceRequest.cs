@@ -12,21 +12,21 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
-    public sealed class PatchResourceRequest<TData> : IRequest<UpsertResourceResponse>, IRequireCapability
-        where TData : notnull
+    public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
     {
-        public PatchResourceRequest(ResourceKey resourceKey, TData patchDocument, WeakETag weakETag = null)
+        public PatchResourceRequest(ResourceKey resourceKey, object payload, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
+            EnsureArg.IsNotNull(payload, nameof(payload));
 
             ResourceKey = resourceKey;
-            PatchDocument = patchDocument;
+            Payload = payload;
             WeakETag = weakETag;
         }
 
-        public ResourceKey ResourceKey { get; }
+        public object Payload { get; }
 
-        public TData PatchDocument { get; }
+        public ResourceKey ResourceKey { get; }
 
         public WeakETag WeakETag { get; }
 
