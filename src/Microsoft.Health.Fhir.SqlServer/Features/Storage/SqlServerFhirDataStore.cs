@@ -155,14 +155,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
-                            // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
-                            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                            if (weakETag != null)
                             {
-                                throw new ResourceConflictException(weakETag);
+                                // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
+                                if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                                {
+                                    throw new ResourceConflictException(weakETag);
+                                }
+
+                                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
                             }
 
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
-
+                            goto default;
                         case SqlErrorCodes.NotFound:
                             if (weakETag != null)
                             {
@@ -175,6 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         case SqlErrorCodes.TimeoutExpired:
                             throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
                         case 50400: // TODO: Add this to SQL error codes in AB#88286
+                            // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
                             if (_modelInfoProvider.Version == FhirSpecification.Stu3)
                             {
                                 throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
