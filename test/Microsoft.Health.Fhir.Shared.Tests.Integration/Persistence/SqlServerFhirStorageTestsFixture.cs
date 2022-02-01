@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true";
+        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
         private readonly int _maximumSupportedSchemaVersion;
