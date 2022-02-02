@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (outcome.JobRecord.Status.IsFinished())
                 {
                     throw new RequestNotValidException(
-                        string.Format(Resources.ReindexJobInCompletedState, outcome.JobRecord.Id, outcome.JobRecord.Status));
+                        string.Format(Core.Resources.ReindexJobInCompletedState, outcome.JobRecord.Id, outcome.JobRecord.Status));
                 }
 
                 // Try to cancel the job.

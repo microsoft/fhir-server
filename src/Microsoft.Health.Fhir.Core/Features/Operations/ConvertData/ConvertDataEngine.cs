@@ -81,16 +81,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 if (convertException.FhirConverterErrorCode == FhirConverterErrorCode.TimeoutError)
                 {
                     _logger.LogError(convertException.InnerException, "Convert data operation timed out.");
-                    throw new ConvertDataTimeoutException(Resources.ConvertDataOperationTimeout, convertException.InnerException);
+                    throw new ConvertDataTimeoutException(Core.Resources.ConvertDataOperationTimeout, convertException.InnerException);
                 }
 
                 _logger.LogInformation(convertException, "Convert data failed.");
-                throw new ConvertDataFailedException(string.Format(Resources.ConvertDataFailed, convertException.Message), convertException);
+                throw new ConvertDataFailedException(string.Format(Core.Resources.ConvertDataFailed, convertException.Message), convertException);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception: convert data process failed.");
-                throw new ConvertDataUnhandledException(string.Format(Resources.ConvertDataFailed, ex.Message), ex);
+                throw new ConvertDataUnhandledException(string.Format(Core.Resources.ConvertDataFailed, ex.Message), ex);
             }
         }
 

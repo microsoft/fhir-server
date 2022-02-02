@@ -8,18 +8,15 @@ using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public abstract class PatchPayload : IPatchPayload
+    public abstract class PatchPayload
     {
         internal static ISet<string> ImmutableProperties =>
             new HashSet<string>
@@ -31,31 +28,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 "Resource.text.status",
             };
 
-        internal abstract void Validate(ResourceWrapper currentDoc, WeakETag eTag);
+        internal abstract ResourceElement GetPatchedResourceElement(ResourceWrapper resourceToPatch);
 
-        internal abstract Resource GetPatchedJsonResource(FhirJsonNode node);
-
-        public ResourceElement Patch(ResourceWrapper resourceToPatch, WeakETag weakETag)
+        public ResourceElement Patch(ResourceWrapper resourceToPatch)
         {
             EnsureArg.IsNotNull(resourceToPatch, nameof(resourceToPatch));
 
-            Validate(resourceToPatch, weakETag);
-
-            var node = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
-
             // Capture the state of properties that are immutable
-            ITypedElement resource = node.ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
+            ITypedElement resource = resourceToPatch.RawResource.ToITypedElement(ModelInfoProvider.Instance);
             (string path, object result)[] preState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
 
-            Resource patchedResource = GetPatchedJsonResource(node);
+            // Get result of patch operation
+            ResourceElement patchedResource = GetPatchedResourceElement(resourceToPatch);
 
-            (string path, object result)[] postState = ImmutableProperties.Select(x => (path: x, result: resource.Scalar(x))).ToArray();
+            // Check if any immutable properties were changed
+            (string path, object result)[] postState = ImmutableProperties.Select(x => (path: x, result: patchedResource.Scalar<object>(x))).ToArray();
             if (!preState.Zip(postState).All(x => x.First.path == x.Second.path && string.Equals(x.First.result?.ToString(), x.Second.result?.ToString(), StringComparison.Ordinal)))
             {
                 throw new RequestNotValidException(Core.Resources.PatchImmutablePropertiesIsNotValid);
             }
 
-            return patchedResource.ToResourceElement();
+            return patchedResource;
         }
     }
 }

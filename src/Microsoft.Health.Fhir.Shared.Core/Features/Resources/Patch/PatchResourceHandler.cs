@@ -57,7 +57,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
                 throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, key.ResourceType, key.Id));
             }
 
-            var patchedResource = request.Payload.Patch(currentDoc, request.WeakETag);
+            if (currentDoc.IsHistory)
+            {
+                throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
+            }
+
+            if (request.WeakETag != null && request.WeakETag.VersionId != currentDoc.Version)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
+            }
+
+            var patchedResource = request.Payload.Patch(currentDoc);
             return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
         }
     }

@@ -11,6 +11,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.JsonPatch.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -22,22 +23,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
         {
             EnsureArg.IsNotNull(patchDocument, nameof(patchDocument));
             PatchDocument = patchDocument;
+            Validate();
         }
 
         public JsonPatchDocument PatchDocument { get; }
 
-        internal override void Validate(ResourceWrapper currentDoc, WeakETag eTag)
+        internal void Validate()
         {
-            if (currentDoc.IsHistory)
-            {
-                throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
-            }
-
-            if (eTag != null && eTag.VersionId != currentDoc.Version)
-            {
-                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, eTag.VersionId));
-            }
-
             foreach (var operation in PatchDocument.Operations)
             {
                 if (operation.OperationType == AspNetCore.JsonPatch.Operations.OperationType.Invalid)
@@ -47,11 +39,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             }
         }
 
-        internal override Resource GetPatchedJsonResource(FhirJsonNode node)
+        internal override ResourceElement GetPatchedResourceElement(ResourceWrapper resourceToPatch)
         {
+            var resourceJsonNode = (FhirJsonNode)FhirJsonNode.Parse(resourceToPatch.RawResource.Data);
+
             try
             {
-                PatchDocument.ApplyTo(node.JsonObject);
+                PatchDocument.ApplyTo(resourceJsonNode.JsonObject);
             }
             catch (JsonPatchException e)
             {
@@ -65,15 +59,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
             Resource resourcePoco;
             try
             {
-                var resource = node.ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider);
-                resourcePoco = resource.ToPoco<Resource>();
+                resourcePoco = resourceJsonNode
+                    .ToTypedElement(ModelInfoProvider.StructureDefinitionSummaryProvider)
+                    .ToPoco<Resource>();
             }
             catch (Exception e)
             {
                 throw new RequestNotValidException(string.Format(Core.Resources.PatchResourceError, e.Message));
             }
 
-            return resourcePoco;
+            return resourcePoco.ToResourceElement();
         }
     }
 }

@@ -8,13 +8,14 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
 {
     public sealed class PatchResourceRequest : IRequest<UpsertResourceResponse>, IRequireCapability
     {
-        public PatchResourceRequest(ResourceKey resourceKey, IPatchPayload payload, WeakETag weakETag = null)
+        public PatchResourceRequest(ResourceKey resourceKey, PatchPayload payload, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resourceKey, nameof(resourceKey));
             EnsureArg.IsNotNull(payload, nameof(payload));
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             WeakETag = weakETag;
         }
 
-        public IPatchPayload Payload { get; }
+        public PatchPayload Payload { get; }
 
         public ResourceKey ResourceKey { get; }
 

@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
@@ -17,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 
         public ConditionalPatchResourceRequest(
             string resourceType,
-            IPatchPayload payload,
+            PatchPayload payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             WeakETag weakETag = null)
             : base(resourceType, conditionalParameters)
@@ -28,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
             WeakETag = weakETag;
         }
 
-        public IPatchPayload Payload { get; }
+        public PatchPayload Payload { get; }
 
         public WeakETag WeakETag { get; }
 

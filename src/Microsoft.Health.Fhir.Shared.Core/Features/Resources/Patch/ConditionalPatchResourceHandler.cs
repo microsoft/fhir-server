@@ -44,7 +44,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 
         public override async Task<UpsertResourceResponse> HandleSingleMatch(ConditionalPatchResourceRequest request, SearchResultEntry match, CancellationToken cancellationToken)
         {
-            var patchedResource = request.Payload.Patch(match.Resource, request.WeakETag);
+            if (match.Resource.IsHistory)
+            {
+                throw new MethodNotAllowedException(Core.Resources.PatchVersionNotAllowed);
+            }
+
+            if (request.WeakETag != null && request.WeakETag.VersionId != match.Resource.Version)
+            {
+                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, request.WeakETag.VersionId));
+            }
+
+            var patchedResource = request.Payload.Patch(match.Resource);
             return await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(patchedResource), cancellationToken);
         }
     }
