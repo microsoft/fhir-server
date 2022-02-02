@@ -89,9 +89,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             var list = new List<(Table table, Index index)>();
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyForResourceTable)
+            if (_schemaInformation.Current >= SchemaVersionConstants.RenamedIndexForResourceTable)
             {
-                list.Add((VLatest.Resource, VLatest.Resource.UQIX_Resource_ResourceSurrogateId));
+                list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceSurrogateId));
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.AddPrimaryKeyForResourceTable)
+            {
+                list.Add((V25.Resource, V25.Resource.UQIX_Resource_ResourceSurrogateId));
             }
 
             list.Add((VLatest.Resource, VLatest.Resource.IX_Resource_ResourceTypeId_ResourceId));
@@ -106,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (_schemaInformation.Current < SchemaVersionConstants.AddPrimaryKeyForResourceTable)
             {
-                list.Add((V24.Resource, V23.Resource.IX_Resource_ResourceSurrogateId));
+                list.Add((V24.Resource, V24.Resource.IX_Resource_ResourceSurrogateId));
             }
 
             list.Add((VLatest.CompartmentAssignment, VLatest.CompartmentAssignment.IX_CompartmentAssignment_CompartmentTypeId_ReferenceResourceId));
