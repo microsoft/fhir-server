@@ -5,19 +5,19 @@
 
 using System;
 using EnsureThat;
-using FhirPathPatch;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch
 {
-    public class FhirParameterPatchPayload : PatchPayload
+    public class FhirPathPatchPayload : PatchPayload
     {
-        public FhirParameterPatchPayload(Parameters fhirPatchParameters)
+        public FhirPathPatchPayload(Parameters fhirPatchParameters)
         {
             EnsureArg.IsNotNull(fhirPatchParameters, nameof(fhirPatchParameters));
             FhirPatchParameters = fhirPatchParameters;

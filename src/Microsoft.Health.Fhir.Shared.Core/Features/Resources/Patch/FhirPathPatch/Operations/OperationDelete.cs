@@ -7,14 +7,14 @@ using System;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 
-namespace FhirPathPatch.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
     /// <summary>
     /// This handles patching an object that requires adding an element from the resource.
     /// </summary>
-    public class OperationDelete : OperationBase, IOperation
+    internal class OperationDelete : OperationBase
     {
-        public OperationDelete(Resource resource, PendingOperation po)
+        internal OperationDelete(Resource resource, PendingOperation po)
             : base(resource, po)
         {
         }
@@ -28,9 +28,8 @@ namespace FhirPathPatch.Operations
         /// Fhir package has a built-in "Remove" operation which accomplishes
         /// this easily.
         /// </summary>
-        /// <param name="operation">PendingOperation representing Delete operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute()
+        internal override Resource Execute()
         {
             try
             {

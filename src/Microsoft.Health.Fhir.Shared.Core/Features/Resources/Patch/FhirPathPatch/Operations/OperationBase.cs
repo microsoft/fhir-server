@@ -4,19 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace FhirPathPatch.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
     /// <summary>
     /// Abstract representation of a basic operational resource.
     /// </summary>
-    public abstract class OperationBase
+    internal abstract class OperationBase
     {
         private ElementNode _target;
 
@@ -25,7 +25,7 @@ namespace FhirPathPatch.Operations
         /// </summary>
         /// <param name="resource">FHIR Resource for this operation.</param>
         /// <param name="po">Operation request.</param>
-        protected OperationBase(Resource resource, PendingOperation po)
+        internal OperationBase(Resource resource, PendingOperation po)
         {
             ResourceElement = resource.ToElementNode();
             Operation = po;
@@ -50,7 +50,7 @@ namespace FhirPathPatch.Operations
         {
             get
             {
-                PropertyMapping summary = Operation.Type is EOperationType.ADD ?
+                PropertyMapping summary = Operation.Type is PatchOperationType.ADD ?
                     Target.Definition.GetChildDefinition(Operation.Name) :
                     Target.Definition as PropertyMapping;
 
@@ -67,6 +67,6 @@ namespace FhirPathPatch.Operations
         /// All inheriting classes must implement an operation exeuction method.
         /// </summary>
         /// <returns>FHIR Resource as POCO.</returns>
-        public abstract Resource Execute();
+        internal abstract Resource Execute();
     }
 }

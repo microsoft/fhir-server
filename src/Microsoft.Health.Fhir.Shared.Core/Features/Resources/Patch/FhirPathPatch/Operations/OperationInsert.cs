@@ -9,12 +9,12 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath;
 
-namespace FhirPathPatch.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
     /// <summary>
     /// This class handles the Insert operation for FHIR Patch.
     /// </summary>
-    public class OperationInsert : OperationBase, IOperation
+    internal class OperationInsert : OperationBase
     {
         public OperationInsert(Resource resource, PendingOperation po)
             : base(resource, po)
@@ -30,9 +30,8 @@ namespace FhirPathPatch.Operations
         /// this. So we must inspect the existing list and recreate it with the
         /// correct elements in order.
         /// </summary>
-        /// <param name="operation">PendingOperation representing Insert operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute()
+        internal override Resource Execute()
         {
             // Setup;
             var targetParent = Target.Parent;

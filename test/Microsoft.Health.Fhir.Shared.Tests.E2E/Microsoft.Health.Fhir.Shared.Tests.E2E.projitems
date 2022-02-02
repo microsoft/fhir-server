@@ -73,7 +73,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\StartupWithMetricHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\OperationVersionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\JsonPatchTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\FhirPatchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\FhirPathPatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CustomSearchParamTests.cs" />

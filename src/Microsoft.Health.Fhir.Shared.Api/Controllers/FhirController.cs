@@ -457,7 +457,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Consumes("application/fhir+json")]
         public async Task<IActionResult> PatchFhir(string typeParameter, string idParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
-            var payload = new FhirParameterPatchPayload(paramsResource);
+            var payload = new FhirPathPatchPayload(paramsResource);
             UpsertResourceResponse response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), payload, ifMatchHeader, HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);
         }
@@ -475,7 +475,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> ConditionalPatchFhir(string typeParameter, [FromBody] Parameters paramsResource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
-            var payload = new FhirParameterPatchPayload(paramsResource);
+            var payload = new FhirPathPatchPayload(paramsResource);
 
             UpsertResourceResponse response = await _mediator.ConditionalPatchResourceAsync(typeParameter, payload, conditionalParameters, ifMatchHeader, HttpContext.RequestAborted);
             return ToSaveOutcomeResult(response.Outcome);

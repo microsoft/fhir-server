@@ -5,11 +5,11 @@
 
 using System;
 using System.Collections.Generic;
-using FhirPathPatch.Operations;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations;
 using static Hl7.Fhir.Model.Parameters;
 
-namespace FhirPathPatch
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch
 {
     /// <summary>
     /// Handles patching a FHIR Resource in a builder pattern manner.
@@ -51,11 +51,11 @@ namespace FhirPathPatch
             {
                 resource = po.Type switch
                 {
-                    EOperationType.ADD => new OperationAdd(resource, po).Execute(),
-                    EOperationType.INSERT => new OperationInsert(resource, po).Execute(),
-                    EOperationType.REPLACE => new OperationReplace(resource, po).Execute(),
-                    EOperationType.DELETE => new OperationDelete(resource, po).Execute(),
-                    EOperationType.MOVE => new OperationMove(resource, po).Execute(),
+                    PatchOperationType.ADD => new OperationAdd(resource, po).Execute(),
+                    PatchOperationType.INSERT => new OperationInsert(resource, po).Execute(),
+                    PatchOperationType.REPLACE => new OperationReplace(resource, po).Execute(),
+                    PatchOperationType.DELETE => new OperationDelete(resource, po).Execute(),
+                    PatchOperationType.MOVE => new OperationMove(resource, po).Execute(),
                     _ => throw new NotImplementedException(),
                 };
             }

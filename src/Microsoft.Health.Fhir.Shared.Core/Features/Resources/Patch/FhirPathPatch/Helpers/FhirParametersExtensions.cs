@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 
-namespace FhirPathPatch.Helpers
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers
 {
     public static class FhirParametersExtensions
     {

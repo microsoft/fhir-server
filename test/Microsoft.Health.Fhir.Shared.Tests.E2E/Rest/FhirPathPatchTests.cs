@@ -7,11 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using FhirPathPatch.Helpers;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -23,11 +23,11 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class FhirPatchTests : IClassFixture<HttpIntegrationTestFixture>
+    public class FhirPathPatchTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly TestFhirClient _client;
 
-        public FhirPatchTests(HttpIntegrationTestFixture fixture)
+        public FhirPathPatchTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
         }

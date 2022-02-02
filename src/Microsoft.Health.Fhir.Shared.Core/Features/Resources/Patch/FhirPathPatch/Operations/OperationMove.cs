@@ -5,18 +5,18 @@
 
 using System;
 using System.Linq;
-using FhirPathPatch.Helpers;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 
-namespace FhirPathPatch.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
     /// <summary>
     /// This handles patching an object that requires moving an element from the resource to a new path.
     /// </summary>
-    public class OperationMove : OperationBase, IOperation
+    internal class OperationMove : OperationBase
     {
-        public OperationMove(Resource resource, PendingOperation po)
+        internal OperationMove(Resource resource, PendingOperation po)
             : base(resource, po)
         {
         }
@@ -31,9 +31,8 @@ namespace FhirPathPatch.Operations
         /// this. So we must inspect the existing list and recreate it with the
         /// correct elements in order.
         /// </summary>
-        /// <param name="operation">PendingOperation representing Move operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute()
+        internal override Resource Execute()
         {
             // Setup
             var targetParent = Target.Parent;

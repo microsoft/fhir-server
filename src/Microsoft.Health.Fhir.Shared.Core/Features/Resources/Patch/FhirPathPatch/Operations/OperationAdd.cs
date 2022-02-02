@@ -6,14 +6,14 @@
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 
-namespace FhirPathPatch.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
     /// <summary>
     /// This handles patching an object that requires adding a new element.
     /// </summary>
-    public class OperationAdd : OperationBase, IOperation
+    internal class OperationAdd : OperationBase
     {
-        public OperationAdd(Resource resource, PendingOperation po)
+        internal OperationAdd(Resource resource, PendingOperation po)
             : base(resource, po)
         {
         }
@@ -28,9 +28,8 @@ namespace FhirPathPatch.Operations
         /// Fhir package has a built-in "Add" operation which accomplishes this
         /// easily.
         /// </summary>
-        /// <param name="operation">PendingOperation representing Add operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute()
+        internal override Resource Execute()
         {
             Target.Add(Provider, ValueElementNode);
             return ResourceElement.ToPoco<Resource>();

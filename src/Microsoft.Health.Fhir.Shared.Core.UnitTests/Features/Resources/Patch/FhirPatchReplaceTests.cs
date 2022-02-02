@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
-using FhirPathPatch;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch

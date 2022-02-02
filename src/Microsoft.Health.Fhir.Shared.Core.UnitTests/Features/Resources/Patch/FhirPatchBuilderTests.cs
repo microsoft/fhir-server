@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System;
-using FhirPathPatch;
-using FhirPathPatch.Helpers;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch

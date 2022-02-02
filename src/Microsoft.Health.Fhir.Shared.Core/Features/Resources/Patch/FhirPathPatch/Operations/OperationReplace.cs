@@ -6,14 +6,14 @@
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 
-namespace FhirPathPatch.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
     /// <summary>
     /// This handles patching an object that requires replacing an element from the resource.
     /// </summary>
-    public class OperationReplace : OperationBase, IOperation
+    internal class OperationReplace : OperationBase
     {
-        public OperationReplace(Resource resource, PendingOperation po)
+        internal OperationReplace(Resource resource, PendingOperation po)
             : base(resource, po)
         {
         }
@@ -26,9 +26,8 @@ namespace FhirPathPatch.Operations
         /// Fhir package has a built-in "ReplaceWith" operation which
         /// accomplishes this easily.
         /// </summary>
-        /// <param name="operation">PendingOperation representing Replace operation.</param>
         /// <returns>Patched FHIR Resource as POCO.</returns>
-        public override Resource Execute()
+        internal override Resource Execute()
         {
             Target.ReplaceWith(Provider, ValueElementNode);
             return ResourceElement.ToPoco<Resource>();

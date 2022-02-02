@@ -8,67 +8,67 @@ using System.Globalization;
 using System.Linq;
 using static Hl7.Fhir.Model.Parameters;
 
-namespace FhirPathPatch.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations
 {
     /// <summary>
     /// An object to represent the operation type and parameters for a FHIR
     /// Path Patch operation to be completed.
     /// </summary>
-    public class PendingOperation
+    internal class PendingOperation
     {
         /// <summary>
         /// Gets or sets the enumeration value for this instances operation type.
         /// </summary>
-        public EOperationType Type { get; set; }
+        internal PatchOperationType Type { get; set; }
 
         /// <summary>
         /// Gets or sets the parameter component of the pending operation.
         /// </summary>
-        public ParameterComponent Parameter { get; set; }
+        internal ParameterComponent Parameter { get; set; }
 
         /// <summary>
         /// Gets or sets the operation index.
         /// </summary>
-        public int? Index { get; set; }
+        internal int? Index { get; set; }
 
         /// <summary>
         /// Gets or sets the source index.
         /// </summary>
-        public int? Source { get; set; }
+        internal int? Source { get; set; }
 
         /// <summary>
         /// Gets or sets the destination index.
         /// </summary>
-        public int? Destination { get; set; }
+        internal int? Destination { get; set; }
 
         /// <summary>
         /// Gets or sets the operation name.
         /// </summary>
-        public string Name { get; set; }
+        internal string Name { get; set; }
 
         /// <summary>
         /// Gets or sets the operation path.
         /// </summary>
-        public string Path { get; set; }
+        internal string Path { get; set; }
 
         /// <summary>
         /// Gets or sets the operation value as the input ParameterComponent.
         /// </summary>
-        public ParameterComponent Value { get; set; }
+        internal ParameterComponent Value { get; set; }
 
         /// <summary>
         /// Convert from ParameterComponent to PendingOperation Object.
         /// </summary>
         /// <param name="component">ParameterComponent.</param>
         /// <returns>PendingOperation.</returns>
-        public static PendingOperation FromParameterComponent(ParameterComponent component)
+        internal static PendingOperation FromParameterComponent(ParameterComponent component)
         {
             var operationTypeString = component.Part.First(x => x.Name == "type").Value.ToString();
-            EOperationType operationType;
+            PatchOperationType operationType;
             try
             {
-                operationType = (EOperationType)Enum.Parse(
-                    typeof(EOperationType),
+                operationType = (PatchOperationType)Enum.Parse(
+                    typeof(PatchOperationType),
                     operationTypeString.ToUpper(new CultureInfo("en-US", false)));
             }
             catch (ArgumentException)
@@ -105,28 +105,28 @@ namespace FhirPathPatch.Operations
                 throw new InvalidOperationException($"Path is required for operation type of {Type}");
             }
 
-            if (string.IsNullOrEmpty(Name) && Type == EOperationType.ADD)
+            if (string.IsNullOrEmpty(Name) && Type == PatchOperationType.ADD)
             {
                 throw new InvalidOperationException($"Name is required for operation type of {Type}");
             }
 
             if (Value is null &&
-                new[] { EOperationType.ADD, EOperationType.INSERT, EOperationType.REPLACE }.Contains(Type))
+                new[] { PatchOperationType.ADD, PatchOperationType.INSERT, PatchOperationType.REPLACE }.Contains(Type))
             {
                 throw new InvalidOperationException($"Value is required for operation type of {Type}");
             }
 
-            if (Index is null && Type == EOperationType.INSERT)
+            if (Index is null && Type == PatchOperationType.INSERT)
             {
                 throw new InvalidOperationException($"Index is required for operation type of {Type}");
             }
 
-            if (Source is null && Type == EOperationType.MOVE)
+            if (Source is null && Type == PatchOperationType.MOVE)
             {
                 throw new InvalidOperationException($"Source is required for operation type of {Type}");
             }
 
-            if (Destination is null && Type == EOperationType.MOVE)
+            if (Destination is null && Type == PatchOperationType.MOVE)
             {
                 throw new InvalidOperationException($"Destination is required for operation type of {Type}");
             }

@@ -14,7 +14,7 @@ using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Parameters;
 
-namespace FhirPathPatch.Helpers
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Helpers
 {
     internal static class ElementModelExtensions
     {
