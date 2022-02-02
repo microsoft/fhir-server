@@ -22,7 +22,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             WeakETag model = null;
             if (!string.IsNullOrWhiteSpace(suppliedWeakETag))
             {
-                model = WeakETag.FromWeakETag(suppliedWeakETag);
+                try
+                {
+                    model = WeakETag.FromWeakETag(suppliedWeakETag);
+                }
+                catch (BadRequestException ex)
+                {
+                    bindingContext.ModelState.AddModelError(bindingContext.ModelName, ex.Message);
+                    bindingContext.Result = ModelBindingResult.Failed();
+                }
             }
 
             bindingContext.Model = model;
