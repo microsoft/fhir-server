@@ -206,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     // and there is an entry in the list of updates with a delete status then it indicates
                     // the search parameter was deleted before it was added to this instance, and there is no issue
                     // however if there is no indication that the search parameter was deleted, then there is a problem
-                    throw new UnableToUpdateSearchParameterException(paramStatus.Uri);
+                    _logger.LogError(Resources.UnableToUpdateSearchParameter, paramStatus.Uri);
                 }
             }
 

@@ -681,13 +681,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     keepHistory: true,
                     cancellationToken: CancellationToken.None);
 
-                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParam.Url, CancellationToken.None);
-
                 await _searchParameterOperations2.GetAndApplySearchParameterUpdates(CancellationToken.None);
 
                 // After trying to sync the new "supported" status, but finding the resource missing, we should not add it to the
                 // searchparameterdefinitionmanager
-                tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
+                var tryGetSearchParamResult = _searchParameterDefinitionManager2.TryGetSearchParameter(searchParam.Url, out searchParamInfo);
                 Assert.False(tryGetSearchParamResult);
             }
             finally
