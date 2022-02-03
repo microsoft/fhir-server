@@ -14,8 +14,8 @@ IF EXISTS (
 	FROM sys.key_constraints
 	WHERE name='PK_QuantitySearchParam' AND type='PK')
 BEGIN
-EXEC dbo.LogSchemaMigrationProgress 'Dropping PK_QuantitySearchParam'
-ALTER TABLE dbo.QuantitySearchParam DROP CONSTRAINT PK_QuantitySearchParam;
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping PK_QuantitySearchParam'
+    ALTER TABLE dbo.QuantitySearchParam DROP CONSTRAINT PK_QuantitySearchParam;
 END;
 GO
 
@@ -28,8 +28,8 @@ IF EXISTS (
 	FROM sys.key_constraints
 	WHERE name='PK_NumberSearchParam' AND type='PK')
 BEGIN
-EXEC dbo.LogSchemaMigrationProgress 'Dropping PK_NumberSearchParam'
-ALTER TABLE dbo.NumberSearchParam DROP CONSTRAINT PK_NumberSearchParam;
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping PK_NumberSearchParam'
+    ALTER TABLE dbo.NumberSearchParam DROP CONSTRAINT PK_NumberSearchParam;
 END;
 GO
 
@@ -42,8 +42,8 @@ IF EXISTS (
 	FROM sys.key_constraints
 	WHERE name='PK_UriSearchParam' AND type='PK')
 BEGIN
-EXEC dbo.LogSchemaMigrationProgress 'Dropping PK_QuantitySearchParam'
-ALTER TABLE dbo.UriSearchParam DROP CONSTRAINT PK_UriSearchParam;
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping PK_QuantitySearchParam'
+    ALTER TABLE dbo.UriSearchParam DROP CONSTRAINT PK_UriSearchParam;
 END;
 GO
 
@@ -56,8 +56,8 @@ IF EXISTS (
 	FROM sys.objects
 	WHERE name='UQ_Resource_ResourceSurrogateId' AND type = 'UQ' AND OBJECT_NAME(parent_object_id) = N'Resource')
 BEGIN
-EXEC dbo.LogSchemaMigrationProgress 'Dropping UQ_Resource_ResourceSurrogateId'
-ALTER TABLE dbo.Resource DROP CONSTRAINT UQ_Resource_ResourceSurrogateId;
+    EXEC dbo.LogSchemaMigrationProgress 'Dropping UQ_Resource_ResourceSurrogateId'
+    ALTER TABLE dbo.Resource DROP CONSTRAINT UQ_Resource_ResourceSurrogateId;
 END;
 GO
 
@@ -67,7 +67,7 @@ IF EXISTS (
 	FROM sys.indexes
 	WHERE name='UQIX_Resource_ResourceSurrogateId')
 BEGIN
-EXEC dbo.LogSchemaMigrationProgress 'Renaming UQIX_Resource_ResourceSurrogateId to IX_Resource_ResourceSurrogateId'
+    EXEC dbo.LogSchemaMigrationProgress 'Renaming UQIX_Resource_ResourceSurrogateId to IX_Resource_ResourceSurrogateId'
     EXEC sp_rename N'dbo.Resource.UQIX_Resource_ResourceSurrogateId', N'IX_Resource_ResourceSurrogateId', N'INDEX';
 END;
 GO

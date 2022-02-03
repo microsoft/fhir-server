@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                             throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                         default:
-                            _logger.LogError(e, "Error from SQL data.base on upsert");
+                            _logger.LogError(e, "Error from SQL database on upsert");
                             throw;
                     }
                 }
