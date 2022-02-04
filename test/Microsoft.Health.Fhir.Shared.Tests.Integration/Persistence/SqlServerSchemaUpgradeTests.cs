@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerSchemaUpgradeTests
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true";
+        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
         public SqlServerSchemaUpgradeTests()
@@ -202,6 +202,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("Procedure", "[dbo].[UpsertResource_3]"),
                 ("Procedure", "[dbo].[UpsertResource_4]"),
+                ("Procedure", "[dbo].[UpsertResource_5]"),
                 ("Procedure", "[dbo].[ReindexResource]"),
                 ("Procedure", "[dbo].[BulkReindexResources]"),
                 ("Procedure", "[dbo].[CreateTask]"),
