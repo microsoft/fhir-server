@@ -296,6 +296,7 @@ namespace ResourceProcessorNamespace
             public override void Dispose()
             {
                 enumerator.Dispose();
+                GC.SuppressFinalize(this);
             }
         }
     }

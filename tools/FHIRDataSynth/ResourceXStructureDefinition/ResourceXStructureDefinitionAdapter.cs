@@ -101,6 +101,7 @@ namespace ResourceProcessorNamespace
 
             public override void Dispose()
             {
+                GC.SuppressFinalize(this);
             }
         }
     }

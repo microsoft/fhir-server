@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourceProcessorException : Exception
+    public class ResourceProcessorException : Exception
     {
         public ResourceProcessorException(string resourceGroupDir, string resourceName, string resourceId, string message)
             : base($"{resourceGroupDir}/{resourceName}/{resourceId}: {message}")
