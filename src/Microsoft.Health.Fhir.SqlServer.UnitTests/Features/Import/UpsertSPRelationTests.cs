@@ -29,6 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 "allowCreate",
                 "isDeleted",
                 "keepHistory",
+                "requireETagOnUpdate",
                 "requestMethod",
                 "searchParamHash",
                 "rawResource",

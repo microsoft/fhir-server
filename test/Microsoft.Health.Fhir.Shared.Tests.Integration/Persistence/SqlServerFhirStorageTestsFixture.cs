@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGeneratorV7 = serviceProvider.GetRequiredService<V7.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertResourceTvpGeneratorV13 = serviceProvider.GetRequiredService<V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var upsertResourceTvpGeneratorV18 = serviceProvider.GetRequiredService<V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var reindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
@@ -154,6 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertResourceTvpGeneratorV7,
                 upsertResourceTvpGeneratorV13,
                 upsertResourceTvpGeneratorV17,
+                upsertResourceTvpGeneratorV18,
                 upsertResourceTvpGeneratorVLatest,
                 reindexResourceTvpGeneratorV17,
                 reindexResourceTvpGeneratorVLatest,
@@ -163,7 +165,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlConnectionWrapperFactory,
                 new CompressedRawResourceConverter(),
                 NullLogger<SqlServerFhirDataStore>.Instance,
-                SchemaInformation);
+                SchemaInformation,
+                ModelInfoProvider.Instance);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 

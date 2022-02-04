@@ -367,45 +367,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenAResourceTypeWithNoVersionVersioningPolicy_WhenSearchingHistory_ThenOnlyLatestVersionIsReturned()
-        {
-            // The FHIR storage fixture configures organization resources to have history disabled
-            SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetDefaultOrganization());
-
-            ResourceElement newResourceValues = Samples.GetDefaultOrganization().UpdateId(saveResult.RawResourceElement.Id);
-
-            SaveOutcome updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
-
-            ResourceElement historyResults = await Mediator.SearchResourceHistoryAsync(KnownResourceTypes.Organization, updateResult.RawResourceElement.Id);
-
-            // The history bundle only has one entry because resource history is not kept
-            Bundle bundle = historyResults.ToPoco<Bundle>();
-            Assert.Single(bundle.Entry);
-
-            Assert.Equal(WeakETag.FromVersionId(updateResult.RawResourceElement.VersionId).ToString(), bundle.Entry[0].Response.Etag);
-        }
-
-        [Fact]
-        public async Task GivenAResourceTypeWithVersionedVersioningPolicy_WhenSearchingHistory_ThenAllVersionsAreReturned()
-        {
-            // The FHIR storage fixture configures observation resources to have history enabled
-            SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetDefaultObservation());
-
-            ResourceElement newResourceValues = Samples.GetDefaultObservation().UpdateId(saveResult.RawResourceElement.Id);
-
-            SaveOutcome updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
-
-            ResourceElement historyResults = await Mediator.SearchResourceHistoryAsync(KnownResourceTypes.Observation, updateResult.RawResourceElement.Id);
-
-            // The history bundle has both versions because history is kept
-            Bundle bundle = historyResults.ToPoco<Bundle>();
-            Assert.Equal(2, bundle.Entry.Count);
-
-            Assert.Equal(WeakETag.FromVersionId(updateResult.RawResourceElement.VersionId).ToString(), bundle.Entry.Max(entry => entry.Response.Etag));
-            Assert.Equal(WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId).ToString(), bundle.Entry.Min(entry => entry.Response.Etag));
-        }
-
-        [Fact]
         public async Task WhenDeletingAResource_ThenWeGetResourceGone()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));

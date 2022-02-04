@@ -16,7 +16,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             WeakETag weakETag,
             bool allowCreate,
             bool keepHistory,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool requireETagOnUpdate = false);
 
         Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken);
 

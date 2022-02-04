@@ -53,38 +53,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 
             Resource resource = request.Resource.ToPoco<Resource>();
 
-            if (await ConformanceProvider.Value.RequireETag(resource.TypeName, cancellationToken) && request.WeakETag == null)
-            {
-                throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.TypeName));
-            }
-
             bool allowCreate = await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
+            bool requireETagOnUpdate = await ConformanceProvider.Value.RequireETag(resource.TypeName, cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: allowCreate);
 
-            UpsertOutcome result = await UpsertAsync(request, resourceWrapper, allowCreate, keepHistory, cancellationToken);
+            UpsertOutcome result = await FhirDataStore.UpsertAsync(resourceWrapper, request.WeakETag, allowCreate, keepHistory, cancellationToken, requireETagOnUpdate);
 
             resource.VersionId = result.Wrapper.Version;
 
             return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
-        }
-
-        private async Task<UpsertOutcome> UpsertAsync(UpsertResourceRequest message, ResourceWrapper resourceWrapper, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
-        {
-            UpsertOutcome result;
-
-            try
-            {
-                result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, allowCreate, keepHistory, cancellationToken);
-            }
-            catch (PreconditionFailedException) when (_modelInfoProvider.Version == FhirSpecification.Stu3)
-            {
-                // The backwards compatibility behavior of Stu3 is to return a Conflict instead of Precondition fail
-                throw new ResourceConflictException(message.WeakETag);
-            }
-
-            return result;
         }
     }
 }
