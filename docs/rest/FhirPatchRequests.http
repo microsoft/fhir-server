@@ -70,32 +70,6 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ###
-## Remove a phone number
-
-PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
-content-type: application/fhir+json
-Authorization: Bearer {{bearer.response.body.access_token}}
-
-{
-    "resourceType": "Parameters",
-    "parameter": [
-        {
-            "name": "operation",
-            "part": [
-                {
-                    "name": "type",
-                    "valueCode": "delete"
-                },
-                {
-                    "name": "path",
-                    "valueString": "Patient.telecom.where(use = 'home')"
-                }
-            ]
-        }
-    ]
-}
-
-###
 ## Add a phone number
 
 PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
@@ -127,6 +101,32 @@ Authorization: Bearer {{bearer.response.body.access_token}}
                         "value": "888-888-8888",
                         "use": "work"
                     }
+                }
+            ]
+        }
+    ]
+}
+
+###
+## Remove a phone number
+
+PATCH https://{{hostname}}/Patient/{{patient.response.body.id}}
+content-type: application/fhir+json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "operation",
+            "part": [
+                {
+                    "name": "type",
+                    "valueCode": "delete"
+                },
+                {
+                    "name": "path",
+                    "valueString": "Patient.telecom.where(use = 'home')"
                 }
             ]
         }
