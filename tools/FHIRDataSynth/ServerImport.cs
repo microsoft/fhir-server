@@ -334,7 +334,9 @@ namespace FHIRDataSynth
             await ImportMultipleBlobsPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString);
         }
 
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
         public class ServerImportResult
+#pragma warning restore CA1812
         {
             public DateTime transactionTime { get; set; }
 
@@ -345,7 +347,9 @@ namespace FHIRDataSynth
             public Error[] error { get; set; }
         }
 
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
         public class Output
+#pragma warning restore CA1812
         {
             public string type { get; set; }
 
@@ -354,7 +358,9 @@ namespace FHIRDataSynth
             public string inputUrl { get; set; }
         }
 
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
         public class Error
+#pragma warning restore CA1812
         {
             public string type { get; set; }
 

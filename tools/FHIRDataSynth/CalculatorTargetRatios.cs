@@ -30,14 +30,18 @@ namespace FHIRDataSynth
             public double blendRatio = 0;
         }
 
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
         private class BlendProfile
+#pragma warning restore CA1812
         {
             public string BlendName { get; set; }
 
             public Dictionary<string, double> BlendRatios { get; set; }
         }
 
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
         private class BlendRatios
+#pragma warning restore CA1812
         {
             public BlendProfile[] BlendProfiles { get; set; }
         }

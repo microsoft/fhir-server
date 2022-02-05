@@ -38,7 +38,9 @@ namespace FHIRDataSynth
             }
         }
 
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
         private class TargetRatios
+#pragma warning restore CA1812
         {
             public TargetProfile[] targetRatios { get; set; }
         }
