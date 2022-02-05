@@ -9,11 +9,6 @@ namespace FHIRDataSynth
 {
     internal class CalculatorTargetRatios
     {
-        private class TargetRatios
-        {
-            public List<TargetProfile> targetRatios { get; set; }
-        }
-
         public const string ResourcesTotalSizeHeader = "ResourceName,Bytes";
         public const string OneResourceGroupInfoHeader = "Resource Name,Ids Count,Duplicate Ids Count,Patient Refs Not Patient,Subject Refs Not Patient,Patient Ref Ids Count,Intersect Patients PatientRefs Count,Lines Count,Lines Length Sum";
 

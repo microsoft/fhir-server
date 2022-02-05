@@ -12,6 +12,7 @@ using Azure.Storage.Blobs.Models;
 
 namespace FHIRDataSynth
 {
+#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
     internal class ServerImport
     {
         public class ImportParameters
@@ -60,6 +61,7 @@ namespace FHIRDataSynth
         {
             public List<ImportResult> importResult { get; set; }
         }
+#pragma warning restore SA1300
 
         private static async Task<bool> ImportSingle(Uri uri, string importParametersJsonString, HttpClient client, ImportResult currentResult)
         {
@@ -334,6 +336,7 @@ namespace FHIRDataSynth
             await ImportMultipleBlobsPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString);
         }
 
+#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
         public class ServerImportResult
 #pragma warning restore CA1812
@@ -370,6 +373,7 @@ namespace FHIRDataSynth
 
             public string url { get; set; }
         }
+#pragma warning restore SA1300
 
         public static async Task<bool> IsImportFinished(string importResultFileName)
         {

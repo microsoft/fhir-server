@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 namespace ResourceProcessorNamespace
 {
+#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
     internal class TargetProfile
     {
         public string name { get; set; }
@@ -29,6 +30,12 @@ namespace ResourceProcessorNamespace
             }
         }
     }
+
+    internal class TargetRatios
+    {
+        public List<TargetProfile> targetRatios { get; set; }
+    }
+#pragma warning restore SA1300
 
     internal abstract class ResourceProcessor
     {

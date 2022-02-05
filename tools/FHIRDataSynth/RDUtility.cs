@@ -190,6 +190,7 @@ namespace FHIRDataSynth
             }
         }
 
+#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
         public struct ReferenceJSON
         {
             public string reference { get; set; }
@@ -205,6 +206,7 @@ namespace FHIRDataSynth
 
             public ReferenceJSON subject { get; set; }
         }
+#pragma warning restore SA1300
 
         private static BlobInfo GetBlobInfo(string resourceName, StreamReader streamReader)
         {

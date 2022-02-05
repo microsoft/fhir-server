@@ -14,7 +14,8 @@ using System.Diagnostics.CodeAnalysis;
 // [assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1400:Access modifier should be declared", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1649:File name should match first type name", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1307:Accessible fields should begin with upper-case letter", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:Element should begin with upper-case letter", Justification = "<TODO>", Scope = "module")]
+
+// [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:Element should begin with upper-case letter", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("Usage", "CA2201:Do not raise reserved exception types", Justification = "<TODO>", Scope = "module")]
 
