@@ -243,13 +243,13 @@ namespace ResourceProcessorNamespace
             string resName = ResourceGroupProcessor.CareTeamStr;
             select = true;
 
-            if (json.subject != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (json.subject != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
-            if (json.encounter != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+            if (json.encounter != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.Encounters, processor.EncounterIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -272,7 +272,7 @@ namespace ResourceProcessorNamespace
                         {
                             if (p.member.reference.StartsWith(ResourceGroupProcessor.PatientPrefix, StringComparison.Ordinal))
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
@@ -280,7 +280,7 @@ namespace ResourceProcessorNamespace
                             }
                             else if (p.member.reference.StartsWith(ResourceGroupProcessor.PractitionerPrefix, StringComparison.Ordinal))
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.PractitionerStr, processor.Practitioners, processor.PractitionerIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
@@ -288,7 +288,7 @@ namespace ResourceProcessorNamespace
                             }
                             else if (p.member.reference.StartsWith(ResourceGroupProcessor.OrganizationPrefix, StringComparison.Ordinal))
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.member.reference, ResourceGroupProcessor.OrganizationStr, processor.Organizations, processor.OrganizationIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
@@ -322,7 +322,7 @@ namespace ResourceProcessorNamespace
 
                 foreach (CareTeam.Managingorganization m in json.managingOrganization)
                 {
-                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, m.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, m.reference, ResourceGroupProcessor.OrganizationStr, processor.Organizations, processor.OrganizationIdsRemoved, ref select))
                     {
                         select = false;
                         return false;

@@ -46,7 +46,7 @@ namespace ResourceProcessorNamespace
         // Enumerator.
         public override Enumerator GetEnumerator()
         {
-            return new Enumerator(processor, options);
+            return new Enumerator(Processor, Options);
         }
 
         public class Enumerator : EnumeratorBase<int>

@@ -242,13 +242,13 @@ namespace ResourceProcessorNamespace
                             return false;
                         }
 
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.subject.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
                         }
 
-                        if (c.requester != null && !processor.ValidateResourceRefAndSelect(json.id, resName, c.requester.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                        if (c.requester != null && !processor.ValidateResourceRefAndSelect(json.id, resName, c.requester.reference, ResourceGroupProcessor.PractitionerStr, processor.Practitioners, processor.PractitionerIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
@@ -265,7 +265,7 @@ namespace ResourceProcessorNamespace
 
                             foreach (ExplanationOfBenefit.Performer p in c.performer)
                             {
-                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                                if (!processor.ValidateResourceRefAndSelect(json.id, resName, p.reference, ResourceGroupProcessor.PractitionerStr, processor.Practitioners, processor.PractitionerIdsRemoved, ref select))
                                 {
                                     select = false;
                                     return false;
@@ -282,7 +282,7 @@ namespace ResourceProcessorNamespace
                             return false;
                         }
 
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.beneficiary.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, c.beneficiary.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
                         {
                             select = false;
                             return false;
@@ -304,7 +304,7 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -317,13 +317,13 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.provider.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, resName, json.provider.reference, ResourceGroupProcessor.PractitionerStr, processor.Practitioners, processor.PractitionerIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
-            if (json.claim != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.claim.reference, ResourceGroupProcessor.ClaimStr, processor.claims, processor.claimIdsRemoved, ref select))
+            if (json.claim != null && !processor.ValidateResourceRefAndSelect(json.id, resName, json.claim.reference, ResourceGroupProcessor.ClaimStr, processor.Claims, processor.ClaimIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -347,7 +347,7 @@ namespace ResourceProcessorNamespace
                         return false;
                     }
 
-                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.provider.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, ct.provider.reference, ResourceGroupProcessor.PractitionerStr, processor.Practitioners, processor.PractitionerIdsRemoved, ref select))
                     {
                         select = false;
                         return false;
@@ -377,7 +377,7 @@ namespace ResourceProcessorNamespace
 
                         foreach (ExplanationOfBenefit.Encounter e in i.encounter)
                         {
-                            if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                            if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.EncounterStr, processor.Encounters, processor.EncounterIdsRemoved, ref select))
                             {
                                 select = false;
                                 return false;

@@ -87,14 +87,14 @@ namespace ResourceProcessorNamespace
         {
             select = true;
             if (json.subject != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.serviceProvider != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.serviceProvider.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.serviceProvider.reference, ResourceGroupProcessor.OrganizationStr, processor.Organizations, processor.OrganizationIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -112,7 +112,7 @@ namespace ResourceProcessorNamespace
                 for (int i = 0; i < json.participant.Length; i++)
                 {
                     if (json.participant[i].individual != null &&
-                        !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.participant[i].individual.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref select))
+                        !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.EncounterStr, json.participant[i].individual.reference, ResourceGroupProcessor.PractitionerStr, processor.Practitioners, processor.PractitionerIdsRemoved, ref select))
                     {
                         select = false;
                         return false;

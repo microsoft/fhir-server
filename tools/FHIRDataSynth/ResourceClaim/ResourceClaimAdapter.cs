@@ -130,7 +130,7 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -143,14 +143,14 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.provider.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.provider.reference, ResourceGroupProcessor.OrganizationStr, processor.Organizations, processor.OrganizationIdsRemoved, ref select))
             {
                 select = false;
                 return false;
             }
 
             if (json.prescription != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.prescription.reference, ResourceGroupProcessor.MedicationRequestStr, processor.medicationRequests, processor.medicationRequestIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.prescription.reference, ResourceGroupProcessor.MedicationRequestStr, processor.MedicationRequests, processor.MedicationRequestIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -178,7 +178,7 @@ namespace ResourceProcessorNamespace
 
                         for (int j = 0; j < json.item[i].encounter.Length; j++)
                         {
-                            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.item[i].encounter[j].reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select))
+                            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ClaimStr, json.item[i].encounter[j].reference, ResourceGroupProcessor.EncounterStr, processor.Encounters, processor.EncounterIdsRemoved, ref select))
                             {
                                 select = false;
                                 return false;

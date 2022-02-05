@@ -14,86 +14,57 @@ namespace ResourceProcessorNamespace
 {
     internal class ResourcesResult
     {
-        public int inputResourcesCount;
-        public long inputResourcesSize;
-        public int inputValidResorcesCount;
-        public int inputSelectedResorcesCount;
-        public int inputRemovedResourcesCount;
-        public int outputCreatedResourcesCount;
-        public int outputResourcesCount;
-        public long outputResourcesSize;
+        public int InputResourcesCount { get; set; }
 
-        public int InputResourcesCount { get => inputResourcesCount; }
+        public long InputResourcesSize { get; set; }
 
-        public long InputResourcesSize { get => inputResourcesSize; }
+        public int InputValidResorcesCount { get; set; }
 
-        public int InputValidResorcesCount { get => inputValidResorcesCount; }
+        public int InputSelectedResorcesCount { get; set; }
 
-        public int InputSelectedResorcesCount { get => inputSelectedResorcesCount; }
+        public int InputRemovedResourcesCount { get; set; }
 
-        public int InputRemovedResourcesCount { get => inputRemovedResourcesCount; }
+        public int OutputCreatedResourcesCount { get; set; }
 
-        public int OutputCreatedResourcesCount { get => outputCreatedResourcesCount; }
+        public int OutputResourcesCount { get; set; }
 
-        public int OutputResourcesCount { get => outputResourcesCount; }
-
-        public long OutputResourcesSize { get => outputResourcesSize; }
+        public long OutputResourcesSize { get; set; }
 
         public ResourcesResult()
         {
-            inputResourcesCount = 0;
-            inputResourcesSize = 0;
-            inputValidResorcesCount = 0;
-            inputSelectedResorcesCount = 0;
-            inputRemovedResourcesCount = 0;
-            outputCreatedResourcesCount = 0;
-            outputResourcesCount = 0;
-            outputResourcesSize = 0;
-        }
-
-        public ResourcesResult(
-            int inputResourcesCount,
-            long inputResourcesSize,
-            int inputValidResorcesCount,
-            int inputSelectedResorcesCount,
-            int inputRemovedResourcesCount,
-            int outputCreatedResourcesCount,
-            int outputResourcesCount,
-            long outputResourcesSize)
-        {
-            this.inputResourcesCount = inputResourcesCount;
-            this.inputResourcesSize = inputResourcesSize;
-            this.inputValidResorcesCount = inputValidResorcesCount;
-            this.inputSelectedResorcesCount = inputSelectedResorcesCount;
-            this.inputRemovedResourcesCount = inputRemovedResourcesCount;
-            this.outputCreatedResourcesCount = outputCreatedResourcesCount;
-            this.outputResourcesCount = outputResourcesCount;
-            this.outputResourcesSize = outputResourcesSize;
+            InputResourcesCount = 0;
+            InputResourcesSize = 0;
+            InputValidResorcesCount = 0;
+            InputSelectedResorcesCount = 0;
+            InputRemovedResourcesCount = 0;
+            OutputCreatedResourcesCount = 0;
+            OutputResourcesCount = 0;
+            OutputResourcesSize = 0;
         }
 
         public void Add(ResourcesResult a) // TODO: to derived class so base is readonly?
         {
-            inputResourcesCount += a.inputResourcesCount;
-            inputResourcesSize += a.inputResourcesSize;
-            inputValidResorcesCount += a.inputValidResorcesCount;
-            inputSelectedResorcesCount += a.inputSelectedResorcesCount;
-            inputRemovedResourcesCount += a.inputRemovedResourcesCount;
-            outputCreatedResourcesCount += a.outputCreatedResourcesCount;
-            outputResourcesCount += a.outputResourcesCount;
-            outputResourcesSize += a.outputResourcesSize;
+            InputResourcesCount += a.InputResourcesCount;
+            InputResourcesSize += a.InputResourcesSize;
+            InputValidResorcesCount += a.InputValidResorcesCount;
+            InputSelectedResorcesCount += a.InputSelectedResorcesCount;
+            InputRemovedResourcesCount += a.InputRemovedResourcesCount;
+            OutputCreatedResourcesCount += a.OutputCreatedResourcesCount;
+            OutputResourcesCount += a.OutputResourcesCount;
+            OutputResourcesSize += a.OutputResourcesSize;
         }
 
         public void LogInfo(ResourceGroupProcessor resourceGroupProcessor, string resourceGroupDir, string resourceName)
         {
             resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, "-----------------------------------------------");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputResourcesCount)} : {inputResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputResourcesSize)} : {inputResourcesSize}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputValidResorcesCount)} : {inputValidResorcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputSelectedResorcesCount)} : {inputSelectedResorcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(inputRemovedResourcesCount)} : {inputRemovedResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(outputCreatedResourcesCount)} : {outputCreatedResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(outputResourcesCount)} : {outputResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(outputResourcesSize)} : {outputResourcesSize}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesCount)} : {InputResourcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesSize)} : {InputResourcesSize}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputValidResorcesCount)} : {InputValidResorcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputSelectedResorcesCount)} : {InputSelectedResorcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputRemovedResourcesCount)} : {InputRemovedResourcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputCreatedResourcesCount)} : {OutputCreatedResourcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesCount)} : {OutputResourcesCount}");
+            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesSize)} : {OutputResourcesSize}");
         }
     }
 
@@ -113,44 +84,81 @@ namespace ResourceProcessorNamespace
 
         protected abstract bool OnlyVerifyInput { get; }
 
-        public Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>> allergyIntolerances = new Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>>();
-        public HashSet<string> allergyIntoleranceIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<CarePlanSibling>> carePlans = new Dictionary<string, ResourceSiblingsContainer<CarePlanSibling>>();
-        public HashSet<string> carePlanIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<CareTeamSibling>> careTeams = new Dictionary<string, ResourceSiblingsContainer<CareTeamSibling>>();
-        public HashSet<string> careTeamIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<ClaimSibling>> claims = new Dictionary<string, ResourceSiblingsContainer<ClaimSibling>>();
-        public HashSet<string> claimIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<ConditionSibling>> conditions = new Dictionary<string, ResourceSiblingsContainer<ConditionSibling>>();
-        public HashSet<string> conditionIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<DeviceSibling>> devices = new Dictionary<string, ResourceSiblingsContainer<DeviceSibling>>();
-        public HashSet<string> deviceIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<DiagnosticReportSibling>> diagnosticReports = new Dictionary<string, ResourceSiblingsContainer<DiagnosticReportSibling>>();
-        public HashSet<string> diagnosticReportIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<EncounterSibling>> encounters = new Dictionary<string, ResourceSiblingsContainer<EncounterSibling>>();
-        public HashSet<string> encounterIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<ExplanationOfBenefitSibling>> explanationOfBenefits = new Dictionary<string, ResourceSiblingsContainer<ExplanationOfBenefitSibling>>();
-        public HashSet<string> explanationOfBenefitIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<ImagingStudySibling>> imagingStudies = new Dictionary<string, ResourceSiblingsContainer<ImagingStudySibling>>();
-        public HashSet<string> imagingStudyIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<ImmunizationSibling>> immunizations = new Dictionary<string, ResourceSiblingsContainer<ImmunizationSibling>>();
-        public HashSet<string> immunizationIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<MedicationAdministrationSibling>> medicationAdministrations = new Dictionary<string, ResourceSiblingsContainer<MedicationAdministrationSibling>>();
-        public HashSet<string> medicationAdministrationIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<MedicationRequestSibling>> medicationRequests = new Dictionary<string, ResourceSiblingsContainer<MedicationRequestSibling>>();
-        public HashSet<string> medicationRequestIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<ObservationSibling>> observations = new Dictionary<string, ResourceSiblingsContainer<ObservationSibling>>();
-        public HashSet<string> observationIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<OrganizationSibling>> organizations = new Dictionary<string, ResourceSiblingsContainer<OrganizationSibling>>();
-        public HashSet<string> organizationIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<PatientSibling>> patients = new Dictionary<string, ResourceSiblingsContainer<PatientSibling>>();
-        public HashSet<string> patientIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<PractitionerSibling>> practitioners = new Dictionary<string, ResourceSiblingsContainer<PractitionerSibling>>();
-        public HashSet<string> practitionerIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<ProcedureSibling>> procedures = new Dictionary<string, ResourceSiblingsContainer<ProcedureSibling>>();
-        public HashSet<string> procedureIdsRemoved = new HashSet<string>();
-        public Dictionary<string, ResourceSiblingsContainer<SupplyDeliverySibling>> supplyDeliveries = new Dictionary<string, ResourceSiblingsContainer<SupplyDeliverySibling>>();
-        public HashSet<string> supplyDeliveryIdsRemoved = new HashSet<string>();
+        public Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>> AllergyIntolerances { get; } = new Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>>();
+
+        public HashSet<string> AllergyIntoleranceIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<CarePlanSibling>> CarePlans { get; } = new Dictionary<string, ResourceSiblingsContainer<CarePlanSibling>>();
+
+        public HashSet<string> CarePlanIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<CareTeamSibling>> CareTeams { get; } = new Dictionary<string, ResourceSiblingsContainer<CareTeamSibling>>();
+
+        public HashSet<string> CareTeamIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<ClaimSibling>> Claims { get; } = new Dictionary<string, ResourceSiblingsContainer<ClaimSibling>>();
+
+        public HashSet<string> ClaimIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<ConditionSibling>> Conditions { get; } = new Dictionary<string, ResourceSiblingsContainer<ConditionSibling>>();
+
+        public HashSet<string> ConditionIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<DeviceSibling>> Devices { get; } = new Dictionary<string, ResourceSiblingsContainer<DeviceSibling>>();
+
+        public HashSet<string> DeviceIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<DiagnosticReportSibling>> DiagnosticReports { get; } = new Dictionary<string, ResourceSiblingsContainer<DiagnosticReportSibling>>();
+
+        public HashSet<string> DiagnosticReportIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<EncounterSibling>> Encounters { get; } = new Dictionary<string, ResourceSiblingsContainer<EncounterSibling>>();
+
+        public HashSet<string> EncounterIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<ExplanationOfBenefitSibling>> ExplanationOfBenefits { get; } = new Dictionary<string, ResourceSiblingsContainer<ExplanationOfBenefitSibling>>();
+
+        public HashSet<string> ExplanationOfBenefitIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<ImagingStudySibling>> ImagingStudies { get; } = new Dictionary<string, ResourceSiblingsContainer<ImagingStudySibling>>();
+
+        public HashSet<string> ImagingStudyIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<ImmunizationSibling>> Immunizations { get; } = new Dictionary<string, ResourceSiblingsContainer<ImmunizationSibling>>();
+
+        public HashSet<string> ImmunizationIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<MedicationAdministrationSibling>> MedicationAdministrations { get; } = new Dictionary<string, ResourceSiblingsContainer<MedicationAdministrationSibling>>();
+
+        public HashSet<string> MedicationAdministrationIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<MedicationRequestSibling>> MedicationRequests { get; } = new Dictionary<string, ResourceSiblingsContainer<MedicationRequestSibling>>();
+
+        public HashSet<string> MedicationRequestIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<ObservationSibling>> Observations { get; } = new Dictionary<string, ResourceSiblingsContainer<ObservationSibling>>();
+
+        public HashSet<string> ObservationIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<OrganizationSibling>> Organizations { get; } = new Dictionary<string, ResourceSiblingsContainer<OrganizationSibling>>();
+
+        public HashSet<string> OrganizationIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<PatientSibling>> Patients { get; } = new Dictionary<string, ResourceSiblingsContainer<PatientSibling>>();
+
+        public HashSet<string> PatientIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<PractitionerSibling>> Practitioners { get; } = new Dictionary<string, ResourceSiblingsContainer<PractitionerSibling>>();
+
+        public HashSet<string> PractitionerIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<ProcedureSibling>> Procedures { get; } = new Dictionary<string, ResourceSiblingsContainer<ProcedureSibling>>();
+
+        public HashSet<string> ProcedureIdsRemoved { get; } = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<SupplyDeliverySibling>> SupplyDeliveries { get; } = new Dictionary<string, ResourceSiblingsContainer<SupplyDeliverySibling>>();
+
+        public HashSet<string> SupplyDeliveryIdsRemoved { get; } = new HashSet<string>();
 
         public const string AllergyIntoleranceStr = "AllergyIntolerance";
         public const string AllergyIntolerancePrefix = AllergyIntoleranceStr + "/";
@@ -193,18 +201,24 @@ namespace ResourceProcessorNamespace
 
         public const string DocumentReferenceStr = "DocumentReference";
         public const string DocumentReferencePrefix = DocumentReferenceStr + "/";
-        public Dictionary<string, ResourceSiblingsContainer<DocumentReferenceSibling>> documentReferences = new Dictionary<string, ResourceSiblingsContainer<DocumentReferenceSibling>>();
-        public HashSet<string> documentReferenceIdsRemoved = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<DocumentReferenceSibling>> DocumentReferences { get; } = new Dictionary<string, ResourceSiblingsContainer<DocumentReferenceSibling>>();
+
+        public HashSet<string> DocumentReferenceIdsRemoved { get; } = new HashSet<string>();
 
         public const string StructureDefinitionStr = "StructureDefinition";
         public const string StructureDefinitionPrefix = StructureDefinitionStr + "/";
-        public Dictionary<string, ResourceSiblingsContainer<StructureDefinitionSibling>> structureDefinitions = new Dictionary<string, ResourceSiblingsContainer<StructureDefinitionSibling>>();
-        public HashSet<string> structureDefinitionIdsRemoved = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<StructureDefinitionSibling>> StructureDefinitions { get; } = new Dictionary<string, ResourceSiblingsContainer<StructureDefinitionSibling>>();
+
+        public HashSet<string> StructureDefinitionIdsRemoved { get; } = new HashSet<string>();
 
         public const string CommunicationStr = "Communication";
         public const string CommunicationPrefix = CommunicationStr + "/";
-        public Dictionary<string, ResourceSiblingsContainer<CommunicationSibling>> communications = new Dictionary<string, ResourceSiblingsContainer<CommunicationSibling>>();
-        public HashSet<string> communicationIdsRemoved = new HashSet<string>();
+
+        public Dictionary<string, ResourceSiblingsContainer<CommunicationSibling>> Communications { get; } = new Dictionary<string, ResourceSiblingsContainer<CommunicationSibling>>();
+
+        public HashSet<string> CommunicationIdsRemoved { get; } = new HashSet<string>();
 
         private bool ValidateIdAndResourceType(string id, string resourceType, string resourceName, HashSet<string> duplicateIdsCheck)
         {
@@ -298,7 +312,7 @@ namespace ResourceProcessorNamespace
         {
             if (targetProfile.ratios.ContainsKey(resourceName) && jsonList.Count > 0)
             {
-                double ratio = targetProfile.ratios[resourceName] * ((double)result.inputResourcesCount / jsonList.Count);
+                double ratio = targetProfile.ratios[resourceName] * ((double)result.InputResourcesCount / jsonList.Count);
                 int requiredOutputCount = (int)(jsonList.Count * ratio);
                 if (requiredOutputCount <= jsonList.Count)
                 {
@@ -310,8 +324,8 @@ namespace ResourceProcessorNamespace
                         resourcesCollection.Add(adapter.GetId(json), siblingsContainer);
                         string line = JsonSerializer.Serialize<T>(json, options);
                         await w.WriteLineAsync(line);
-                        result.outputResourcesCount++;
-                        result.outputResourcesSize += line.Length;
+                        result.OutputResourcesCount++;
+                        result.OutputResourcesSize += line.Length;
                     }
 
                     for (int i = requiredOutputCount; i < jsonList.Count; i++)
@@ -319,7 +333,7 @@ namespace ResourceProcessorNamespace
                         T json = jsonList[i];
                         jsonList[i] = default(T);
                         resourcesRemovedSet.Add(adapter.GetId(json));
-                        result.inputRemovedResourcesCount++;
+                        result.InputRemovedResourcesCount++;
                     }
                 }
                 else
@@ -333,24 +347,24 @@ namespace ResourceProcessorNamespace
                         siblingsList.Add(adapter.CreateOriginal(this, json));
                         string line = JsonSerializer.Serialize<T>(json, options);
                         await w.WriteLineAsync(line);
-                        result.outputResourcesCount++;
-                        result.outputResourcesSize += line.Length;
+                        result.OutputResourcesCount++;
+                        result.OutputResourcesSize += line.Length;
 
                         // Now generate more resources.
                         int requiredCount = (int)((i + 1) * ratio);
-                        if (result.outputResourcesCount < requiredCount)
+                        if (result.OutputResourcesCount < requiredCount)
                         {
                             T siblingJson = JsonSerializer.Deserialize<T>(JsonSerializer.Serialize<T>(json));
                             int refSiblingNumberLimit = adapter.GetRefSiblingNumberLimit(this, json);
                             int refSiblingNumber = 1;
-                            while (result.outputResourcesCount < requiredCount)
+                            while (result.OutputResourcesCount < requiredCount)
                             {
                                 siblingsList.Add(adapter.CreateClone(this, json, siblingJson, refSiblingNumber % refSiblingNumberLimit));
                                 string siblingLine = JsonSerializer.Serialize<T>(siblingJson, options);
                                 await w.WriteLineAsync(siblingLine);
-                                result.outputCreatedResourcesCount++;
-                                result.outputResourcesCount++;
-                                result.outputResourcesSize += siblingLine.Length;
+                                result.OutputCreatedResourcesCount++;
+                                result.OutputResourcesCount++;
+                                result.OutputResourcesSize += siblingLine.Length;
                                 refSiblingNumber++;
                             }
                         }
@@ -361,7 +375,7 @@ namespace ResourceProcessorNamespace
                 }
             }
 
-            if (result.outputResourcesCount <= 0)
+            if (result.OutputResourcesCount <= 0)
             {
                 // TODO: what if no resources at this point (for example we need at least one patient), must retain at least one or even create one.
                 LogWarning(GetResourceGroupDir(), resourceName, null, $"No resources of type '{resourceName}' in output!");
@@ -395,8 +409,8 @@ namespace ResourceProcessorNamespace
                 HashSet<string> duplicateIdsCheck = new HashSet<string>();
                 while ((line = await r.ReadLineAsync()) != null) // TODO: optimization, we can stop the loop once required number of items is reached?
                 {
-                    result.inputResourcesCount++;
-                    result.inputResourcesSize += line.Length;
+                    result.InputResourcesCount++;
+                    result.InputResourcesSize += line.Length;
                     T json = JsonSerializer.Deserialize<T>(line);
 
                     if (!ValidateIdAndResourceType(adapter.GetId(json), adapter.GetResourceType(json), resourceName, duplicateIdsCheck))
@@ -409,14 +423,14 @@ namespace ResourceProcessorNamespace
                         continue;
                     }
 
-                    result.inputValidResorcesCount++;
+                    result.InputValidResorcesCount++;
                     if (OnlyVerifyInput || !select)
                     {
                         resourcesRemovedSet.Add(adapter.GetId(json));
                     }
                     else
                     {
-                        result.inputSelectedResorcesCount++;
+                        result.InputSelectedResorcesCount++;
                         jsonList.Add(json);
                     }
                 }
@@ -424,8 +438,8 @@ namespace ResourceProcessorNamespace
 
             if (OnlyVerifyInput)
             {
-                result.outputResourcesCount = result.inputResourcesCount;
-                result.outputResourcesSize = result.inputResourcesSize;
+                result.OutputResourcesCount = result.InputResourcesCount;
+                result.OutputResourcesSize = result.InputResourcesSize;
                 ret.Add(resourceName, result);
             }
             else
@@ -466,37 +480,37 @@ namespace ResourceProcessorNamespace
                 HashSet<string> duplicateIdsCheck = new HashSet<string>();
                 foreach (ResourceAdapter<T, TS>.EnumeratorItem item in adapter)
                 {
-                    result.inputResourcesSize += item.size;
-                    if (!ValidateIdAndResourceType(adapter.GetId(item.json), adapter.GetResourceType(item.json), resourceName, duplicateIdsCheck))
+                    result.InputResourcesSize += item.Size;
+                    if (!ValidateIdAndResourceType(adapter.GetId(item.Json), adapter.GetResourceType(item.Json), resourceName, duplicateIdsCheck))
                     {
                         continue;
                     }
 
-                    if (!adapter.ValidateResourceRefsAndSelect(this, item.json, out bool select))
+                    if (!adapter.ValidateResourceRefsAndSelect(this, item.Json, out bool select))
                     {
                         continue;
                     }
 
-                    result.inputValidResorcesCount++;
+                    result.InputValidResorcesCount++;
 
                     if (OnlyVerifyInput || !select)
                     {
-                        resourcesRemovedSet.Add(adapter.GetId(item.json));
+                        resourcesRemovedSet.Add(adapter.GetId(item.Json));
                     }
                     else
                     {
-                        result.inputSelectedResorcesCount++;
-                        jsonList.Add(item.json);
+                        result.InputSelectedResorcesCount++;
+                        jsonList.Add(item.Json);
                     }
                 }
 
-                result.inputResourcesCount = 1;
+                result.InputResourcesCount = 1;
             }
 
             if (OnlyVerifyInput)
             {
-                result.outputResourcesCount = result.inputResourcesCount;
-                result.outputResourcesSize = result.inputResourcesSize;
+                result.OutputResourcesCount = result.InputResourcesCount;
+                result.OutputResourcesSize = result.InputResourcesSize;
                 ret.Add(resourceName, result);
             }
             else
@@ -518,35 +532,35 @@ namespace ResourceProcessorNamespace
             };
             Dictionary<string, ResourcesResult> ret = new Dictionary<string, ResourcesResult>();
 
-            await ProcessResourcesX(StructureDefinitionStr, new StructureDefinitionAdapter(), targetProfile, options, structureDefinitions, structureDefinitionIdsRemoved, ret);
+            await ProcessResourcesX(StructureDefinitionStr, new StructureDefinitionAdapter(), targetProfile, options, StructureDefinitions, StructureDefinitionIdsRemoved, ret);
 
-            await ProcessResources(PatientStr, new PatientAdapter(), targetProfile, options, patients, patientIdsRemoved, ret);
+            await ProcessResources(PatientStr, new PatientAdapter(), targetProfile, options, Patients, PatientIdsRemoved, ret);
 
-            await ProcessResourcesX(CommunicationStr, new CommunicationAdapter(), targetProfile, options, communications, communicationIdsRemoved, ret);
+            await ProcessResourcesX(CommunicationStr, new CommunicationAdapter(), targetProfile, options, Communications, CommunicationIdsRemoved, ret);
 
-            await ProcessResources(AllergyIntoleranceStr, new AllergyIntoleranceAdapter(), targetProfile, options, allergyIntolerances, allergyIntoleranceIdsRemoved, ret);
-            await ProcessResources(DeviceStr, new DeviceAdapter(), targetProfile, options, devices, deviceIdsRemoved, ret);
-            await ProcessResources(SupplyDeliveryStr, new SupplyDeliveryAdapter(), targetProfile, options, supplyDeliveries, supplyDeliveryIdsRemoved, ret);
+            await ProcessResources(AllergyIntoleranceStr, new AllergyIntoleranceAdapter(), targetProfile, options, AllergyIntolerances, AllergyIntoleranceIdsRemoved, ret);
+            await ProcessResources(DeviceStr, new DeviceAdapter(), targetProfile, options, Devices, DeviceIdsRemoved, ret);
+            await ProcessResources(SupplyDeliveryStr, new SupplyDeliveryAdapter(), targetProfile, options, SupplyDeliveries, SupplyDeliveryIdsRemoved, ret);
 
-            await ProcessResources(OrganizationStr, new OrganizationAdapter(), targetProfile, options, organizations, organizationIdsRemoved, ret);
-            await ProcessResources(PractitionerStr, new PractitionerAdapter(), targetProfile, options, practitioners, practitionerIdsRemoved, ret);
-            await ProcessResources(EncounterStr, new EncounterAdapter(), targetProfile, options, encounters, encounterIdsRemoved, ret);
+            await ProcessResources(OrganizationStr, new OrganizationAdapter(), targetProfile, options, Organizations, OrganizationIdsRemoved, ret);
+            await ProcessResources(PractitionerStr, new PractitionerAdapter(), targetProfile, options, Practitioners, PractitionerIdsRemoved, ret);
+            await ProcessResources(EncounterStr, new EncounterAdapter(), targetProfile, options, Encounters, EncounterIdsRemoved, ret);
 
-            await ProcessResourcesX(DocumentReferenceStr, new DocumentReferenceAdapter(), targetProfile, options, documentReferences, documentReferenceIdsRemoved, ret);
+            await ProcessResourcesX(DocumentReferenceStr, new DocumentReferenceAdapter(), targetProfile, options, DocumentReferences, DocumentReferenceIdsRemoved, ret);
 
-            await ProcessResources(CareTeamStr, new CareTeamAdapter(), targetProfile, options, careTeams, careTeamIdsRemoved, ret);
-            await ProcessResources(CarePlanStr, new CarePlanAdapter(), targetProfile, options, carePlans, carePlanIdsRemoved, ret);
-            await ProcessResources(MedicationRequestStr, new MedicationRequestAdapter(), targetProfile, options, medicationRequests, medicationRequestIdsRemoved, ret);
-            await ProcessResources(ClaimStr, new ClaimAdapter(), targetProfile, options, claims, claimIdsRemoved, ret);
+            await ProcessResources(CareTeamStr, new CareTeamAdapter(), targetProfile, options, CareTeams, CareTeamIdsRemoved, ret);
+            await ProcessResources(CarePlanStr, new CarePlanAdapter(), targetProfile, options, CarePlans, CarePlanIdsRemoved, ret);
+            await ProcessResources(MedicationRequestStr, new MedicationRequestAdapter(), targetProfile, options, MedicationRequests, MedicationRequestIdsRemoved, ret);
+            await ProcessResources(ClaimStr, new ClaimAdapter(), targetProfile, options, Claims, ClaimIdsRemoved, ret);
 
-            await ProcessResources(ConditionStr, new ConditionAdapter(), targetProfile, options, conditions, conditionIdsRemoved, ret);
-            await ProcessResources(ImagingStudyStr, new ImagingStudyAdapter(), targetProfile, options, imagingStudies, imagingStudyIdsRemoved, ret);
-            await ProcessResources(ImmunizationStr, new ImmunizationAdapter(), targetProfile, options, immunizations, immunizationIdsRemoved, ret);
-            await ProcessResources(MedicationAdministrationStr, new MedicationAdministrationAdapter(), targetProfile, options, medicationAdministrations, medicationAdministrationIdsRemoved, ret);
-            await ProcessResources(ProcedureStr, new ProcedureAdapter(), targetProfile, options, procedures, procedureIdsRemoved, ret);
-            await ProcessResources(ObservationStr, new ObservationAdapter(), targetProfile, options, observations, observationIdsRemoved, ret);
-            await ProcessResources(DiagnosticReportStr, new DiagnosticReportAdapter(), targetProfile, options, diagnosticReports, diagnosticReportIdsRemoved, ret);
-            await ProcessResources(ExplanationOfBenefitStr, new ExplanationOfBenefitAdapter(), targetProfile, options, explanationOfBenefits, explanationOfBenefitIdsRemoved, ret);
+            await ProcessResources(ConditionStr, new ConditionAdapter(), targetProfile, options, Conditions, ConditionIdsRemoved, ret);
+            await ProcessResources(ImagingStudyStr, new ImagingStudyAdapter(), targetProfile, options, ImagingStudies, ImagingStudyIdsRemoved, ret);
+            await ProcessResources(ImmunizationStr, new ImmunizationAdapter(), targetProfile, options, Immunizations, ImmunizationIdsRemoved, ret);
+            await ProcessResources(MedicationAdministrationStr, new MedicationAdministrationAdapter(), targetProfile, options, MedicationAdministrations, MedicationAdministrationIdsRemoved, ret);
+            await ProcessResources(ProcedureStr, new ProcedureAdapter(), targetProfile, options, Procedures, ProcedureIdsRemoved, ret);
+            await ProcessResources(ObservationStr, new ObservationAdapter(), targetProfile, options, Observations, ObservationIdsRemoved, ret);
+            await ProcessResources(DiagnosticReportStr, new DiagnosticReportAdapter(), targetProfile, options, DiagnosticReports, DiagnosticReportIdsRemoved, ret);
+            await ProcessResources(ExplanationOfBenefitStr, new ExplanationOfBenefitAdapter(), targetProfile, options, ExplanationOfBenefits, ExplanationOfBenefitIdsRemoved, ret);
 
             return ret;
         }

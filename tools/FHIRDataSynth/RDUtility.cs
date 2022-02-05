@@ -162,31 +162,37 @@ namespace FHIRDataSynth
 
         private class BlobInfo
         {
-            public HashSet<string> ids = new HashSet<string>();
-            public int duplicateIds = 0;
-            public int patientsRefsNotPatient = 0;
-            public int subjectsRefsNotPatient = 0;
-            public HashSet<string> patientRefIds = new HashSet<string>();
-            public int linesCount = 0;
-            public long linesLengthSum = 0;
+            public HashSet<string> Ids { get; set; } = new HashSet<string>();
+
+            public int DuplicateIds { get; set;  }
+
+            public int PatientsRefsNotPatient { get; set; }
+
+            public int SubjectsRefsNotPatient { get; set; }
+
+            public HashSet<string> PatientRefIds { get; set; } = new HashSet<string>();
+
+            public int LinesCount { get; set; }
+
+            public long LinesLengthSum { get; set; }
 
             public void ConsoleWriteLine(string resourceName, HashSet<string> patientIds)
             {
                 Console.WriteLine($"### {resourceName} info:");
-                Console.WriteLine($"  ids.Count = {ids.Count}.");
-                Console.WriteLine($"  duplicateIds = {duplicateIds}.");
-                Console.WriteLine($"  patientsRefsNotPatient = {patientsRefsNotPatient}.");
-                Console.WriteLine($"  subjectsRefsNotPatient = {subjectsRefsNotPatient}.");
-                Console.WriteLine($"  patientRefIds.Count = {patientRefIds.Count}.");
-                Console.WriteLine($"  intersect.Count() = {patientIds.Intersect(patientRefIds).Count()}.");
-                Console.WriteLine($"  linesCount = {linesCount}.");
-                Console.WriteLine($"  linesLengthSum = {linesLengthSum}.");
+                Console.WriteLine($"  ids.Count = {Ids.Count}.");
+                Console.WriteLine($"  duplicateIds = {DuplicateIds}.");
+                Console.WriteLine($"  patientsRefsNotPatient = {PatientsRefsNotPatient}.");
+                Console.WriteLine($"  subjectsRefsNotPatient = {SubjectsRefsNotPatient}.");
+                Console.WriteLine($"  patientRefIds.Count = {PatientRefIds.Count}.");
+                Console.WriteLine($"  intersect.Count() = {patientIds.Intersect(PatientRefIds).Count()}.");
+                Console.WriteLine($"  linesCount = {LinesCount}.");
+                Console.WriteLine($"  linesLengthSum = {LinesLengthSum}.");
                 Console.WriteLine($"###");
             }
 
             public string Line(string resourceName, HashSet<string> patientIds)
             {
-                return $"{resourceName},{ids.Count},{duplicateIds},{patientsRefsNotPatient},{subjectsRefsNotPatient},{patientRefIds.Count},{patientIds.Intersect(patientRefIds).Count()},{linesCount},{linesLengthSum}";
+                return $"{resourceName},{Ids.Count},{DuplicateIds},{PatientsRefsNotPatient},{SubjectsRefsNotPatient},{PatientRefIds.Count},{patientIds.Intersect(PatientRefIds).Count()},{LinesCount},{LinesLengthSum}";
             }
         }
 
@@ -222,7 +228,7 @@ namespace FHIRDataSynth
                 }
 
                 lineNumber++;
-                blobInfo.linesLengthSum += line.Length;
+                blobInfo.LinesLengthSum += line.Length;
                 RDResourceJSON json = JsonSerializer.Deserialize<RDResourceJSON>(line);
                 if (json.resourceType != resourceName)
                 {
@@ -233,11 +239,11 @@ namespace FHIRDataSynth
                 {
                     if (json.patient.reference.StartsWith("Patient/", StringComparison.Ordinal))
                     {
-                        blobInfo.patientRefIds.Add(json.patient.reference.Substring("Patient/".Length));
+                        blobInfo.PatientRefIds.Add(json.patient.reference.Substring("Patient/".Length));
                     }
                     else
                     {
-                        blobInfo.patientsRefsNotPatient++;
+                        blobInfo.PatientsRefsNotPatient++;
                     }
                 }
 
@@ -245,21 +251,21 @@ namespace FHIRDataSynth
                 {
                     if (json.subject.reference.StartsWith("Patient/", StringComparison.Ordinal))
                     {
-                        blobInfo.patientRefIds.Add(json.subject.reference.Substring("Patient/".Length));
+                        blobInfo.PatientRefIds.Add(json.subject.reference.Substring("Patient/".Length));
                     }
                     else
                     {
-                        blobInfo.subjectsRefsNotPatient++;
+                        blobInfo.SubjectsRefsNotPatient++;
                     }
                 }
 
-                if (!blobInfo.ids.Add(json.id))
+                if (!blobInfo.Ids.Add(json.id))
                 {
-                    blobInfo.duplicateIds++;
+                    blobInfo.DuplicateIds++;
                 }
             }
 
-            blobInfo.linesCount = lineNumber;
+            blobInfo.LinesCount = lineNumber;
             Console.WriteLine($"### {resourceName} processing end.");
             return blobInfo;
         }
@@ -292,7 +298,7 @@ namespace FHIRDataSynth
 
                 foreach (KeyValuePair<string, BlobInfo> info in blobInfo)
                 {
-                    info.Value.ConsoleWriteLine(info.Key, blobInfo["Patient"].ids);
+                    info.Value.ConsoleWriteLine(info.Key, blobInfo["Patient"].Ids);
                 }
 
                 using (StreamWriter streamWriter = new StreamWriter(outputPath))
@@ -300,7 +306,7 @@ namespace FHIRDataSynth
                     streamWriter.WriteLine(CalculatorTargetRatios.OneResourceGroupInfoHeader);
                     foreach (KeyValuePair<string, BlobInfo> info in blobInfo)
                     {
-                        streamWriter.WriteLine(info.Value.Line(info.Key, blobInfo["Patient"].ids));
+                        streamWriter.WriteLine(info.Value.Line(info.Key, blobInfo["Patient"].Ids));
                     }
                 }
             }

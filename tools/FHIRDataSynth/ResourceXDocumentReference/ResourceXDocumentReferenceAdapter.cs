@@ -97,7 +97,7 @@ namespace ResourceProcessorNamespace
 
             if (
                 json.subject != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, resName, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref s))
             {
                 select = false;
                 return false;
@@ -119,7 +119,7 @@ namespace ResourceProcessorNamespace
                         continue;
                     }
 
-                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, a.reference, ResourceGroupProcessor.PractitionerStr, processor.practitioners, processor.practitionerIdsRemoved, ref s))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, resName, a.reference, ResourceGroupProcessor.PractitionerStr, processor.Practitioners, processor.PractitionerIdsRemoved, ref s))
                     {
                         select = false;
                         return false;
@@ -129,7 +129,7 @@ namespace ResourceProcessorNamespace
 
             if (
                 json.authenticator != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, resName, json.authenticator.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, resName, json.authenticator.reference, ResourceGroupProcessor.OrganizationStr, processor.Organizations, processor.OrganizationIdsRemoved, ref s))
             {
                 select = false;
                 return false;
@@ -137,7 +137,7 @@ namespace ResourceProcessorNamespace
 
             if (
                 json.custodian != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, resName, json.custodian.reference, ResourceGroupProcessor.OrganizationStr, processor.organizations, processor.organizationIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, resName, json.custodian.reference, ResourceGroupProcessor.OrganizationStr, processor.Organizations, processor.OrganizationIdsRemoved, ref s))
             {
                 select = false;
                 return false;
@@ -156,7 +156,7 @@ namespace ResourceProcessorNamespace
 
                     foreach (DocumentReference.Encounter e in json.context.encounter)
                     {
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref s))
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, e.reference, ResourceGroupProcessor.EncounterStr, processor.Encounters, processor.EncounterIdsRemoved, ref s))
                         {
                             select = false;
                             return false;
@@ -166,7 +166,7 @@ namespace ResourceProcessorNamespace
 
                 if (
                     json.context.sourcePatientInfo != null &&
-                    !processor.ValidateResourceRefAndSelect(json.id, resName, json.context.sourcePatientInfo.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref s))
+                    !processor.ValidateResourceRefAndSelect(json.id, resName, json.context.sourcePatientInfo.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref s))
                 {
                     select = false;
                     return false;
@@ -183,7 +183,7 @@ namespace ResourceProcessorNamespace
 
                     foreach (DocumentReference.Related r in json.context.related)
                     {
-                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, r.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref s))
+                        if (!processor.ValidateResourceRefAndSelect(json.id, resName, r.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref s))
                         {
                             select = false;
                             return false;
@@ -199,7 +199,7 @@ namespace ResourceProcessorNamespace
         // Enumerator.
         public override Enumerator GetEnumerator()
         {
-            return new Enumerator(processor, options);
+            return new Enumerator(Processor, Options);
         }
 
         public class Enumerator : EnumeratorBase<EncounterSibling>
@@ -216,7 +216,7 @@ namespace ResourceProcessorNamespace
             public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
                 : base(processor, options)
             {
-                enumerator = processor.encounters.GetEnumerator();
+                enumerator = processor.Encounters.GetEnumerator();
             }
 
             protected override DocumentReference.Rootobject LoadFHIRExampleFile()

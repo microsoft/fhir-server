@@ -50,7 +50,7 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ConditionStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+            if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ConditionStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
             {
                 select = false;
                 return false;
@@ -58,7 +58,7 @@ namespace ResourceProcessorNamespace
 
             if (json.encounter != null)
             {
-                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ConditionStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref select);
+                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.ConditionStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.Encounters, processor.EncounterIdsRemoved, ref select);
             }
 
             return true;

@@ -46,7 +46,7 @@ namespace ResourceProcessorNamespace
                 return false;
             }
 
-            return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.AllergyIntoleranceStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select);
+            return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.AllergyIntoleranceStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select);
         }
     }
 }

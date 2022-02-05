@@ -50,8 +50,12 @@ namespace ResourceProcessorNamespace
         where T : class
         where TS : struct
     {
-        protected ResourceGroupProcessor processor;
-        protected JsonSerializerOptions options;
+        private ResourceGroupProcessor processor;
+        private JsonSerializerOptions options;
+
+        protected ResourceGroupProcessor Processor { get => processor; }
+
+        protected JsonSerializerOptions Options { get => options; }
 
         public void Initialize(ResourceGroupProcessor processor, JsonSerializerOptions options)
         {
@@ -85,7 +89,7 @@ namespace ResourceProcessorNamespace
 
         protected string CloneOrLimit(bool clone, T originalJson, string originalReference, int refSiblingNumber, ref int refSiblingNumberLimit)
         {
-            string rgd = processor.GetResourceGroupDir();
+            string rgd = Processor.GetResourceGroupDir();
             string rt = GetResourceType(originalJson);
             string id = GetId(originalJson);
 
@@ -110,11 +114,11 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{processor.careTeams[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.CareTeams[refId].Get(refSiblingNumber, rgd, rt, id).id}";
                         }
                         else
                         {
-                            refSiblingNumberLimit = Math.Min(processor.careTeams[refId].Count, refSiblingNumberLimit);
+                            refSiblingNumberLimit = Math.Min(Processor.CareTeams[refId].Count, refSiblingNumberLimit);
                         }
 
                         return originalReference;
@@ -124,11 +128,11 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{processor.claims[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Claims[refId].Get(refSiblingNumber, rgd, rt, id).id}";
                         }
                         else
                         {
-                            refSiblingNumberLimit = Math.Min(processor.claims[refId].Count, refSiblingNumberLimit);
+                            refSiblingNumberLimit = Math.Min(Processor.Claims[refId].Count, refSiblingNumberLimit);
                         }
 
                         return originalReference;
@@ -147,11 +151,11 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{processor.encounters[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Encounters[refId].Get(refSiblingNumber, rgd, rt, id).id}";
                         }
                         else
                         {
-                            refSiblingNumberLimit = Math.Min(processor.encounters[refId].Count, refSiblingNumberLimit);
+                            refSiblingNumberLimit = Math.Min(Processor.Encounters[refId].Count, refSiblingNumberLimit);
                         }
 
                         return originalReference;
@@ -173,11 +177,11 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{processor.medicationRequests[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.MedicationRequests[refId].Get(refSiblingNumber, rgd, rt, id).id}";
                         }
                         else
                         {
-                            refSiblingNumberLimit = Math.Min(processor.medicationRequests[refId].Count, refSiblingNumberLimit);
+                            refSiblingNumberLimit = Math.Min(Processor.MedicationRequests[refId].Count, refSiblingNumberLimit);
                         }
 
                         return originalReference;
@@ -187,11 +191,11 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{processor.observations[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Observations[refId].Get(refSiblingNumber, rgd, rt, id).id}";
                         }
                         else
                         {
-                            refSiblingNumberLimit = Math.Min(processor.observations[refId].Count, refSiblingNumberLimit);
+                            refSiblingNumberLimit = Math.Min(Processor.Observations[refId].Count, refSiblingNumberLimit);
                         }
 
                         return originalReference;
@@ -201,11 +205,11 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{processor.organizations[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Organizations[refId].Get(refSiblingNumber, rgd, rt, id).id}";
                         }
                         else
                         {
-                            refSiblingNumberLimit = Math.Min(processor.organizations[refId].Count, refSiblingNumberLimit);
+                            refSiblingNumberLimit = Math.Min(Processor.Organizations[refId].Count, refSiblingNumberLimit);
                         }
 
                         return originalReference;
@@ -215,11 +219,11 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{processor.patients[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Patients[refId].Get(refSiblingNumber, rgd, rt, id).id}";
                         }
                         else
                         {
-                            refSiblingNumberLimit = Math.Min(processor.patients[refId].Count, refSiblingNumberLimit);
+                            refSiblingNumberLimit = Math.Min(Processor.Patients[refId].Count, refSiblingNumberLimit);
                         }
 
                         return originalReference;
@@ -229,11 +233,11 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{processor.practitioners[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Practitioners[refId].Get(refSiblingNumber, rgd, rt, id).id}";
                         }
                         else
                         {
-                            refSiblingNumberLimit = Math.Min(processor.practitioners[refId].Count, refSiblingNumberLimit);
+                            refSiblingNumberLimit = Math.Min(Processor.Practitioners[refId].Count, refSiblingNumberLimit);
                         }
 
                         return originalReference;
@@ -257,8 +261,9 @@ namespace ResourceProcessorNamespace
 
         public class EnumeratorItem
         {
-            public int size;
-            public T json;
+            public int Size { get; set; }
+
+            public T Json { get; set; }
         }
 
         public abstract class EnumeratorBase<TS1> : IEnumerator<EnumeratorItem>
@@ -292,17 +297,17 @@ namespace ResourceProcessorNamespace
                 else
                 {
                     TS1 initializer = InitializerCurrent;
-                    if (currentItem.json == null)
+                    if (currentItem.Json == null)
                     {
-                        currentItem.json = LoadFHIRExampleFile();
-                        InitializeFHIRExample(currentItem.json, initializer);
-                        line = JsonSerializer.Serialize(currentItem.json, options);
-                        currentItem.size = line.Length;
+                        currentItem.Json = LoadFHIRExampleFile();
+                        InitializeFHIRExample(currentItem.Json, initializer);
+                        line = JsonSerializer.Serialize(currentItem.Json, options);
+                        currentItem.Size = line.Length;
                     }
                     else
                     {
-                        currentItem.json = JsonSerializer.Deserialize<T>(line); // TODO: optimization, remove this deserialization by processing json item one at the time instead of loading them all into array.
-                        InitializeFHIRExample(currentItem.json, initializer);
+                        currentItem.Json = JsonSerializer.Deserialize<T>(line); // TODO: optimization, remove this deserialization by processing json item one at the time instead of loading them all into array.
+                        InitializeFHIRExample(currentItem.Json, initializer);
                     }
                 }
 

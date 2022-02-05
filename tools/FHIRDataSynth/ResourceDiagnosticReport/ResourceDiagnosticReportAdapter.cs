@@ -56,14 +56,14 @@ namespace ResourceProcessorNamespace
         {
             bool s = true;
             if (json.subject != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref s))
             {
                 select = false;
                 return false;
             }
 
             if (json.encounter != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.encounters, processor.encounterIdsRemoved, ref s))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.encounter.reference, ResourceGroupProcessor.EncounterStr, processor.Encounters, processor.EncounterIdsRemoved, ref s))
             {
                 select = false;
                 return false;
@@ -80,7 +80,7 @@ namespace ResourceProcessorNamespace
 
                 for (int i = 0; i < json.result.Length; i++)
                 {
-                    if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.result[i].reference, ResourceGroupProcessor.ObservationStr, processor.observations, processor.observationIdsRemoved, ref s))
+                    if (!processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DiagnosticReportStr, json.result[i].reference, ResourceGroupProcessor.ObservationStr, processor.Observations, processor.ObservationIdsRemoved, ref s))
                     {
                         select = false;
                         return false;

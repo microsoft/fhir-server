@@ -48,7 +48,7 @@ namespace ResourceProcessorNamespace
             select = true;
             if (json.subject != null)
             {
-                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DocumentReferenceStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select);
+                return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.DocumentReferenceStr, json.subject.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select);
             }
 
             select = true;
@@ -58,7 +58,7 @@ namespace ResourceProcessorNamespace
         // Enumerator.
         public override Enumerator GetEnumerator()
         {
-            return new Enumerator(processor, options);
+            return new Enumerator(Processor, Options);
         }
 
         public class Enumerator : EnumeratorBase<PatientSibling>
@@ -75,7 +75,7 @@ namespace ResourceProcessorNamespace
             public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
                 : base(processor, options)
             {
-                enumerator = processor.patients.GetEnumerator();
+                enumerator = processor.Patients.GetEnumerator();
             }
 
             protected override Communication.Rootobject LoadFHIRExampleFile()

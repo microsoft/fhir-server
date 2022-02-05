@@ -8,30 +8,27 @@ using System.Diagnostics.CodeAnalysis;
 // This tool does not need to have strings localized. Disable code code analyzer.
 [assembly: SuppressMessage("Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "<TODO>", Scope = "module")]
 
-// [assembly: SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1208:System using directives should be placed before other using directives", Justification = "<TODO>")]
 [assembly: SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1633:File should have header", Justification = "<TODO>")]
 
-// [assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1400:Access modifier should be declared", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1649:File name should match first type name", Justification = "<TODO>", Scope = "module")]
+
 [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1307:Accessible fields should begin with upper-case letter", Justification = "<TODO>", Scope = "module")]
+[assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "<TODO>", Scope = "module")]
+[assembly: SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1201:Elements should appear in the correct order", Justification = "<TODO>", Scope = "module")]
 
+// [assembly: SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1208:System using directives should be placed before other using directives", Justification = "<TODO>")]
+// [assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1400:Access modifier should be declared", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:Element should begin with upper-case letter", Justification = "<TODO>", Scope = "module")]
-
 // [assembly: SuppressMessage("Usage", "CA2201:Do not raise reserved exception types", Justification = "<TODO>", Scope = "module")]
-
 // [assembly: SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1516:Elements should be separated by blank line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1503:Braces should not be omitted", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1513:Closing brace should be followed by blank line", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "<TODO>", Scope = "module")]
-
 // [assembly: SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1502:Element should not be on a single line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1005:Single line comments should begin with single space", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1129:Do not use default value type constructor", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1002:Semicolons should be spaced correctly", Justification = "<PenTODOding>", Scope = "module")]
-[assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1201:Elements should appear in the correct order", Justification = "<TODO>", Scope = "module")]
-
+// [assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1401:Fields should be private", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1008:Opening parenthesis should be spaced correctly", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1206:Declaration keywords should follow order", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1009:Closing parenthesis should be spaced correctly", Justification = "<TODO>", Scope = "module")]

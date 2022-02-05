@@ -43,7 +43,7 @@ namespace ResourceProcessorNamespace
         {
             select = true;
             if (json.patient != null &&
-                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.SupplyDeliveryStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.patients, processor.patientIdsRemoved, ref select))
+                !processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.SupplyDeliveryStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select))
             {
                 select = false;
                 return false;

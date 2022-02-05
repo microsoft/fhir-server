@@ -19,10 +19,13 @@ namespace FHIRDataSynth
 
         private class CalculationData
         {
-            public int linesCount = 0;
-            public long linesLengthSum = 0;
-            public long resourceInputSize = 0;
-            public double blendRatio = 0;
+            public int LinesCount { get; set; }
+
+            public long LinesLengthSum { get; set; }
+
+            public long ResourceInputSize { get; set; }
+
+            public double BlendRatio { get; set; }
         }
 
 #pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
@@ -137,13 +140,13 @@ namespace FHIRDataSynth
         {
             int resourceSize = getResourceSize();
             CalculationData cd = new CalculationData();
-            cd.resourceInputSize = resourceSize * (long)UsedResourceGroupsCount;
-            cd.linesCount = 1;
-            cd.linesLengthSum = resourceSize;
-            cd.blendRatio = 0;
+            cd.ResourceInputSize = resourceSize * (long)UsedResourceGroupsCount;
+            cd.LinesCount = 1;
+            cd.LinesLengthSum = resourceSize;
+            cd.BlendRatio = 0;
             if (blendProfile.BlendRatios.TryGetValue(resourceName, out double blendRatio))
             {
-                cd.blendRatio = blendRatio;
+                cd.BlendRatio = blendRatio;
             }
 
             calculationData.Add(resourceName, cd);
@@ -186,10 +189,10 @@ namespace FHIRDataSynth
                     // number of blended resource groups. For example if blended resource group size is 2.5GB then we use 4 resource groups for 10 GB db,
                     // 40 for 100GB, 400for 1TB and all 800 for 2TB. blobGroupsInfoPath should point to a json file instead of csv and should contain
                     // number of resource groups (803 at the moment).
-                    calculationData[key].resourceInputSize = (long)(long.Parse(value) * (UsedResourceGroupsCount / actualResourceGroupsCount));
+                    calculationData[key].ResourceInputSize = (long)(long.Parse(value) * (UsedResourceGroupsCount / actualResourceGroupsCount));
                     if (blendProfile.BlendRatios.TryGetValue(key, out double blendRatio))
                     {
-                        calculationData[key].blendRatio = blendRatio;
+                        calculationData[key].BlendRatio = blendRatio;
                     }
                 }
             }
@@ -217,8 +220,8 @@ namespace FHIRDataSynth
                         throw new FHIRDataSynthException($"Mismatch between resource names in files '{blobGroupsInfoPath}' and '{oneGroupInfoPath}'");
                     }
 
-                    calculationData[key].linesCount = int.Parse(fields[7]);
-                    calculationData[key].linesLengthSum = long.Parse(fields[8]);
+                    calculationData[key].LinesCount = int.Parse(fields[7]);
+                    calculationData[key].LinesLengthSum = long.Parse(fields[8]);
                     oneGroupResources.Add(key);
                 }
             }
@@ -235,10 +238,10 @@ namespace FHIRDataSynth
             // Done with data loading. Now do calculations.
 
             // Normalize blend ratio just in case.
-            double sumBlend = calculationData.Sum(d => d.Value.blendRatio);
+            double sumBlend = calculationData.Sum(d => d.Value.BlendRatio);
             foreach (var d in calculationData)
             {
-                d.Value.blendRatio = d.Value.blendRatio / sumBlend;
+                d.Value.BlendRatio = d.Value.BlendRatio / sumBlend;
             }
 
             // TODO, take into account newline in blob.
@@ -249,8 +252,8 @@ namespace FHIRDataSynth
             foreach (KeyValuePair<string, CalculationData> data in calculationData)
             {
                 CalculationData d = data.Value;
-                double resourceAvgSize = ((double)d.linesLengthSum) / d.linesCount; // Resource average size calculated from the first resource group.
-                double resourceAvgSizeByBlendRatio = resourceAvgSize * d.blendRatio; // Scaled by blend ratio, gives ratio between resource type total sizes.
+                double resourceAvgSize = ((double)d.LinesLengthSum) / d.LinesCount; // Resource average size calculated from the first resource group.
+                double resourceAvgSizeByBlendRatio = resourceAvgSize * d.BlendRatio; // Scaled by blend ratio, gives ratio between resource type total sizes.
                 sumResourceAvgSizeByBlendRatio += resourceAvgSizeByBlendRatio;
             }
 
@@ -259,14 +262,14 @@ namespace FHIRDataSynth
             foreach (KeyValuePair<string, CalculationData> data in calculationData)
             {
                 CalculationData d = data.Value;
-                double resourceAvgSize = ((double)d.linesLengthSum) / d.linesCount; // Resource average size calculated from the first resource group.
-                double resourceAvgSizeByBlendRatio = resourceAvgSize * d.blendRatio; // Scaled by blend ratio, gives ratio between resource type total sizes.
+                double resourceAvgSize = ((double)d.LinesLengthSum) / d.LinesCount; // Resource average size calculated from the first resource group.
+                double resourceAvgSizeByBlendRatio = resourceAvgSize * d.BlendRatio; // Scaled by blend ratio, gives ratio between resource type total sizes.
                 double resourceOutputSize = (outputResourceGroupSize.BytesPerResourceGroup * UsedResourceGroupsCount) * (resourceAvgSizeByBlendRatio / sumResourceAvgSizeByBlendRatio); // Resource type total size for all resource groups.
                 double resourceOutputCount = resourceOutputSize / resourceAvgSize; // Resource type total count for all resource groups.
-                double resourceOutputInputRatio = resourceOutputSize / d.resourceInputSize;
-                double resourceInputCount = d.resourceInputSize / resourceAvgSize;
+                double resourceOutputInputRatio = resourceOutputSize / d.ResourceInputSize;
+                double resourceInputCount = d.ResourceInputSize / resourceAvgSize;
                 double resourcesToBeCreatedOrDeleted = resourceOutputCount - resourceInputCount;
-                streamWriter.WriteLine($"{targeProfile.name},{UsedResourceGroupsCount},{outputResourceGroupSize.GBPerResourceGroup},{outputResourceGroupSize.GBPerResourceGroup * UsedResourceGroupsCount},{data.Key},{d.blendRatio},{d.resourceInputSize},{d.resourceInputSize / resourceAvgSize},{d.linesLengthSum},{d.linesCount},{resourceAvgSize},{resourceOutputSize},{resourceOutputCount},{resourceOutputInputRatio},{resourcesToBeCreatedOrDeleted}");
+                streamWriter.WriteLine($"{targeProfile.name},{UsedResourceGroupsCount},{outputResourceGroupSize.GBPerResourceGroup},{outputResourceGroupSize.GBPerResourceGroup * UsedResourceGroupsCount},{data.Key},{d.BlendRatio},{d.ResourceInputSize},{d.ResourceInputSize / resourceAvgSize},{d.LinesLengthSum},{d.LinesCount},{resourceAvgSize},{resourceOutputSize},{resourceOutputCount},{resourceOutputInputRatio},{resourcesToBeCreatedOrDeleted}");
                 targeProfile.ratios[data.Key] = resourceOutputInputRatio;
                 targeProfile.resourceGroupsCount = outputResourceGroupSize.OutputResourceGroupsCount;
             }
