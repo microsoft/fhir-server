@@ -238,11 +238,11 @@ namespace ResourceProcessorNamespace
             private static void InitializeFHIRExampleS(DocumentReference.Rootobject json, EncounterSibling initializer)
             {
                 json.id = Guid.NewGuid().ToString();
-                if (initializer.subjectRef != null)
+                if (initializer.SubjectRef != null)
                 {
-                    json.subject.reference = initializer.subjectRef;
-                    json.context.sourcePatientInfo.reference = initializer.subjectRef;
-                    json.context.related[0].reference = initializer.subjectRef;
+                    json.subject.reference = initializer.SubjectRef;
+                    json.context.sourcePatientInfo.reference = initializer.SubjectRef;
+                    json.context.related[0].reference = initializer.SubjectRef;
                 }
                 else
                 {
@@ -251,9 +251,9 @@ namespace ResourceProcessorNamespace
                     json.context.related = null;
                 }
 
-                if (initializer.participantRef != null)
+                if (initializer.ParticipantRef != null)
                 {
-                    json.author[0].reference = initializer.participantRef;
+                    json.author[0].reference = initializer.ParticipantRef;
                 }
                 else
                 {
@@ -262,10 +262,10 @@ namespace ResourceProcessorNamespace
                     json.author[0] = a;
                 }
 
-                if (initializer.serviceProviderRef != null)
+                if (initializer.ServiceProviderRef != null)
                 {
-                    json.authenticator.reference = initializer.serviceProviderRef;
-                    json.custodian.reference = initializer.serviceProviderRef;
+                    json.authenticator.reference = initializer.ServiceProviderRef;
+                    json.custodian.reference = initializer.ServiceProviderRef;
                 }
                 else
                 {
@@ -273,17 +273,17 @@ namespace ResourceProcessorNamespace
                     json.custodian = null;
                 }
 
-                json.context.encounter[0].reference = ResourceGroupProcessor.EncounterPrefix + initializer.id;
+                json.context.encounter[0].reference = ResourceGroupProcessor.EncounterPrefix + initializer.Id;
             }
 
             public static int GetResourceSize()
             {
                 DocumentReference.Rootobject json = LoadFHIRExampleFileS();
                 EncounterSibling initializer = default(EncounterSibling);
-                initializer.id = Guid.NewGuid().ToString();
-                initializer.subjectRef = ResourceGroupProcessor.PatientPrefix + Guid.NewGuid().ToString();
-                initializer.participantRef = ResourceGroupProcessor.PractitionerPrefix + Guid.NewGuid().ToString();
-                initializer.serviceProviderRef = ResourceGroupProcessor.OrganizationPrefix + Guid.NewGuid().ToString();
+                initializer.Id = Guid.NewGuid().ToString();
+                initializer.SubjectRef = ResourceGroupProcessor.PatientPrefix + Guid.NewGuid().ToString();
+                initializer.ParticipantRef = ResourceGroupProcessor.PractitionerPrefix + Guid.NewGuid().ToString();
+                initializer.ServiceProviderRef = ResourceGroupProcessor.OrganizationPrefix + Guid.NewGuid().ToString();
                 InitializeFHIRExampleS(json, initializer);
                 return JsonSerializer.Serialize(json).Length;
             }

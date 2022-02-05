@@ -4,10 +4,10 @@ namespace ResourceProcessorNamespace
 {
     internal struct EncounterSibling
     {
-        public string id;
-        public string subjectRef; // Patient.
-        public string participantRef; // Practitioner.
-        public string serviceProviderRef; // Organization.
+        public string Id;
+        public string SubjectRef; // Patient.
+        public string ParticipantRef; // Practitioner.
+        public string ServiceProviderRef; // Organization.
     }
 
     internal class EncounterAdapter : ResourceAdapter<Encounter.Rootobject, EncounterSibling>
@@ -15,15 +15,15 @@ namespace ResourceProcessorNamespace
         public override EncounterSibling CreateOriginal(ResourceGroupProcessor processor, Encounter.Rootobject json)
         {
             EncounterSibling r = default(EncounterSibling);
-            r.id = json.id;
-            r.subjectRef = json.subject?.reference;
+            r.Id = json.id;
+            r.SubjectRef = json.subject?.reference;
 
             if (json.participant != null && json.participant.Length > 0)
             {
-                r.participantRef = json.participant[0].individual?.reference;
+                r.ParticipantRef = json.participant[0].individual?.reference;
             }
 
-            r.serviceProviderRef = json.serviceProvider?.reference;
+            r.ServiceProviderRef = json.serviceProvider?.reference;
 
             return r;
         }

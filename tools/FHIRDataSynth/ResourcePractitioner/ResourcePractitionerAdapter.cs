@@ -4,7 +4,7 @@ namespace ResourceProcessorNamespace
 {
     internal struct PractitionerSibling
     {
-        public string id;
+        public string Id;
     }
 
     internal class PractitionerAdapter : ResourceAdapter<Practitioner.Rootobject, PractitionerSibling>
@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public override PractitionerSibling CreateOriginal(ResourceGroupProcessor processor, Practitioner.Rootobject json)
         {
             PractitionerSibling r = default(PractitionerSibling);
-            r.id = json.id;
+            r.Id = json.id;
             return r;
         }
 
@@ -37,7 +37,7 @@ namespace ResourceProcessorNamespace
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
             PractitionerSibling r = default(PractitionerSibling);
-            r.id = cloneJson.id;
+            r.Id = cloneJson.id;
             return r;
         }
 

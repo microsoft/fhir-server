@@ -4,7 +4,7 @@ namespace ResourceProcessorNamespace
 {
     internal struct OrganizationSibling
     {
-        public string id;
+        public string Id;
     }
 
     internal class OrganizationAdapter : ResourceAdapter<Organization.Rootobject, OrganizationSibling>
@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public override OrganizationSibling CreateOriginal(ResourceGroupProcessor processor, Organization.Rootobject json)
         {
             OrganizationSibling r = default(OrganizationSibling);
-            r.id = json.id;
+            r.Id = json.id;
             return r;
         }
 
@@ -42,7 +42,7 @@ namespace ResourceProcessorNamespace
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
             OrganizationSibling r = default(OrganizationSibling);
-            r.id = cloneJson.id;
+            r.Id = cloneJson.id;
             return r;
         }
 

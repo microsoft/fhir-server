@@ -4,7 +4,7 @@ namespace ResourceProcessorNamespace
 {
     internal struct ClaimSibling
     {
-        public string id;
+        public string Id;
     }
 
     internal class ClaimAdapter : ResourceAdapter<Claim.Rootobject, ClaimSibling>
@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public override ClaimSibling CreateOriginal(ResourceGroupProcessor processor, Claim.Rootobject json)
         {
             ClaimSibling r = default(ClaimSibling);
-            r.id = json.id;
+            r.Id = json.id;
             return r;
         }
 
@@ -58,7 +58,7 @@ namespace ResourceProcessorNamespace
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
             ClaimSibling r = default(ClaimSibling);
-            r.id = cloneJson.id;
+            r.Id = cloneJson.id;
             return r;
         }
 

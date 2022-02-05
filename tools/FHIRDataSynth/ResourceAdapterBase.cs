@@ -114,7 +114,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{Processor.CareTeams[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.CareTeams[refId].Get(refSiblingNumber, rgd, rt, id).Id}";
                         }
                         else
                         {
@@ -128,7 +128,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{Processor.Claims[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Claims[refId].Get(refSiblingNumber, rgd, rt, id).Id}";
                         }
                         else
                         {
@@ -151,7 +151,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{Processor.Encounters[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Encounters[refId].Get(refSiblingNumber, rgd, rt, id).Id}";
                         }
                         else
                         {
@@ -177,7 +177,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{Processor.MedicationRequests[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.MedicationRequests[refId].Get(refSiblingNumber, rgd, rt, id).Id}";
                         }
                         else
                         {
@@ -191,7 +191,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{Processor.Observations[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Observations[refId].Get(refSiblingNumber, rgd, rt, id).Id}";
                         }
                         else
                         {
@@ -205,7 +205,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{Processor.Organizations[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Organizations[refId].Get(refSiblingNumber, rgd, rt, id).Id}";
                         }
                         else
                         {
@@ -219,7 +219,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{Processor.Patients[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Patients[refId].Get(refSiblingNumber, rgd, rt, id).Id}";
                         }
                         else
                         {
@@ -233,7 +233,7 @@ namespace ResourceProcessorNamespace
                     {
                         if (clone)
                         {
-                            return $"{refType}/{Processor.Practitioners[refId].Get(refSiblingNumber, rgd, rt, id).id}";
+                            return $"{refType}/{Processor.Practitioners[refId].Get(refSiblingNumber, rgd, rt, id).Id}";
                         }
                         else
                         {

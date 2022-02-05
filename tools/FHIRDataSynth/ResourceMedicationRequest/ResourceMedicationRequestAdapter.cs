@@ -4,7 +4,7 @@ namespace ResourceProcessorNamespace
 {
     internal struct MedicationRequestSibling
     {
-        public string id;
+        public string Id;
     }
 
     internal class MedicationRequestAdapter : ResourceAdapter<MedicationRequest.Rootobject, MedicationRequestSibling>
@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public override MedicationRequestSibling CreateOriginal(ResourceGroupProcessor processor, MedicationRequest.Rootobject json)
         {
             MedicationRequestSibling r = default(MedicationRequestSibling);
-            r.id = json.id;
+            r.Id = json.id;
             /*if (json.encounter != null)
             {
                 string encounterId = json.encounter.reference.Substring(ResourceGroupProcessor.encounterPrefix.Length);
@@ -52,7 +52,7 @@ namespace ResourceProcessorNamespace
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
             MedicationRequestSibling r = default(MedicationRequestSibling);
-            r.id = cloneJson.id;
+            r.Id = cloneJson.id;
             /*if (cloneJson.encounter != null)
             {
                 r.encounter = processor.encounters[originalJson.encounter.reference.Substring(ResourceGroupProcessor.encounterPrefix.Length)].Get_OLD(refSiblingNumber);

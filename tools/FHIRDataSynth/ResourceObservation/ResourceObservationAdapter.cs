@@ -4,7 +4,7 @@ namespace ResourceProcessorNamespace
 {
     internal struct ObservationSibling
     {
-        public string id;
+        public string Id;
     }
 
     internal class ObservationAdapter : ResourceAdapter<Observation.Rootobject, ObservationSibling>
@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public override ObservationSibling CreateOriginal(ResourceGroupProcessor processor, Observation.Rootobject json)
         {
             ObservationSibling r = default(ObservationSibling);
-            r.id = json.id;
+            r.Id = json.id;
             /*if (json.encounter != null)
             {
                 string encounterId = json.encounter.reference.Substring(ResourceGroupProcessor.encounterPrefix.Length);
@@ -51,7 +51,7 @@ namespace ResourceProcessorNamespace
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
             ObservationSibling r = default(ObservationSibling);
-            r.id = cloneJson.id;
+            r.Id = cloneJson.id;
             /*if (cloneJson.encounter != null)
             {
                 r.encounter = processor.encounters[originalJson.encounter.reference.Substring(ResourceGroupProcessor.encounterPrefix.Length)].Get_OLD(refSiblingNumber);

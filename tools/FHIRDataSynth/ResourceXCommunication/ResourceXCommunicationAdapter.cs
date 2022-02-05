@@ -97,14 +97,14 @@ namespace ResourceProcessorNamespace
             private static void InitializeFHIRExampleS(Communication.Rootobject json, PatientSibling initializer)
             {
                 json.id = Guid.NewGuid().ToString();
-                json.subject.reference = ResourceGroupProcessor.PatientPrefix + initializer.id;
+                json.subject.reference = ResourceGroupProcessor.PatientPrefix + initializer.Id;
             }
 
             public static int GetResourceSize()
             {
                 Communication.Rootobject json = LoadFHIRExampleFileS();
                 PatientSibling initializer = default(PatientSibling);
-                initializer.id = Guid.NewGuid().ToString();
+                initializer.Id = Guid.NewGuid().ToString();
                 InitializeFHIRExampleS(json, initializer);
                 return JsonSerializer.Serialize(json).Length;
             }

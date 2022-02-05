@@ -4,7 +4,7 @@ namespace ResourceProcessorNamespace
 {
     internal struct CareTeamSibling
     {
-        public string id;
+        public string Id;
         /*public string encounterRef;
         public string subjectRef;*/
     }
@@ -14,7 +14,7 @@ namespace ResourceProcessorNamespace
         public override CareTeamSibling CreateOriginal(ResourceGroupProcessor processor, CareTeam.Rootobject json)
         {
             CareTeamSibling ret = default(CareTeamSibling);
-            ret.id = json.id;
+            ret.Id = json.id;
             /*if (json.subject != null)
             {
                 ret.subjectRef = json.subject.reference;
@@ -77,7 +77,7 @@ namespace ResourceProcessorNamespace
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
             CareTeamSibling r = default(CareTeamSibling);
-            r.id = cloneJson.id;
+            r.Id = cloneJson.id;
             return r;
         }
 

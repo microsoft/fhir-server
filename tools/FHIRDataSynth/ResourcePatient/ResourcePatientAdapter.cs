@@ -4,7 +4,7 @@ namespace ResourceProcessorNamespace
 {
     internal struct PatientSibling
     {
-        public string id;
+        public string Id;
     }
 
     internal class PatientAdapter : ResourceAdapter<Patient.Rootobject, PatientSibling>
@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public override PatientSibling CreateOriginal(ResourceGroupProcessor processor, Patient.Rootobject json)
         {
             PatientSibling r = default(PatientSibling);
-            r.id = json.id;
+            r.Id = json.id;
             return r;
         }
 
@@ -37,7 +37,7 @@ namespace ResourceProcessorNamespace
             IterateReferences(true, processor, originalJson, cloneJson, refSiblingNumber, ref unused);
 
             PatientSibling r = default(PatientSibling);
-            r.id = cloneJson.id;
+            r.Id = cloneJson.id;
             return r;
         }
 
