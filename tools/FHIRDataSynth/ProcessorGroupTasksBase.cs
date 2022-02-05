@@ -17,14 +17,14 @@ namespace ResourceProcessorNamespace
         {
             if (resourceGroupsCount < 0)
             {
-                throw new ApplicationException($"TargetProfil member 'resourceGroupsCount' contains invalid value {resourceGroupsCount}, must be 0 or greater.");
+                throw new FHIRDataSynth.FHIRDataSynthException($"TargetProfil member 'resourceGroupsCount' contains invalid value {resourceGroupsCount}, must be 0 or greater.");
             }
 
             foreach (KeyValuePair<string, double> r in ratios)
             {
                 if (r.Value < 0)
                 {
-                    throw new ApplicationException($"TargetProfile member 'ratios[{r.Key}]' contains invalid value {r.Value}, must 0 or greater.");
+                    throw new FHIRDataSynth.FHIRDataSynthException($"TargetProfile member 'ratios[{r.Key}]' contains invalid value {r.Value}, must 0 or greater.");
                 }
             }
         }

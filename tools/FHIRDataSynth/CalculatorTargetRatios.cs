@@ -68,22 +68,22 @@ namespace FHIRDataSynth
         {
             if (Directory.Exists(targetRatiosPath))
             {
-                throw new Exception($"Directory {targetRatiosPath} exists!");
+                throw new FHIRDataSynthException($"Directory {targetRatiosPath} exists!");
             }
 
             if (File.Exists(targetRatiosPath))
             {
-                throw new Exception($"File {targetRatiosPath} already exists!");
+                throw new FHIRDataSynthException($"File {targetRatiosPath} already exists!");
             }
 
             if (Directory.Exists(targetRatiosPathCsv))
             {
-                throw new Exception($"Directory {targetRatiosPathCsv} exists!");
+                throw new FHIRDataSynthException($"Directory {targetRatiosPathCsv} exists!");
             }
 
             if (File.Exists(targetRatiosPathCsv))
             {
-                throw new Exception($"File {targetRatiosPathCsv} already exists!");
+                throw new FHIRDataSynthException($"File {targetRatiosPathCsv} already exists!");
             }
 
             BlendRatios blendRatios;
@@ -94,7 +94,7 @@ namespace FHIRDataSynth
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error parsing file {blendRatiosFilePath}. ({ex.Message})", ex);
+                throw new FHIRDataSynthException($"Error parsing file {blendRatiosFilePath}. ({ex.Message})", ex);
             }
 
             OutputResourceGroupSize[] outputResourceGroupSizes = new OutputResourceGroupSize[4]
@@ -114,7 +114,7 @@ namespace FHIRDataSynth
                 {
                     if (!IsValidBlobContainerName(blendProfile.BlendName))
                     {
-                        throw new Exception($"Invalid blend profile name '{blendProfile.BlendName}' in file '{blendRatiosFilePath}'. Follow Azure Blob naming rules.");
+                        throw new FHIRDataSynthException($"Invalid blend profile name '{blendProfile.BlendName}' in file '{blendRatiosFilePath}'. Follow Azure Blob naming rules.");
                     }
 
                     foreach (OutputResourceGroupSize outputResourceGroupSize in outputResourceGroupSizes)
@@ -172,7 +172,7 @@ namespace FHIRDataSynth
                 string line = streamReader.ReadLine();
                 if (line != ResourcesTotalSizeHeader)
                 {
-                    throw new Exception($"Invalid header in '{blobGroupsInfoPath}'!");
+                    throw new FHIRDataSynthException($"Invalid header in '{blobGroupsInfoPath}'!");
                 }
 
                 while ((line = streamReader.ReadLine()) != null)
@@ -180,7 +180,7 @@ namespace FHIRDataSynth
                     string[] fields = line.Split(',');
                     if (fields.Length != 2)
                     {
-                        throw new Exception($"Invalid number of columns in '{blobGroupsInfoPath}'!");
+                        throw new FHIRDataSynthException($"Invalid number of columns in '{blobGroupsInfoPath}'!");
                     }
 
                     string key = fields[0];
@@ -205,7 +205,7 @@ namespace FHIRDataSynth
                 string line = streamReader.ReadLine();
                 if (line != OneResourceGroupInfoHeader)
                 {
-                    throw new Exception($"Invalid header in '{blobGroupsInfoPath}'!");
+                    throw new FHIRDataSynthException($"Invalid header in '{blobGroupsInfoPath}'!");
                 }
 
                 while ((line = streamReader.ReadLine()) != null)
@@ -213,13 +213,13 @@ namespace FHIRDataSynth
                     string[] fields = line.Split(',');
                     if (fields.Length != 9)
                     {
-                        throw new Exception($"Invalid number of columns in '{blobGroupsInfoPath}'!");
+                        throw new FHIRDataSynthException($"Invalid number of columns in '{blobGroupsInfoPath}'!");
                     }
 
                     string key = fields[0];
                     if (!calculationData.ContainsKey(key))
                     {
-                        throw new Exception($"Mismatch between resource names in files '{blobGroupsInfoPath}' and '{oneGroupInfoPath}'");
+                        throw new FHIRDataSynthException($"Mismatch between resource names in files '{blobGroupsInfoPath}' and '{oneGroupInfoPath}'");
                     }
 
                     calculationData[key].linesCount = int.Parse(fields[7]);
@@ -230,7 +230,7 @@ namespace FHIRDataSynth
 
             if (oneGroupResources.Count != oneGroupResources.Intersect(calculationData.Keys).Count())
             {
-                throw new Exception($"Mismatch between resource names in files '{blobGroupsInfoPath}' and '{oneGroupInfoPath}'");
+                throw new FHIRDataSynthException($"Mismatch between resource names in files '{blobGroupsInfoPath}' and '{oneGroupInfoPath}'");
             }
 
             AddCalculationDataX(blendProfile, calculationData, CommunicationAdapter.Enumerator.GetResourceSize, "Communication");

@@ -84,19 +84,19 @@ namespace FHIRDataSynth
                             return true;
                         }
 
-                        throw new Exception("Server did not return success code.");
+                        throw new FHIRDataSynthException("Server did not return success code.");
                     }
 
                     Uri contentLocation = response.Content.Headers.ContentLocation;
                     if (contentLocation == null)
                     {
-                        throw new Exception($"Server did not return Content-Location header.");
+                        throw new FHIRDataSynthException($"Server did not return Content-Location header.");
                     }
 
                     if (contentLocation.Segments == null || contentLocation.Segments.Length != 4 || contentLocation.Segments[0] != "/" ||
                         contentLocation.Segments[1] != "_operations/" || contentLocation.Segments[2] != "import/")
                     {
-                        throw new Exception($"Server returned unrecognized Content-Location header {contentLocation}.");
+                        throw new FHIRDataSynthException($"Server returned unrecognized Content-Location header {contentLocation}.");
                     }
 
                     currentResult.importResultUrl = contentLocation.ToString();
@@ -110,28 +110,28 @@ namespace FHIRDataSynth
         {
             if (inputUrl.EndsWith('/'))
             {
-                throw new Exception($"Input url {inputUrl} must not end with '/'");
+                throw new FHIRDataSynthException($"Input url {inputUrl} must not end with '/'");
             }
 
             if (serverUrl.EndsWith('/'))
             {
-                throw new Exception($"Server url {serverUrl} must not end with '/'");
+                throw new FHIRDataSynthException($"Server url {serverUrl} must not end with '/'");
             }
 
             if (!int.TryParse(resourceGroupCountStr, out int resourceGroupCount))
             {
-                throw new Exception($"Resource group count {resourceGroupCount} is not valid int.");
+                throw new FHIRDataSynthException($"Resource group count {resourceGroupCount} is not valid int.");
             }
 
             if (resourceGroupCount < 1)
             {
-                throw new Exception($"Resource group count {resourceGroupCount} is invalid , must be greater than 0.");
+                throw new FHIRDataSynthException($"Resource group count {resourceGroupCount} is invalid , must be greater than 0.");
             }
 
             SortedSet<string> dirs = await BlobResourceProcessor.GetResourceGroupDirsAsync(inputConnectionString, inputBlobContainerName);
             if (dirs.Count < resourceGroupCount)
             {
-                throw new Exception($"Tried to import {resourceGroupCount} resource group(s), but {inputBlobContainerName} contains only {dirs.Count}.");
+                throw new FHIRDataSynthException($"Tried to import {resourceGroupCount} resource group(s), but {inputBlobContainerName} contains only {dirs.Count}.");
             }
 
             Uri uri = new Uri(serverUrl + "/$import");
@@ -217,28 +217,28 @@ namespace FHIRDataSynth
         {
             if (inputUrl.EndsWith('/'))
             {
-                throw new Exception($"Input url {inputUrl} must not end with '/'");
+                throw new FHIRDataSynthException($"Input url {inputUrl} must not end with '/'");
             }
 
             if (serverUrl.EndsWith('/'))
             {
-                throw new Exception($"Server url {serverUrl} must not end with '/'");
+                throw new FHIRDataSynthException($"Server url {serverUrl} must not end with '/'");
             }
 
             if (!int.TryParse(resourceGroupCountStr, out int resourceGroupCount))
             {
-                throw new Exception($"Resource group count {resourceGroupCount} is not valid int.");
+                throw new FHIRDataSynthException($"Resource group count {resourceGroupCount} is not valid int.");
             }
 
             if (resourceGroupCount < 1)
             {
-                throw new Exception($"Resource group count {resourceGroupCount} is invalid , must be greater than 0.");
+                throw new FHIRDataSynthException($"Resource group count {resourceGroupCount} is invalid , must be greater than 0.");
             }
 
             SortedSet<string> dirsAll = await BlobResourceProcessor.GetResourceGroupDirsAsync(inputConnectionString, inputBlobContainerName);
             if (dirsAll.Count < resourceGroupCount)
             {
-                throw new Exception($"Tried to import {resourceGroupCount} resource group(s), but {inputBlobContainerName} contains only {dirsAll.Count}.");
+                throw new FHIRDataSynthException($"Tried to import {resourceGroupCount} resource group(s), but {inputBlobContainerName} contains only {dirsAll.Count}.");
             }
 
             Uri uri = new Uri(serverUrl + "/$import");
@@ -402,7 +402,7 @@ namespace FHIRDataSynth
 
                 if (error)
                 {
-                    throw new Exception("Import failed, errors detected.");
+                    throw new FHIRDataSynthException("Import failed, errors detected.");
                 }
 
                 if (resultNotReady)

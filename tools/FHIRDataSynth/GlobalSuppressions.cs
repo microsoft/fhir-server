@@ -5,6 +5,9 @@
 
 using System.Diagnostics.CodeAnalysis;
 
+// This tool does not need to have strings localized. Disable code code analyzer.
+[assembly: SuppressMessage("Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "<TODO>", Scope = "module")]
+
 // [assembly: SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1208:System using directives should be placed before other using directives", Justification = "<TODO>")]
 [assembly: SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1633:File should have header", Justification = "<TODO>")]
 
@@ -12,7 +15,8 @@ using System.Diagnostics.CodeAnalysis;
 [assembly: SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1649:File name should match first type name", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1307:Accessible fields should begin with upper-case letter", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:Element should begin with upper-case letter", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Usage", "CA2201:Do not raise reserved exception types", Justification = "<TODO>", Scope = "module")]
+
+// [assembly: SuppressMessage("Usage", "CA2201:Do not raise reserved exception types", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1516:Elements should be separated by blank line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1503:Braces should not be omitted", Justification = "<TODO>", Scope = "module")]
@@ -49,7 +53,6 @@ using System.Diagnostics.CodeAnalysis;
 // [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1107:Code should not contain multiple statements on one line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Design", "CA1056:URI-like properties should not be strings", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0090:Use 'new(...)'", Justification = "<TODO>", Scope = "module")]
@@ -73,7 +76,7 @@ using System.Diagnostics.CodeAnalysis;
 // [assembly: SuppressMessage("Globalization", "CA1305:Specify IFormatProvider", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0049:Simplify Names", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "<TODO>", Scope = "module")]
-[assembly: SuppressMessage("Design", "CA1724:NAME CONFLICT", Justification = "<TODO>", Scope = "module")]
+// [assembly: SuppressMessage("Design", "CA1724:NAME CONFLICT", Justification = "<TODO>", Scope = "module")]
 
 // [assembly: SuppressMessage("Design", "CA1812:JSON SERIALIZER INSTANTIATION", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1000:Keywords should be spaced correctly", Justification = "<TODO>", Scope = "module")]

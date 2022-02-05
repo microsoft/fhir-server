@@ -12,7 +12,7 @@ namespace FHIRDataSynth
         {
             if (!(int.TryParse(s, out tasksCount) && tasksCount > 0 && tasksCount <= 256))
             {
-                throw new Exception($"Invalid task count '{s}.");
+                throw new FHIRDataSynthException($"Invalid task count '{s}.");
             }
         }
 
@@ -21,7 +21,7 @@ namespace FHIRDataSynth
             targetRatios = null;
             if (!File.Exists(pathName))
             {
-                throw new Exception($"Invalid target ratios path or file name '{pathName}',  or insufficient permission.");
+                throw new FHIRDataSynthException($"Invalid target ratios path or file name '{pathName}',  or insufficient permission.");
             }
 
             try
@@ -34,7 +34,7 @@ namespace FHIRDataSynth
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error reading target ratios file {pathName}. ({ex.Message})", ex);
+                throw new FHIRDataSynthException($"Error reading target ratios file {pathName}. ({ex.Message})", ex);
             }
         }
 
@@ -121,18 +121,18 @@ namespace FHIRDataSynth
 
                                 if (args.Length != 6 && args.Length != 7)
                                 {
-                                    throw new Exception("Invalid number of input parameters.");
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
 
                                 if (!CalculatorTargetRatios.IsValidBlobContainerName(args[1]))
                                 {
-                                    throw new Exception($"Invalid blend profile name '{args[1]}'. Follow Azure Blob naming rules.");
+                                    throw new FHIRDataSynthException($"Invalid blend profile name '{args[1]}'. Follow Azure Blob naming rules.");
                                 }
 
                                 inContainerName = args[1];
                                 if (!CalculatorTargetRatios.IsValidBlobContainerName(args[2]))
                                 {
-                                    throw new Exception($"Invalid blend profile name '{args[2]}'. Follow Azure Blob naming rules.");
+                                    throw new FHIRDataSynthException($"Invalid blend profile name '{args[2]}'. Follow Azure Blob naming rules.");
                                 }
 
                                 outContainerName = args[2];
@@ -167,12 +167,12 @@ namespace FHIRDataSynth
 
                                 if (args.Length != 5)
                                 {
-                                    throw new Exception("Invalid number of input parameters.");
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
 
                                 if (!CalculatorTargetRatios.IsValidBlobContainerName(args[1]))
                                 {
-                                    throw new Exception($"Invalid blend profile name '{args[1]}'. Follow Azure Blob naming rules.");
+                                    throw new FHIRDataSynthException($"Invalid blend profile name '{args[1]}'. Follow Azure Blob naming rules.");
                                 }
 
                                 inContainerName = args[1];
@@ -198,7 +198,7 @@ namespace FHIRDataSynth
 
                                 if (args.Length != 5)
                                 {
-                                    throw new Exception("Invalid number of input parameters.");
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
 
                                 inDir = args[1];
@@ -223,7 +223,7 @@ namespace FHIRDataSynth
 
                                 if (args.Length != 4)
                                 {
-                                    throw new Exception("Invalid number of input parameters.");
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
 
                                 inDir = args[1];
@@ -243,7 +243,7 @@ namespace FHIRDataSynth
                             {
                                 if (args.Length != 6)
                                 {
-                                    throw new Exception("Invalid number of input parameters.");
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
 
                                 string blobGroupsInfoPath = args[1];
@@ -260,7 +260,7 @@ namespace FHIRDataSynth
                             {
                                 if (args.Length != 7)
                                 {
-                                    throw new Exception("Invalid number of input parameters.");
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
 
                                 string serverUrl = args[1];
@@ -278,7 +278,7 @@ namespace FHIRDataSynth
                             {
                                 if (args.Length != 2)
                                 {
-                                    throw new Exception("Invalid number of input parameters.");
+                                    throw new FHIRDataSynthException("Invalid number of input parameters.");
                                 }
 
                                 string importResultFileName = args[1];
@@ -297,7 +297,7 @@ namespace FHIRDataSynth
                             break;
                         default:
                             {
-                                throw new Exception($"Invalid command '{args[0]}'.");
+                                throw new FHIRDataSynthException($"Invalid command '{args[0]}'.");
                             }
                     }
                 }
