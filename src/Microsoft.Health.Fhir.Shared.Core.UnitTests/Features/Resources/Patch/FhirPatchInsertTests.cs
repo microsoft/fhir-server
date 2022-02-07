@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         [Fact]
-        public void GivenAFhirPatchInsertRequest_WhenInsertingUninitializedList_ThenInvalidOperationExceptionShouldBeThrown()
+        public void GivenAFhirPatchInsertRequest_WhenInsertingWithOutOfRangeIndex_ThenInvalidOperationExceptionShouldBeThrown()
         {
             var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new Identifier { System = "http://example.org", Value = "value 3" }, 2);
             var patientResource = new Patient

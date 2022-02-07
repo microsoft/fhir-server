@@ -22,14 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
         internal static ElementNode ToElementNode(this Base b) =>
             ElementNode.FromElement(b.ToTypedElement());
 
-        // Finds a child ElementNode at a given path
-        internal static ElementNode Find(this ElementNode element, string pathExpression) =>
-            ((ScopedNode)element.Select(pathExpression).First()).Current as ElementNode;
-
-        // Finds a child element node with a given name at a given index
-        internal static ElementNode AtIndex(this ElementNode element, string elementName, int index) =>
-            element.Children(elementName).ElementAt(index).ToElementNode();
-
         // Converts an ITypedElement to an ElementNode
         internal static ElementNode ToElementNode(this ITypedElement element) =>
             (element is ElementNode el) ? el : ElementNode.FromElement(element);
@@ -41,6 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Help
             node.Name = name;
             return node;
         }
+
+        // Finds a child ElementNode at a given path
+        internal static ElementNode Find(this ElementNode element, string pathExpression) =>
+            ((ScopedNode)element.Select(pathExpression).First()).Current as ElementNode;
+
+        // Finds a child element node with a given name at a given index
+        internal static ElementNode AtIndex(this ElementNode element, string elementName, int index) =>
+            element.Children(elementName).ElementAt(index).ToElementNode();
 
         // Extracts an ElementNode given a parameter, element name, and expected type.
         // Inspired by:

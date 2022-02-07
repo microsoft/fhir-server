@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch.Operations;
-using static Hl7.Fhir.Model.Parameters;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch
 {
@@ -61,61 +60,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Patch.FhirPathPatch
             }
 
             return resource;
-        }
-
-        /// <summary>
-        /// Handles the add operation.
-        /// </summary>
-        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
-        /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
-        public FhirPathPatchBuilder Add(ParameterComponent op)
-        {
-            operations.Add(PendingOperation.FromParameterComponent(op));
-            return this;
-        }
-
-        /// <summary>
-        /// Handles the insert operation.
-        /// </summary>
-        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
-        /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
-        public FhirPathPatchBuilder Insert(ParameterComponent op)
-        {
-            operations.Add(PendingOperation.FromParameterComponent(op));
-            return this;
-        }
-
-        /// <summary>
-        /// Handles the delete operation.
-        /// </summary>
-        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
-        /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
-        public FhirPathPatchBuilder Delete(ParameterComponent op)
-        {
-            operations.Add(PendingOperation.FromParameterComponent(op));
-            return this;
-        }
-
-        /// <summary>
-        /// Handles the Replace operation.
-        /// </summary>
-        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
-        /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
-        public FhirPathPatchBuilder Replace(ParameterComponent op)
-        {
-            operations.Add(PendingOperation.FromParameterComponent(op));
-            return this;
-        }
-
-        /// <summary>
-        /// Handles the Move operation.
-        /// </summary>
-        /// <param type="ParameterComponent" name="op"> The operation to execute.</param>
-        /// <returns>This <see cref="FhirPathPatchBuilder"/>.</returns>
-        public FhirPathPatchBuilder Move(ParameterComponent op)
-        {
-            operations.Add(PendingOperation.FromParameterComponent(op));
-            return this;
         }
 
         /// <summary>

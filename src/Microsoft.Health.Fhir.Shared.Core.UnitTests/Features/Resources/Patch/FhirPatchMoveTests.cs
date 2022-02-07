@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L1126
         [Fact]
-        public void GivenAFhirPatchMoveRequest_WhenMoving0To2_TheListShoudBe2341()
+        public void GivenAFhirPatchMoveRequest_WhenMoving0To3_TheListShoudBe2341()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 0, 3);
             var patientResource = new Patient
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L1277
         [Fact]
-        public void GivenAFhirPatchMoveRequest_WhenMoving3To0Then3To1Then3Ti2_TheListShoudBe4321()
+        public void GivenAFhirPatchMoveRequest_WhenMoving3To0Then3To1Then3To2_TheListShoudBe4321()
         {
             var patchParam = new Parameters()
                 .AddMovePatchParameter("Patient.identifier", 3, 0)
