@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L494
         [Fact]
-        public void GivenAFhirPatchDeleteRequest_WhenDeletingCDeleteAnonymousObject_ThenAnonymousShouldBeRemoved()
+        public void GivenAFhirPatchDeleteRequest_WhenDeletingDeleteAnonymousObject_ThenAnonymousShouldBeRemoved()
         {
             var patchParam = new Parameters().AddDeletePatchParameter("Patient.contact[0]");
 

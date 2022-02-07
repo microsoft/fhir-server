@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(patch.Resource.Address);
         }
 
-        public static IEnumerable<object[]> GeIncorrectRequestTestData()
+        public static IEnumerable<object[]> GetIncorrectRequestTestData()
         {
             yield return new object[] { new Parameters().AddPatchParameter("replace", value: new Code("female")).AddDeletePatchParameter("Patient.address") };
             yield return new object[] { new Parameters().AddPatchParameter("coo", path: "Patient.gender", value: new Code("femaale")).AddDeletePatchParameter("Patient.address") };
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [MemberData(nameof(GeIncorrectRequestTestData))]
+        [MemberData(nameof(GetIncorrectRequestTestData))]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatSupportsIt_WhenSubmittingInvalidFhirPatch_ThenServerShouldBadRequest(Parameters patchRequest)
         {

@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L928
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMoving3To1_TheListShoudBe1423()
+        public void GivenAFhirPatchMoveRequest_WhenMoving3To1_TheListShoudBe1423()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 3, 1);
             var patientResource = new Patient

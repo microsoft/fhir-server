@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenPatchingConditionallyWithOneMatch_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        public async Task GivenAResource_WhenJsonPatchingConditionallyWithOneMatch_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
             var identifier = Guid.NewGuid().ToString();
@@ -79,14 +79,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}",
                 _patchDocumentJson);
 
+            Assert.Equal(AdministrativeGender.Female, jsonPatchResponse.Resource.Gender);
+            Assert.Empty(jsonPatchResponse.Resource.Address);
+            Assert.Equal(HttpStatusCode.OK, jsonPatchResponse.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenFhirPatchingConditionallyWithOneMatch_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        {
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var identifier = Guid.NewGuid().ToString();
+
+            patient.Identifier.Add(new Identifier("http://e2etests", identifier));
+            using FhirResponse<Patient> response = await _client.CreateAsync(patient);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
             using FhirResponse<Patient> fhirPatchResponse = await _client.ConditionalFhirPatchAsync<Patient>(
                 "Patient",
                 $"identifier={identifier}",
                 _fhirPatchRequest);
-
-            Assert.Equal(AdministrativeGender.Female, jsonPatchResponse.Resource.Gender);
-            Assert.Empty(jsonPatchResponse.Resource.Address);
-            Assert.Equal(HttpStatusCode.OK, jsonPatchResponse.StatusCode);
 
             Assert.Equal(AdministrativeGender.Female, fhirPatchResponse.Resource.Gender);
             Assert.Empty(fhirPatchResponse.Resource.Address);
@@ -95,32 +107,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAResource_WhenPatchingConditionallyWithMultipleMatches_TheServerShouldFail()
+        public async Task GivenAResource_WhenJsonPatchingConditionallyWithMultipleMatches_TheServerShouldFail()
         {
             var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
             var identifier = Guid.NewGuid().ToString();
             patient.Identifier.Add(new Identifier("http://e2etests", identifier));
 
             using FhirResponse<Patient> response = await _client.CreateAsync(patient);
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
             using FhirResponse<Patient> response2 = await _client.CreateAsync(patient);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.Equal(HttpStatusCode.Created, response2.StatusCode);
 
             var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation2.Id = null;
 
-            var exceptionJson = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalJsonPatchAsync<Patient>(
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalJsonPatchAsync<Patient>(
                 "Patient",
                 $"identifier={identifier}",
                 _patchDocumentJson));
-            var exceptionFhir = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalFhirPatchAsync<Patient>(
+
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResource_WhenFhirPatchingConditionallyWithMultipleMatches_TheServerShouldFail()
+        {
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var identifier = Guid.NewGuid().ToString();
+            patient.Identifier.Add(new Identifier("http://e2etests", identifier));
+
+            using FhirResponse<Patient> response = await _client.CreateAsync(patient);
+            using FhirResponse<Patient> response2 = await _client.CreateAsync(patient);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, response2.StatusCode);
+
+            var observation2 = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation2.Id = null;
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalFhirPatchAsync<Patient>(
                 "Patient",
                 $"identifier={identifier}",
                 _fhirPatchRequest));
 
-            Assert.Equal(HttpStatusCode.PreconditionFailed, exceptionJson.Response.StatusCode);
-            Assert.Equal(HttpStatusCode.PreconditionFailed, exceptionFhir.Response.StatusCode);
+            Assert.Equal(HttpStatusCode.PreconditionFailed, exception.Response.StatusCode);
         }
 
         [Fact]

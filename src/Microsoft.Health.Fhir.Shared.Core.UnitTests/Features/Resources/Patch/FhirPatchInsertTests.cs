@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         [Fact]
         public void GivenAFhirPatchInsertRequest_WhenInsertingToUninitializedList_ThenInvalidOperationExceptionShouldBeThrown()
         {
-            var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new Identifier { System = "http://example.org", Value = "value 3" }, 2);
+            var patchParam = new Parameters().AddInsertPatchParameter("Patient.identifier", new Identifier { System = "http://example.org", Value = "new value" }, 0);
 
             var builder = new FhirPathPatchBuilder(new Patient(), patchParam);
             Assert.Throws<InvalidOperationException>(builder.Apply);
