@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L994
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMoving3To0_TheListShoudBe4123()
+        public void GivenAFhirPatchMoveRequest_WhenMoving3To0_TheListShoudBe4123()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 3, 0);
             var patientResource = new Patient
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L1060
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMoving3To2_TheListShoudBe1243()
+        public void GivenAFhirPatchMoveRequest_WhenMoving3To2_TheListShoudBe1243()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 3, 2);
             var patientResource = new Patient
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L1126
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMoving0To2_TheListShoudBe2341()
+        public void GivenAFhirPatchMoveRequest_WhenMoving0To2_TheListShoudBe2341()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 0, 3);
             var patientResource = new Patient
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L1192
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMoving1To0Then2To1_TheListShoudBe2314()
+        public void GivenAFhirPatchMoveRequest_WhenMoving1To0Then2To1_TheListShoudBe2314()
         {
             var patchParam = new Parameters()
                 .AddMovePatchParameter("Patient.identifier", 1, 0)
@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         // Implements test case at:
         // https://github.com/FHIR/fhir-test-cases/blob/752b01313ecbc1e13a942e1b3e25c96b3f7f3449/r5/patch/fhir-path-tests.xml#L1277
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMoving3To0Then3To1Then3Ti2_TheListShoudBe4321()
+        public void GivenAFhirPatchMoveRequest_WhenMoving3To0Then3To1Then3Ti2_TheListShoudBe4321()
         {
             var patchParam = new Parameters()
                 .AddMovePatchParameter("Patient.identifier", 3, 0)
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMovingOnInvalidPath_ThenInvalidOperationExceptionIsThrown()
+        public void GivenAFhirPatchMoveRequest_WhenMovingOnInvalidPath_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.nothing", 0, 2);
 
@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMovingOnUninitializedPath_ThenInvalidOperationExceptionIsThrown()
+        public void GivenAFhirPatchMoveRequest_WhenMovingOnUninitializedPath_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 0, 0);
 
@@ -229,7 +229,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMovingFromInvalidIndex_ThenInvalidOperationExceptionIsThrown()
+        public void GivenAFhirPatchMoveRequest_WhenMovingFromInvalidIndex_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 3, 0);
             var patientResource = new Patient
@@ -247,7 +247,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMovingFromNegativeIndex_ThenInvalidOperationExceptionIsThrown()
+        public void GivenAFhirPatchMoveRequest_WhenMovingFromNegativeIndex_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", -1, 0);
             var patientResource = new Patient
@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMovingToInvalidIndex_ThenInvalidOperationExceptionIsThrown()
+        public void GivenAFhirPatchMoveRequest_WhenMovingToInvalidIndex_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 0, 3);
             var patientResource = new Patient
@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources.Patch
         }
 
         [Fact]
-        public void GivenAFhirPatchMoveequest_WhenMovingToNegativeIndex_ThenInvalidOperationExceptionIsThrown()
+        public void GivenAFhirPatchMoveRequest_WhenMovingToNegativeIndex_ThenInvalidOperationExceptionIsThrown()
         {
             var patchParam = new Parameters().AddMovePatchParameter("Patient.identifier", 0, -1);
             var patientResource = new Patient
