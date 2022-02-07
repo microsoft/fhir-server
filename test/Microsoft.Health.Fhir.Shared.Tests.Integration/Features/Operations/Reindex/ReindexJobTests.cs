@@ -9,7 +9,6 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Antlr4.Runtime.Misc;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -568,7 +567,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, ResourceType.Patient, "Patient.name", searchParamCode);
 
-            var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam);
+            var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam, id: randomName);
 
             await _scopedDataStore.Value.UpsertAsync(searchParamWrapper, null, true, true, CancellationToken.None);
 
@@ -843,6 +842,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Expression = expression,
                 Name = searchParamName,
                 Code = searchParamCode,
+                Id = searchParamName,
             };
 
             await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
@@ -902,14 +902,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return wrapper;
         }
 
-        private ResourceWrapper CreateSearchParamResourceWrapper(SearchParameter searchParam, bool deleted = false)
+        private ResourceWrapper CreateSearchParamResourceWrapper(SearchParameter searchParam, string id = "searchParam1", bool deleted = false)
         {
             searchParam.Id = "searchParam1";
             var resourceElement = searchParam.ToResourceElement();
             var rawResource = new RawResource(searchParam.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Post);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
-            var searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(new SearchParameterInfo("url", "url"), new UriSearchValue(searchParam.Url, false)) };
+            var searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/conformance-url"));
+            var searchParamValue = new UriSearchValue(searchParam.Url, false);
+            List<SearchIndexEntry> searchIndices = null;
+            if (!deleted)
+            {
+                searchIndices = new List<SearchIndexEntry>() { new SearchIndexEntry(searchParamInfo, searchParamValue) };
+            }
+
             var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, deleted, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("SearchParameter"));
             wrapper.SearchParameterHash = "hash";
 
