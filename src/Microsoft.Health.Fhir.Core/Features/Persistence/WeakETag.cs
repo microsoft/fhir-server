@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             if (!match.Success)
             {
                 // This throws a bad request exception because it was potentially supplied by an end user
-                throw new BadRequestException(string.Format(Resources.WeakETagFormatRequired, weakETag));
+                throw new BadRequestException(string.Format(Core.Resources.WeakETagFormatRequired, weakETag));
             }
 
             return new WeakETag(match.Groups[1].Value);
