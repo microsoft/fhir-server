@@ -87,7 +87,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAType_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfullyWithResponseStatus()
         {
             Observation newCreatedResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
-            await _client.UpdateAsync(newCreatedResource, int.Parse(newCreatedResource.Meta.VersionId).ToString());
+
+            var weakETag = $"W/\"{int.Parse(newCreatedResource.Meta.VersionId).ToString()}\"";
+
+            await _client.UpdateAsync(newCreatedResource, weakETag);
             await _client.DeleteAsync(newCreatedResource);
             await _client.DeleteAsync(newCreatedResource);
 

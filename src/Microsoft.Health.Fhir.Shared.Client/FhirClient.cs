@@ -153,19 +153,19 @@ namespace Microsoft.Health.Fhir.Client
             return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}", cancellationToken);
         }
 
-        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}/{resource.Id}", resource, ifMatchHeaderETag, provenanceHeader, cancellationToken);
         }
 
-        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
+            return UpdateAsync($"{resource.TypeName}?{searchCriteria}", resource, ifMatchHeaderETag, provenanceHeader, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchHeaderETag = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
             using var message = new HttpRequestMessage(HttpMethod.Put, uri)
@@ -174,11 +174,9 @@ namespace Microsoft.Health.Fhir.Client
             };
             message.Headers.Accept.Add(_mediaType);
 
-            if (ifMatchVersion != null)
+            if (ifMatchHeaderETag != null)
             {
-                var weakETag = $"W/\"{ifMatchVersion}\"";
-
-                message.Headers.Add(IfMatchHeaderName, weakETag);
+                message.Headers.Add(IfMatchHeaderName, ifMatchHeaderETag);
             }
 
             if (provenanceHeader != null)

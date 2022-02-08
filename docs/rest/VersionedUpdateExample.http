@@ -70,6 +70,33 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ###
+# Attempt to update the patient with an invalid if-match header.
+# This should result in an error.
+PUT https://{{hostname}}/Patient/{{patient.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+If-Match: "1"
+
+{
+  "resourceType": "Patient",
+  "id": "{{patient.response.body.id}}",
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: newborn</p><p><b>gender</b>: male</p><p><b>birthDate</b>: 05/09/2017</p></div>"
+  },
+  "gender": "male",
+  "birthDate": "2017-09-05",
+  "_birthDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/patient-birthTime",
+        "valueDateTime": "2017-05-09T17:11:00+01:00"
+      }
+    ]
+  }
+}
+
+###
 # Update the patient, now setting the if-match header to version 1.
 # This should successfully create version 2 of the resource.
 PUT https://{{hostname}}/Patient/{{patient.response.body.id}}
