@@ -32,7 +32,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             "Action: {Action}" + Environment.NewLine +
             "StatusCode: {StatusCode}" + Environment.NewLine +
             "CorrelationId: {CorrelationId}" + Environment.NewLine +
-            "Claims: {Claims}" + Environment.NewLine +
             "CustomHeaders: {CustomHeaders}";
 
         private readonly SecurityConfiguration _securityConfiguration;
@@ -58,16 +57,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             HttpStatusCode? statusCode,
             string correlationId,
             string callerIpAddress,
-            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
             IReadOnlyDictionary<string, string> customHeaders = null)
         {
-            string claimsInString = null;
+            // string claimsInString = null;
             string customerHeadersInString = null;
 
-            if (callerClaims != null)
+            /*if (callerClaims != null)
             {
                 claimsInString = string.Join(";", callerClaims.Select(claim => $"{claim.Key}={claim.Value}"));
-            }
+            }*/
 
             if (customHeaders != null)
             {
@@ -85,7 +83,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 operation,
                 statusCode,
                 correlationId,
-                claimsInString,
                 customerHeadersInString);
         }
     }

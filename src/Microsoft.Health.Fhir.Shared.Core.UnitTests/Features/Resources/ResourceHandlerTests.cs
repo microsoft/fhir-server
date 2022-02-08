@@ -398,7 +398,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 isDeleted,
                 null,
                 null,
-                null,
                 null);
         }
 
@@ -409,7 +408,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 _rawResourceFactory.Create(resource, keepMeta: true),
                 new ResourceRequest(HttpMethod.Put, "http://fhir"),
                 isDeleted,
-                null,
                 null,
                 null,
                 null);

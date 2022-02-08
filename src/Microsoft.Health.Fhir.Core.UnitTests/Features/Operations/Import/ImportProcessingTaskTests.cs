@@ -284,7 +284,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             false,
                             null,
                             null,
-                            null,
                             "SearchParam");
 
                         await resourceChannel.Writer.WriteAsync(new ImportResource(idGenerator(startIndex), startIndex, resourceWrapper));

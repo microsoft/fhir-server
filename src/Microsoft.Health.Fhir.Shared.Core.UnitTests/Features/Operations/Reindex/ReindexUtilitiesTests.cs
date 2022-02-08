@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var resourceRequest = Substitute.For<ResourceRequest>();
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var resourceElement = _resourceDeserializer.DeserializeRaw(rawResource, "v1", DateTimeOffset.UtcNow);
-            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, new List<KeyValuePair<string, string>>(), "hash");
+            var wrapper = new ResourceWrapper(resourceElement, rawResource, resourceRequest, false, searchIndices, compartmentIndices, "hash");
             var entry = new SearchResultEntry(wrapper);
 
             return entry;

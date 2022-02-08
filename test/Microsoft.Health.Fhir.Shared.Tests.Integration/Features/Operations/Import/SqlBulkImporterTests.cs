@@ -376,7 +376,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                         false,
                         null,
                         null,
-                        null,
                         "SearchParam");
         }
 

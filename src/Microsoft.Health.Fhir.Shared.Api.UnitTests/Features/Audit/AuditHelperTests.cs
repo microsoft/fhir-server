@@ -66,8 +66,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 requestUri: default,
                 statusCode: default,
                 correlationId: default,
-                callerIpAddress: default,
-                callerClaims: default);
+                callerIpAddress: default);
         }
 
         [Theory]
@@ -86,8 +85,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 requestUri: default,
                 statusCode: default,
                 correlationId: default,
-                callerIpAddress: default,
-                callerClaims: default);
+                callerIpAddress: default);
         }
 
         [Fact]
@@ -105,7 +103,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 statusCode: null,
                 correlationId: CorrelationId,
                 callerIpAddress: CallerIpAddressInString,
-                callerClaims: Claims,
                 customHeaders: _auditHeaderReader.Read(_httpContext));
         }
 
@@ -121,8 +118,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 requestUri: default,
                 statusCode: default,
                 correlationId: default,
-                callerIpAddress: default,
-                callerClaims: default);
+                callerIpAddress: default);
         }
 
         [Theory]
@@ -141,8 +137,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 requestUri: default,
                 statusCode: default,
                 correlationId: default,
-                callerIpAddress: default,
-                callerClaims: default);
+                callerIpAddress: default);
         }
 
         [Fact]
@@ -166,7 +161,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 expectedStatusCode,
                 CorrelationId,
                 CallerIpAddressInString,
-                Claims,
                 customHeaders: _auditHeaderReader.Read(_httpContext));
         }
     }

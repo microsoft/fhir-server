@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-            Log(AuditAction.Executing, statusCode: null, httpContext, claimsExtractor);
+            Log(AuditAction.Executing, statusCode: null, httpContext);
         }
 
         /// <summary>
@@ -69,11 +69,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             var responseStatusCode = (HttpStatusCode)httpContext.Response.StatusCode;
             if (!shouldCheckForAuthXFailure || responseStatusCode == HttpStatusCode.Unauthorized)
             {
-                Log(AuditAction.Executed, responseStatusCode, httpContext, claimsExtractor);
+                Log(AuditAction.Executed, responseStatusCode, httpContext);
             }
         }
 
-        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext)
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.RequestContext;
 
@@ -98,7 +98,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                     statusCode: statusCode,
                     correlationId: fhirRequestContext.CorrelationId,
                     callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
-                    callerClaims: claimsExtractor.Extract(),
                     customHeaders: _auditHeaderReader.Read(httpContext));
             }
         }

@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public const string SearchIndices = "searchIndices";
 
-        public const string LastModifiedClaims = "lastModifiedClaims";
+        // public const string LastModifiedClaims = "lastModifiedClaims";
 
         public const string CompartmentIndices = "compartmentIndices";
 

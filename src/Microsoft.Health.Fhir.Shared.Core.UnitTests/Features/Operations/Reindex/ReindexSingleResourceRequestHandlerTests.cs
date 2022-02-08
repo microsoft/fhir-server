@@ -186,8 +186,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 patientResourceElement.LastUpdated ?? Clock.UtcNow,
                 deleted: false,
                 searchIndices: null,
-                compartmentIndices: null,
-                lastModifiedClaims: null);
+                compartmentIndices: null);
 
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), _cancellationToken).Returns(Task.FromResult(dummyResourceWrapper));
         }

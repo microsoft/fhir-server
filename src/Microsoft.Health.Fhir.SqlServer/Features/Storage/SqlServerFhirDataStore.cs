@@ -113,8 +113,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             var resourceMetadata = new ResourceMetadata(
                 resource.CompartmentIndices,
-                resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
-                resource.LastModifiedClaims);
+                resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)));
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -372,7 +371,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             isDeleted,
                             searchIndices: null,
                             compartmentIndices: null,
-                            lastModifiedClaims: null,
                             searchParamHash)
                         {
                             IsHistory = isHistory,

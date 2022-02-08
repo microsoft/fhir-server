@@ -245,7 +245,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Import
                             false,
                             null,
                             null,
-                            null,
                             "SearchParam");
                     return new ImportResource(surrogatedId, index, resourceWrapper);
                 });

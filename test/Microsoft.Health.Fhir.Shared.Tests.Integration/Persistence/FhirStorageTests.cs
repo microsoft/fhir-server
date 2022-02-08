@@ -897,7 +897,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 deleted: false,
                 searchIndices,
                 originalWrapper.CompartmentIndices,
-                originalWrapper.LastModifiedClaims,
                 _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
 
             return (originalWrapper, updatedWrapper);
@@ -915,7 +914,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 deleted: true,
                 originalWrapper.SearchIndices,
                 originalWrapper.CompartmentIndices,
-                originalWrapper.LastModifiedClaims,
                 originalWrapper.SearchParameterHash);
         }
 

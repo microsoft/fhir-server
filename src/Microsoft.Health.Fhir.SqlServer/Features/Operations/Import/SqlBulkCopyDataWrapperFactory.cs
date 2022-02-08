@@ -29,8 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import
         {
             var resourceMetadata = new ResourceMetadata(
                 resource.Resource.CompartmentIndices,
-                resource.Resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
-                resource.Resource.LastModifiedClaims);
+                resource.Resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)));
             short resourceTypeId = _model.GetResourceTypeId(resource.Resource.ResourceTypeName);
 
             resource.CompressedStream.Seek(0, 0);

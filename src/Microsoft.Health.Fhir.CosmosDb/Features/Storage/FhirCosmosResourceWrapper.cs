@@ -30,7 +30,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                   resource.IsHistory,
                   resource.SearchIndices,
                   resource.CompartmentIndices,
-                  resource.LastModifiedClaims,
                   resource.SearchParameterHash)
         {
         }
@@ -46,9 +45,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool history,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
             string searchParameterHash = null)
-            : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims, searchParameterHash)
+            : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, searchParameterHash)
         {
             IsHistory = history;
 

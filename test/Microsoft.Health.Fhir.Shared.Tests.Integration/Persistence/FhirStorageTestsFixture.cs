@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         searchParamHash = "hash";
                     }
 
-                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null, searchParamHash);
+                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, searchParamHash);
                 });
 
             var fhirRequestContextAccessor = _fixture.GetRequiredService<RequestContextAccessor<IFhirRequestContext>>();

@@ -143,7 +143,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 isDeleted,
                 null,
                 null,
-                null,
                 null);
         }
     }

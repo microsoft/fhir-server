@@ -85,7 +85,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 deleted,
                 searchIndices,
                 _compartmentIndexer.Extract(resource.InstanceType, searchIndices),
-                _claimsExtractor.Extract(),
                 searchParamHash);
         }
 

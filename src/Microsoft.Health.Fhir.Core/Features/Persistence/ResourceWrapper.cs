@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool deleted,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
             string searchParameterHash = null)
            : this(
                  EnsureArg.IsNotNull(resource).Id,
@@ -34,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  deleted,
                  searchIndices,
                  compartmentIndices,
-                 lastModifiedClaims,
                  searchParameterHash)
         {
         }
@@ -49,7 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool deleted,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
             string searchParameterHash = null)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
@@ -65,7 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             LastModified = lastModified;
             SearchIndices = searchIndices;
             CompartmentIndices = compartmentIndices;
-            LastModifiedClaims = lastModifiedClaims;
             SearchParameterHash = searchParameterHash;
         }
 
@@ -101,8 +97,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices)]
         public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; set; }
 
-        [JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
-        public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }
+        ////[JsonProperty(KnownResourceWrapperProperties.LastModifiedClaims)]
+        ////public IReadOnlyCollection<KeyValuePair<string, string>> LastModifiedClaims { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.CompartmentIndices)]
         public CompartmentIndices CompartmentIndices { get; protected set; }

@@ -20,7 +20,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             HttpStatusCode? statusCode,
             string correlationId,
             string callerIpAddress,
-            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
             IReadOnlyCollection<KeyValuePair<string, string>> customHeaders)
         {
             AuditAction = auditAction;
@@ -30,7 +29,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             StatusCode = statusCode;
             CorrelationId = correlationId;
             CallerIpAddress = callerIpAddress;
-            CallerClaims = callerClaims;
             CustomHeaders = customHeaders;
         }
 
@@ -47,8 +45,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public string CorrelationId { get; }
 
         public string CallerIpAddress { get; }
-
-        public IReadOnlyCollection<KeyValuePair<string, string>> CallerClaims { get; }
 
         public IReadOnlyCollection<KeyValuePair<string, string>> CustomHeaders { get; }
     }

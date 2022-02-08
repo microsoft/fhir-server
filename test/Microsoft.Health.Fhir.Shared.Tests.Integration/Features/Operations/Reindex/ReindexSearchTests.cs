@@ -121,7 +121,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 false,
                 searchIndices,
                 compartmentIndices,
-                new List<KeyValuePair<string, string>>(),
                 _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
             wrapper.SearchParameterHash = "hash";
 

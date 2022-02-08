@@ -34,8 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 
                 var resourceMetadata = new ResourceMetadata(
                     resource.CompartmentIndices,
-                    resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
-                    resource.LastModifiedClaims);
+                    resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)));
 
                 IReadOnlyCollection<KeyValuePair<string, string>> writeClaims = resourceMetadata.WriteClaims;
                 if (writeClaims == null)

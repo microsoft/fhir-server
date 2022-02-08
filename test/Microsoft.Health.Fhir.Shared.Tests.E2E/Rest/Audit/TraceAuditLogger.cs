@@ -25,10 +25,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             HttpStatusCode? statusCode,
             string correlationId,
             string callerIpAddress,
-            IReadOnlyCollection<KeyValuePair<string, string>> callerClaims,
             IReadOnlyDictionary<string, string> customHeaders)
         {
-            _auditEntries.Add(new AuditEntry(auditAction, action, resourceType, requestUri, statusCode, correlationId, callerIpAddress, callerClaims, customHeaders));
+            _auditEntries.Add(new AuditEntry(auditAction, action, resourceType, requestUri, statusCode, correlationId, callerIpAddress, customHeaders));
         }
 
         public IReadOnlyList<AuditEntry> GetAuditEntriesByCorrelationId(string correlationId)

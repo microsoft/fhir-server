@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Web
                 private const string AuthorityKey = "FhirServer:Security:Authentication:Authority";
                 private const string AudienceKey = "FhirServer:Security:Authentication:Audience";
                 private const string DevelopmentIdpEnabledKey = "DevelopmentIdentityProvider:Enabled";
-                private const string PrincipalClaimsKey = "FhirServer:Security:PrincipalClaims";
+                ////private const string PrincipalClaimsKey = "FhirServer:Security:PrincipalClaims";
 
                 private readonly IConfigurationRoot _existingConfiguration;
 
@@ -211,8 +211,8 @@ namespace Microsoft.Health.Fhir.Web
                         Data[AuthorityKey] = GetAuthority();
                     }
 
-                    Data[$"{PrincipalClaimsKey}:0"] = DevelopmentIdentityProviderConfiguration.LastModifiedClaim;
-                    Data[$"{PrincipalClaimsKey}:1"] = DevelopmentIdentityProviderConfiguration.ClientIdClaim;
+                    ////Data[$"{PrincipalClaimsKey}:0"] = DevelopmentIdentityProviderConfiguration.LastModifiedClaim;
+                    ////Data[$"{PrincipalClaimsKey}:1"] = DevelopmentIdentityProviderConfiguration.ClientIdClaim;
                 }
 
                 private string GetAuthority()

@@ -399,7 +399,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 isDeleted,
                                 null,
                                 null,
-                                null,
                                 searchParameterHash),
                             isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                     }
