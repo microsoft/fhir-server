@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenSequentialVersionOfResource_WhenPatchingConditionallyWithOneMatchAndExactVersion_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        public async Task GivenSequentialVersionOfResource_WhenJsonPatchingConditionallyWithOneMatchAndExactVersion_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
             var identifier = Guid.NewGuid().ToString();
@@ -174,15 +174,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 $"identifier={identifier}",
                 _patchDocumentJson,
                 "2");
-            using FhirResponse<Patient> fhirPatchResponse = await _client.ConditionalFhirPatchAsync<Patient>(
-                "Patient",
-                $"identifier={identifier}",
-                _fhirPatchRequest,
-                "3");
 
             Assert.Equal(AdministrativeGender.Female, jsonPatchResponse.Resource.Gender);
             Assert.Empty(jsonPatchResponse.Resource.Address);
             Assert.Equal(HttpStatusCode.OK, jsonPatchResponse.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenSequentialVersionOfResource_WhenFhirPatchingConditionallyWithOneMatchAndExactVersion_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        {
+            var patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var identifier = Guid.NewGuid().ToString();
+
+            patient.Identifier.Add(new Identifier("http://e2etests", identifier));
+            using FhirResponse<Patient> response = await _client.CreateAsync(patient);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            response.Resource.BirthDate = "2020-01-01";
+            using FhirResponse<Patient> secondVersion = await _client.UpdateAsync(response.Resource);
+
+            using FhirResponse<Patient> fhirPatchResponse = await _client.ConditionalFhirPatchAsync<Patient>(
+                "Patient",
+                $"identifier={identifier}",
+                _fhirPatchRequest,
+                "2");
 
             Assert.Equal(AdministrativeGender.Female, fhirPatchResponse.Resource.Gender);
             Assert.Empty(fhirPatchResponse.Resource.Address);
