@@ -909,7 +909,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var rawResource = new RawResource(searchParam.ToJson(), FhirResourceFormat.Json, isMetaSet: false);
             var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Post);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
-            var searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/conformance-url"));
+            SearchParameterInfo searchParamInfo = null;
+
+            if (ModelInfoProvider.Instance.Version == FhirSpecification.Stu3)
+            {
+                searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/SearchParameter-url"));
+            }
+            else
+            {
+                searchParamInfo = new SearchParameterInfo("url", "url", ValueSets.SearchParamType.Uri, new Uri("http://hl7.org/fhir/SearchParameter/conformance-url"));
+            }
+
             var searchParamValue = new UriSearchValue(searchParam.Url, false);
             List<SearchIndexEntry> searchIndices = null;
             if (!deleted)
