@@ -728,6 +728,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Meta.
+        /// </summary>
+        internal static string Meta {
+            get {
+                return ResourceManager.GetString("Meta", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Modifier &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
         internal static string ModifierNotSupported {
@@ -841,6 +850,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string OperationFailed {
             get {
                 return ResourceManager.GetString("OperationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to OperationOutcome.Location is deprecated, please use OperationOutcome.Expression.
+        /// </summary>
+        internal static string OperationOutcomeLocationDeprication {
+            get {
+                return ResourceManager.GetString("OperationOutcomeLocationDeprication", resourceCulture);
             }
         }
         

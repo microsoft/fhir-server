@@ -51,7 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 Code = Enum.Parse<OperationOutcome.IssueType>(issue.Code),
                 Details = details,
                 Diagnostics = issue.Diagnostics,
-                Location = issue.Location,
+                Location = issue.Expression,
+                Expression = issue.Expression,
             };
         }
 

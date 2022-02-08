@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                             OperationOutcomeConstants.IssueSeverity.Error,
                             OperationOutcomeConstants.IssueType.Invalid,
                             diagnostics: failure.ErrorMessage,
-                            location: location));
+                            expression: location));
                 }
             }
         }
