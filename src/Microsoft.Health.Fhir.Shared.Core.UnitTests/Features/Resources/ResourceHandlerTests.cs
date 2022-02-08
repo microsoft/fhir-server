@@ -208,26 +208,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
-        public async Task GivenAFhirMediator_WhenSavingAResourceWithoutETagAndETagIsRequired_ThenPreconditionFailExceptionIsThrown()
-        {
-            _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient).UpdateCreate = false;
-
-            var resource = Samples.GetDefaultPatient();
-
-            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _mediator.UpsertResourceAsync(resource, null));
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenSavingAResourceWithoutETagAndETagIsRequiredWithUpdateCreate_ThenPreconditionFailExceptionIsThrown()
-        {
-            var resource = Samples.GetDefaultPatient();
-
-            // Documented for completeness, but under this situation arguably this request should succeed.
-            // Versioned-update + UpdateCreate; When no If-Match header is provided, the request should allow create but not update
-            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _mediator.UpsertResourceAsync(resource, null));
-        }
-
-        [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResourceWithoutETag_ThenPreconditionFailExceptionIsThrown()
         {
             var resource = Samples.GetDefaultObservation();

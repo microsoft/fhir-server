@@ -50,6 +50,7 @@
     <None Remove="TestFiles\Normative\Profile-Organization-uscore.json" />
     <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
+    <None Remove="TestFiles\Normative\Medication.json" />
     <None Remove="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <None Remove="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <None Remove="TestFiles\Normative\SearchParameterBadSyntax.json" />
@@ -259,6 +260,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Import-DupPatientTemplate.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-Patient.ndjson" />
     <EmbeddedResource Include="TestFiles\Normative\Import-SinglePatientTemplate.ndjson" />
+    <EmbeddedResource Include="TestFiles\Normative\Medication.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-AppointmentStatus.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter-Patient-foo.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameterInvalidBase.json" />

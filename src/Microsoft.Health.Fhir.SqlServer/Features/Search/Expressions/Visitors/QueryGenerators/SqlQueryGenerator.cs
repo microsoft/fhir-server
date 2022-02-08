@@ -857,7 +857,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.AppendLine();
                 }
 
-                StringBuilder.Append("FROM ").AppendLine(includeCte);
+                // Matched results should be excluded from included CTEs
+                StringBuilder.Append("FROM ").Append(includeCte)
+                    .Append(" WHERE NOT EXISTS (SELECT * FROM ").Append(_cteMainSelect)
+                    .Append(" WHERE ").Append(_cteMainSelect).Append(".Sid1 = ").Append(includeCte).Append(".Sid1")
+                    .Append(" AND ").Append(_cteMainSelect).Append(".T1 = ").Append(includeCte).AppendLine(".T1)");
             }
         }
 
