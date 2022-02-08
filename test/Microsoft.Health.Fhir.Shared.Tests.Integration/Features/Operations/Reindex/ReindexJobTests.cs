@@ -567,7 +567,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             SearchParameter searchParam = await CreateSearchParam(searchParamName, SearchParamType.String, ResourceType.Patient, "Patient.name", searchParamCode);
 
-            var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam, id: randomName);
+            var searchParamWrapper = CreateSearchParamResourceWrapper(searchParam);
 
             await _scopedDataStore.Value.UpsertAsync(searchParamWrapper, null, true, true, CancellationToken.None);
 
@@ -902,7 +902,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             return wrapper;
         }
 
-        private ResourceWrapper CreateSearchParamResourceWrapper(SearchParameter searchParam, string id = "searchParam1", bool deleted = false)
+        private ResourceWrapper CreateSearchParamResourceWrapper(SearchParameter searchParam, bool deleted = false)
         {
             searchParam.Id = "searchParam1";
             var resourceElement = searchParam.ToResourceElement();
