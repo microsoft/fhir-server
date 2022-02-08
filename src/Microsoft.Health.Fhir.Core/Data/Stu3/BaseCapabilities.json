@@ -20,6 +20,7 @@
         "json"
     ],
     "patchFormat": [
+        "application/fhir+json",
         "application/json-patch+json"
     ],
     "acceptUnknown": "both",

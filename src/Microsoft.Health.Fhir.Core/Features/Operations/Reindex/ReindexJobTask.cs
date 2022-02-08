@@ -226,7 +226,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
-                    Resources.NoSearchParametersNeededToBeIndexed));
+                    Core.Resources.NoSearchParametersNeededToBeIndexed));
                 _reindexJobRecord.CanceledTime = Clock.UtcNow;
                 await MoveToFinalStatusAsync(OperationStatus.Canceled);
                 return false;
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
-                    Resources.NoResourcesNeedToBeReindexed));
+                    Core.Resources.NoResourcesNeedToBeReindexed));
                 await UpdateParametersAndCompleteJob();
                 return false;
             }

@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
                 if (taskInfo.Status == TaskManagement.TaskStatus.Completed)
                 {
-                    throw new OperationFailedException(Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
+                    throw new OperationFailedException(Core.Resources.ImportOperationCompleted, HttpStatusCode.Conflict);
                 }
                 else
                 {
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             }
             catch (TaskNotExistException)
             {
-                throw new ResourceNotFoundException(string.Format(Resources.ImportTaskNotFound, request.TaskId));
+                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
             }
         }
     }

@@ -6,8 +6,8 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Patch
@@ -18,18 +18,18 @@ namespace Microsoft.Health.Fhir.Core.Messages.Patch
 
         public ConditionalPatchResourceRequest(
             string resourceType,
-            JsonPatchDocument patchDocument,
+            PatchPayload payload,
             IReadOnlyList<Tuple<string, string>> conditionalParameters,
             WeakETag weakETag = null)
             : base(resourceType, conditionalParameters)
         {
-            EnsureArg.IsNotNull(patchDocument, nameof(patchDocument));
+            EnsureArg.IsNotNull(payload, nameof(payload));
 
-            PatchDocument = patchDocument;
+            Payload = payload;
             WeakETag = weakETag;
         }
 
-        public JsonPatchDocument PatchDocument { get; }
+        public PatchPayload Payload { get; }
 
         public WeakETag WeakETag { get; }
 

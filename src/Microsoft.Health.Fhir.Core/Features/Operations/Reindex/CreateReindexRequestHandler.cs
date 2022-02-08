@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             (var activeReindexJobs, var reindexJobId) = await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken);
             if (activeReindexJobs)
             {
-                throw new JobConflictException(string.Format(Resources.OnlyOneResourceJobAllowed, reindexJobId));
+                throw new JobConflictException(string.Format(Core.Resources.OnlyOneResourceJobAllowed, reindexJobId));
             }
 
             // We need to pull in latest search parameter updates from the data store before creating a reindex job.
