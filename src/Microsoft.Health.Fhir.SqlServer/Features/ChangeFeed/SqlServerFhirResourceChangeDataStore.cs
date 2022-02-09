@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
     /// </summary>
     public class SqlServerFhirResourceChangeDataStore : IChangeFeedSource<ResourceChangeData>
     {
-        private readonly ISqlConnectionFactory _sqlConnectionFactory;
+        private readonly ISqlConnectionBuilder _sqlConnectionFactory;
         private readonly ILogger<SqlServerFhirResourceChangeDataStore> _logger;
         private static readonly ConcurrentDictionary<short, string> ResourceTypeIdToTypeNameMap = new ConcurrentDictionary<short, string>();
 
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
         /// <param name="sqlConnectionFactory">The SQL Connection factory.</param>
         /// <param name="logger">The logger.</param>
         /// <param name="schemaInformation">The database schema information.</param>
-        public SqlServerFhirResourceChangeDataStore(ISqlConnectionFactory sqlConnectionFactory, ILogger<SqlServerFhirResourceChangeDataStore> logger, SchemaInformation schemaInformation)
+        public SqlServerFhirResourceChangeDataStore(ISqlConnectionBuilder sqlConnectionFactory, ILogger<SqlServerFhirResourceChangeDataStore> logger, SchemaInformation schemaInformation)
         {
             EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
