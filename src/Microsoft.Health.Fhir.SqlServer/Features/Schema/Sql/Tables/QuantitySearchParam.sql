@@ -8,9 +8,6 @@
     SingleValue decimal(18,6) NULL,
     LowValue decimal(18,6) NOT NULL,
     HighValue decimal(18,6) NOT NULL,
-    CONSTRAINT PK_QuantitySearchParam PRIMARY KEY NONCLUSTERED(ResourceTypeId, SearchParamId, HighValue, LowValue, ResourceSurrogateId)
-	WITH (DATA_COMPRESSION = PAGE) 
-	ON PartitionScheme_ResourceTypeId(ResourceTypeId),
     IsHistory bit NOT NULL
 )
 

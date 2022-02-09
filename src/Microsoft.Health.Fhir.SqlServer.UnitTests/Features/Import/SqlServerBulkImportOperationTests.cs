@@ -67,14 +67,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
                 "IX_Resource_ResourceTypeId_ResourceId_Version",
                 "IX_Resource_ResourceTypeId_ResourceId",
                 "IX_Resource_ResourceTypeId_ResourceSurrgateId",
-                "UQIX_Resource_ResourceSurrogateId",
+                "IX_Resource_ResourceSurrogateId",
             };
 
             string[] supportedIndexesNames = _sqlServerFhirDataBulkOperation.IndexesList().Select(i => i.index.IndexName).ToArray();
             int expectedIndexesCount = 0;
             foreach (Table table in resourceRelatedTables)
             {
-                string[] indexNames = table.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic).Where(f => (f.Name.StartsWith("IX_") || f.Name.StartsWith("UQIX_"))).Select(f => f.Name).ToArray();
+                string[] indexNames = table.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic).Where(f => f.Name.StartsWith("IX_")).Select(f => f.Name).ToArray();
                 foreach (string indexName in indexNames)
                 {
                     if (excludeIndexNames.Contains(indexName))

@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
                     // When a list is specified, check that the default is an option
                     if (objects.Any() && !objects.Any(x => Equals(defaultOption, x)))
                     {
-                        throw new UnsupportedConfigurationException(string.Format(Resources.InvalidConfigSetting, defaultOption, string.Join(", ", objects.ToArray())));
+                        throw new UnsupportedConfigurationException(string.Format(Core.Resources.InvalidConfigSetting, defaultOption, string.Join(", ", objects.ToArray())));
                     }
                 }
             }

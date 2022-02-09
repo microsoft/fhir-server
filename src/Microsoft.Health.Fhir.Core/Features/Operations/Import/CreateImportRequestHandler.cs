@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
             catch (TaskConflictException)
             {
                 _logger.LogInformation("Already a running import task.");
-                throw new OperationFailedException(Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
+                throw new OperationFailedException(Core.Resources.ImportTaskIsRunning, HttpStatusCode.Conflict);
             }
 
             return new CreateImportResponse(taskId);

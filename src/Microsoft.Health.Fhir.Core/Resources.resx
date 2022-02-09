@@ -459,7 +459,7 @@
     <value>VersionId should not be in the weak ETag format.</value>
   </data>
   <data name="WeakETagFormatRequired" xml:space="preserve">
-    <value>WeakETag must be in the weak ETag format.</value>
+    <value>WeakETag '{0}' must be in the weak ETag format.</value>
   </data>
   <data name="SearchParameterNoLongerSupported" xml:space="preserve">
     <value>{0} So it cannot be marked enabled.</value>

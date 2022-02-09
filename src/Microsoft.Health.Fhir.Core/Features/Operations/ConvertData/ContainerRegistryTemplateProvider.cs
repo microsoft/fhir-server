@@ -92,22 +92,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 _cache.Remove(GetCacheKey(request.RegistryServer));
 
                 _logger.LogWarning(authEx, "Failed to access container registry.");
-                throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, request.RegistryServer), authEx);
+                throw new ContainerRegistryNotAuthorizedException(string.Format(Core.Resources.ContainerRegistryNotAuthorized, request.RegistryServer), authEx);
             }
             catch (ImageFetchException fetchEx)
             {
                 _logger.LogWarning(fetchEx, "Failed to fetch template image.");
-                throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, fetchEx.Message), fetchEx);
+                throw new FetchTemplateCollectionFailedException(string.Format(Core.Resources.FetchTemplateCollectionFailed, fetchEx.Message), fetchEx);
             }
             catch (TemplateManagementException templateEx)
             {
                 _logger.LogWarning(templateEx, "Template collection is invalid.");
-                throw new TemplateCollectionErrorException(string.Format(Resources.FetchTemplateCollectionFailed, templateEx.Message), templateEx);
+                throw new TemplateCollectionErrorException(string.Format(Core.Resources.FetchTemplateCollectionFailed, templateEx.Message), templateEx);
             }
             catch (Exception unhandledEx)
             {
                 _logger.LogError(unhandledEx, "Unhandled exception: failed to get template collection.");
-                throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, unhandledEx.Message), unhandledEx);
+                throw new FetchTemplateCollectionFailedException(string.Format(Core.Resources.FetchTemplateCollectionFailed, unhandledEx.Message), unhandledEx);
             }
         }
 

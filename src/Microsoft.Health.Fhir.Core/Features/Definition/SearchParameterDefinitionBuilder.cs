@@ -146,12 +146,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
                 catch (FormatException)
                 {
-                    AddIssue(Resources.SearchParameterDefinitionInvalidDefinitionUri, entryIndex);
+                    AddIssue(Core.Resources.SearchParameterDefinitionInvalidDefinitionUri, entryIndex);
                     continue;
                 }
                 catch (ArgumentException)
                 {
-                    AddIssue(Resources.SearchParameterDefinitionDuplicatedEntry, searchParameter.Url);
+                    AddIssue(Core.Resources.SearchParameterDefinitionDuplicatedEntry, searchParameter.Url);
                     continue;
                 }
             }

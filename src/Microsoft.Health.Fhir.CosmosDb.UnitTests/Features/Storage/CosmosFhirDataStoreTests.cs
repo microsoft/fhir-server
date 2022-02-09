@@ -61,7 +61,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, requestContextAccessor),
                 NullLogger<CosmosFhirDataStore>.Instance,
                 Options.Create(new CoreFeatureConfiguration()),
-                new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()));
+                new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()),
+                ModelInfoProvider.Instance);
         }
 
         [Fact]
