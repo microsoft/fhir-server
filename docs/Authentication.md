@@ -1,5 +1,6 @@
 # Authentication
 This article goes through the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
+This change was made to have a branch to compare to. Do not merge this PR and ignore this change.
 
 ## Authentication Settings
 The current authentication settings exposed in configuration are the following:
