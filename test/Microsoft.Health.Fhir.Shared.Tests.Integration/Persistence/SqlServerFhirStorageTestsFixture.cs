@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
-        private const string LocalConnectionString = "server=(local);Integrated Security=true";
+        private const string LocalConnectionString = "server=(local);Integrated Security=true;TrustServerCertificate=True";
         private const string MasterDatabaseName = "master";
 
         private readonly int _maximumSupportedSchemaVersion;
@@ -87,10 +87,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            SqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
-            var schemaManagerDataStore = new SchemaManagerDataStore(SqlConnectionFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
-            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, SqlConnectionFactory, schemaManagerDataStore);
-            _schemaInitializer = new SchemaInitializer(config, schemaManagerDataStore, _schemaUpgradeRunner, SchemaInformation, SqlConnectionFactory, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
+            SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, config);
+            var schemaManagerDataStore = new SchemaManagerDataStore(SqlConnectionBuilder, config, NullLogger<SchemaManagerDataStore>.Instance);
+            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, SqlConnectionBuilder, schemaManagerDataStore);
+            _schemaInitializer = new SchemaInitializer(config, schemaManagerDataStore, _schemaUpgradeRunner, SchemaInformation, SqlConnectionBuilder, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _searchParameterDefinitionManager,
                 () => _filebasedSearchParameterStatusDataStore,
                 Options.Create(securityConfiguration),
-                SqlConnectionFactory,
+                SqlConnectionBuilder,
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
             SqlServerFhirModel = sqlServerFhirModel;
@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGeneratorV7 = serviceProvider.GetRequiredService<V7.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertResourceTvpGeneratorV13 = serviceProvider.GetRequiredService<V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
+            var upsertResourceTvpGeneratorV18 = serviceProvider.GetRequiredService<V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var reindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
             var bulkReindexResourceTvpGeneratorV17 = serviceProvider.GetRequiredService<V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>>>();
@@ -134,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, new SqlCommandWrapperFactory(), SqlConnectionFactory);
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, new SqlCommandWrapperFactory(), SqlConnectionBuilder);
 
             SqlServerSearchParameterStatusDataStore = new SqlServerSearchParameterStatusDataStore(
                 () => SqlConnectionWrapperFactory.CreateMockScope(),
@@ -154,6 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 upsertResourceTvpGeneratorV7,
                 upsertResourceTvpGeneratorV13,
                 upsertResourceTvpGeneratorV17,
+                upsertResourceTvpGeneratorV18,
                 upsertResourceTvpGeneratorVLatest,
                 reindexResourceTvpGeneratorV17,
                 reindexResourceTvpGeneratorVLatest,
@@ -163,7 +165,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 SqlConnectionWrapperFactory,
                 new CompressedRawResourceConverter(),
                 NullLogger<SqlServerFhirDataStore>.Instance,
-                SchemaInformation);
+                SchemaInformation,
+                ModelInfoProvider.Instance);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
@@ -212,7 +215,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
-            _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionFactory);
+            _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder);
         }
 
         public string TestConnectionString { get; }
@@ -221,7 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
-        internal ISqlConnectionFactory SqlConnectionFactory { get; }
+        internal ISqlConnectionBuilder SqlConnectionBuilder { get; }
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
 

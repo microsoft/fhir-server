@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
             foreach (ResourceSearchParameterStatus status in this)
             {
-                sqlRow.SetString(0, status.Uri.ToString());
+                sqlRow.SetString(0, status.Uri.OriginalString);
                 sqlRow.SetString(1, status.Status.ToString());
                 sqlRow.SetSqlBoolean(2, status.IsPartiallySupported);
 

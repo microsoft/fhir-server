@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 if (!bool.TryParse(value, out bool isMissing))
                 {
                     // An invalid value was specified.
-                    throw new InvalidSearchOperationException(Resources.InvalidValueTypeForMissingModifier);
+                    throw new InvalidSearchOperationException(Core.Resources.InvalidValueTypeForMissingModifier);
                 }
 
                 return Expression.MissingSearchParameter(searchParameter, isMissing);
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 if (searchParameter.Type != SearchParamType.Token)
                 {
                     throw new InvalidSearchOperationException(
-                        string.Format(CultureInfo.InvariantCulture, Resources.ModifierNotSupported, modifier, searchParameter.Code));
+                        string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
                 }
 
                 outputExpression = Expression.StartsWith(FieldName.TokenText, null, value, true);
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     if (modifier != null)
                     {
                         throw new InvalidSearchOperationException(
-                            string.Format(CultureInfo.InvariantCulture, Resources.ModifierNotSupported, modifier, searchParameter.Code));
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
                     }
 
                     IReadOnlyList<string> orParts = value.SplitByOrSeparator();
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         if (compositeValueParts.Count > searchParameter.Component.Count)
                         {
                             throw new InvalidSearchOperationException(
-                                string.Format(CultureInfo.InvariantCulture, Resources.NumberOfCompositeComponentsExceeded, searchParameter.Code));
+                                string.Format(CultureInfo.InvariantCulture, Core.Resources.NumberOfCompositeComponentsExceeded, searchParameter.Code));
                         }
 
                         var compositeExpressions = new Expression[compositeValueParts.Count];
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 if (comparator != SearchComparator.Eq)
                 {
-                    throw new InvalidSearchOperationException(Resources.SearchComparatorNotSupported);
+                    throw new InvalidSearchOperationException(Core.Resources.SearchComparatorNotSupported);
                 }
 
                 // This is a multiple value expression.

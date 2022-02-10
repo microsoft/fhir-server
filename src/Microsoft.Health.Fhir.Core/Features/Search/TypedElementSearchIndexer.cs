@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     /// If the body contains Coverage.status = , then after parsing Coverage.status = null & Coverage.statusElement = {value=null}, which passes the Firely validation and CodeToTokenSearchValueConverter returns null
                     /// In this case return BadRequestException with a valid message instead of 500
                     /// </remarks>
-                    throw new BadRequestException(string.Format(Resources.ValueCannotBeNull, searchParameter.Expression));
+                    throw new BadRequestException(string.Format(Core.Resources.ValueCannotBeNull, searchParameter.Expression));
                 }
             }
         }

@@ -64,6 +64,14 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Organization");
         }
 
+        /// <summary>
+        /// This returns a medication sample from the json files
+        /// </summary>
+        public static ResourceElement GetDefaultMedication()
+        {
+            return GetJsonSample("Medication");
+        }
+
         public static string GetProvenanceHeader() => GetJson("ProvenanceHeader");
 
         public static ResourceElement GetDefaultCoverage() => GetJsonSample("Coverage");

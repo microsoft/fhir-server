@@ -1,0 +1,73 @@
+﻿{
+    "resourceType": "Bundle",
+    "id": "bundle-fhirpatch",
+    "meta": {
+        "lastUpdated": "2014-07-05T01:43:30Z"
+    },
+    "type": "batch",
+    "entry": [
+        {
+            "fullUrl": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5",
+            "resource": {
+                "id": "9F746C86-48B4-424D-9F92-1E46215E35D5",
+                "resourceType": "Patient",
+                "text": {
+                    "status": "generated",
+                    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Some narrative</div>"
+                },
+                "identifier": [
+                    {
+                        "system": "http:/example.org/fhir/ids",
+                        "value": "9F746C86-48B4-424D-9F92-1E46215E35D5"
+                    }
+                ],
+                "active": true,
+                "name": [
+                    {
+                        "use": "official",
+                        "family": "Chalmers",
+                        "given": [
+                            "Peter",
+                            "James"
+                        ]
+                    }
+                ],
+                "gender": "male",
+                "birthDate": "1974-12-25"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5"
+            }
+        },
+        {
+            "fullUrl": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5",
+            "resource": {
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "operation",
+                        "part": [
+                            {
+                                "name": "type",
+                                "valueCode": "replace"
+                            },
+                            {
+                                "name": "path",
+                                "valueString": "Patient.gender"
+                            },
+                            {
+                                "name": "value",
+                                "valueCode": "female"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient/9F746C86-48B4-424D-9F92-1E46215E35D5"
+            }
+        }
+    ]
+}

@@ -43,6 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly V7.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV7;
         private readonly V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV13;
         private readonly V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV17;
+        private readonly V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorV18;
         private readonly V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _reindexResourceTvpGeneratorV17;
         private readonly V17.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorV17;
         private readonly VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> _upsertResourceTvpGeneratorVLatest;
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ICompressedRawResourceConverter _compressedRawResourceConverter;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
         private readonly SchemaInformation _schemaInformation;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
         public SqlServerFhirDataStore(
             ISqlServerFhirModel model,
@@ -62,6 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             V7.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV7,
             V13.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV13,
             V17.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV17,
+            V18.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorV18,
             VLatest.UpsertResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> upsertResourceTvpGeneratorVLatest,
             V17.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorV17,
             VLatest.ReindexResourceTvpGenerator<IReadOnlyList<ResourceWrapper>> reindexResourceTvpGeneratorVLatest,
@@ -71,7 +74,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ICompressedRawResourceConverter compressedRawResourceConverter,
             ILogger<SqlServerFhirDataStore> logger,
-            SchemaInformation schemaInformation)
+            SchemaInformation schemaInformation,
+            IModelInfoProvider modelInfoProvider)
         {
             _model = EnsureArg.IsNotNull(model, nameof(model));
             _searchParameterTypeMap = EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
@@ -79,6 +83,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _upsertResourceTvpGeneratorV7 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV7, nameof(upsertResourceTvpGeneratorV7));
             _upsertResourceTvpGeneratorV13 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV13, nameof(upsertResourceTvpGeneratorV13));
             _upsertResourceTvpGeneratorV17 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV17, nameof(upsertResourceTvpGeneratorV17));
+            _upsertResourceTvpGeneratorV18 = EnsureArg.IsNotNull(upsertResourceTvpGeneratorV18, nameof(upsertResourceTvpGeneratorV18));
             _upsertResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             _reindexResourceTvpGeneratorV17 = EnsureArg.IsNotNull(reindexResourceTvpGeneratorV17, nameof(reindexResourceTvpGeneratorV17));
             _reindexResourceTvpGeneratorVLatest = EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
@@ -86,14 +91,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _bulkReindexResourcesTvpGeneratorVLatest = EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             _coreFeatures = EnsureArg.IsNotNull(coreFeatures?.Value, nameof(coreFeatures));
             _sqlConnectionWrapperFactory = EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _schemaInformation = EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            _compressedRawResourceConverter = EnsureArg.IsNotNull(compressedRawResourceConverter, nameof(compressedRawResourceConverter));
+            _modelInfoProvider = EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
-        public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
+        public async Task<UpsertOutcome> UpsertAsync(
+            ResourceWrapper resource,
+            WeakETag weakETag,
+            bool allowCreate,
+            bool keepHistory,
+            CancellationToken cancellationToken,
+            bool requireETagOnUpdate = false)
         {
             int? eTag = weakETag == null
                 ? null
@@ -112,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 stream.Seek(0, 0);
 
-                PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, eTag, stream, _coreFeatures.SupportsResourceChangeCapture);
+                PopulateUpsertResourceCommand(sqlCommandWrapper, resource, resourceMetadata, allowCreate, keepHistory, requireETagOnUpdate, eTag, stream, _coreFeatures.SupportsResourceChangeCapture);
 
                 try
                 {
@@ -143,7 +155,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     switch (e.Number)
                     {
                         case SqlErrorCodes.PreconditionFailed:
-                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                            if (weakETag != null)
+                            {
+                                // The backwards compatibility behavior of Stu3 is to return 409 Conflict instead of a 412 Precondition Failed
+                                if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                                {
+                                    throw new ResourceConflictException(weakETag);
+                                }
+
+                                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                            }
+
+                            goto default;
                         case SqlErrorCodes.NotFound:
                             if (weakETag != null)
                             {
@@ -155,6 +178,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                         case SqlErrorCodes.TimeoutExpired:
                             throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
+                        case 50400: // TODO: Add this to SQL error codes in AB#88286
+                            // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
+                            if (_modelInfoProvider.Version == FhirSpecification.Stu3)
+                            {
+                                throw new PreconditionFailedException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
+                            }
+
+                            throw new BadRequestException(string.Format(Core.Resources.IfMatchHeaderRequiredForResource, resource.ResourceTypeName));
                         default:
                             _logger.LogError(e, "Error from SQL database on upsert");
                             throw;
@@ -163,14 +194,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private void PopulateUpsertResourceCommand(SqlCommandWrapper sqlCommandWrapper, ResourceWrapper resource, ResourceMetadata resourceMetadata, bool allowCreate, bool keepHistory, int? eTag, RecyclableMemoryStream stream, bool isResourceChangeCaptureEnabled)
+        private void PopulateUpsertResourceCommand(
+            SqlCommandWrapper sqlCommandWrapper,
+            ResourceWrapper resource,
+            ResourceMetadata resourceMetadata,
+            bool allowCreate,
+            bool keepHistory,
+            bool requireETagOnUpdate,
+            int? eTag,
+            RecyclableMemoryStream stream,
+            bool isResourceChangeCaptureEnabled)
         {
             long baseResourceSurrogateId = ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime);
             short resourceTypeId = _model.GetResourceTypeId(resource.ResourceTypeName);
 
-            if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
+            if (_schemaInformation.Current >= SchemaVersionConstants.PutCreateWithVersionedUpdatePolicyVersion)
             {
                 VLatest.UpsertResource.PopulateCommand(
+                    sqlCommandWrapper,
+                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
+                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                    resourceId: resource.ResourceId,
+                    eTag: eTag,
+                    allowCreate: allowCreate,
+                    isDeleted: resource.IsDeleted,
+                    keepHistory: keepHistory,
+                    requireETagOnUpdate: requireETagOnUpdate,
+                    requestMethod: resource.Request.Method,
+                    searchParamHash: resource.SearchParameterHash,
+                    rawResource: stream,
+                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
+                    isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled);
+            }
+            else if (_schemaInformation.Current >= SchemaVersionConstants.AddMinMaxForDateAndStringSearchParamVersion)
+            {
+                V18.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
                     baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                     resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
@@ -182,7 +240,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestMethod: resource.Request.Method,
                     searchParamHash: resource.SearchParameterHash,
                     rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(new List<ResourceWrapper> { resource }),
+                    tableValuedParameters: _upsertResourceTvpGeneratorV18.Generate(new List<ResourceWrapper> { resource }),
                     isResourceChangeCaptureEnabled: isResourceChangeCaptureEnabled);
             }
             else if (_schemaInformation.Current >= SchemaVersionConstants.SupportsResourceChangeCaptureSchemaVersion)

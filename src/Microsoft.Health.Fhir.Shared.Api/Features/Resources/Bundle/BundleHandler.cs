@@ -5,11 +5,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -77,6 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IAuthorizationService<DataActions> _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
+        private readonly IMediator _mediator;
 
         /// <summary>
         /// Headers to propagate the the from the inner actions to the outer HTTP request.
@@ -98,6 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
             IAuthorizationService<DataActions> authorizationService,
+            IMediator mediator,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -113,6 +113,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -126,6 +127,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _auditEventTypeMapping = auditEventTypeMapping;
             _authorizationService = authorizationService;
             _bundleConfiguration = bundleConfiguration.Value;
+            _mediator = mediator;
             _logger = logger;
 
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
@@ -202,7 +204,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     };
 
                     await ExecuteAllRequests(responseBundle);
-                    return new BundleResponse(responseBundle.ToResourceElement());
+                    var response = new BundleResponse(responseBundle.ToResourceElement());
+
+                    await PublishNotification(responseBundle, BundleType.Batch);
+
+                    return response;
                 }
 
                 if (_bundleType == BundleType.Transaction)
@@ -217,7 +223,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Type = BundleType.TransactionResponse,
                     };
 
-                    return await ExecuteTransactionForAllRequests(responseBundle);
+                    var response = await ExecuteTransactionForAllRequests(responseBundle);
+
+                    await PublishNotification(responseBundle, BundleType.Transaction);
+
+                    return response;
                 }
 
                 throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
@@ -226,6 +236,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 _fhirRequestContextAccessor.RequestContext = _originalFhirRequestContext;
             }
+        }
+
+        private async Task PublishNotification(Hl7.Fhir.Model.Bundle responseBundle, BundleType bundleType)
+        {
+            var apiCallResults = new Dictionary<string, int>();
+            foreach (var entry in responseBundle.Entry)
+            {
+                var status = entry.Response.Status;
+                if (apiCallResults.ContainsKey(status))
+                {
+                    apiCallResults[status]++;
+                }
+                else
+                {
+                    apiCallResults[status] = 1;
+                }
+            }
+
+            await _mediator.Publish(new BundleMetricsNotification(apiCallResults, bundleType), CancellationToken.None);
         }
 
         private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -328,7 +357,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     httpContext.Request.Body = memoryStream;
                 }
             }
+
 #if !STU3
+            // FHIRPatch if body is Parameters object
+            else if (
+                requestMethod == HTTPVerb.PATCH &&
+                string.Equals(KnownResourceTypes.Parameters, entry.Resource?.TypeName, StringComparison.Ordinal) &&
+                entry.Resource is Parameters parametersResource)
+            {
+                httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
+                var memoryStream = new MemoryStream(_fhirJsonSerializer.SerializeToBytes(parametersResource));
+                memoryStream.Seek(0, SeekOrigin.Begin);
+                httpContext.Request.Body = memoryStream;
+            }
+
             // Allow JSON Patch to be an encoded Binary in a Bundle (See: https://chat.fhir.org/#narrow/stream/179166-implementers/topic/Transaction.20with.20PATCH.20request)
             else if (
                 requestMethod == HTTPVerb.PATCH &&

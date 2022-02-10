@@ -44,14 +44,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
 
             if (taskInfo == null)
             {
-                throw new ResourceNotFoundException(string.Format(Resources.ImportTaskNotFound, request.TaskId));
+                throw new ResourceNotFoundException(string.Format(Core.Resources.ImportTaskNotFound, request.TaskId));
             }
 
             if (taskInfo.Status != TaskManagement.TaskStatus.Completed)
             {
                 if (taskInfo.IsCanceled)
                 {
-                    throw new OperationFailedException(Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
+                    throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
 
                 return new GetImportResponse(HttpStatusCode.Accepted);
@@ -72,11 +72,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Import
                     HttpStatusCode failureStatusCode = errorResult.HttpStatusCode;
 
                     throw new OperationFailedException(
-                        string.Format(Resources.OperationFailed, OperationsConstants.Import, failureReason), failureStatusCode);
+                        string.Format(Core.Resources.OperationFailed, OperationsConstants.Import, failureReason), failureStatusCode);
                 }
                 else
                 {
-                    throw new OperationFailedException(Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
+                    throw new OperationFailedException(Core.Resources.UserRequestedCancellation, HttpStatusCode.BadRequest);
                 }
             }
         }

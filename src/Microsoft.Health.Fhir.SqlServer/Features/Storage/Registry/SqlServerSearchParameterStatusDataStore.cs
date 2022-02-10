@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             SearchParameterInfo paramInfo = null;
                             try
                             {
-                                paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri);
+                                paramInfo = _searchParameterDefinitionManager.GetSearchParameter(resourceSearchParameterStatus.Uri.OriginalString);
                             }
                             catch (SearchParameterNotSupportedException)
                             {
@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 var status = (SqlServerResourceSearchParameterStatus)resourceSearchParameterStatus;
 
                 // Add the new search parameters to the FHIR model dictionary.
-                _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.ToString(), status.Id);
+                _fhirModel.TryAddSearchParamIdToUriMapping(status.Uri.OriginalString, status.Id);
             }
         }
     }

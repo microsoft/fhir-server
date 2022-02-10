@@ -281,7 +281,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadWriteUser, TestApplications.NativeClient);
             var resource = Samples.GetJsonSample("ValueSet").ToPoco<ValueSet>();
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.UpdateAsync<ValueSet>(resource, "identifier=boo"));
+            var weakETag = "W/\"identifier=boo\"";
+            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.UpdateAsync<ValueSet>(resource, weakETag));
 
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
