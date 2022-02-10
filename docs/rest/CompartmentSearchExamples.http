@@ -1,4 +1,5 @@
 # Examples of FHIR compartment searches.
+# This assumes you are running FHIR version R4.
 
 @hostname = localhost:44348
 
@@ -705,6 +706,84 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ###
+# Create an observation that references the patient with the id "patient".
+# This will be in the patient's compartment.
+PUT https://{{hostname}}/Observation/observation
+Content-Type: application/json
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+{
+  "resourceType": "Observation",
+  "id": "observation",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: f001</p><p><b>identifier</b>: 6323 (OFFICIAL)</p><p><b>status</b>: final</p><p><b>code</b>: Glucose [Moles/volume] in Blood <span>(Details : {LOINC code '15074-8' = 'Glucose [Moles/volume] in Blood', given as 'Glucose [Moles/volume] in Blood'})</span></p><p><b>subject</b>: <a>P. van de Heuvel</a></p><p><b>effective</b>: 02/04/2013 9:30:10 AM --&gt; (ongoing)</p><p><b>issued</b>: 03/04/2013 3:30:10 PM</p><p><b>performer</b>: <a>A. Langeveld</a></p><p><b>value</b>: 6.3 mmol/l<span> (Details: UCUM code mmol/L = 'mmol/L')</span></p><p><b>interpretation</b>: High <span>(Details : {http://hl7.org/fhir/v2/0078 code 'H' = 'High', given as 'High'})</span></p><h3>ReferenceRanges</h3><table><tr><td>-</td><td><b>Low</b></td><td><b>High</b></td></tr><tr><td>*</td><td>3.1 mmol/l<span> (Details: UCUM code mmol/L = 'mmol/L')</span></td><td>6.2 mmol/l<span> (Details: UCUM code mmol/L = 'mmol/L')</span></td></tr></table></div>"
+    },
+  "identifier": [
+    {
+      "use": "official",
+      "system": "http://www.bmc.nl/zorgportal/identifiers/observations",
+      "value": "6323"
+    }
+  ],
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "15074-8",
+        "display": "Glucose [Moles/volume] in Blood"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/patient",
+    "display": "P. van de Heuvel"
+  },
+  "effectivePeriod": {
+    "start": "2013-04-02T09:30:10+01:00"
+  },
+  "issued": "2013-04-03T15:30:10+01:00",
+  "performer": [
+    {
+      "reference": "Practitioner/f005",
+      "display": "A. Langeveld"
+    }
+  ],
+  "valueQuantity": {
+    "value": 6.3,
+    "unit": "mmol/l",
+    "system": "http://unitsofmeasure.org",
+    "code": "mmol/L"
+  },
+  "interpretation": {
+    "coding": [
+      {
+        "system": "http://hl7.org/fhir/v2/0078",
+        "code": "H",
+        "display": "High"
+      }
+    ]
+  },
+  "referenceRange": [
+    {
+      "low": {
+        "value": 3.1,
+        "unit": "mmol/l",
+        "system": "http://unitsofmeasure.org",
+        "code": "mmol/L"
+      },
+      "high": {
+        "value": 6.2,
+        "unit": "mmol/l",
+        "system": "http://unitsofmeasure.org",
+        "code": "mmol/L"
+      }
+    }
+  ]
+} 
+
+###
 # Run patient everything, but filter by explanation of benefit
 # resources.
 # This should return the two explanation of benefit resources
@@ -714,15 +793,30 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Get everything from the patient's compartment.
-# This should return two explanations of benefits and one procedure.
+# This should return two explanations of benefits, one procedure
+# and one observation.
 GET {{hostname}}/Patient/patient/*
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Get the patient's compartment, but filter for explanation of benefit
 # and observation resources.
-# This should return two explanation of benefit resources.
-GET {{hostname}}/Patient/patient/*?_type=ExplanationOfBenefit,Observation
+# This should return two explanation of benefits and one observation.
+# It will not return any immunizations, since there are no immunizations in the patient's compartment.
+GET {{hostname}}/Patient/patient/*?_type=ExplanationOfBenefit,Observation,Immunization
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Search the patient's explanation of benefits compartment.
+# This should return the two explanation of benefits in the patient's compartment. 
+GET {{hostname}}/Patient/patient/ExplanationOfBenefit
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Attempt to search the patient's explanation of benefits compartment,
+# but include a filter for a non-matching resource type.
+# This shouldn't return anything.
+GET {{hostname}}/Patient/patient/ExplanationOfBenefit?_type=Observation
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
