@@ -24,14 +24,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
     {
         private readonly SqlServerFhirResourceChangeDataStore resourceChangeDataStore;
 
-        private ISqlConnectionFactory connectionFactory;
+        private ISqlConnectionBuilder sqlConnectionBuilder;
 
         public SqlServerFhirResourceChangeDataStoreTests()
         {
-            connectionFactory = Substitute.For<ISqlConnectionFactory>();
+            sqlConnectionBuilder = Substitute.For<ISqlConnectionBuilder>();
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             schemaInformation.Current = SchemaVersionConstants.Max;
-            resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(connectionFactory, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
+            resourceChangeDataStore = new SqlServerFhirResourceChangeDataStore(sqlConnectionBuilder, NullLogger<SqlServerFhirResourceChangeDataStore>.Instance, schemaInformation);
         }
 
         [Fact]
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
         [Fact]
         public async Task GivenEmptyConnectionString_WhenGetResourceChanges_ThenInvalidOperationExceptionShouldBeThrown()
         {
-            connectionFactory.GetSqlConnectionAsync(default, default).Returns(new SqlConnection(string.Empty));
+            sqlConnectionBuilder.GetSqlConnectionAsync(default, default).Returns(new SqlConnection(string.Empty));
 
             try
             {
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.ChangeFeed
             var token = source.Token;
             source.Cancel();
 
-            connectionFactory.GetSqlConnectionAsync(default, token).Returns(new SqlConnection());
+            sqlConnectionBuilder.GetSqlConnectionAsync(default, token).Returns(new SqlConnection());
 
             try
             {

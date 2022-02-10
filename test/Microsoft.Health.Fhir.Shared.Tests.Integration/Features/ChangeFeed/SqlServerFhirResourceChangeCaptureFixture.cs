@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.ChangeFeed
 
         public Mediator Mediator => _storageFixture.Mediator;
 
-        public ISqlConnectionFactory SqlConnectionFactory => _sqlFixture.SqlConnectionFactory;
+        public ISqlConnectionBuilder SqlConnectionBuilder => _sqlFixture.SqlConnectionBuilder;
 
         public SchemaInformation SchemaInformation => _sqlFixture.SchemaInformation;
 

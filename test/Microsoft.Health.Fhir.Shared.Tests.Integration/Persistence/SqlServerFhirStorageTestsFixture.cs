@@ -87,10 +87,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlSortingValidator = new SqlServerSortingValidator(SchemaInformation);
 
             var sqlConnectionStringProvider = new DefaultSqlConnectionStringProvider(config);
-            SqlConnectionFactory = new DefaultSqlConnectionFactory(sqlConnectionStringProvider);
-            var schemaManagerDataStore = new SchemaManagerDataStore(SqlConnectionFactory, config, NullLogger<SchemaManagerDataStore>.Instance);
-            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, SqlConnectionFactory, schemaManagerDataStore);
-            _schemaInitializer = new SchemaInitializer(config, schemaManagerDataStore, _schemaUpgradeRunner, SchemaInformation, SqlConnectionFactory, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
+            SqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, config);
+            var schemaManagerDataStore = new SchemaManagerDataStore(SqlConnectionBuilder, config, NullLogger<SchemaManagerDataStore>.Instance);
+            _schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, NullLogger<SchemaUpgradeRunner>.Instance, SqlConnectionBuilder, schemaManagerDataStore);
+            _schemaInitializer = new SchemaInitializer(config, schemaManagerDataStore, _schemaUpgradeRunner, SchemaInformation, SqlConnectionBuilder, sqlConnectionStringProvider, mediator, NullLogger<SchemaInitializer>.Instance);
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance, _mediator, () => _searchService.CreateMockScope(), NullLogger<SearchParameterDefinitionManager>.Instance);
 
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _searchParameterDefinitionManager,
                 () => _filebasedSearchParameterStatusDataStore,
                 Options.Create(securityConfiguration),
-                SqlConnectionFactory,
+                SqlConnectionBuilder,
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
             SqlServerFhirModel = sqlServerFhirModel;
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, new SqlCommandWrapperFactory(), SqlConnectionFactory);
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, new SqlCommandWrapperFactory(), SqlConnectionBuilder);
 
             SqlServerSearchParameterStatusDataStore = new SqlServerSearchParameterStatusDataStore(
                 () => SqlConnectionWrapperFactory.CreateMockScope(),
@@ -215,7 +215,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 mediator,
                 NullLogger<SearchParameterStatusManager>.Instance);
 
-            _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionFactory);
+            _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, SqlConnectionBuilder);
         }
 
         public string TestConnectionString { get; }
@@ -224,7 +224,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
-        internal ISqlConnectionFactory SqlConnectionFactory { get; }
+        internal ISqlConnectionBuilder SqlConnectionBuilder { get; }
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
 

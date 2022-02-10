@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly ISqlConnectionFactory _sqlConnectionFactory;
+        private readonly ISqlConnectionBuilder _sqlConnectionFactory;
         private readonly IMediator _mediator;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
-            ISqlConnectionFactory sqlConnectionFactory,
+            ISqlConnectionBuilder sqlConnectionFactory,
             IMediator mediator,
             ILogger<SqlServerFhirModel> logger)
         {

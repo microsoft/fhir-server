@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Import
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             SqlTransactionHandler sqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(Substitute.For<SqlTransactionHandler>(), new SqlCommandWrapperFactory(), Substitute.For<ISqlConnectionFactory>());
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(Substitute.For<SqlTransactionHandler>(), new SqlCommandWrapperFactory(), Substitute.For<ISqlConnectionBuilder>());
             var sqlServerTransient = Substitute.For<ISqlServerTransientFaultRetryPolicyFactory>();
 
             _sqlServerFhirDataBulkOperation = new SqlImportOperation(sqlConnectionWrapperFactory, sqlServerTransient, Substitute.For<ISqlServerFhirModel>(), operationsConfiguration, schemaInformation, NullLogger<SqlImportOperation>.Instance);

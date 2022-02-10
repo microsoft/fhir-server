@@ -22,6 +22,7 @@ using Microsoft.Health.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using NSubstitute;
 using Polly;
 using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
@@ -127,7 +128,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     scope,
                     clientApplication.ClientId,
                     clientApplication.ClientSecret);
-                credentialProvider = new OAuth2ClientCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
+
+                var optionsMonitor = Substitute.For<IOptionsMonitor<OAuth2ClientCredentialConfiguration>>();
+                optionsMonitor.CurrentValue.Returns(credentialConfiguration);
+                optionsMonitor.Get(default).ReturnsForAnyArgs(credentialConfiguration);
+
+                credentialProvider = new OAuth2ClientCredentialProvider(optionsMonitor, authHttpClient);
             }
             else
             {
@@ -139,7 +145,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     clientApplication.ClientSecret,
                     user.UserId,
                     user.Password);
-                credentialProvider = new OAuth2UserPasswordCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
+
+                var optionsMonitor = Substitute.For<IOptionsMonitor<OAuth2UserPasswordCredentialConfiguration>>();
+                optionsMonitor.CurrentValue.Returns(credentialConfiguration);
+                optionsMonitor.Get(default).ReturnsForAnyArgs(credentialConfiguration);
+
+                credentialProvider = new OAuth2UserPasswordCredentialProvider(optionsMonitor, authHttpClient);
             }
 
             var authenticationHandler = new AuthenticationHttpMessageHandler(credentialProvider)
