@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         public ResourceElementValidator(AbstractValidator<ResourceElement> contentValidator, INarrativeHtmlSanitizer narrativeHtmlSanitizer)
         {
             RuleFor(x => x.Id)
-              .SetValidator(new IdValidator<ResourceElement>()).WithMessage(Resources.IdRequirements);
+              .SetValidator(new IdValidator<ResourceElement>()).WithMessage(Core.Resources.IdRequirements);
             RuleFor(x => x)
                   .SetValidator(contentValidator);
             RuleFor(x => x)

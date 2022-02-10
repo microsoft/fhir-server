@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _exportJobRecord.Filters.Count > 0 &&
                     string.IsNullOrEmpty(_exportJobRecord.ResourceType))
                 {
-                    throw new BadRequestException(Resources.TypeFilterWithoutTypeIsUnsupported);
+                    throw new BadRequestException(Core.Resources.TypeFilterWithoutTypeIsUnsupported);
                 }
 
                 // Connect to export destination using appropriate client.
@@ -207,7 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogError(ex, "Failed to anonymize resource. The job will be marked as failed.");
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Resources.FailedToAnonymizeResource, ex.Message), HttpStatusCode.BadRequest);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(string.Format(Core.Resources.FailedToAnonymizeResource, ex.Message), HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (AnonymizationConfigurationNotFoundException ex)
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                _exportJobRecord.FailureDetails = new JobFailureDetails(Resources.UnknownError, HttpStatusCode.InternalServerError);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(Core.Resources.UnknownError, HttpStatusCode.InternalServerError);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             finally
