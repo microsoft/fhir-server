@@ -612,6 +612,22 @@ GET <paste next link here>
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
+# Run Patient $everything, but only request Allergy Intolerance resources
+# with a clinical date before 2013. This shouldn't return anything, since
+# the Allergy Intolerance in Patient "mum" patient compartment was recorded
+# in 2014.
+GET https://{{hostname}}/Patient/{{mum.response.body.id}}/$everything?_type=AllergyIntolerance&end=2013
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
+# Run Patient $everything, but only request Allergy Intolerance resources
+# with a clinical date before 2014. This should return one resource, since
+# the Allergy Intolerance in Patient "mum" patient compartment was recorded
+# in 2014.
+GET https://{{hostname}}/Patient/{{mum.response.body.id}}/$everything?_type=AllergyIntolerance&end=2014
+Authorization: Bearer {{bearer.response.body.access_token}}
+
+###
 # Create a patient to run the Patient $everything operation on that
 # has a "replaced-by" link.
 # "replaced-by" links indicate that the current patient is out of
