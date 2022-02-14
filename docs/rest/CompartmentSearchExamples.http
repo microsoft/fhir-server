@@ -15,15 +15,15 @@ grant_type=client_credentials
 
 ###
 # Create an explanation of benefit resource that references 
-# the patient with the id "patient".
+# the patient with the id "patient-id".
 # This will be in the patient's compartment.
-PUT {{hostname}}/ExplanationOfBenefit/explanationofbenefit1
+PUT {{hostname}}/ExplanationOfBenefit/explanationofbenefit-id-1
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 {
   "resourceType": "ExplanationOfBenefit",
-  "id": "explanationofbenefit1",
+  "id": "explanationofbenefit-id-1",
   "text": {
     "status": "generated",
     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the ExplanationOfBenefit</div>"
@@ -45,7 +45,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
   },
   "use": "claim",
   "patient": {
-    "reference": "Patient/patient"
+    "reference": "Patient/patient-id"
   },
   "created": "2014-08-16",
   "enterer": {
@@ -335,15 +335,15 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Create another explanation of benefit resource that references
-# the patient with the id "patient".
+# the patient with the id "patient-id".
 # This will be in the patient's compartment.
-PUT {{hostname}}/ExplanationOfBenefit/explanationofbenefit2
+PUT {{hostname}}/ExplanationOfBenefit/explanationofbenefit-id-2
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 {
   "resourceType": "ExplanationOfBenefit",
-  "id": "explanationofbenefit2",
+  "id": "explanationofbenefit-id-2",
   "text": {
     "status": "generated",
     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">A human-readable rendering of the ExplanationOfBenefit</div>"
@@ -365,7 +365,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
   },
   "use": "claim",
   "patient": {
-    "reference": "Patient/patient"
+    "reference": "Patient/patient-id"
   },
   "created": "2014-08-16",
   "enterer": {
@@ -654,15 +654,15 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ###
-# Create a procedure that references the patient with the id "patient".
+# Create a procedure that references the patient with the id "patient-id".
 # This will be in the patient's compartment.
-PUT https://{{hostname}}/Procedure/appendectomy
+PUT https://{{hostname}}/Procedure/appendectomy-id
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 {
   "resourceType": "Procedure",
-  "id": "appendectomy",
+  "id": "appendectomy-id",
   "text": {
     "status": "generated",
     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Routine Appendectomy</div>"
@@ -679,7 +679,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
     "text": "Appendectomy"
   },
   "subject": {
-    "reference": "Patient/patient"
+    "reference": "Patient/patient-id"
   },
   "recorder": {
     "reference": "Practitioner/dude",
@@ -706,15 +706,15 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 }
 
 ###
-# Create an observation that references the patient with the id "patient".
+# Create an observation that references the patient with the id "patient-id".
 # This will be in the patient's compartment.
-PUT https://{{hostname}}/Observation/observation
+PUT https://{{hostname}}/Observation/observation-id
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 {
   "resourceType": "Observation",
-  "id": "observation",
+  "id": "observation-id",
     "text": {
         "status": "generated",
         "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: f001</p><p><b>identifier</b>: 6323 (OFFICIAL)</p><p><b>status</b>: final</p><p><b>code</b>: Glucose [Moles/volume] in Blood <span>(Details : {LOINC code '15074-8' = 'Glucose [Moles/volume] in Blood', given as 'Glucose [Moles/volume] in Blood'})</span></p><p><b>subject</b>: <a>P. van de Heuvel</a></p><p><b>effective</b>: 02/04/2013 9:30:10 AM --&gt; (ongoing)</p><p><b>issued</b>: 03/04/2013 3:30:10 PM</p><p><b>performer</b>: <a>A. Langeveld</a></p><p><b>value</b>: 6.3 mmol/l<span> (Details: UCUM code mmol/L = 'mmol/L')</span></p><p><b>interpretation</b>: High <span>(Details : {http://hl7.org/fhir/v2/0078 code 'H' = 'High', given as 'High'})</span></p><h3>ReferenceRanges</h3><table><tr><td>-</td><td><b>Low</b></td><td><b>High</b></td></tr><tr><td>*</td><td>3.1 mmol/l<span> (Details: UCUM code mmol/L = 'mmol/L')</span></td><td>6.2 mmol/l<span> (Details: UCUM code mmol/L = 'mmol/L')</span></td></tr></table></div>"
@@ -737,7 +737,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
     ]
   },
   "subject": {
-    "reference": "Patient/patient",
+    "reference": "Patient/patient-id",
     "display": "P. van de Heuvel"
   },
   "effectivePeriod": {
@@ -788,14 +788,14 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 # resources.
 # This should return the two explanation of benefit resources
 # in the patient's compartment.
-GET {{hostname}}/Patient/patient/$everything?_type=ExplanationOfBenefit
+GET {{hostname}}/Patient/patient-id/$everything?_type=ExplanationOfBenefit
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Get everything from the patient's compartment.
 # This should return two explanations of benefits, one procedure
 # and one observation.
-GET {{hostname}}/Patient/patient/*
+GET {{hostname}}/Patient/patient-id/*
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
@@ -803,33 +803,33 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 # and observation resources.
 # This should return two explanation of benefits and one observation.
 # It will not return any immunizations, since there are no immunizations in the patient's compartment.
-GET {{hostname}}/Patient/patient/*?_type=ExplanationOfBenefit,Observation,Immunization
+GET {{hostname}}/Patient/patient-id/*?_type=ExplanationOfBenefit,Observation,Immunization
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Search the patient's explanation of benefits compartment.
 # This should return the two explanation of benefits in the patient's compartment. 
-GET {{hostname}}/Patient/patient/ExplanationOfBenefit
+GET {{hostname}}/Patient/patient-id/ExplanationOfBenefit
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Attempt to search the patient's explanation of benefits compartment,
 # but include a filter for a non-matching resource type.
 # This shouldn't return anything.
-GET {{hostname}}/Patient/patient/ExplanationOfBenefit?_type=Observation
+GET {{hostname}}/Patient/patient-id/ExplanationOfBenefit?_type=Observation
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Create an adverse event that references the related person with the
-# id "relatedperson".
+# id "relatedperson-id".
 # This will be in the related person's compartment.
-PUT {{hostname}}/AdverseEvent/adverseevent
+PUT {{hostname}}/AdverseEvent/adverseevent-id
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 {
   "resourceType": "AdverseEvent",
-  "id": "adverseevent",
+  "id": "adverseevent-id",
   "text": {
     "status": "generated",
     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><p><b>Generated Narrative with Details</b></p><p><b>id</b>: example</p><p><b>identifier</b>: 49476534</p><p><b>actuality</b>: actual</p><p><b>category</b>: Product Use Error <span>(Details : {http://terminology.hl7.org/CodeSystem/adverse-event-category code 'product-use-error' = 'Product Use Error', given as 'Product Use Error'})</span></p><p><b>event</b>: This was a mild rash on the left forearm <span>(Details : {SNOMED CT code '304386008' = 'O/E - itchy rash', given as 'O/E - itchy rash'})</span></p><p><b>subject</b>: <a>Patient/example</a></p><p><b>date</b>: 29/01/2017 12:34:56 PM</p><p><b>seriousness</b>: Non-serious <span>(Details : {http://terminology.hl7.org/CodeSystem/adverse-event-seriousness code 'Non-serious' = 'Non-serious', given as 'Non-serious'})</span></p><p><b>severity</b>: Mild <span>(Details : {http://terminology.hl7.org/CodeSystem/adverse-event-severity code 'mild' = 'Mild', given as 'Mild'})</span></p><p><b>recorder</b>: <a>Practitioner/example</a></p><h3>SuspectEntities</h3><table><tr><td>-</td><td><b>Instance</b></td></tr><tr><td>*</td><td><a>Medication/example</a></td></tr></table></div>"
@@ -883,7 +883,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
     ]
   },
   "recorder": {
-    "reference": "RelatedPerson/relatedperson"
+    "reference": "RelatedPerson/relatedperson-id"
   },
   "suspectEntity": [
     {
@@ -896,15 +896,15 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Create a care team resoure that references the related person with
-# the id "relatedperson".
+# the id "relatedperson-id".
 # This will be in the related person's compartment.
-PUT {{hostname}}/CareTeam/careteam
+PUT {{hostname}}/CareTeam/careteam-id
 Content-Type: application/json
 Authorization: Bearer {{bearer.response.body.access_token}}
 
 {
   "resourceType": "CareTeam",
-  "id": "careteam",
+  "id": "careteam-id",
   "text": {
     "status": "generated",
     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Care Team</div>"
@@ -959,7 +959,7 @@ Authorization: Bearer {{bearer.response.body.access_token}}
         }
       ],
       "member": {
-        "reference": "RelatedPerson/relatedperson",
+        "reference": "RelatedPerson/relatedperson-id",
         "display": "Maurice Jones"
       }
     },
@@ -990,6 +990,6 @@ Authorization: Bearer {{bearer.response.body.access_token}}
 
 ###
 # Get everything from the related person's compartment.
-GET {{hostname}}/RelatedPerson/relatedperson/*
+GET {{hostname}}/RelatedPerson/relatedperson-id/*
 Authorization: Bearer {{bearer.response.body.access_token}}
 
