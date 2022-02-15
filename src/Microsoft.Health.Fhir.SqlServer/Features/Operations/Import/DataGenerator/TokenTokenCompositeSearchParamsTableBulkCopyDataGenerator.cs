@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _searchParamGenerator = searchParamGenerator;
         }
 
+        internal static BulkTokenTokenCompositeSearchParamTableTypeV1RowRowComparer Comparer { get; } = new BulkTokenTokenCompositeSearchParamTableTypeV1RowRowComparer();
+
         internal override string TableName
         {
             get
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             IEnumerable<BulkTokenTokenCompositeSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkTokenTokenCompositeSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkTokenTokenCompositeSearchParamTableTypeV1Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
@@ -70,6 +74,56 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.SystemId2.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.SystemId2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.Name, VLatest.TokenTokenCompositeSearchParam.Code2.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+        }
+
+        internal static IEnumerable<BulkTokenTokenCompositeSearchParamTableTypeV1Row> Distinct(IEnumerable<BulkTokenTokenCompositeSearchParamTableTypeV1Row> input)
+        {
+            return input.Distinct(Comparer);
+        }
+
+        internal class BulkTokenTokenCompositeSearchParamTableTypeV1RowRowComparer : IEqualityComparer<BulkTokenTokenCompositeSearchParamTableTypeV1Row>
+        {
+            public bool Equals(BulkTokenTokenCompositeSearchParamTableTypeV1Row x, BulkTokenTokenCompositeSearchParamTableTypeV1Row y)
+            {
+                if (x.SearchParamId != y.SearchParamId)
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.Code1, y.Code1, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<int?>.Default.Equals(x.SystemId1, y.SystemId1))
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.Code2, y.Code2, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (!EqualityComparer<int?>.Default.Equals(x.SystemId2, y.SystemId2))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public int GetHashCode(BulkTokenTokenCompositeSearchParamTableTypeV1Row obj)
+            {
+                int hashCode = obj.SearchParamId.GetHashCode();
+
+                hashCode ^= obj.Code1?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.SystemId1?.GetHashCode() ?? 0;
+                hashCode ^= obj.Code2?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.SystemId2?.GetHashCode() ?? 0;
+
+                return hashCode.GetHashCode();
+            }
         }
     }
 }

@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _searchParamGenerator = searchParamGenerator;
         }
 
+        internal static BulkReferenceTokenCompositeSearchParamTableTypeV1RowComparer Comparer { get; } = new BulkReferenceTokenCompositeSearchParamTableTypeV1RowComparer();
+
         internal override string TableName
         {
             get
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             IEnumerable<BulkStringSearchParamTableTypeV2Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkStringSearchParamTableTypeV2Row searchParam in searchParams)
+            foreach (BulkStringSearchParamTableTypeV2Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
@@ -69,6 +73,56 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.StringSearchParam.IsMin.Metadata.Name, VLatest.StringSearchParam.IsMin.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.StringSearchParam.IsMax.Metadata.Name, VLatest.StringSearchParam.IsMax.Metadata.SqlDbType.GetGeneralType()));
+        }
+
+        internal static IEnumerable<BulkStringSearchParamTableTypeV2Row> Distinct(IEnumerable<BulkStringSearchParamTableTypeV2Row> input)
+        {
+            return input.Distinct(Comparer);
+        }
+
+        internal class BulkReferenceTokenCompositeSearchParamTableTypeV1RowComparer : IEqualityComparer<BulkStringSearchParamTableTypeV2Row>
+        {
+            public bool Equals(BulkStringSearchParamTableTypeV2Row x, BulkStringSearchParamTableTypeV2Row y)
+            {
+                if (x.SearchParamId != y.SearchParamId)
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.Text, y.Text, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.TextOverflow, y.TextOverflow, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (x.IsMax != y.IsMax)
+                {
+                    return false;
+                }
+
+                if (x.IsMin != y.IsMin)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public int GetHashCode(BulkStringSearchParamTableTypeV2Row obj)
+            {
+                int hashCode = obj.SearchParamId.GetHashCode();
+
+                hashCode ^= obj.Text?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.TextOverflow?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.IsMin.GetHashCode();
+                hashCode ^= obj.IsMax.GetHashCode();
+
+                return hashCode.GetHashCode();
+            }
         }
     }
 }

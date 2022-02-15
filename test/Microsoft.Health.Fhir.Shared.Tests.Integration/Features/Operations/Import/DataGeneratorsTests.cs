@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -115,6 +116,419 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             };
 
             Assert.Equal(5, TokenTextSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListDateTimeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            DateTimeOffset startDateTime = DateTimeOffset.Now;
+            DateTimeOffset endDateTime = DateTimeOffset.Now.AddSeconds(1);
+            List<BulkDateTimeSearchParamTableTypeV2Row> input = new List<BulkDateTimeSearchParamTableTypeV2Row>()
+            {
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, endDateTime, true, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 1, startDateTime, endDateTime, true, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, endDateTime, endDateTime, true, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, startDateTime, true, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, endDateTime, false, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, endDateTime, true, false, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, endDateTime, true, true, false),
+
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, endDateTime, true, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 1, startDateTime, endDateTime, true, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, endDateTime, endDateTime, true, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, startDateTime, true, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, endDateTime, false, true, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, endDateTime, true, false, true),
+                new BulkDateTimeSearchParamTableTypeV2Row(0, 0, startDateTime, endDateTime, true, true, false),
+            };
+
+            Assert.Equal(7, DateTimeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListNumberSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkNumberSearchParamTableTypeV1Row> input = new List<BulkNumberSearchParamTableTypeV1Row>()
+            {
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, 1, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 1, 1, 1, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 0, 1, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, 0, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, 1, 0),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, null, 1, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, null, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, 1, null),
+
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, 1, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 1, 1, 1, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 0, 1, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, 0, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, 1, 0),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, null, 1, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, null, 1),
+                new BulkNumberSearchParamTableTypeV1Row(0, 0, 1, 1, null),
+            };
+
+            Assert.Equal(8, NumberSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListQuantitySearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkQuantitySearchParamTableTypeV1Row> input = new List<BulkQuantitySearchParamTableTypeV1Row>()
+            {
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 1, 1, 1, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 0, 1, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 0, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 0, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, 0, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, 1, 0),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, null, 1, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, null, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, null, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, 1, null),
+
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 1, 1, 1, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 0, 1, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 0, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 0, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, 0, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, 1, 0),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, null, 1, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, null, 1, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, null, 1),
+                new BulkQuantitySearchParamTableTypeV1Row(0, 0, 1, 1, 1, 1, null),
+            };
+
+            Assert.Equal(12, QuantitySearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListReferenceSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkReferenceSearchParamTableTypeV1Row> input = new List<BulkReferenceSearchParamTableTypeV1Row>()
+            {
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 1, "test", 1, "test", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test1", 1, "test", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 0, "test", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, "test1", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 0),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, null, 1, "test", 0),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", null, "test", 0),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, null, 0),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, "test", null),
+
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 1, "test", 1, "test", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test1", 1, "test", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 0, "test", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, "test1", 1),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 0),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, null, 1, "test", 0),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", null, "test", 0),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, null, 0),
+                new BulkReferenceSearchParamTableTypeV1Row(0, 0, "test", 1, "test", null),
+            };
+
+            Assert.Equal(10, ReferenceSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListReferenceTokenCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkReferenceTokenCompositeSearchParamTableTypeV1Row> input = new List<BulkReferenceTokenCompositeSearchParamTableTypeV1Row>()
+            {
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 1, "test", 1, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test1", 1, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 0, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test1", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 0, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 0, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, "test1"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, null, 1, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", null, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, null, 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", null, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, null, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, null),
+
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 1, "test", 1, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test1", 1, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 0, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test1", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 0, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 0, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, "test1"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, null, 1, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", null, "test", 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, null, 1, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", null, 1, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, null, "test"),
+                new BulkReferenceTokenCompositeSearchParamTableTypeV1Row(0, 0, "test", 1, "test", 1, 1, null),
+            };
+
+            Assert.Equal(14, ReferenceTokenCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListStringSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkStringSearchParamTableTypeV2Row> input = new List<BulkStringSearchParamTableTypeV2Row>()
+            {
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 1, "test", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test1", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test1", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test", false, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test", true, false),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, null, "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", null, true, true),
+
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 1, "test", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test1", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test1", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test", false, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test", true, false),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, null, "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", null, true, true),
+            };
+
+            Assert.Equal(8, StringSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListTokenDateTimeCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            DateTimeOffset startDateTime = DateTimeOffset.Now;
+            DateTimeOffset endDateTime = DateTimeOffset.Now.AddSeconds(1);
+            List<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenDateTimeCompositeSearchParamTableTypeV1Row>()
+            {
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", endDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, startDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, false),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, null, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, null, startDateTime, endDateTime, true),
+
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", endDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, startDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", startDateTime, endDateTime, false),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, null, "test", startDateTime, endDateTime, true),
+                new BulkTokenDateTimeCompositeSearchParamTableTypeV1Row(0, 0, 1, null, startDateTime, endDateTime, true),
+            };
+
+            Assert.Equal(9, TokenDateTimeCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListTokenNumberNumberCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row>()
+            {
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 0, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 0, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 0, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 0, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 0, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 1, false),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, null, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, null, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, null, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, null, true),
+
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 0, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 0, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 0, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 0, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 0, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, 1, false),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, 1, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null, 1, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, null, 1, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, null, 1, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, null, 1, true),
+                new BulkTokenNumberNumberCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1, null, true),
+            };
+
+            Assert.Equal(19, TokenNumberNumberCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListTokenQuantityCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkTokenQuantityCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenQuantityCompositeSearchParamTableTypeV1Row>()
+            {
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 0, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 0, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 0, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 0),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, null, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, null, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, null),
+
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 0, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 0, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 0, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, 0),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, 1, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null, 1, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, null, 1, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, null, 1),
+                new BulkTokenQuantityCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, 1, 1, 1, null),
+            };
+
+            Assert.Equal(16, TokenQuantityCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListTokenSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkTokenSearchParamTableTypeV1Row> input = new List<BulkTokenSearchParamTableTypeV1Row>()
+            {
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 1, 1, "test"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, 0, "test"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test1"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, null, "test"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, null),
+
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 1, 1, "test"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, 0, "test"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, "test1"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, null, "test"),
+                new BulkTokenSearchParamTableTypeV1Row(0, 0, 1, null),
+            };
+
+            Assert.Equal(6, TokenSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListTokenStringCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkTokenStringCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenStringCompositeSearchParamTableTypeV1Row>()
+            {
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test1", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test1"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, null, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, null, "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", null),
+
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test1", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test1"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, null, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, null, "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", null),
+            };
+
+            Assert.Equal(10, TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListTokenTokenCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkTokenTokenCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenTokenCompositeSearchParamTableTypeV1Row>()
+            {
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, "test1"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null),
+
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 0, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, "test1"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, null, "test", 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, null, 1, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", null, "test"),
+                new BulkTokenTokenCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", 1, null),
+            };
+
+            Assert.Equal(10, TokenTokenCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenListUriSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkUriSearchParamTableTypeV1Row> input = new List<BulkUriSearchParamTableTypeV1Row>()
+            {
+                new BulkUriSearchParamTableTypeV1Row(0, 0, "test"),
+                new BulkUriSearchParamTableTypeV1Row(0, 1, "test"),
+                new BulkUriSearchParamTableTypeV1Row(0, 0, "test1"),
+                new BulkUriSearchParamTableTypeV1Row(0, 0, null),
+
+                new BulkUriSearchParamTableTypeV1Row(0, 0, "test"),
+                new BulkUriSearchParamTableTypeV1Row(0, 1, "test"),
+                new BulkUriSearchParamTableTypeV1Row(0, 0, "test1"),
+                new BulkUriSearchParamTableTypeV1Row(0, 0, null),
+            };
+
+            Assert.Equal(4, UriSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
         }
 
         [Fact]
