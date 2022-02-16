@@ -5,14 +5,14 @@
 
 using System.Diagnostics.CodeAnalysis;
 
-// This tool does not need to have strings localized. Disable code code analyzer.
+// This tool does not need to have strings localized. Disable code analyzer CA1303.
 [assembly: SuppressMessage("Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "<TODO>", Scope = "module")]
 
-[assembly: SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1633:File should have header", Justification = "<TODO>")]
 [assembly: SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1649:File name should match first type name", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "<TODO>", Scope = "module")]
 [assembly: SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1201:Elements should appear in the correct order", Justification = "<TODO>", Scope = "module")]
 
+// [assembly: SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1633:File should have header", Justification = "<TODO>")]
 // [assembly: SuppressMessage("StyleCop.CSharp.NamingRules", "SA1307:Accessible fields should begin with upper-case letter", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1208:System using directives should be placed before other using directives", Justification = "<TODO>")]
 // [assembly: SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1400:Access modifier should be declared", Justification = "<TODO>", Scope = "module")]
@@ -49,7 +49,6 @@ using System.Diagnostics.CodeAnalysis;
 // [assembly: SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1107:Code should not contain multiple statements on one line", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Design", "CA1056:URI-like properties should not be strings", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "<TODO>", Scope = "module")]
-
 // [assembly: SuppressMessage("Style", "IDE1006:Naming Styles", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0090:Use 'new(...)'", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0007:Use implicit type", Justification = "<TODO>", Scope = "module")]
@@ -68,16 +67,13 @@ using System.Diagnostics.CodeAnalysis;
 // [assembly: SuppressMessage("Usage", "CA1816:Dispose methods should call SuppressFinalize", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Design", "CA1032:Implement standard exception constructors", Justification = "<TODO>", Scope = "module")]
-
 // [assembly: SuppressMessage("Globalization", "CA1305:Specify IFormatProvider", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0049:Simplify Names", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Design", "CA1724:NAME CONFLICT", Justification = "<TODO>", Scope = "module")]
-
 // [assembly: SuppressMessage("Design", "CA1812:JSON SERIALIZER INSTANTIATION", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("StyleCop.CSharp.SpacingRules", "SA1000:Keywords should be spaced correctly", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("CodeQuality", "IDE0051:Remove unused private modules", Justification = "<TODO>", Scope = "module")]
-
 // [assembly: SuppressMessage("Usage", "CA2234:Pass system uri objects instead of strings", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Performance", "CA1806:Do not ignore method results", Justification = "<TODO>", Scope = "module")]
 // [assembly: SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "<TODO>", Scope = "module")]
