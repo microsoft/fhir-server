@@ -24,11 +24,6 @@ namespace FHIRDataSynth
         private BlobServiceClient outputBlobServiceClient;
         private BlobContainerClient outputBlobContainerClient;
 
-        public override string GetResourceGroupDir()
-        {
-            return resourceGroupDir;
-        }
-
         public BlobResourceGroupProcessor(string inputConnectionString, string inputBlobContainerName, string resourceGroupDir, string outputConnectionString, string outputBlobContainerName)
         {
             if (inputBlobContainerName == outputBlobContainerName)
@@ -47,6 +42,13 @@ namespace FHIRDataSynth
                 outputBlobServiceClient = new BlobServiceClient(outputConnectionString);
                 outputBlobContainerClient = outputBlobServiceClient.GetBlobContainerClient(outputBlobContainerName);
             }
+        }
+
+        protected override bool OnlyVerifyInput { get => outputConnectionString == null || outputBlobContainerName == null; }
+
+        public override string GetResourceGroupDir()
+        {
+            return resourceGroupDir;
         }
 
         protected async override Task MakeOutputResourceGroupDirAsync()
@@ -113,7 +115,5 @@ namespace FHIRDataSynth
             Stream blobStream = await blobClient.OpenWriteAsync(true, new BlockBlobOpenWriteOptions() { BufferSize = 2 * 1024 * 1024 });
             return new StreamWriter(blobStream, new UTF8Encoding(false), 2 * 1024 * 1024);
         }
-
-        protected override bool OnlyVerifyInput { get => outputConnectionString == null || outputBlobContainerName == null; }
     }
 }

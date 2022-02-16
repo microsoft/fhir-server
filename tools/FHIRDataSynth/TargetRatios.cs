@@ -9,6 +9,10 @@ namespace ResourceProcessorNamespace
 {
     internal class TargetRatios
     {
+#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
+        public List<TargetProfile> targetRatios { get; set; }
+#pragma warning restore SA1300
+
         public class TargetProfile
         {
 #pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
@@ -35,9 +39,5 @@ namespace ResourceProcessorNamespace
                 }
             }
         }
-
-#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
-        public List<TargetProfile> targetRatios { get; set; }
-#pragma warning restore SA1300
     }
 }

@@ -165,60 +165,6 @@ namespace FHIRDataSynth
             }
         }
 
-        private class BlobInfo
-        {
-            public HashSet<string> Ids { get; set; } = new HashSet<string>();
-
-            public int DuplicateIds { get; set;  }
-
-            public int PatientsRefsNotPatient { get; set; }
-
-            public int SubjectsRefsNotPatient { get; set; }
-
-            public HashSet<string> PatientRefIds { get; set; } = new HashSet<string>();
-
-            public int LinesCount { get; set; }
-
-            public long LinesLengthSum { get; set; }
-
-            public void ConsoleWriteLine(string resourceName, HashSet<string> patientIds)
-            {
-                Console.WriteLine($"### {resourceName} info:");
-                Console.WriteLine($"  ids.Count = {Ids.Count}.");
-                Console.WriteLine($"  duplicateIds = {DuplicateIds}.");
-                Console.WriteLine($"  patientsRefsNotPatient = {PatientsRefsNotPatient}.");
-                Console.WriteLine($"  subjectsRefsNotPatient = {SubjectsRefsNotPatient}.");
-                Console.WriteLine($"  patientRefIds.Count = {PatientRefIds.Count}.");
-                Console.WriteLine($"  intersect.Count() = {patientIds.Intersect(PatientRefIds).Count()}.");
-                Console.WriteLine($"  linesCount = {LinesCount}.");
-                Console.WriteLine($"  linesLengthSum = {LinesLengthSum}.");
-                Console.WriteLine($"###");
-            }
-
-            public string Line(string resourceName, HashSet<string> patientIds)
-            {
-                return $"{resourceName},{Ids.Count},{DuplicateIds},{PatientsRefsNotPatient},{SubjectsRefsNotPatient},{PatientRefIds.Count},{patientIds.Intersect(PatientRefIds).Count()},{LinesCount},{LinesLengthSum}";
-            }
-        }
-
-#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
-        public struct ReferenceJSON
-        {
-            public string reference { get; set; }
-        }
-
-        public abstract class RDResourceJSON
-        {
-            public string resourceType { get; set; }
-
-            public string id { get; set; }
-
-            public ReferenceJSON patient { get; set; }
-
-            public ReferenceJSON subject { get; set; }
-        }
-#pragma warning restore SA1300
-
         private static BlobInfo GetBlobInfo(string resourceName, StreamReader streamReader)
         {
             Console.WriteLine($"### {resourceName} processing start.");
@@ -320,5 +266,59 @@ namespace FHIRDataSynth
                 Console.WriteLine($"ERROR: {ex.Message}");
             }
         }
+
+        private class BlobInfo
+        {
+            public HashSet<string> Ids { get; set; } = new HashSet<string>();
+
+            public int DuplicateIds { get; set; }
+
+            public int PatientsRefsNotPatient { get; set; }
+
+            public int SubjectsRefsNotPatient { get; set; }
+
+            public HashSet<string> PatientRefIds { get; set; } = new HashSet<string>();
+
+            public int LinesCount { get; set; }
+
+            public long LinesLengthSum { get; set; }
+
+            public void ConsoleWriteLine(string resourceName, HashSet<string> patientIds)
+            {
+                Console.WriteLine($"### {resourceName} info:");
+                Console.WriteLine($"  ids.Count = {Ids.Count}.");
+                Console.WriteLine($"  duplicateIds = {DuplicateIds}.");
+                Console.WriteLine($"  patientsRefsNotPatient = {PatientsRefsNotPatient}.");
+                Console.WriteLine($"  subjectsRefsNotPatient = {SubjectsRefsNotPatient}.");
+                Console.WriteLine($"  patientRefIds.Count = {PatientRefIds.Count}.");
+                Console.WriteLine($"  intersect.Count() = {patientIds.Intersect(PatientRefIds).Count()}.");
+                Console.WriteLine($"  linesCount = {LinesCount}.");
+                Console.WriteLine($"  linesLengthSum = {LinesLengthSum}.");
+                Console.WriteLine($"###");
+            }
+
+            public string Line(string resourceName, HashSet<string> patientIds)
+            {
+                return $"{resourceName},{Ids.Count},{DuplicateIds},{PatientsRefsNotPatient},{SubjectsRefsNotPatient},{PatientRefIds.Count},{patientIds.Intersect(PatientRefIds).Count()},{LinesCount},{LinesLengthSum}";
+            }
+        }
+
+#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
+        public abstract class RDResourceJSON
+        {
+            public string resourceType { get; set; }
+
+            public string id { get; set; }
+
+            public ReferenceJSON patient { get; set; }
+
+            public ReferenceJSON subject { get; set; }
+
+            public struct ReferenceJSON
+            {
+                public string reference { get; set; }
+            }
+        }
+#pragma warning restore SA1300
     }
 }

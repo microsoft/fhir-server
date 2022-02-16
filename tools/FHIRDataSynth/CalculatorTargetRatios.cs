@@ -16,55 +16,13 @@ namespace FHIRDataSynth
     {
         public const string ResourcesTotalSizeHeader = "ResourceName,Bytes";
         public const string OneResourceGroupInfoHeader = "Resource Name,Ids Count,Duplicate Ids Count,Patient Refs Not Patient,Subject Refs Not Patient,Patient Ref Ids Count,Intersect Patients PatientRefs Count,Lines Count,Lines Length Sum";
+        private const double UsedResourceGroupsCount = 800;
+
+        private delegate int GetResourceSizeDelegate();
 
         public static bool IsValidBlobContainerName(string s)
         {
             return s != null && s.Length > 0 && s.All(c => char.IsDigit(c) || char.IsLower(c) || c == '-') && char.IsLetterOrDigit(s[0]) && char.IsLetterOrDigit(s[s.Length - 1]);
-        }
-
-        private class CalculationData
-        {
-            public int LinesCount { get; set; }
-
-            public long LinesLengthSum { get; set; }
-
-            public long ResourceInputSize { get; set; }
-
-            public double BlendRatio { get; set; }
-        }
-
-#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        private class BlendProfile
-#pragma warning restore CA1812
-        {
-            public string BlendName { get; set; }
-
-            public Dictionary<string, double> BlendRatios { get; set; }
-        }
-
-#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        private class BlendRatios
-#pragma warning restore CA1812
-        {
-            public BlendProfile[] BlendProfiles { get; set; }
-        }
-
-        private class OutputResourceGroupSize
-        {
-            public int OutputResourceGroupsCount { get; }
-
-            public double GBPerResourceGroup { get; }
-
-            public double BytesPerResourceGroup { get => GBPerResourceGroup * 1024 * 1024 * 1024; }
-
-            public string Text { get; }
-
-            public OutputResourceGroupSize(double gbPerResourceGroup, string text, int outputResourceGroupsCount)
-            {
-                GBPerResourceGroup = gbPerResourceGroup;
-                Text = text;
-                OutputResourceGroupsCount = outputResourceGroupsCount;
-            }
         }
 
         public static void Calculate(string blobGroupsInfoPath, string oneGroupInfoPath, string blendRatiosFilePath, string targetRatiosPath, string targetRatiosPathCsv)
@@ -139,8 +97,6 @@ namespace FHIRDataSynth
             }
         }
 
-        private delegate int GetResourceSizeDelegate();
-
         private static void AddCalculationDataX(BlendProfile blendProfile, Dictionary<string, CalculationData> calculationData, GetResourceSizeDelegate getResourceSize, string resourceName)
         {
             int resourceSize = getResourceSize();
@@ -156,8 +112,6 @@ namespace FHIRDataSynth
 
             calculationData.Add(resourceName, cd);
         }
-
-        private const double UsedResourceGroupsCount = 800;
 
         private static void CalculateRatios(
             OutputResourceGroupSize outputResourceGroupSize,
@@ -278,6 +232,51 @@ namespace FHIRDataSynth
                 targeProfile.ratios[data.Key] = resourceOutputInputRatio;
                 targeProfile.resourceGroupsCount = outputResourceGroupSize.OutputResourceGroupsCount;
             }
+        }
+
+        private class CalculationData
+        {
+            public int LinesCount { get; set; }
+
+            public long LinesLengthSum { get; set; }
+
+            public long ResourceInputSize { get; set; }
+
+            public double BlendRatio { get; set; }
+        }
+
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
+        private class BlendProfile
+#pragma warning restore CA1812
+        {
+            public string BlendName { get; set; }
+
+            public Dictionary<string, double> BlendRatios { get; set; }
+        }
+
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
+        private class BlendRatios
+#pragma warning restore CA1812
+        {
+            public BlendProfile[] BlendProfiles { get; set; }
+        }
+
+        private class OutputResourceGroupSize
+        {
+            public OutputResourceGroupSize(double gbPerResourceGroup, string text, int outputResourceGroupsCount)
+            {
+                GBPerResourceGroup = gbPerResourceGroup;
+                Text = text;
+                OutputResourceGroupsCount = outputResourceGroupsCount;
+            }
+
+            public int OutputResourceGroupsCount { get; }
+
+            public double GBPerResourceGroup { get; }
+
+            public double BytesPerResourceGroup { get => GBPerResourceGroup * 1024 * 1024 * 1024; }
+
+            public string Text { get; }
         }
     }
 }

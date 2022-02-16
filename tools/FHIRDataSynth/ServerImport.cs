@@ -17,57 +17,8 @@ using Azure.Storage.Blobs.Models;
 
 namespace FHIRDataSynth
 {
-#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
     internal class ServerImport
     {
-        public class ImportParameters
-        {
-            public string resourceType { get; set; }
-
-            public List<Parameter> parameter { get; set; }
-        }
-
-        public class Parameter
-        {
-            public string name { get; set; }
-
-            public string valueString { get; set; }
-
-            public Part[] part { get; set; }
-        }
-
-        public class Part
-        {
-            public string name { get; set; }
-
-            public string valueString { get; set; }
-
-            public string valueUri { get; set; }
-        }
-
-        public class ImportResult
-        {
-            public ImportParameters importParameters { get; set; }
-
-            public bool responseSuccess { get; set; }
-
-            public int? responseStatusCode { get; set; }
-
-            public string responseStatusCodeString { get; set; }
-
-            public string responseReasonPhrase { get; set; }
-
-            public string error { get; set; }
-
-            public string importResultUrl { get; set; }
-        }
-
-        public class ImportResultCollection
-        {
-            public List<ImportResult> importResult { get; set; }
-        }
-#pragma warning restore SA1300
-
         private static async Task<bool> ImportSingle(Uri uri, string importParametersJsonString, HttpClient client, ImportResult currentResult)
         {
             using (HttpRequestMessage request = new HttpRequestMessage()
@@ -341,45 +292,6 @@ namespace FHIRDataSynth
             await ImportMultipleBlobsPerServerCall(serverUrl, resourceGroupCountStr, inputUrl, inputBlobContainerName, importResultFileName, inputConnectionString);
         }
 
-#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
-#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class ServerImportResult
-#pragma warning restore CA1812
-        {
-            public DateTime transactionTime { get; set; }
-
-            public string request { get; set; }
-
-            public Output[] output { get; set; }
-
-            public Error[] error { get; set; }
-        }
-
-#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class Output
-#pragma warning restore CA1812
-        {
-            public string type { get; set; }
-
-            public int count { get; set; }
-
-            public string inputUrl { get; set; }
-        }
-
-#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
-        public class Error
-#pragma warning restore CA1812
-        {
-            public string type { get; set; }
-
-            public int count { get; set; }
-
-            public string inputUrl { get; set; }
-
-            public string url { get; set; }
-        }
-#pragma warning restore SA1300
-
         public static async Task<bool> IsImportFinished(string importResultFileName)
         {
             using (HttpClient client = new HttpClient())
@@ -424,5 +336,91 @@ namespace FHIRDataSynth
             Console.WriteLine("Success, import finished.");
             return true;
         }
+
+#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
+        public class ImportParameters
+        {
+            public string resourceType { get; set; }
+
+            public List<Parameter> parameter { get; set; }
+        }
+
+        public class Parameter
+        {
+            public string name { get; set; }
+
+            public string valueString { get; set; }
+
+            public Part[] part { get; set; }
+        }
+
+        public class Part
+        {
+            public string name { get; set; }
+
+            public string valueString { get; set; }
+
+            public string valueUri { get; set; }
+        }
+
+        public class ImportResult
+        {
+            public ImportParameters importParameters { get; set; }
+
+            public bool responseSuccess { get; set; }
+
+            public int? responseStatusCode { get; set; }
+
+            public string responseStatusCodeString { get; set; }
+
+            public string responseReasonPhrase { get; set; }
+
+            public string error { get; set; }
+
+            public string importResultUrl { get; set; }
+        }
+
+        public class ImportResultCollection
+        {
+            public List<ImportResult> importResult { get; set; }
+        }
+
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
+        public class ServerImportResult
+#pragma warning restore CA1812
+        {
+            public DateTime transactionTime { get; set; }
+
+            public string request { get; set; }
+
+            public Output[] output { get; set; }
+
+            public Error[] error { get; set; }
+        }
+
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
+        public class Output
+#pragma warning restore CA1812
+        {
+            public string type { get; set; }
+
+            public int count { get; set; }
+
+            public string inputUrl { get; set; }
+        }
+
+#pragma warning disable CA1812 // Code analyzer does not recognize that class is instantiated by JSON de-serializer.
+        public class Error
+#pragma warning restore CA1812
+        {
+            public string type { get; set; }
+
+            public int count { get; set; }
+
+            public string inputUrl { get; set; }
+
+            public string url { get; set; }
+        }
+#pragma warning restore SA1300
     }
 }

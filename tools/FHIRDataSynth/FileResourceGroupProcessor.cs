@@ -17,16 +17,18 @@ namespace FHIRDataSynth
         private readonly string resourceGroupDir;
         private readonly string blendPath;
 
-        public override string GetResourceGroupDir()
-        {
-            return resourceGroupDir;
-        }
-
         public FileResourceGroupProcessor(string storePath, string resourceGroupDir, string blendPath)
         {
             this.storePath = storePath;
             this.resourceGroupDir = resourceGroupDir;
             this.blendPath = blendPath;
+        }
+
+        protected override bool OnlyVerifyInput { get => blendPath == null; }
+
+        public override string GetResourceGroupDir()
+        {
+            return resourceGroupDir;
         }
 
         protected override Task MakeOutputResourceGroupDirAsync()
@@ -68,8 +70,6 @@ namespace FHIRDataSynth
             FileStream fileStream = new FileStream(blendPath + resourceGroupDir + resourceName + RDUtility.ResourcesExtension, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 1024 * 64, FileOptions.SequentialScan /*| FileOptions.Asynchronous*/);
             return Task.FromResult(new StreamWriter(fileStream, new UTF8Encoding(false), 2 * 1024 * 1024));
         }
-
-        protected override bool OnlyVerifyInput { get => blendPath == null; }
 
         public override void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message)
         {
