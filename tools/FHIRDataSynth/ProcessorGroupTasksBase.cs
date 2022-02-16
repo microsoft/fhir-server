@@ -10,38 +10,6 @@ using System.Threading.Tasks;
 
 namespace ResourceProcessorNamespace
 {
-#pragma warning disable SA1300 // JSON serialization/de-serialization, follow JSON naming convention.
-    internal class TargetProfile
-    {
-        public string name { get; set; }
-
-        public int resourceGroupsCount { get; set; }
-
-        public Dictionary<string, double> ratios { get; set; } = new Dictionary<string, double>();
-
-        public void Validate()
-        {
-            if (resourceGroupsCount < 0)
-            {
-                throw new FHIRDataSynth.FHIRDataSynthException($"TargetProfil member 'resourceGroupsCount' contains invalid value {resourceGroupsCount}, must be 0 or greater.");
-            }
-
-            foreach (KeyValuePair<string, double> r in ratios)
-            {
-                if (r.Value < 0)
-                {
-                    throw new FHIRDataSynth.FHIRDataSynthException($"TargetProfile member 'ratios[{r.Key}]' contains invalid value {r.Value}, must 0 or greater.");
-                }
-            }
-        }
-    }
-
-    internal class TargetRatios
-    {
-        public List<TargetProfile> targetRatios { get; set; }
-    }
-#pragma warning restore SA1300
-
     internal abstract class ResourceProcessor
     {
         protected abstract void LogInfo(string message);
@@ -58,7 +26,7 @@ namespace ResourceProcessorNamespace
             SortedSet<string> resourceGroupDirs,
             int resourceGroupTasksCount,
             Dictionary<Task, string> tasksGroupDir,
-            TargetProfile targetProfile,
+            TargetRatios.TargetProfile targetProfile,
             int taskStartDelay)
         {
             Task[] newResourceGroupTasks;
@@ -105,7 +73,7 @@ namespace ResourceProcessorNamespace
             return newResourceGroupTasks;
         }
 
-        public void Process(int resourceGroupTasksCount, TargetProfile targetProfile, int taskStartDelay = 0)
+        public void Process(int resourceGroupTasksCount, TargetRatios.TargetProfile targetProfile, int taskStartDelay = 0)
         {
             try
             {
@@ -130,7 +98,7 @@ namespace ResourceProcessorNamespace
 
                 SortedSet<string> resourceGroupDirs = new SortedSet<string>(allResourceGroupDirs.Take(targetProfile.resourceGroupsCount));
 
-                Dictionary<string, ResourcesResult> totals = new Dictionary<string, ResourcesResult>();
+                Dictionary<string, ResourceGroupProcessor.ResourcesResult> totals = new Dictionary<string, ResourceGroupProcessor.ResourcesResult>();
                 Dictionary<Task, string> tasksGroupDir = new Dictionary<Task, string>();
                 Task[] resourceGroupTasks = null;
                 int finishedResourceGroupTaskIndex = 0;
@@ -138,7 +106,7 @@ namespace ResourceProcessorNamespace
                 {
                     resourceGroupTasks = MakeResourceGroupTasks(resourceGroupTasks, finishedResourceGroupTaskIndex, resourceGroupDirs, resourceGroupTasksCount, tasksGroupDir, targetProfile, taskStartDelay);
                     finishedResourceGroupTaskIndex = Task.WaitAny(resourceGroupTasks);
-                    Task<Dictionary<string, ResourcesResult>> task = (Task<Dictionary<string, ResourcesResult>>)resourceGroupTasks[finishedResourceGroupTaskIndex];
+                    Task<Dictionary<string, ResourceGroupProcessor.ResourcesResult>> task = (Task<Dictionary<string, ResourceGroupProcessor.ResourcesResult>>)resourceGroupTasks[finishedResourceGroupTaskIndex];
                     if (!task.IsCompletedSuccessfully)
                     {
                         LogError($"Resource group {tasksGroupDir[task]} task failed.{(task.Exception == null ? string.Empty : " " + task.Exception.Message)}");
@@ -163,7 +131,7 @@ namespace ResourceProcessorNamespace
                 double totalResourcesCount = totals.Sum(r => r.Value.OutputResourcesCount);
                 LogInfo($"---------------------------------------------------------");
                 LogInfo($"TOTALS {targetProfile.name}:");
-                foreach (KeyValuePair<string, ResourcesResult> r in totals)
+                foreach (KeyValuePair<string, ResourceGroupProcessor.ResourcesResult> r in totals)
                 {
                     LogInfo($"{r.Key}: {r.Value.InputSelectedResorcesCount}, {r.Value.OutputResourcesCount}, {string.Format("{0:0.000000}", r.Value.OutputResourcesCount / totalResourcesCount * 100)}%");
                 }

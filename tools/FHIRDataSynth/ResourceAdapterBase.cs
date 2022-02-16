@@ -7,22 +7,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.Json;
+using FHIRDataSynth;
 
 namespace ResourceProcessorNamespace
 {
-    public class ResourceProcessorException : Exception
-    {
-        public ResourceProcessorException(string resourceGroupDir, string resourceName, string resourceId, string message)
-            : base($"{resourceGroupDir}/{resourceName}/{resourceId}: {message}")
-        {
-        }
-
-        public ResourceProcessorException(string resourceGroupDir, string resourceRef, string message)
-            : base($"{resourceGroupDir}/{resourceRef}: {message}")
-        {
-        }
-    }
-
     internal struct ResourceSiblingsContainer<T>
         where T : struct
     {
@@ -37,7 +25,7 @@ namespace ResourceProcessorNamespace
         {
             if (siblingNumber >= Count)
             {
-                throw new ResourceProcessorException(resourceGroupDir, resourceName, resourceId, "Sibling array index too big.");
+                throw new FHIRDataSynthException(resourceGroupDir, resourceName, resourceId, "Sibling array index too big.");
             }
 
             return ref siblings[siblingNumber];
@@ -101,7 +89,7 @@ namespace ResourceProcessorNamespace
             int index = originalReference.IndexOf('/', StringComparison.Ordinal);
             if (index < 0)
             {
-                throw new ResourceProcessorException(rgd, rt, id, $"Invalid reference {originalReference} in CloneOrLimit()."); // Should never happen!
+                throw new FHIRDataSynthException(rgd, rt, id, $"Invalid reference {originalReference} in CloneOrLimit()."); // Should never happen!
             }
 
             string refType = originalReference.Substring(0, index);
@@ -254,7 +242,7 @@ namespace ResourceProcessorNamespace
                 case "SupplyDelivery":
                     {
                     }*/
-                default: throw new ResourceProcessorException(rgd, rt, id, $"Invalid reference type {originalReference} in CloneOrLimit()."); // Should never happen!
+                default: throw new FHIRDataSynthException(rgd, rt, id, $"Invalid reference type {originalReference} in CloneOrLimit()."); // Should never happen!
             }
         }
 

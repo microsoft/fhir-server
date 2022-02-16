@@ -18,5 +18,10 @@ namespace FHIRDataSynth
             : base(message, innerException)
         {
         }
+
+        public FHIRDataSynthException(string resourceGroupDir, string resourceName, string resourceId, string message)
+            : base($"{resourceGroupDir}/{resourceName}/{resourceId}: {message}")
+        {
+        }
     }
 }

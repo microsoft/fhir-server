@@ -32,7 +32,7 @@ namespace FHIRDataSynth
             try
             {
                 targetRatios = JsonSerializer.Deserialize<TargetRatios>(File.ReadAllText(pathName));
-                foreach (TargetProfile tp in targetRatios.targetRatios)
+                foreach (TargetRatios.TargetProfile tp in targetRatios.targetRatios)
                 {
                     tp.Validate();
                 }
@@ -146,7 +146,7 @@ namespace FHIRDataSynth
                                     outConnectionString = connectionString;
                                 }
 
-                                foreach (TargetProfile tp in targetRatios.targetRatios)
+                                foreach (TargetRatios.TargetProfile tp in targetRatios.targetRatios)
                                 {
                                     BlobResourceProcessor blobResourceProcessor = new BlobResourceProcessor(connectionString, inContainerName, outConnectionString, outContainerName + "-" + tp.name);
                                     blobResourceProcessor.Process(taskCount, tp);
@@ -177,7 +177,7 @@ namespace FHIRDataSynth
                                 ValidateTaskCount(args[2], out taskCount);
                                 ValidateTargetRatiosFile(args[3], out targetRatios);
                                 connectionString = args[4];
-                                foreach (TargetProfile tp in targetRatios.targetRatios)
+                                foreach (TargetRatios.TargetProfile tp in targetRatios.targetRatios)
                                 {
                                     BlobResourceProcessor blobResourceProcessor = new BlobResourceProcessor(connectionString, inContainerName + "-" + tp.name, null, null);
                                     blobResourceProcessor.Process(taskCount, tp);
@@ -203,7 +203,7 @@ namespace FHIRDataSynth
                                 outDir = args[2];
                                 ValidateTaskCount(args[3], out taskCount);
                                 ValidateTargetRatiosFile(args[4], out targetRatios);
-                                foreach (TargetProfile tp in targetRatios.targetRatios)
+                                foreach (TargetRatios.TargetProfile tp in targetRatios.targetRatios)
                                 {
                                     RDResourceProcessor rdResourceProcessor = new RDResourceProcessor(inDir, outDir + "-" + tp.name);
                                     rdResourceProcessor.Process(taskCount, tp);
@@ -227,7 +227,7 @@ namespace FHIRDataSynth
                                 inDir = args[1];
                                 ValidateTaskCount(args[2], out taskCount);
                                 ValidateTargetRatiosFile(args[3], out targetRatios);
-                                foreach (TargetProfile tp in targetRatios.targetRatios)
+                                foreach (TargetRatios.TargetProfile tp in targetRatios.targetRatios)
                                 {
                                     RDResourceProcessor rdResourceProcessor = new RDResourceProcessor(inDir + "-" + tp.name, null);
                                     rdResourceProcessor.Process(taskCount, tp);

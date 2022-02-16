@@ -112,7 +112,7 @@ namespace FHIRDataSynth
             using (StreamWriter streamWriter = new StreamWriter(targetRatiosPathCsv))
             {
                 TargetRatios targetRatios = new TargetRatios();
-                targetRatios.targetRatios = new List<TargetProfile>();
+                targetRatios.targetRatios = new List<TargetRatios.TargetProfile>();
                 foreach (BlendProfile blendProfile in blendRatios.BlendProfiles)
                 {
                     if (!IsValidBlobContainerName(blendProfile.BlendName))
@@ -129,7 +129,7 @@ namespace FHIRDataSynth
                             blobGroupsInfoPath,
                             oneGroupInfoPath,
                             streamWriter,
-                            out TargetProfile targetProfile);
+                            out TargetRatios.TargetProfile targetProfile);
                         targetRatios.targetRatios.Add(targetProfile);
                     }
                 }
@@ -166,7 +166,7 @@ namespace FHIRDataSynth
             string blobGroupsInfoPath,
             string oneGroupInfoPath,
             StreamWriter streamWriter,
-            out ResourceProcessorNamespace.TargetProfile targeProfile)
+            out TargetRatios.TargetProfile targeProfile)
         {
             Dictionary<string, CalculationData> calculationData = new Dictionary<string, CalculationData>();
 
@@ -262,7 +262,7 @@ namespace FHIRDataSynth
                 sumResourceAvgSizeByBlendRatio += resourceAvgSizeByBlendRatio;
             }
 
-            targeProfile = new TargetProfile();
+            targeProfile = new TargetRatios.TargetProfile();
             targeProfile.name = blendProfile.BlendName + "-" + outputResourceGroupSize.Text;
             foreach (KeyValuePair<string, CalculationData> data in calculationData)
             {

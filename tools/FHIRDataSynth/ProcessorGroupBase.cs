@@ -17,64 +17,64 @@ using Azure.Storage.Blobs.Specialized;
 
 namespace ResourceProcessorNamespace
 {
-    internal class ResourcesResult
-    {
-        public int InputResourcesCount { get; set; }
-
-        public long InputResourcesSize { get; set; }
-
-        public int InputValidResorcesCount { get; set; }
-
-        public int InputSelectedResorcesCount { get; set; }
-
-        public int InputRemovedResourcesCount { get; set; }
-
-        public int OutputCreatedResourcesCount { get; set; }
-
-        public int OutputResourcesCount { get; set; }
-
-        public long OutputResourcesSize { get; set; }
-
-        public ResourcesResult()
-        {
-            InputResourcesCount = 0;
-            InputResourcesSize = 0;
-            InputValidResorcesCount = 0;
-            InputSelectedResorcesCount = 0;
-            InputRemovedResourcesCount = 0;
-            OutputCreatedResourcesCount = 0;
-            OutputResourcesCount = 0;
-            OutputResourcesSize = 0;
-        }
-
-        public void Add(ResourcesResult a) // TODO: to derived class so base is readonly?
-        {
-            InputResourcesCount += a.InputResourcesCount;
-            InputResourcesSize += a.InputResourcesSize;
-            InputValidResorcesCount += a.InputValidResorcesCount;
-            InputSelectedResorcesCount += a.InputSelectedResorcesCount;
-            InputRemovedResourcesCount += a.InputRemovedResourcesCount;
-            OutputCreatedResourcesCount += a.OutputCreatedResourcesCount;
-            OutputResourcesCount += a.OutputResourcesCount;
-            OutputResourcesSize += a.OutputResourcesSize;
-        }
-
-        public void LogInfo(ResourceGroupProcessor resourceGroupProcessor, string resourceGroupDir, string resourceName)
-        {
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, "-----------------------------------------------");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesCount)} : {InputResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesSize)} : {InputResourcesSize}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputValidResorcesCount)} : {InputValidResorcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputSelectedResorcesCount)} : {InputSelectedResorcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputRemovedResourcesCount)} : {InputRemovedResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputCreatedResourcesCount)} : {OutputCreatedResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesCount)} : {OutputResourcesCount}");
-            resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesSize)} : {OutputResourcesSize}");
-        }
-    }
-
     internal abstract class ResourceGroupProcessor
     {
+        public class ResourcesResult
+        {
+            public int InputResourcesCount { get; set; }
+
+            public long InputResourcesSize { get; set; }
+
+            public int InputValidResorcesCount { get; set; }
+
+            public int InputSelectedResorcesCount { get; set; }
+
+            public int InputRemovedResourcesCount { get; set; }
+
+            public int OutputCreatedResourcesCount { get; set; }
+
+            public int OutputResourcesCount { get; set; }
+
+            public long OutputResourcesSize { get; set; }
+
+            public ResourcesResult()
+            {
+                InputResourcesCount = 0;
+                InputResourcesSize = 0;
+                InputValidResorcesCount = 0;
+                InputSelectedResorcesCount = 0;
+                InputRemovedResourcesCount = 0;
+                OutputCreatedResourcesCount = 0;
+                OutputResourcesCount = 0;
+                OutputResourcesSize = 0;
+            }
+
+            public void Add(ResourcesResult a) // TODO: to derived class so base is readonly?
+            {
+                InputResourcesCount += a.InputResourcesCount;
+                InputResourcesSize += a.InputResourcesSize;
+                InputValidResorcesCount += a.InputValidResorcesCount;
+                InputSelectedResorcesCount += a.InputSelectedResorcesCount;
+                InputRemovedResourcesCount += a.InputRemovedResourcesCount;
+                OutputCreatedResourcesCount += a.OutputCreatedResourcesCount;
+                OutputResourcesCount += a.OutputResourcesCount;
+                OutputResourcesSize += a.OutputResourcesSize;
+            }
+
+            public void LogInfo(ResourceGroupProcessor resourceGroupProcessor, string resourceGroupDir, string resourceName)
+            {
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, "-----------------------------------------------");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesCount)} : {InputResourcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesSize)} : {InputResourcesSize}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputValidResorcesCount)} : {InputValidResorcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputSelectedResorcesCount)} : {InputSelectedResorcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputRemovedResourcesCount)} : {InputRemovedResourcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputCreatedResourcesCount)} : {OutputCreatedResourcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesCount)} : {OutputResourcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesSize)} : {OutputResourcesSize}");
+            }
+        }
+
         public abstract void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message);
 
         public abstract void LogWarning(string resourceGroupDir, string resourceName, string resourceId, string message);
@@ -303,7 +303,7 @@ namespace ResourceProcessorNamespace
 
         private async Task ResizeResources<T, TS>(
             string resourceName,
-            TargetProfile targetProfile,
+            TargetRatios.TargetProfile targetProfile,
             List<T> jsonList,
             StreamWriter w,
             JsonSerializerOptions options,
@@ -392,7 +392,7 @@ namespace ResourceProcessorNamespace
         private async Task ProcessResources<T, TS>(
             string resourceName,
             ResourceAdapter<T, TS> adapter,
-            TargetProfile targetProfile,
+            TargetRatios.TargetProfile targetProfile,
             JsonSerializerOptions options,
             Dictionary<string, ResourceSiblingsContainer<TS>> resourcesCollection,
             HashSet<string> resourcesRemovedSet,
@@ -459,7 +459,7 @@ namespace ResourceProcessorNamespace
         private async Task ProcessResourcesX<T, TS>(
             string resourceName,
             ResourceAdapter<T, TS> adapter,
-            TargetProfile targetProfile,
+            TargetRatios.TargetProfile targetProfile,
             JsonSerializerOptions options,
             Dictionary<string, ResourceSiblingsContainer<TS>> resourcesCollection,
             HashSet<string> resourcesRemovedSet,
@@ -527,7 +527,7 @@ namespace ResourceProcessorNamespace
             }
         }
 
-        public async Task<Dictionary<string, ResourcesResult>> ProcessResourceGroupAsync(TargetProfile targetProfile)
+        public async Task<Dictionary<string, ResourcesResult>> ProcessResourceGroupAsync(TargetRatios.TargetProfile targetProfile)
         {
             await MakeOutputResourceGroupDirAsync();
             JsonSerializerOptions options = new()
