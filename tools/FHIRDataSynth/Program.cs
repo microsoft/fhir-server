@@ -205,8 +205,8 @@ namespace FHIRDataSynth
                                 ValidateTargetRatiosFile(args[4], out targetRatios);
                                 foreach (TargetRatios.TargetProfile tp in targetRatios.targetRatios)
                                 {
-                                    RDResourceProcessor rdResourceProcessor = new RDResourceProcessor(inDir, outDir + "-" + tp.name);
-                                    rdResourceProcessor.Process(taskCount, tp);
+                                    FileResourceProcessor fileResourceProcessor = new FileResourceProcessor(inDir, outDir + "-" + tp.name);
+                                    fileResourceProcessor.Process(taskCount, tp);
                                 }
 
                                 ret = 0;
@@ -229,8 +229,8 @@ namespace FHIRDataSynth
                                 ValidateTargetRatiosFile(args[3], out targetRatios);
                                 foreach (TargetRatios.TargetProfile tp in targetRatios.targetRatios)
                                 {
-                                    RDResourceProcessor rdResourceProcessor = new RDResourceProcessor(inDir + "-" + tp.name, null);
-                                    rdResourceProcessor.Process(taskCount, tp);
+                                    FileResourceProcessor fileResourceProcessor = new FileResourceProcessor(inDir + "-" + tp.name, null);
+                                    fileResourceProcessor.Process(taskCount, tp);
                                 }
 
                                 ret = 0;

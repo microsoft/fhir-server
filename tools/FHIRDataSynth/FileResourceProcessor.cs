@@ -11,13 +11,13 @@ using ResourceProcessorNamespace;
 
 namespace FHIRDataSynth
 {
-    internal class RDResourceProcessor : ResourceProcessor
+    internal class FileResourceProcessor : ResourceProcessor
     {
         private const string OutputBlobContainerNamePrefix = "blend-";
         private readonly string storePath;
         private readonly string blendPath;
 
-        public RDResourceProcessor(string storePath, string blendPath)
+        public FileResourceProcessor(string storePath, string blendPath)
         {
             if (blendPath == null)
             {
