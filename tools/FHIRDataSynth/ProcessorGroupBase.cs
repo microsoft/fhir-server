@@ -19,73 +19,51 @@ namespace ResourceProcessorNamespace
 {
     internal abstract class ResourceGroupProcessor
     {
-        public class ResourcesResult
-        {
-            public int InputResourcesCount { get; set; }
+        public const string AllergyIntoleranceStr = "AllergyIntolerance";
+        public const string AllergyIntolerancePrefix = AllergyIntoleranceStr + "/";
+        public const string CarePlanStr = "CarePlan";
+        public const string CarePlanPrefix = CarePlanStr + "/";
+        public const string CareTeamStr = "CareTeam";
+        public const string CareTeamPrefix = CareTeamStr + "/";
+        public const string ClaimStr = "Claim";
+        public const string ClaimPrefix = ClaimStr + "/";
+        public const string ConditionStr = "Condition";
+        public const string ConditionPrefix = ConditionStr + "/";
+        public const string DeviceStr = "Device";
+        public const string DevicePrefix = DeviceStr + "/";
+        public const string DiagnosticReportStr = "DiagnosticReport";
+        public const string DiagnosticReportPrefix = DiagnosticReportStr + "/";
+        public const string EncounterStr = "Encounter";
+        public const string EncounterPrefix = EncounterStr + "/";
+        public const string ExplanationOfBenefitStr = "ExplanationOfBenefit";
+        public const string ExplanationOfBenefitPrefix = ExplanationOfBenefitStr + "/";
+        public const string ImagingStudyStr = "ImagingStudy";
+        public const string ImagingStudyPrefix = ImagingStudyStr + "/";
+        public const string ImmunizationStr = "Immunization";
+        public const string ImmunizationPrefix = ImmunizationStr + "/";
+        public const string MedicationAdministrationStr = "MedicationAdministration";
+        public const string MedicationAdministrationPrefix = MedicationAdministrationStr + "/";
+        public const string MedicationRequestStr = "MedicationRequest";
+        public const string MedicationRequestPrefix = MedicationRequestStr + "/";
+        public const string ObservationStr = "Observation";
+        public const string ObservationPrefix = ObservationStr + "/";
+        public const string OrganizationStr = "Organization";
+        public const string OrganizationPrefix = OrganizationStr + "/";
+        public const string PatientStr = "Patient";
+        public const string PatientPrefix = PatientStr + "/";
+        public const string PractitionerStr = "Practitioner";
+        public const string PractitionerPrefix = PractitionerStr + "/";
+        public const string ProcedureStr = "Procedure";
+        public const string ProcedurePrefix = ProcedureStr + "/";
+        public const string SupplyDeliveryStr = "SupplyDelivery";
+        public const string SupplyDeliveryPrefix = SupplyDeliveryStr + "/";
 
-            public long InputResourcesSize { get; set; }
-
-            public int InputValidResorcesCount { get; set; }
-
-            public int InputSelectedResorcesCount { get; set; }
-
-            public int InputRemovedResourcesCount { get; set; }
-
-            public int OutputCreatedResourcesCount { get; set; }
-
-            public int OutputResourcesCount { get; set; }
-
-            public long OutputResourcesSize { get; set; }
-
-            public ResourcesResult()
-            {
-                InputResourcesCount = 0;
-                InputResourcesSize = 0;
-                InputValidResorcesCount = 0;
-                InputSelectedResorcesCount = 0;
-                InputRemovedResourcesCount = 0;
-                OutputCreatedResourcesCount = 0;
-                OutputResourcesCount = 0;
-                OutputResourcesSize = 0;
-            }
-
-            public void Add(ResourcesResult a) // TODO: to derived class so base is readonly?
-            {
-                InputResourcesCount += a.InputResourcesCount;
-                InputResourcesSize += a.InputResourcesSize;
-                InputValidResorcesCount += a.InputValidResorcesCount;
-                InputSelectedResorcesCount += a.InputSelectedResorcesCount;
-                InputRemovedResourcesCount += a.InputRemovedResourcesCount;
-                OutputCreatedResourcesCount += a.OutputCreatedResourcesCount;
-                OutputResourcesCount += a.OutputResourcesCount;
-                OutputResourcesSize += a.OutputResourcesSize;
-            }
-
-            public void LogInfo(ResourceGroupProcessor resourceGroupProcessor, string resourceGroupDir, string resourceName)
-            {
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, "-----------------------------------------------");
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesCount)} : {InputResourcesCount}");
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesSize)} : {InputResourcesSize}");
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputValidResorcesCount)} : {InputValidResorcesCount}");
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputSelectedResorcesCount)} : {InputSelectedResorcesCount}");
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputRemovedResourcesCount)} : {InputRemovedResourcesCount}");
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputCreatedResourcesCount)} : {OutputCreatedResourcesCount}");
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesCount)} : {OutputResourcesCount}");
-                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesSize)} : {OutputResourcesSize}");
-            }
-        }
-
-        public abstract void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message);
-
-        public abstract void LogWarning(string resourceGroupDir, string resourceName, string resourceId, string message);
-
-        protected abstract Task MakeOutputResourceGroupDirAsync();
-
-        public abstract string GetResourceGroupDir();
-
-        protected abstract Task<StreamReader> GetStreamReader(string resourceName);
-
-        protected abstract Task<StreamWriter> GetStreamWriter(string resourceName);
+        public const string DocumentReferenceStr = "DocumentReference";
+        public const string DocumentReferencePrefix = DocumentReferenceStr + "/";
+        public const string StructureDefinitionStr = "StructureDefinition";
+        public const string StructureDefinitionPrefix = StructureDefinitionStr + "/";
+        public const string CommunicationStr = "Communication";
+        public const string CommunicationPrefix = CommunicationStr + "/";
 
         protected abstract bool OnlyVerifyInput { get; }
 
@@ -165,65 +143,29 @@ namespace ResourceProcessorNamespace
 
         public HashSet<string> SupplyDeliveryIdsRemoved { get; } = new HashSet<string>();
 
-        public const string AllergyIntoleranceStr = "AllergyIntolerance";
-        public const string AllergyIntolerancePrefix = AllergyIntoleranceStr + "/";
-        public const string CarePlanStr = "CarePlan";
-        public const string CarePlanPrefix = CarePlanStr + "/";
-        public const string CareTeamStr = "CareTeam";
-        public const string CareTeamPrefix = CareTeamStr + "/";
-        public const string ClaimStr = "Claim";
-        public const string ClaimPrefix = ClaimStr + "/";
-        public const string ConditionStr = "Condition";
-        public const string ConditionPrefix = ConditionStr + "/";
-        public const string DeviceStr = "Device";
-        public const string DevicePrefix = DeviceStr + "/";
-        public const string DiagnosticReportStr = "DiagnosticReport";
-        public const string DiagnosticReportPrefix = DiagnosticReportStr + "/";
-        public const string EncounterStr = "Encounter";
-        public const string EncounterPrefix = EncounterStr + "/";
-        public const string ExplanationOfBenefitStr = "ExplanationOfBenefit";
-        public const string ExplanationOfBenefitPrefix = ExplanationOfBenefitStr + "/";
-        public const string ImagingStudyStr = "ImagingStudy";
-        public const string ImagingStudyPrefix = ImagingStudyStr + "/";
-        public const string ImmunizationStr = "Immunization";
-        public const string ImmunizationPrefix = ImmunizationStr + "/";
-        public const string MedicationAdministrationStr = "MedicationAdministration";
-        public const string MedicationAdministrationPrefix = MedicationAdministrationStr + "/";
-        public const string MedicationRequestStr = "MedicationRequest";
-        public const string MedicationRequestPrefix = MedicationRequestStr + "/";
-        public const string ObservationStr = "Observation";
-        public const string ObservationPrefix = ObservationStr + "/";
-        public const string OrganizationStr = "Organization";
-        public const string OrganizationPrefix = OrganizationStr + "/";
-        public const string PatientStr = "Patient";
-        public const string PatientPrefix = PatientStr + "/";
-        public const string PractitionerStr = "Practitioner";
-        public const string PractitionerPrefix = PractitionerStr + "/";
-        public const string ProcedureStr = "Procedure";
-        public const string ProcedurePrefix = ProcedureStr + "/";
-        public const string SupplyDeliveryStr = "SupplyDelivery";
-        public const string SupplyDeliveryPrefix = SupplyDeliveryStr + "/";
-
-        public const string DocumentReferenceStr = "DocumentReference";
-        public const string DocumentReferencePrefix = DocumentReferenceStr + "/";
-
         public Dictionary<string, ResourceSiblingsContainer<DocumentReferenceSibling>> DocumentReferences { get; } = new Dictionary<string, ResourceSiblingsContainer<DocumentReferenceSibling>>();
 
         public HashSet<string> DocumentReferenceIdsRemoved { get; } = new HashSet<string>();
-
-        public const string StructureDefinitionStr = "StructureDefinition";
-        public const string StructureDefinitionPrefix = StructureDefinitionStr + "/";
 
         public Dictionary<string, ResourceSiblingsContainer<StructureDefinitionSibling>> StructureDefinitions { get; } = new Dictionary<string, ResourceSiblingsContainer<StructureDefinitionSibling>>();
 
         public HashSet<string> StructureDefinitionIdsRemoved { get; } = new HashSet<string>();
 
-        public const string CommunicationStr = "Communication";
-        public const string CommunicationPrefix = CommunicationStr + "/";
-
         public Dictionary<string, ResourceSiblingsContainer<CommunicationSibling>> Communications { get; } = new Dictionary<string, ResourceSiblingsContainer<CommunicationSibling>>();
 
         public HashSet<string> CommunicationIdsRemoved { get; } = new HashSet<string>();
+
+        public abstract void LogInfo(string resourceGroupDir, string resourceName, string resourceId, string message);
+
+        public abstract void LogWarning(string resourceGroupDir, string resourceName, string resourceId, string message);
+
+        protected abstract Task MakeOutputResourceGroupDirAsync();
+
+        public abstract string GetResourceGroupDir();
+
+        protected abstract Task<StreamReader> GetStreamReader(string resourceName);
+
+        protected abstract Task<StreamWriter> GetStreamWriter(string resourceName);
 
         private bool ValidateIdAndResourceType(string id, string resourceType, string resourceName, HashSet<string> duplicateIdsCheck)
         {
@@ -568,6 +510,62 @@ namespace ResourceProcessorNamespace
             await ProcessResources(ExplanationOfBenefitStr, new ExplanationOfBenefitAdapter(), targetProfile, options, ExplanationOfBenefits, ExplanationOfBenefitIdsRemoved, ret);
 
             return ret;
+        }
+
+        public class ResourcesResult
+        {
+            public ResourcesResult()
+            {
+                InputResourcesCount = 0;
+                InputResourcesSize = 0;
+                InputValidResorcesCount = 0;
+                InputSelectedResorcesCount = 0;
+                InputRemovedResourcesCount = 0;
+                OutputCreatedResourcesCount = 0;
+                OutputResourcesCount = 0;
+                OutputResourcesSize = 0;
+            }
+
+            public int InputResourcesCount { get; set; }
+
+            public long InputResourcesSize { get; set; }
+
+            public int InputValidResorcesCount { get; set; }
+
+            public int InputSelectedResorcesCount { get; set; }
+
+            public int InputRemovedResourcesCount { get; set; }
+
+            public int OutputCreatedResourcesCount { get; set; }
+
+            public int OutputResourcesCount { get; set; }
+
+            public long OutputResourcesSize { get; set; }
+
+            public void Add(ResourcesResult a) // TODO: to derived class so base is readonly?
+            {
+                InputResourcesCount += a.InputResourcesCount;
+                InputResourcesSize += a.InputResourcesSize;
+                InputValidResorcesCount += a.InputValidResorcesCount;
+                InputSelectedResorcesCount += a.InputSelectedResorcesCount;
+                InputRemovedResourcesCount += a.InputRemovedResourcesCount;
+                OutputCreatedResourcesCount += a.OutputCreatedResourcesCount;
+                OutputResourcesCount += a.OutputResourcesCount;
+                OutputResourcesSize += a.OutputResourcesSize;
+            }
+
+            public void LogInfo(ResourceGroupProcessor resourceGroupProcessor, string resourceGroupDir, string resourceName)
+            {
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, "-----------------------------------------------");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesCount)} : {InputResourcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputResourcesSize)} : {InputResourcesSize}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputValidResorcesCount)} : {InputValidResorcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputSelectedResorcesCount)} : {InputSelectedResorcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(InputRemovedResourcesCount)} : {InputRemovedResourcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputCreatedResourcesCount)} : {OutputCreatedResourcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesCount)} : {OutputResourcesCount}");
+                resourceGroupProcessor.LogInfo(resourceGroupDir, resourceName, null, $" {nameof(OutputResourcesSize)} : {OutputResourcesSize}");
+            }
         }
     }
 }

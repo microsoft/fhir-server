@@ -21,6 +21,8 @@ namespace ResourceProcessorNamespace
             this.siblings = siblings;
         }
 
+        public int Count { get => siblings.Length; }
+
         public ref T Get(int siblingNumber, string resourceGroupDir, string resourceName, string resourceId)
         {
             if (siblingNumber >= Count)
@@ -30,8 +32,6 @@ namespace ResourceProcessorNamespace
 
             return ref siblings[siblingNumber];
         }
-
-        public int Count { get => siblings.Length; }
 
         public ref T GetOriginal()
         {
@@ -261,10 +261,6 @@ namespace ResourceProcessorNamespace
 
         public abstract class EnumeratorBase<TS1> : IEnumerator<EnumeratorItem>
         {
-            protected abstract T LoadFHIRExampleFile();
-
-            protected abstract void InitializeFHIRExample(T json, TS1 initializer);
-
             private ResourceGroupProcessor processor;
             private JsonSerializerOptions options;
             private EnumeratorItem currentItem;
@@ -277,9 +273,23 @@ namespace ResourceProcessorNamespace
                 currentItem = new EnumeratorItem();
             }
 
-            protected abstract bool InitializerMoveNext();
-
             protected abstract TS1 InitializerCurrent { get; }
+
+            public EnumeratorItem Current
+            {
+                get { return currentItem; }
+            }
+
+            object IEnumerator.Current
+            {
+                get { return Current; }
+            }
+
+            protected abstract T LoadFHIRExampleFile();
+
+            protected abstract void InitializeFHIRExample(T json, TS1 initializer);
+
+            protected abstract bool InitializerMoveNext();
 
             public bool MoveNext()
             {
@@ -310,16 +320,6 @@ namespace ResourceProcessorNamespace
             public abstract void Reset();
 
             public abstract void Dispose();
-
-            public EnumeratorItem Current
-            {
-                get { return currentItem; }
-            }
-
-            object IEnumerator.Current
-            {
-                get { return Current; }
-            }
         }
     }
 }

@@ -70,17 +70,17 @@ namespace ResourceProcessorNamespace
         {
             private Dictionary<string, ResourceSiblingsContainer<PatientSibling>>.Enumerator enumerator;
 
-            protected override bool InitializerMoveNext()
-            {
-                return enumerator.MoveNext();
-            }
-
-            protected override PatientSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
-
             public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
                 : base(processor, options)
             {
                 enumerator = processor.Patients.GetEnumerator();
+            }
+
+            protected override PatientSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
+
+            protected override bool InitializerMoveNext()
+            {
+                return enumerator.MoveNext();
             }
 
             protected override Communication.Rootobject LoadFHIRExampleFile()

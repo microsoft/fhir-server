@@ -58,17 +58,17 @@ namespace ResourceProcessorNamespace
         {
             private int enumerator = -1;
 
-            protected override bool InitializerMoveNext()
+            public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
+                : base(processor, options)
             {
-                enumerator++;
-                return enumerator <= 1000;
             }
 
             protected override int InitializerCurrent { get => enumerator; }
 
-            public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
-                : base(processor, options)
+            protected override bool InitializerMoveNext()
             {
+                enumerator++;
+                return enumerator <= 1000;
             }
 
             protected override StructureDefinition.Rootobject LoadFHIRExampleFile()

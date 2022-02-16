@@ -211,17 +211,17 @@ namespace ResourceProcessorNamespace
         {
             private Dictionary<string, ResourceSiblingsContainer<EncounterSibling>>.Enumerator enumerator;
 
-            protected override bool InitializerMoveNext()
-            {
-                return enumerator.MoveNext();
-            }
-
-            protected override EncounterSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
-
             public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
                 : base(processor, options)
             {
                 enumerator = processor.Encounters.GetEnumerator();
+            }
+
+            protected override EncounterSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
+
+            protected override bool InitializerMoveNext()
+            {
+                return enumerator.MoveNext();
             }
 
             protected override DocumentReference.Rootobject LoadFHIRExampleFile()
