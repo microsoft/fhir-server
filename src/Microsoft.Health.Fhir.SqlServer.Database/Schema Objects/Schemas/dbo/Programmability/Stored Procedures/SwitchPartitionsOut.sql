@@ -16,6 +16,7 @@ DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
        ,@Name varchar(100)
 
 DECLARE @Indexes TABLE (IndId int PRIMARY KEY, name varchar(200))
+DECLARE @IndexesRT TABLE (IndId int PRIMARY KEY, name varchar(200))
 DECLARE @ResourceTypes TABLE (ResourceTypeId smallint PRIMARY KEY, partition_number_roundtrip int, partition_number int, row_count bigint)
 DECLARE @Names TABLE (name varchar(100) PRIMARY KEY)
 
@@ -79,9 +80,10 @@ BEGIN TRY
     END
 
     -- Create all indexes/pks, exclude disabled 
-    WHILE EXISTS (SELECT * FROM @Indexes)
+    INSERT INTO @IndexesRT SELECT * FROM @Indexes
+    WHILE EXISTS (SELECT * FROM @IndexesRT)
     BEGIN
-      SELECT TOP 1 @IndId = IndId, @Ind = name FROM @Indexes ORDER BY IndId
+      SELECT TOP 1 @IndId = IndId, @Ind = name FROM @IndexesRT ORDER BY IndId
 
       IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(@TblInt) AND name = @Ind)
       BEGIN 
@@ -92,7 +94,7 @@ BEGIN TRY
         EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Create Index',@Text=@Txt
       END
 
-      DELETE FROM @Indexes WHERE IndId = @IndId
+      DELETE FROM @IndexesRT WHERE IndId = @IndId
     END
 
     -- Switch out
