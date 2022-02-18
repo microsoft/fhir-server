@@ -88,6 +88,7 @@
     <None Include="Scripts\Pre-Deployment\PreDeployment.sql">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\ExecuteCommandForRebuildIndexes.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Scripts\setupdb.cmd">
