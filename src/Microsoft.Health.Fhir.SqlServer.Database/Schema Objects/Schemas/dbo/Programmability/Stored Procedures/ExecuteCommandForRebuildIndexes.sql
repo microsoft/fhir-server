@@ -13,7 +13,7 @@ DECLARE @SP varchar(100) = 'ExecuteCommandForRebuildIndexes'
 RetryOnTempdbError:
 
 BEGIN TRY
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Txt=@Cmd
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start',@Text=@Cmd
 
   SET @st = getUTCdate()
 
@@ -21,15 +21,17 @@ BEGIN TRY
   IF @Cmd IS NULL RAISERROR('@Cmd IS NULL',18,127)
 
   SET @Action = CASE 
+                  WHEN @Cmd LIKE 'UPDATE STAT%' THEN 'Update statistics'
                   WHEN @Cmd LIKE 'CREATE%INDEX%' THEN 'Create Index'
                   WHEN @Cmd LIKE 'ALTER%INDEX%REBUILD' THEN 'Rebuild Index'
-                  WHEN @Cmd LIKE 'ALTER%CHECK%' THEN 'Add Check'
                 END
   IF @Action IS NULL RAISERROR('Not supported action',18,127)
 
+  IF @Action = 'Create Index' WAITFOR DELAY '00:00:05'
+
   EXECUTE(@Cmd)
 
-  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Action=@Action,@Status='End',@Start=@st,@Txt=@Cmd
+  EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Action=@Action,@Status='End',@Start=@st,@Text=@Cmd
 END TRY
 BEGIN CATCH
   IF error_number() = 1750 THROW -- Real error is before 1750, cannot trap in SQL.
@@ -37,6 +39,10 @@ BEGIN CATCH
   BEGIN
     EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st,@ReRaisError=0,@Retry=@Retries
     SET @Retries = @Retries + 1
+    IF @Tbl = 'TokenText_96' 
+      WAITFOR DELAY '01:00:00' -- 1 hour
+    ELSE 
+      WAITFOR DELAY '00:10:00' -- 10 minutes
     GOTO RetryOnTempdbError
   END
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Error',@Start=@st

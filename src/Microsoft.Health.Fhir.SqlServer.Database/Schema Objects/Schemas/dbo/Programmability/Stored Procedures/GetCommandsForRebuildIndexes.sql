@@ -14,6 +14,7 @@ DECLARE @SP varchar(100) = 'GetCommandsForRebuildIndexes'
        ,@Txt varchar(max)
        ,@Rows bigint
        ,@ResourceTypeId smallint
+       ,@IndexesCnt int
 
 BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
@@ -51,16 +52,10 @@ BEGIN TRY
         SET @TblInt = @Tbl+'_'+convert(varchar,@ResourceTypeId)
         SET @Rows = (SELECT rows FROM sysindexes WHERE id = object_id(@TblInt) AND indid IN (0,1)) 
 
-        -- add check constraints
-        IF NOT EXISTS (SELECT * FROM sys.sysconstraints WHERE id = object_id(@TblInt) AND colid = (SELECT column_id FROM sys.columns WHERE object_id = object_id(@TblInt) AND name = 'ResourceTypeId') AND status & 4 = 4)
-        BEGIN
-          INSERT INTO @Commands SELECT @TblInt, 'ALTER TABLE dbo.'+@TblInt+' ADD CHECK (ResourceTypeId = '+convert(varchar,@ResourceTypeId)+')', @Rows
-          EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text='Add check constraint'
-        END
-
         -- add indexes
         DELETE FROM @Indexes
         INSERT INTO @Indexes SELECT name FROM sys.indexes WHERE object_id = object_id(@Tbl) AND index_id > 1 -- indexes in target table
+        SET @IndexesCnt = 0
         WHILE EXISTS (SELECT * FROM @Indexes)
         BEGIN
           SET @Ind = (SELECT TOP 1 Ind FROM @Indexes ORDER BY Ind)
@@ -71,12 +66,20 @@ BEGIN TRY
             SET @Txt = replace(@Txt,'['+@Tbl+']',@TblInt)
             IF @Txt IS NOT NULL
             BEGIN
+              SET @IndexesCnt = @IndexesCnt + 1
               INSERT INTO @Commands SELECT @TblInt, @Txt, @Rows
               EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
             END
           END
 
           DELETE FROM @Indexes WHERE Ind = @Ind
+        END
+
+        IF @IndexesCnt > 1
+        BEGIN
+          -- add update stats so index creates are not waiting on each other
+          INSERT INTO @Commands SELECT @TblInt, 'UPDATE STATISTICS dbo.'+@TblInt, @Rows
+          EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text='Add stats update'
         END
 
         DELETE FROM @ResourceTypes WHERE ResourceTypeId = @ResourceTypeId
@@ -86,7 +89,7 @@ BEGIN TRY
     DELETE FROM @Tables WHERE name = @Tbl
   END
 
-  SELECT Tbl, Txt FROM @Commands ORDER BY Rows DESC, Tbl, CASE WHEN Txt LIKE 'CREATE %' THEN 0 ELSE 1 END -- add index creates before checks
+  SELECT Tbl, Txt FROM @Commands ORDER BY Rows DESC, Tbl, CASE WHEN Txt LIKE 'UPDATE STAT%' THEN 0 ELSE 1 END -- update stats should be before index creates
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Commands',@Action='Select',@Rows=@@rowcount
 
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='End',@Start=@st

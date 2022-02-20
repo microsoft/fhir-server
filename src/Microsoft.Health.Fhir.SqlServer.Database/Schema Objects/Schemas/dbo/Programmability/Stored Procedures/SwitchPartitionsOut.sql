@@ -97,6 +97,10 @@ BEGIN TRY
       DELETE FROM @IndexesRT WHERE IndId = @IndId
     END
 
+    SET @Txt = 'ALTER TABLE dbo.'+@TblInt+' ADD CHECK (ResourceTypeId >= '+convert(varchar,@ResourceTypeId)+' AND ResourceTypeId < '+convert(varchar,@ResourceTypeId)+' + 1)' -- this matches partition function
+    EXECUTE(@Txt)
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Tbl,@Action='Add chck',@Text=@Txt
+
     -- Switch out
     SET @Txt = 'ALTER TABLE dbo.'+@Tbl+' SWITCH PARTITION $partition.PartitionFunction_ResourceTypeId('+convert(varchar,@ResourceTypeId)+') TO dbo.'+@TblInt
     EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Tbl,@Action='Switch out start',@Text=@Txt
