@@ -6,16 +6,14 @@
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Metrics;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
-using static Hl7.Fhir.Model.Bundle;
 
-namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
+namespace Microsoft.Health.Fhir.Core.Features.Resources.Bundle
 {
     public class BundleMetricsNotification : IMetricsNotification
     {
-        public BundleMetricsNotification(IDictionary<string, int> apiCallResults, BundleType bundleType)
+        public BundleMetricsNotification(IDictionary<string, int> apiCallResults, string bundleType)
         {
-            FhirOperation = bundleType == BundleType.Batch ? AuditEventSubType.Batch : AuditEventSubType.Transaction;
+            FhirOperation = bundleType;
             ResourceType = KnownResourceTypes.Bundle;
             ApiCallResults = apiCallResults;
         }
