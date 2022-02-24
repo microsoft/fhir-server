@@ -1,11 +1,11 @@
 --IF object_id('SwitchPartitionsOut') IS NOT NULL DROP PROCEDURE dbo.SwitchPartitionsOut
 GO
-CREATE PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100)
+CREATE PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @IncludeNotDisabled bit
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
-       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')
+       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@IncludeNotDisabled),'NULL')
        ,@st datetime = getUTCdate()
        ,@ResourceTypeId smallint
        ,@Rows bigint
@@ -24,8 +24,9 @@ BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
 
   IF @Tbl IS NULL RAISERROR('@Tbl IS NULL', 18, 127)
+  IF @IncludeNotDisabled IS NULL RAISERROR('@RebuildClustered IS NULL', 18, 127)
 
-  INSERT INTO @Indexes SELECT index_id, name FROM sys.indexes WHERE object_id = object_id(@Tbl) AND is_disabled = 0
+  INSERT INTO @Indexes SELECT index_id, name FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (is_disabled = 0 OR @IncludeNotDisabled = 1)
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Indexes',@Action='Insert',@Rows=@@rowcount
 
   INSERT INTO @ResourceTypes 

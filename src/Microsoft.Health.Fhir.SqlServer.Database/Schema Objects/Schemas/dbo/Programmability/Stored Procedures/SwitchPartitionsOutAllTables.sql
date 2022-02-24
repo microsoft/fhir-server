@@ -1,11 +1,11 @@
 --IF object_id('SwitchPartitionsOutAllTables') IS NOT NULL DROP PROCEDURE dbo.SwitchPartitionsOutAllTables
 GO
-CREATE PROCEDURE dbo.SwitchPartitionsOutAllTables
+CREATE PROCEDURE dbo.SwitchPartitionsOutAllTables @IncludeNotDisabled bit
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsOutAllTables'
-       ,@Mode varchar(200) = 'PS=PartitionScheme_ResourceTypeId'
+       ,@Mode varchar(200) = 'PS=PartitionScheme_ResourceTypeId ND='+isnull(convert(varchar,@IncludeNotDisabled),'NULL')
        ,@st datetime = getUTCdate()
        ,@Tbl varchar(100)
 
@@ -13,7 +13,7 @@ BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
 
   DECLARE @Tables TABLE (name varchar(100) PRIMARY KEY, supported bit)
-  INSERT INTO @Tables EXECUTE dbo.GetPartitionedTables @IncludeNotDisabled = 0, @IncludeNotSupported = 0
+  INSERT INTO @Tables EXECUTE dbo.GetPartitionedTables @IncludeNotDisabled = @IncludeNotDisabled, @IncludeNotSupported = 0
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Tables',@Action='Insert',@Rows=@@rowcount
 
   WHILE EXISTS (SELECT * FROM @Tables)

@@ -15,17 +15,19 @@ namespace IndexRebuilder
     {
         private readonly string _connectionString;
         private readonly int _threads;
+        private readonly bool _rebuildClustered;
 
-        internal IndexRebuilder(string connStr, int threads)
+        internal IndexRebuilder(string connStr, int threads, bool rebuildClustered)
         {
             _connectionString = connStr;
             _threads = threads;
+            _rebuildClustered = rebuildClustered;
         }
 
         internal void Run(out StoreUtils.CancelRequest cancel, out int numberOfTables)
         {
-            SwitchPartitionsOutAllTables();
-            var commands = GetCommandsForRebuildIndexes();
+            SwitchPartitionsOutAllTables(_rebuildClustered);
+            var commands = GetCommandsForRebuildIndexes(_rebuildClustered);
             numberOfTables = commands.Select(_ => _.Item1).Distinct().Count();
             var cancelInt = new StoreUtils.CancelRequest();
             StoreUtils.ParallelForEach(
@@ -60,7 +62,7 @@ namespace IndexRebuilder
             }
         }
 
-        private IList<Tuple<string, IList<string>>> GetCommandsForRebuildIndexes() // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
+        private IList<Tuple<string, IList<string>>> GetCommandsForRebuildIndexes(bool rebuildClustered) // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
         {
             var resultsDic = new Dictionary<string, List<string>>();
             var tablesWithPreservedOrder = new List<string>();
@@ -68,6 +70,7 @@ namespace IndexRebuilder
             {
                 conn.Open();
                 using var command = new SqlCommand("dbo.GetCommandsForRebuildIndexes", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+                command.Parameters.AddWithValue("@RebuildClustered", rebuildClustered);
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                 {
@@ -113,11 +116,12 @@ namespace IndexRebuilder
             command.ExecuteNonQuery();
         }
 
-        private void SwitchPartitionsOutAllTables()
+        private void SwitchPartitionsOutAllTables(bool rebuildClustered)
         {
             using var conn = new SqlConnection(_connectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.SwitchPartitionsOutAllTables", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
+            command.Parameters.AddWithValue("@IncludeNotDisabled", rebuildClustered);
             command.ExecuteNonQuery();
         }
 

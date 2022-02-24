@@ -1,15 +1,16 @@
 --IF object_id('GetCommandsForRebuildIndexes') IS NOT NULL DROP PROCEDURE dbo.GetCommandsForRebuildIndexes
 GO
-CREATE PROCEDURE dbo.GetCommandsForRebuildIndexes
+CREATE PROCEDURE dbo.GetCommandsForRebuildIndexes @RebuildClustered bit
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'GetCommandsForRebuildIndexes'
-       ,@Mode varchar(200) = 'PS=PartitionScheme_ResourceTypeId'
+       ,@Mode varchar(200) = 'PS=PartitionScheme_ResourceTypeId RC='+isnull(convert(varchar,@RebuildClustered),'NULL')
        ,@st datetime = getUTCdate()
        ,@Tbl varchar(100)
        ,@TblInt varchar(100)
        ,@Ind varchar(200)
+       ,@IndId int
        ,@Supported bit
        ,@Txt varchar(max)
        ,@Rows bigint
@@ -21,7 +22,7 @@ BEGIN TRY
 
   DECLARE @Commands TABLE (Tbl varchar(100), Txt varchar(max), Rows bigint)
   DECLARE @ResourceTypes TABLE (ResourceTypeId smallint PRIMARY KEY)
-  DECLARE @Indexes TABLE (Ind varchar(200) PRIMARY KEY)
+  DECLARE @Indexes TABLE (Ind varchar(200) PRIMARY KEY, IndId int)
   DECLARE @Tables TABLE (name varchar(100) PRIMARY KEY, Supported bit)
 
   INSERT INTO @Tables EXECUTE dbo.GetPartitionedTables @IncludeNotDisabled = 1, @IncludeNotSupported = 1
@@ -54,23 +55,30 @@ BEGIN TRY
 
         -- add indexes
         DELETE FROM @Indexes
-        INSERT INTO @Indexes SELECT name FROM sys.indexes WHERE object_id = object_id(@Tbl) AND index_id > 1 -- indexes in target table
+        INSERT INTO @Indexes SELECT name, index_id FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (index_id > 1 AND @RebuildClustered = 0 OR index_id = 1 AND @RebuildClustered = 1) -- indexes in target table
         SET @IndexesCnt = 0
         WHILE EXISTS (SELECT * FROM @Indexes)
         BEGIN
-          SET @Ind = (SELECT TOP 1 Ind FROM @Indexes ORDER BY Ind)
+          SELECT TOP 1 @Ind = Ind, @IndId = IndId FROM @Indexes ORDER BY Ind
 
-          IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(@TblInt) AND name = @Ind) -- not existing indexes in source table
+          IF @IndId = 1
           BEGIN
-            EXECUTE dbo.GetIndexCommands @Tbl = @Tbl, @Ind = @Ind, @AddPartClause = 0, @IncludeClustered = 0, @Txt = @Txt OUT
-            SET @Txt = replace(@Txt,'['+@Tbl+']',@TblInt)
-            IF @Txt IS NOT NULL
-            BEGIN
-              SET @IndexesCnt = @IndexesCnt + 1
-              INSERT INTO @Commands SELECT @TblInt, @Txt, @Rows
-              EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
-            END
+            SET @Txt = 'ALTER INDEX '+@Ind+' ON dbo.'+@TblInt+' REBUILD'
+            INSERT INTO @Commands SELECT @TblInt, @Txt, @Rows
+            EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
           END
+          ELSE
+            IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = object_id(@TblInt) AND name = @Ind) -- not existing indexes in source table
+            BEGIN
+              EXECUTE dbo.GetIndexCommands @Tbl = @Tbl, @Ind = @Ind, @AddPartClause = 0, @IncludeClustered = 0, @Txt = @Txt OUT
+              SET @Txt = replace(@Txt,'['+@Tbl+']',@TblInt)
+              IF @Txt IS NOT NULL
+              BEGIN
+                SET @IndexesCnt = @IndexesCnt + 1
+                INSERT INTO @Commands SELECT @TblInt, @Txt, @Rows
+                EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@TblInt,@Action='Add command',@Rows=@@rowcount,@Text=@Txt
+              END
+            END
 
           DELETE FROM @Indexes WHERE Ind = @Ind
         END
