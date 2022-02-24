@@ -28,9 +28,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
     /// This class covers history tests with different supported query parameters
-    /// Other test collections are run parallelly causing some of the tests to fail intermittently as during the same timeframe resources could get created by other tests as well
+    /// Other test collections are run parallelly causing some of the tests to fail intermittently as during the same timeframe resources could get created by other tests
     /// We generally use _tag query parameter to filter out the resources but since history search doesn't support _tag, filtering is done explicitly in the test
-    /// While returning the search response default maxItem count is set to 10, due to multiple tests running at the same time this could return entries with different tag code
+    /// While returning the search response default maxItem count is set to lower value, due to multiple tests running at the same time this could return entries with different tag code
     /// hence using the NextLink to keep querying for the next set
     /// Some tests have Thread.Sleep to avoid query time to fall in future
     /// </summary>
@@ -160,16 +160,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(obsHistory);
             Assert.Contains($"Changed by E2E test {tag}", obsHistory.Text.Div);
 
-            List<Bundle.EntryComponent> selfLinkResponse = new List<Bundle.EntryComponent>();
-            searchString = selfLink;
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                response = await _client.SearchAsync(searchString);
-                selfLinkResponse.AddRange(response.Resource.Entry);
-                searchString = response.Resource.NextLink?.ToString();
-            }
+            List<Bundle.EntryComponent> selfLinkResponseWithmatchingTag = await GetAllResultsWithMatchingTagForGivenSearch(selfLink, tag);
 
-            var selfLinkResponseWithmatchingTag = selfLinkResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
             AssertCount(1, selfLinkResponseWithmatchingTag);
 
             obsHistory = selfLinkResponseWithmatchingTag[0].Resource as Observation;
@@ -198,17 +190,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            FhirResponse<Bundle> response;
-            List<Bundle.EntryComponent> readResponse = new List<Bundle.EntryComponent>();
-            string searchString = $"_history?_since={sinceUriString}&_before={beforeUriString}";
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                response = await _client.SearchAsync(searchString);
-                readResponse.AddRange(response.Resource.Entry);
-                searchString = response.Resource.NextLink?.ToString();
-            }
+            List<Bundle.EntryComponent> readResponseWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            var readResponseWithMatchingTag = readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
             AssertCount(2, readResponseWithMatchingTag);
 
             Patient patientHistory;
@@ -258,17 +241,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
             // Query all the recent changes
-            FhirResponse<Bundle> response;
-            List<Bundle.EntryComponent> allChanges = new List<Bundle.EntryComponent>();
-            string searchString = $"_history?_since={sinceUriString}";
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                response = await _client.SearchAsync(searchString);
-                allChanges.AddRange(response.Resource.Entry);
-                searchString = response.Resource.NextLink?.ToString();
-            }
+            List<Bundle.EntryComponent> allChangesWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
 
-            var allChangesWithMatchingTag = allChanges.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
             AssertCount(7, allChangesWithMatchingTag);
 
             // now choose a value of before that is as close as possible to one of the last updated times
@@ -277,16 +251,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var before = lastUpdatedTimes.ToList()[4];
             var beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
 
-            List<Bundle.EntryComponent> firstSet = new List<Bundle.EntryComponent>();
-            searchString = $"_history?_since={sinceUriString}&_before={beforeUriString}";
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                response = await _client.SearchAsync(searchString);
-                firstSet.AddRange(response.Resource.Entry);
-                searchString = response.Resource.NextLink?.ToString();
-            }
+            var firstSetWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            var firstSetWithMatchingTag = firstSet.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
             AssertCount(4, firstSetWithMatchingTag);
 
             var obsHistory = firstSetWithMatchingTag.OrderBy(d => d.Resource.Meta.LastUpdated).ToList()[0].Resource as Observation;
@@ -298,16 +264,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             beforeUriString = HttpUtility.UrlEncode(before.Value.ToString("o"));
             Thread.Sleep(500); // wait 500 milliseconds to make sure that the value passed to the server for _before is not a time in the future
 
-            List<Bundle.EntryComponent> secondSet = new List<Bundle.EntryComponent>();
-            searchString = $"_history?_since={sinceUriString}&_before={beforeUriString}";
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                response = await _client.SearchAsync(searchString);
-                secondSet.AddRange(response.Resource.Entry);
-                searchString = response.Resource.NextLink?.ToString();
-            }
+            var secondSetWithMatchingTag = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            AssertCount(3, secondSet.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList());
+            AssertCount(3, secondSetWithMatchingTag);
 
             foreach (var r in newResources)
             {
@@ -343,17 +302,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            FhirResponse<Bundle> response;
-            List<Bundle.EntryComponent> readResponse = new List<Bundle.EntryComponent>();
-            string searchString = $"_history?_since={sinceUriString}";
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                response = await _client.SearchAsync(searchString);
-                readResponse.AddRange(response.Resource.Entry);
-                searchString = response.Resource.NextLink?.ToString();
-            }
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
 
-            AssertCount(11, readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList());
+            AssertCount(11, readResponse);
 
             var obsHistory = readResponse.OrderBy(d => d.Resource.Meta.LastUpdated).ToList()[0].Resource as Observation;
             Assert.NotNull(obsHistory);
@@ -363,17 +314,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             newResources.Add(await _client.CreateByUpdateAsync(Samples.GetJsonSample("ObservationWithEyeColor").ToPoco()));
 
             Thread.Sleep(500);
-            FhirResponse<Bundle> batchResponse;
-            readResponse = new List<Bundle.EntryComponent>();
-            searchString = $"_history?_since={sinceUriString}&_before={beforeUriString}";
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                batchResponse = await _client.SearchAsync(searchString);
-                readResponse.AddRange(batchResponse.Resource.Entry);
-                searchString = batchResponse.Resource.NextLink?.ToString();
-            }
 
-            AssertCount(11, readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList());
+            readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
+
+            AssertCount(11, readResponse);
 
             foreach (var r in newResources)
             {
@@ -392,17 +336,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
-            FhirResponse<Bundle> response;
-            List<Bundle.EntryComponent> readResponse = new List<Bundle.EntryComponent>();
-            string searchString = $"_history?_since={sinceUriString}";
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                response = await _client.SearchAsync(searchString);
-                readResponse.AddRange(response.Resource.Entry);
-                searchString = response.Resource.NextLink?.ToString();
-            }
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}", tag);
 
-            Assert.Empty(readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList());
+            Assert.Empty(readResponse);
         }
 
         [Fact]
@@ -424,17 +360,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));
 
-            FhirResponse<Bundle> response;
-            List<Bundle.EntryComponent> readResponse = new List<Bundle.EntryComponent>();
-            string searchString = $"_history?_since={sinceUriString}&_before={beforeUriString}";
-            while (!string.IsNullOrEmpty(searchString))
-            {
-                response = await _client.SearchAsync(searchString);
-                readResponse.AddRange(response.Resource.Entry);
-                searchString = response.Resource.NextLink?.ToString();
-            }
+            List<Bundle.EntryComponent> readResponse = await GetAllResultsWithMatchingTagForGivenSearch($"_history?_since={sinceUriString}&_before={beforeUriString}", tag);
 
-            Assert.Empty(readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList());
+            Assert.Empty(readResponse);
 
             if (newPatient?.Resource != null)
             {
@@ -481,6 +409,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using FhirResponse<Resource> response = await _client.CreateByUpdateAsync(resource);
             return response.Resource.Meta.LastUpdated.Value.AddMilliseconds(1);
+        }
+
+        /// <summary>
+        /// Get all the results for given search string
+        /// </summary>
+        /// <returns>List<Bundle.EntryComponent> for the given search string</returns>
+        private async Task<List<Bundle.EntryComponent>> GetAllResultsWithMatchingTagForGivenSearch(string searchString, string tag)
+        {
+            FhirResponse<Bundle> response;
+            List<Bundle.EntryComponent> readResponse = new List<Bundle.EntryComponent>();
+            while (!string.IsNullOrEmpty(searchString))
+            {
+                response = await _client.SearchAsync(searchString);
+                readResponse.AddRange(response.Resource.Entry);
+                searchString = response.Resource.NextLink?.ToString();
+            }
+
+            return readResponse.Where(e => e.Resource.Meta.Tag.Any(t => t.Code == tag)).ToList();
         }
 
         private async Task<T> CreateResourceWithTag<T>(T resource, string tag)
