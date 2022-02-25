@@ -89,12 +89,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                     return false;
                 }
 
-                if (!string.Equals(x.Text, y.Text, StringComparison.Ordinal))
+                if (!string.Equals(x.Text, y.Text, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
 
-                if (!string.Equals(x.TextOverflow, y.TextOverflow, StringComparison.Ordinal))
+                if (!string.Equals(x.TextOverflow, y.TextOverflow, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
@@ -116,8 +116,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             {
                 int hashCode = obj.SearchParamId.GetHashCode();
 
-                hashCode ^= obj.Text?.GetHashCode(StringComparison.Ordinal) ?? 0;
-                hashCode ^= obj.TextOverflow?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.Text?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
+                hashCode ^= obj.TextOverflow?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
                 hashCode ^= obj.IsMin.GetHashCode();
                 hashCode ^= obj.IsMax.GetHashCode();
 

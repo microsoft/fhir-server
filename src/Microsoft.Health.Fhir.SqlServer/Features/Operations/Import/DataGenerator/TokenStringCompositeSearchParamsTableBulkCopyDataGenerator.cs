@@ -100,12 +100,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                     return false;
                 }
 
-                if (!string.Equals(x.Text2, y.Text2, StringComparison.Ordinal))
+                if (!string.Equals(x.Text2, y.Text2, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
 
-                if (!string.Equals(x.TextOverflow2, y.TextOverflow2, StringComparison.Ordinal))
+                if (!string.Equals(x.TextOverflow2, y.TextOverflow2, StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
                 }
@@ -119,8 +119,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
                 hashCode ^= obj.Code1?.GetHashCode(StringComparison.Ordinal) ?? 0;
                 hashCode ^= obj.SystemId1?.GetHashCode() ?? 0;
-                hashCode ^= obj.Text2?.GetHashCode(StringComparison.Ordinal) ?? 0;
-                hashCode ^= obj.TextOverflow2?.GetHashCode(StringComparison.Ordinal) ?? 0;
+                hashCode ^= obj.Text2?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
+                hashCode ^= obj.TextOverflow2?.GetHashCode(StringComparison.OrdinalIgnoreCase) ?? 0;
 
                 return hashCode.GetHashCode();
             }

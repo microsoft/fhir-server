@@ -532,6 +532,44 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         }
 
         [Fact]
+        public void GivenCaseModifiedListStringSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkStringSearchParamTableTypeV2Row> input = new List<BulkStringSearchParamTableTypeV2Row>()
+            {
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "TEST", "TEST", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 1, "TEST", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test1", "TEST", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "Test", "tEst1", true, true),
+
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 1, "test", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test1", "test", true, true),
+                new BulkStringSearchParamTableTypeV2Row(0, 0, "test", "test1", true, true),
+            };
+
+            Assert.Equal(4, StringSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
+        public void GivenCaseModifiedListTokenStringCompositeSearchParams_WhenDinstict_ThenRecordShouldBeDistincted()
+        {
+            List<BulkTokenStringCompositeSearchParamTableTypeV1Row> input = new List<BulkTokenStringCompositeSearchParamTableTypeV1Row>()
+            {
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "TEST", "TEST"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", "TEST", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", "test", "TEST"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", "Test", "tEst"),
+
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 1, 1, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 0, "test", "test", "test"),
+                new BulkTokenStringCompositeSearchParamTableTypeV1Row(0, 0, 1, "test1", "test", "test"),
+            };
+
+            Assert.Equal(4, TokenStringCompositeSearchParamsTableBulkCopyDataGenerator.Distinct(input).Count());
+        }
+
+        [Fact]
         public void GivenTokenTokenCompositeSearchParamsRecords_WhenGeneratorData_ThenValidDataTableShouldBeReturned()
         {
             DataTable table = TestBulkDataProvider.GenerateTokenTokenCompositeSearchParamsTable(1, 1000, 103);
