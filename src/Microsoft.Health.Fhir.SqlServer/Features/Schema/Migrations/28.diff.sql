@@ -23,7 +23,7 @@ EXEC dbo.LogSchemaMigrationProgress 'Back-fill column IsLongerThanADay into the 
 
 Update DateTimeSearchParam
 set IsLongerThanADay = case when ABS(DATEPART(year, StartDateTime) - DATEPART(year, EndDateTime)) > 1  then 1
-							when ABS(DATEDIFF(SECOND, StartDateTime, EndDateTime)) > 864000000000 then 1
+							when ABS(DATEDIFF(SECOND, StartDateTime, EndDateTime)) > 86400 then 1
 							else 0
 end
 
@@ -45,6 +45,6 @@ EXEC dbo.LogSchemaMigrationProgress 'Back-fill column IsLongerThanADay2 into the
 
 Update TokenDateTimeCompositeSearchParam
 set IsLongerThanADay2 = case when ABS(DATEPART(year, StartDateTime2) - DATEPART(year, EndDateTime2)) > 1  then 1
-							when ABS(DATEDIFF(SECOND, StartDateTime2, EndDateTime2)) > 864000000000 then 1
+							when ABS(DATEDIFF(SECOND, StartDateTime2, EndDateTime2)) > 86400 then 1
 							else 0
 end
