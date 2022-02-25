@@ -27,6 +27,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Operations.Import
         }
 
         [Fact]
+        public async Task GivenCustomErrorRequest_WhenInitialImportModeEnabled_Then423ShouldNotBeReturned()
+        {
+            InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = true, InitialImportMode = true });
+            HttpContext httpContext = new DefaultHttpContext();
+            httpContext.Request.Path = "/CustomError";
+            httpContext.Request.Method = HttpMethods.Post.ToString();
+            await middleware.Invoke(httpContext);
+
+            Assert.Equal(200, httpContext.Response.StatusCode);
+        }
+
+        [Fact]
         public async Task GivenGetResourceRequest_WhenInitialImportModeEnabled_Then200ShouldBeReturned()
         {
             InitialImportLockMiddleware middleware = CreateInitialImportLockMiddleware(new ImportTaskConfiguration() { Enabled = false, InitialImportMode = true });
