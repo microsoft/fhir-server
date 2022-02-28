@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 searchParamId,
                 searchValue.Start,
                 searchValue.End,
-                (searchValue.Start - searchValue.End).Ticks > TimeSpan.TicksPerDay,
+                Math.Abs((searchValue.End - searchValue.Start).Ticks) > TimeSpan.TicksPerDay,
                 searchValue.IsMin,
                 searchValue.IsMax);
 
