@@ -144,6 +144,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManage
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.TaskManagement.UnitTests", "src\Microsoft.Health.TaskManagement.UnitTests\Microsoft.Health.TaskManagement.UnitTests.csproj", "{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Import", "tools\Import\Import.csproj", "{CED0565F-834A-44FD-9BA9-E33CAB7EA5D1}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -370,6 +372,10 @@ Global
 		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CED0565F-834A-44FD-9BA9-E33CAB7EA5D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CED0565F-834A-44FD-9BA9-E33CAB7EA5D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CED0565F-834A-44FD-9BA9-E33CAB7EA5D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CED0565F-834A-44FD-9BA9-E33CAB7EA5D1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -436,9 +442,10 @@ Global
 		{389C844A-4DC2-4780-9821-464580396850} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 		{03AD4FC4-A56F-4E94-B295-B02A9E3E3CCD} = {7457B218-2651-49B5-BED8-22233889516A}
 		{BB7512E7-E148-4AF8-9D34-AA47A6AE692D} = {7457B218-2651-49B5-BED8-22233889516A}
+		{CED0565F-834A-44FD-9BA9-E33CAB7EA5D1} = {B70945F4-01A6-4351-955B-C4A2943B5E3B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 		RESX_SortFileContentOnSave = True
+		SolutionGuid = {E370FB31-CF95-47D1-B1E1-863A77973FF8}
 	EndGlobalSection
 EndGlobal
