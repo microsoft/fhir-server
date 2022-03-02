@@ -94,6 +94,8 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Build Include="Schema Objects\Schemas\dbo\Programmability\Stored Procedures\ExecuteCommandForRebuildIndexes.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Programmability\Functions\BuildStoreNumberAndErrorMessage.sql" />
+    <Build Include="Schema Objects\Schemas\dbo\Tables\IndexProperties.sql" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Scripts\setupdb.cmd">

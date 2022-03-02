@@ -27,7 +27,9 @@ BEGIN TRY
           +CASE WHEN @AddPartClause = 1 THEN PartClause ELSE '' END
       FROM (SELECT Tbl = O.Name
                   ,Ind = I.Name
-                  ,data_comp = (SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END FROM sys.partitions P WHERE P.object_id = I.object_id AND I.index_id = P.index_id)
+                  ,data_comp = isnull((SELECT TOP 1 CASE WHEN data_compression_desc = 'PAGE' THEN 'PAGE' END FROM sys.partitions P WHERE P.object_id = I.object_id AND I.index_id = P.index_id)
+                                     ,(SELECT PropertyValue FROM dbo.IndexProperties WHERE TableName = O.Name AND IndexName = I.Name AND PropertyName = 'DATA_COMPRESSION')
+                                     )
                   ,filter_def = replace(replace(replace(replace(I.filter_definition,'[',''),']',''),'(',''),')','')
                   ,I.is_unique
                   ,I.is_primary_key

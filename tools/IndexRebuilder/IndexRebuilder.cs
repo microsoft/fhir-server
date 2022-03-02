@@ -121,7 +121,7 @@ namespace IndexRebuilder
             using var conn = new SqlConnection(_connectionString);
             conn.Open();
             using var command = new SqlCommand("dbo.SwitchPartitionsOutAllTables", conn) { CommandType = CommandType.StoredProcedure, CommandTimeout = 120 };
-            command.Parameters.AddWithValue("@IncludeNotDisabled", rebuildClustered);
+            command.Parameters.AddWithValue("@RebuildClustered", rebuildClustered);
             command.ExecuteNonQuery();
         }
 

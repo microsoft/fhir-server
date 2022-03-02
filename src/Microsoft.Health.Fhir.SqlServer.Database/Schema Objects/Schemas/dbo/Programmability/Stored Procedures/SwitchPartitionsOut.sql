@@ -1,11 +1,11 @@
 --IF object_id('SwitchPartitionsOut') IS NOT NULL DROP PROCEDURE dbo.SwitchPartitionsOut
 GO
-CREATE PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @IncludeNotDisabled bit
+CREATE PROCEDURE dbo.SwitchPartitionsOut @Tbl varchar(100), @RebuildClustered bit
 WITH EXECUTE AS 'dbo'
 AS
 set nocount on
 DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
-       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@IncludeNotDisabled),'NULL')
+       ,@Mode varchar(200) = 'Tbl='+isnull(@Tbl,'NULL')+' ND='+isnull(convert(varchar,@RebuildClustered),'NULL')
        ,@st datetime = getUTCdate()
        ,@ResourceTypeId smallint
        ,@Rows bigint
@@ -15,8 +15,8 @@ DECLARE @SP varchar(100) = 'SwitchPartitionsOut'
        ,@Ind varchar(200)
        ,@Name varchar(100)
 
-DECLARE @Indexes TABLE (IndId int PRIMARY KEY, name varchar(200))
-DECLARE @IndexesRT TABLE (IndId int PRIMARY KEY, name varchar(200))
+DECLARE @Indexes TABLE (IndId int PRIMARY KEY, name varchar(200), IsDisabled bit)
+DECLARE @IndexesRT TABLE (IndId int PRIMARY KEY, name varchar(200), IsDisabled bit)
 DECLARE @ResourceTypes TABLE (ResourceTypeId smallint PRIMARY KEY, partition_number_roundtrip int, partition_number int, row_count bigint)
 DECLARE @Names TABLE (name varchar(100) PRIMARY KEY)
 
@@ -24,9 +24,9 @@ BEGIN TRY
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Start'
 
   IF @Tbl IS NULL RAISERROR('@Tbl IS NULL', 18, 127)
-  IF @IncludeNotDisabled IS NULL RAISERROR('@RebuildClustered IS NULL', 18, 127)
+  IF @RebuildClustered IS NULL RAISERROR('@RebuildClustered IS NULL', 18, 127)
 
-  INSERT INTO @Indexes SELECT index_id, name FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (is_disabled = 0 OR @IncludeNotDisabled = 1)
+  INSERT INTO @Indexes SELECT index_id, name, is_disabled FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (is_disabled = 0 OR @RebuildClustered = 1)
   EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Indexes',@Action='Insert',@Rows=@@rowcount
 
   INSERT INTO @ResourceTypes 
@@ -81,7 +81,7 @@ BEGIN TRY
     END
 
     -- Create all indexes/pks, exclude disabled 
-    INSERT INTO @IndexesRT SELECT * FROM @Indexes
+    INSERT INTO @IndexesRT SELECT * FROM @Indexes WHERE IsDisabled = 0
     WHILE EXISTS (SELECT * FROM @IndexesRT)
     BEGIN
       SELECT TOP 1 @IndId = IndId, @Ind = name FROM @IndexesRT ORDER BY IndId
@@ -100,13 +100,13 @@ BEGIN TRY
 
     SET @Txt = 'ALTER TABLE dbo.'+@TblInt+' ADD CHECK (ResourceTypeId >= '+convert(varchar,@ResourceTypeId)+' AND ResourceTypeId < '+convert(varchar,@ResourceTypeId)+' + 1)' -- this matches partition function
     EXECUTE(@Txt)
-    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Tbl,@Action='Add chck',@Text=@Txt
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Tbl,@Action='Add check',@Text=@Txt
 
     -- Switch out
     SET @Txt = 'ALTER TABLE dbo.'+@Tbl+' SWITCH PARTITION $partition.PartitionFunction_ResourceTypeId('+convert(varchar,@ResourceTypeId)+') TO dbo.'+@TblInt
     EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Tbl,@Action='Switch out start',@Text=@Txt
     EXECUTE(@Txt)
-    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Tbl,@Action='Switch out',@Text=@Txt
+    EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target=@Tbl,@Action='Switch out end',@Text=@Txt
 
     DELETE FROM @ResourceTypes WHERE ResourceTypeId = @ResourceTypeId
   END

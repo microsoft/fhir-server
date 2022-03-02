@@ -28,7 +28,7 @@ namespace IndexRebuilder
             return task;
         }
 
-        internal static void ParallelForEach<T>(IList<T> objects, int threads, Action<int, T> action, CancelRequest cancel = null)
+        internal static void ParallelForEach<T>(IEnumerable<T> objects, int threads, Action<int, T> action, CancelRequest cancel = null)
         {
             ExecuteInParallelBatches(objects, threads, 1, (thread, batch) => { action(thread, batch.Item2.First()); }, null, cancel);
         }
