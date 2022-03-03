@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(TimeSpan.FromSeconds(500));
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
                 while (!success && retryCount < 10);
@@ -315,7 +315,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(TimeSpan.FromSeconds(500));
+                        await Task.Delay(TimeSpan.FromSeconds(10);
                     }
 
                     // now searching for patient with same search parameter should not work
@@ -440,7 +440,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     {
                         _output.WriteLine($"Failed to validate bundle: {ex}");
                         success = false;
-                        await Task.Delay(TimeSpan.FromSeconds(500));
+                        await Task.Delay(TimeSpan.FromSeconds(10));
                     }
                 }
                 while (!success && retryCount < 3);
