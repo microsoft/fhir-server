@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class AllergyIntoleranceAdapter : ResourceAdapter<AllergyIntolerance.Rootobject, AllergyIntoleranceSibling>
+    internal class AllergyIntoleranceAdapter : ResourceAdapterBase<AllergyIntolerance.Rootobject, AllergyIntoleranceSibling>
     {
         public override AllergyIntoleranceSibling CreateOriginal(ResourceGroupProcessor processor, AllergyIntolerance.Rootobject json)
         {

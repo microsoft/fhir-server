@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public string Id;
     }
 
-    internal class PractitionerAdapter : ResourceAdapter<Practitioner.Rootobject, PractitionerSibling>
+    internal class PractitionerAdapter : ResourceAdapterBase<Practitioner.Rootobject, PractitionerSibling>
     {
         public override PractitionerSibling CreateOriginal(ResourceGroupProcessor processor, Practitioner.Rootobject json)
         {

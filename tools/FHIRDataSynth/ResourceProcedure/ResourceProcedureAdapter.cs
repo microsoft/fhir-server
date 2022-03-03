@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class ProcedureAdapter : ResourceAdapter<Procedure.Rootobject, ProcedureSibling>
+    internal class ProcedureAdapter : ResourceAdapterBase<Procedure.Rootobject, ProcedureSibling>
     {
         public override ProcedureSibling CreateOriginal(ResourceGroupProcessor processor, Procedure.Rootobject json)
         {

@@ -15,7 +15,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class DocumentReferenceAdapter : ResourceAdapter<DocumentReference.Rootobject, DocumentReferenceSibling>
+    internal class DocumentReferenceAdapter : ResourceAdapterBase<DocumentReference.Rootobject, DocumentReferenceSibling>
     {
         public override DocumentReferenceSibling CreateOriginal(ResourceGroupProcessor processor, DocumentReference.Rootobject json)
         {

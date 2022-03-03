@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public string Id;
     }
 
-    internal class ObservationAdapter : ResourceAdapter<Observation.Rootobject, ObservationSibling>
+    internal class ObservationAdapter : ResourceAdapterBase<Observation.Rootobject, ObservationSibling>
     {
         public override ObservationSibling CreateOriginal(ResourceGroupProcessor processor, Observation.Rootobject json)
         {

@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public string Id;
     }
 
-    internal class OrganizationAdapter : ResourceAdapter<Organization.Rootobject, OrganizationSibling>
+    internal class OrganizationAdapter : ResourceAdapterBase<Organization.Rootobject, OrganizationSibling>
     {
         public override OrganizationSibling CreateOriginal(ResourceGroupProcessor processor, Organization.Rootobject json)
         {

@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public string Id;
     }
 
-    internal class MedicationRequestAdapter : ResourceAdapter<MedicationRequest.Rootobject, MedicationRequestSibling>
+    internal class MedicationRequestAdapter : ResourceAdapterBase<MedicationRequest.Rootobject, MedicationRequestSibling>
     {
         public override MedicationRequestSibling CreateOriginal(ResourceGroupProcessor processor, MedicationRequest.Rootobject json)
         {

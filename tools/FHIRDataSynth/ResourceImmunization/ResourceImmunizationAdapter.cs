@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class ImmunizationAdapter : ResourceAdapter<Immunization.Rootobject, ImmunizationSibling>
+    internal class ImmunizationAdapter : ResourceAdapterBase<Immunization.Rootobject, ImmunizationSibling>
     {
         public override ImmunizationSibling CreateOriginal(ResourceGroupProcessor processor, Immunization.Rootobject json)
         {

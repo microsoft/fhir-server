@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class DiagnosticReportAdapter : ResourceAdapter<DiagnosticReport.Rootobject, DiagnosticReportSibling>
+    internal class DiagnosticReportAdapter : ResourceAdapterBase<DiagnosticReport.Rootobject, DiagnosticReportSibling>
     {
         public override DiagnosticReportSibling CreateOriginal(ResourceGroupProcessor processor, DiagnosticReport.Rootobject json)
         {

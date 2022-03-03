@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class DeviceAdapter : ResourceAdapter<Device.Rootobject, DeviceSibling>
+    internal class DeviceAdapter : ResourceAdapterBase<Device.Rootobject, DeviceSibling>
     {
         public override DeviceSibling CreateOriginal(ResourceGroupProcessor processor, Device.Rootobject json)
         {

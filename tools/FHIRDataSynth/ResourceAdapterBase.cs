@@ -39,7 +39,7 @@ namespace ResourceProcessorNamespace
         }
     }
 
-    internal abstract class ResourceAdapter<T, TS>
+    internal abstract class ResourceAdapterBase<T, TS>
         where T : class
         where TS : struct
     {

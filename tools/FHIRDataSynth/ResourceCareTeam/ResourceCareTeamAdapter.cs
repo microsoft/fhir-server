@@ -14,7 +14,7 @@ namespace ResourceProcessorNamespace
         public string subjectRef;*/
     }
 
-    internal class CareTeamAdapter : ResourceAdapter<CareTeam.Rootobject, CareTeamSibling>
+    internal class CareTeamAdapter : ResourceAdapterBase<CareTeam.Rootobject, CareTeamSibling>
     {
         public override CareTeamSibling CreateOriginal(ResourceGroupProcessor processor, CareTeam.Rootobject json)
         {

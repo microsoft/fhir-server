@@ -13,7 +13,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class StructureDefinitionAdapter : ResourceAdapter<StructureDefinition.Rootobject, StructureDefinitionSibling>
+    internal class StructureDefinitionAdapter : ResourceAdapterBase<StructureDefinition.Rootobject, StructureDefinitionSibling>
     {
         public override StructureDefinitionSibling CreateOriginal(ResourceGroupProcessor processor, StructureDefinition.Rootobject json)
         {

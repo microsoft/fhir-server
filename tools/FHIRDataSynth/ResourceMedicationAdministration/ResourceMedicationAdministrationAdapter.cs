@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class MedicationAdministrationAdapter : ResourceAdapter<MedicationAdministration.Rootobject, MedicationAdministrationSibling>
+    internal class MedicationAdministrationAdapter : ResourceAdapterBase<MedicationAdministration.Rootobject, MedicationAdministrationSibling>
     {
         public override MedicationAdministrationSibling CreateOriginal(ResourceGroupProcessor processor, MedicationAdministration.Rootobject json)
         {

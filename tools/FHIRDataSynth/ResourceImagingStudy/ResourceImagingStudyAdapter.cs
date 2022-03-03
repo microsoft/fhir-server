@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class ImagingStudyAdapter : ResourceAdapter<ImagingStudy.Rootobject, ImagingStudySibling>
+    internal class ImagingStudyAdapter : ResourceAdapterBase<ImagingStudy.Rootobject, ImagingStudySibling>
     {
         public override ImagingStudySibling CreateOriginal(ResourceGroupProcessor processor, ImagingStudy.Rootobject json)
         {

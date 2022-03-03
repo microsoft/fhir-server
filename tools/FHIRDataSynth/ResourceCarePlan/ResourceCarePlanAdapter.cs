@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class CarePlanAdapter : ResourceAdapter<CarePlan.Rootobject, CarePlanSibling>
+    internal class CarePlanAdapter : ResourceAdapterBase<CarePlan.Rootobject, CarePlanSibling>
     {
         public override CarePlanSibling CreateOriginal(ResourceGroupProcessor processor, CarePlan.Rootobject json)
         {

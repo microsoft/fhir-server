@@ -15,7 +15,7 @@ namespace ResourceProcessorNamespace
         public string ServiceProviderRef; // Organization.
     }
 
-    internal class EncounterAdapter : ResourceAdapter<Encounter.Rootobject, EncounterSibling>
+    internal class EncounterAdapter : ResourceAdapterBase<Encounter.Rootobject, EncounterSibling>
     {
         public override EncounterSibling CreateOriginal(ResourceGroupProcessor processor, Encounter.Rootobject json)
         {

@@ -12,7 +12,7 @@ namespace ResourceProcessorNamespace
         public string Id;
     }
 
-    internal class ClaimAdapter : ResourceAdapter<Claim.Rootobject, ClaimSibling>
+    internal class ClaimAdapter : ResourceAdapterBase<Claim.Rootobject, ClaimSibling>
     {
         public override ClaimSibling CreateOriginal(ResourceGroupProcessor processor, Claim.Rootobject json)
         {

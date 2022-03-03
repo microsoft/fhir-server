@@ -15,7 +15,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class CommunicationAdapter : ResourceAdapter<Communication.Rootobject, CommunicationSibling>
+    internal class CommunicationAdapter : ResourceAdapterBase<Communication.Rootobject, CommunicationSibling>
     {
         public override CommunicationSibling CreateOriginal(ResourceGroupProcessor processor, Communication.Rootobject json)
         {

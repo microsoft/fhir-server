@@ -251,7 +251,7 @@ namespace ResourceProcessorNamespace
             JsonSerializerOptions options,
             Dictionary<string, ResourceSiblingsContainer<TS>> resourcesCollection,
             HashSet<string> resourcesRemovedSet,
-            ResourceAdapter<T, TS> adapter,
+            ResourceAdapterBase<T, TS> adapter,
             ResourcesResult result,
             Dictionary<string, ResourcesResult> ret)
             where T : class
@@ -333,7 +333,7 @@ namespace ResourceProcessorNamespace
 
         private async Task ProcessResources<T, TS>(
             string resourceName,
-            ResourceAdapter<T, TS> adapter,
+            ResourceAdapterBase<T, TS> adapter,
             TargetRatios.TargetProfile targetProfile,
             JsonSerializerOptions options,
             Dictionary<string, ResourceSiblingsContainer<TS>> resourcesCollection,
@@ -400,7 +400,7 @@ namespace ResourceProcessorNamespace
 
         private async Task ProcessResourcesX<T, TS>(
             string resourceName,
-            ResourceAdapter<T, TS> adapter,
+            ResourceAdapterBase<T, TS> adapter,
             TargetRatios.TargetProfile targetProfile,
             JsonSerializerOptions options,
             Dictionary<string, ResourceSiblingsContainer<TS>> resourcesCollection,
@@ -425,7 +425,7 @@ namespace ResourceProcessorNamespace
             ResourcesResult result = new ResourcesResult();
             {
                 HashSet<string> duplicateIdsCheck = new HashSet<string>();
-                foreach (ResourceAdapter<T, TS>.EnumeratorItem item in adapter)
+                foreach (ResourceAdapterBase<T, TS>.EnumeratorItem item in adapter)
                 {
                     result.InputResourcesSize += item.Size;
                     if (!ValidateIdAndResourceType(adapter.GetId(item.Json), adapter.GetResourceType(item.Json), resourceName, duplicateIdsCheck))

@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class ConditionAdapter : ResourceAdapter<Condition.Rootobject, ConditionSibling>
+    internal class ConditionAdapter : ResourceAdapterBase<Condition.Rootobject, ConditionSibling>
     {
         public override ConditionSibling CreateOriginal(ResourceGroupProcessor processor, Condition.Rootobject json)
         {

@@ -11,7 +11,7 @@ namespace ResourceProcessorNamespace
     {
     }
 
-    internal class SupplyDeliveryAdapter : ResourceAdapter<SupplyDelivery.Rootobject, SupplyDeliverySibling>
+    internal class SupplyDeliveryAdapter : ResourceAdapterBase<SupplyDelivery.Rootobject, SupplyDeliverySibling>
     {
         public override SupplyDeliverySibling CreateOriginal(ResourceGroupProcessor processor, SupplyDelivery.Rootobject json)
         {
