@@ -103,12 +103,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                     return false;
                 }
 
-                if (!x.StartDateTime2.Equals(y.StartDateTime2))
+                if (!DateTimeOffset.Equals(x.StartDateTime2, y.StartDateTime2))
                 {
                     return false;
                 }
 
-                if (!x.EndDateTime2.Equals(y.EndDateTime2))
+                if (!DateTimeOffset.Equals(x.EndDateTime2, y.EndDateTime2))
                 {
                     return false;
                 }

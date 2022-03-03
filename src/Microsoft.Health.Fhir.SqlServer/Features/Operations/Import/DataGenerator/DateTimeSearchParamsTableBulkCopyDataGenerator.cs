@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -90,12 +91,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
                     return false;
                 }
 
-                if (!x.StartDateTime.Equals(y.StartDateTime))
+                if (!DateTimeOffset.Equals(x.StartDateTime, y.StartDateTime))
                 {
                     return false;
                 }
 
-                if (!x.EndDateTime.Equals(y.EndDateTime))
+                if (!DateTimeOffset.Equals(x.EndDateTime, y.EndDateTime))
                 {
                     return false;
                 }
