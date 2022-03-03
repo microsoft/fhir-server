@@ -67,7 +67,8 @@ namespace ResourceProcessorNamespace
 
         protected abstract bool OnlyVerifyInput { get; }
 
-        public Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>> AllergyIntolerances { get; } = new Dictionary<string, ResourceSiblingsContainer<AllergyIntoleranceSibling>>();
+        public Dictionary<string, ResourceSiblingsContainer<ResourceAllergyIntoleranceAdapter.AllergyIntoleranceSibling>> AllergyIntolerances { get; } =
+            new Dictionary<string, ResourceSiblingsContainer<ResourceAllergyIntoleranceAdapter.AllergyIntoleranceSibling>>();
 
         public HashSet<string> AllergyIntoleranceIdsRemoved { get; } = new HashSet<string>();
 
@@ -485,7 +486,7 @@ namespace ResourceProcessorNamespace
 
             await ProcessResourcesX(CommunicationStr, new CommunicationAdapter(), targetProfile, options, Communications, CommunicationIdsRemoved, ret);
 
-            await ProcessResources(AllergyIntoleranceStr, new AllergyIntoleranceAdapter(), targetProfile, options, AllergyIntolerances, AllergyIntoleranceIdsRemoved, ret);
+            await ProcessResources(AllergyIntoleranceStr, new ResourceAllergyIntoleranceAdapter(), targetProfile, options, AllergyIntolerances, AllergyIntoleranceIdsRemoved, ret);
             await ProcessResources(DeviceStr, new DeviceAdapter(), targetProfile, options, Devices, DeviceIdsRemoved, ret);
             await ProcessResources(SupplyDeliveryStr, new SupplyDeliveryAdapter(), targetProfile, options, SupplyDeliveries, SupplyDeliveryIdsRemoved, ret);
 

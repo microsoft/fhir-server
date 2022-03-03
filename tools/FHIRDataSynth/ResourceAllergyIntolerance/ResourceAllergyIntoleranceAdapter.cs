@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct AllergyIntoleranceSibling
-    {
-    }
-
-    internal class AllergyIntoleranceAdapter : ResourceAdapterBase<AllergyIntolerance.Rootobject, AllergyIntoleranceSibling>
+    internal class ResourceAllergyIntoleranceAdapter : ResourceAdapterBase<AllergyIntolerance.Rootobject, ResourceAllergyIntoleranceAdapter.AllergyIntoleranceSibling>
     {
         public override AllergyIntoleranceSibling CreateOriginal(ResourceGroupProcessor processor, AllergyIntolerance.Rootobject json)
         {
@@ -52,6 +48,10 @@ namespace ResourceProcessorNamespace
             }
 
             return processor.ValidateResourceRefAndSelect(json.id, ResourceGroupProcessor.AllergyIntoleranceStr, json.patient.reference, ResourceGroupProcessor.PatientStr, processor.Patients, processor.PatientIdsRemoved, ref select);
+        }
+
+        internal struct AllergyIntoleranceSibling
+        {
         }
     }
 }
