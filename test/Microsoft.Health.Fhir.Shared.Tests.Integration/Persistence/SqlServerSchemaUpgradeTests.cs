@@ -23,8 +23,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Manager;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Xunit;
@@ -128,12 +130,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var defaultSqlConnectionBuilder = new DefaultSqlConnectionBuilder(sqlConnectionStringProvider, config);
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
+            var sqlTransactionHandler = new SqlTransactionHandler();
+            var defaultSqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(sqlTransactionHandler, new SqlCommandWrapperFactory(), defaultSqlConnectionBuilder);
+
             SqlServerFhirModel sqlServerFhirModel = new SqlServerFhirModel(
                 schemaInformation,
                 defManager,
                 () => statusStore,
                 Options.Create(securityConfiguration),
-                defaultSqlConnectionBuilder,
+                () => defaultSqlConnectionWrapperFactory.CreateMockScope(),
                 Substitute.For<IMediator>(),
                 NullLogger<SqlServerFhirModel>.Instance);
 
