@@ -11,34 +11,6 @@ using FHIRDataSynth;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct ResourceSiblingsContainer<T>
-        where T : struct
-    {
-        private T[] siblings;
-
-        public ResourceSiblingsContainer(T[] siblings)
-        {
-            this.siblings = siblings;
-        }
-
-        public int Count { get => siblings.Length; }
-
-        public ref T Get(int siblingNumber, string resourceGroupDir, string resourceName, string resourceId)
-        {
-            if (siblingNumber >= Count)
-            {
-                throw new FHIRDataSynthException(resourceGroupDir, resourceName, resourceId, "Sibling array index too big.");
-            }
-
-            return ref siblings[siblingNumber];
-        }
-
-        public ref T GetOriginal()
-        {
-            return ref siblings[0]; // There is always at least one and first one is always original sibling.
-        }
-    }
-
     internal abstract class ResourceAdapterBase<T, TS>
         where T : class
         where TS : struct
