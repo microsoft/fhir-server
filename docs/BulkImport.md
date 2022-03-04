@@ -128,7 +128,7 @@ Content-Type:application/fhir+json
                 },
                 {
                     "name": "etag",
-                    "valueUri": "\"0x8D92A7342657F4F""
+                    "valueUri": "\"0x8D92A7342657F4F\""
                 }
             ]
         },
@@ -266,6 +266,27 @@ Below are some errors you may encounter:
 
 **Solution:** Assign _Storage Blob Data Contributor_ role to the FHIR server following [the RBAC guide.](https://docs.microsoft.com/en-us/azure/role-based-access-control/role-assignments-portal?tabs=current)
 
+### 404 The requested route was not found
+
+**Behavior:** Import operation fails and returns `404` error. 
+    
+```json
+{
+  "resourceType": "OperationOutcome",
+  "id": "e2e8aff8-418f-4d23-b809-845176e66fb2",
+  "issue": [
+    {
+      "severity": "error",
+      "code": "not-found",
+      "diagnostics": "The requested route was not found."
+    }
+  ]
+}
+```
+**Cause:** Get method is used. 
+    
+**Solution:**: Replace Get methond with Post method.
+    
 ### 500 Internal Server Error
 
 **Behavior:** Import operation failed and ```500 Internal Server Error``` is returned. Response body has this content:
@@ -287,27 +308,6 @@ Below are some errors you may encounter:
 **Cause:** SQL server disk is exhausted
 
 **Solution:** Ensure that the storage available on your Azure SQL is at least 3 times that of the sum of your NDJSON files.
-    
-### 404 The requested route was not found
-
-**Behavior:** Import operation fails and returns `404` error. 
-    
-```json
-{
-  "resourceType": "OperationOutcome",
-  "id": "e2e8aff8-418f-4d23-b809-845176e66fb2",
-  "issue": [
-    {
-      "severity": "error",
-      "code": "not-found",
-      "diagnostics": "The requested route was not found."
-    }
-  ]
-}
-```
-**Cause:** Get method is used. 
-    
-**Solution:**: Replace Get methond with Post method.
 
 ## Best practices and tips for increasing throughput
 
