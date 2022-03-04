@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct ProcedureSibling
-    {
-    }
-
-    internal class ProcedureAdapter : ResourceAdapterBase<Procedure.Rootobject, ProcedureSibling>
+    internal class ResourceProcedureAdapter : ResourceAdapterBase<Procedure.Rootobject, ResourceProcedureAdapter.ProcedureSibling>
     {
         public override ProcedureSibling CreateOriginal(ResourceGroupProcessor processor, Procedure.Rootobject json)
         {
@@ -69,6 +65,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct ProcedureSibling
+        {
         }
     }
 }

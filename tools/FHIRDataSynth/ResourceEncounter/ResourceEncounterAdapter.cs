@@ -7,15 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct EncounterSibling
-    {
-        public string Id;
-        public string SubjectRef; // Patient.
-        public string ParticipantRef; // Practitioner.
-        public string ServiceProviderRef; // Organization.
-    }
-
-    internal class EncounterAdapter : ResourceAdapterBase<Encounter.Rootobject, EncounterSibling>
+    internal class ResourceEncounterAdapter : ResourceAdapterBase<Encounter.Rootobject, ResourceEncounterAdapter.EncounterSibling>
     {
         public override EncounterSibling CreateOriginal(ResourceGroupProcessor processor, Encounter.Rootobject json)
         {
@@ -126,6 +118,14 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct EncounterSibling
+        {
+            public string Id;
+            public string SubjectRef; // Patient.
+            public string ParticipantRef; // Practitioner.
+            public string ServiceProviderRef; // Organization.
         }
     }
 }

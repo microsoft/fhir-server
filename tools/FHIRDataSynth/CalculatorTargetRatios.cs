@@ -190,9 +190,9 @@ namespace FHIRDataSynth
                 throw new FHIRDataSynthException($"Mismatch between resource names in files '{blobGroupsInfoPath}' and '{oneGroupInfoPath}'");
             }
 
-            AddCalculationDataX(blendProfile, calculationData, CommunicationAdapter.Enumerator.GetResourceSize, "Communication");
-            AddCalculationDataX(blendProfile, calculationData, DocumentReferenceAdapter.Enumerator.GetResourceSize, "DocumentReference");
-            AddCalculationDataX(blendProfile, calculationData, StructureDefinitionAdapter.Enumerator.GetResourceSize, "StructureDefinition");
+            AddCalculationDataX(blendProfile, calculationData, ResourceXCommunicationAdapter.Enumerator.GetResourceSize, "Communication");
+            AddCalculationDataX(blendProfile, calculationData, ResourceXDocumentReferenceAdapter.Enumerator.GetResourceSize, "DocumentReference");
+            AddCalculationDataX(blendProfile, calculationData, ResourceXStructureDefinitionAdapter.Enumerator.GetResourceSize, "StructureDefinition");
 
             // Done with data loading. Now do calculations.
 

@@ -7,12 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct PatientSibling
-    {
-        public string Id;
-    }
-
-    internal class PatientAdapter : ResourceAdapterBase<Patient.Rootobject, PatientSibling>
+    internal class ResourcePatientAdapter : ResourceAdapterBase<Patient.Rootobject, ResourcePatientAdapter.PatientSibling>
     {
         public override PatientSibling CreateOriginal(ResourceGroupProcessor processor, Patient.Rootobject json)
         {
@@ -50,6 +45,11 @@ namespace ResourceProcessorNamespace
         {
             select = true;
             return true;
+        }
+
+        internal struct PatientSibling
+        {
+            public string Id;
         }
     }
 }

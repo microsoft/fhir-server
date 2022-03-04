@@ -11,11 +11,7 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct DocumentReferenceSibling
-    {
-    }
-
-    internal class DocumentReferenceAdapter : ResourceAdapterBase<DocumentReference.Rootobject, DocumentReferenceSibling>
+    internal class ResourceXDocumentReferenceAdapter : ResourceAdapterBase<DocumentReference.Rootobject, ResourceXDocumentReferenceAdapter.DocumentReferenceSibling>
     {
         public override DocumentReferenceSibling CreateOriginal(ResourceGroupProcessor processor, DocumentReference.Rootobject json)
         {
@@ -207,9 +203,13 @@ namespace ResourceProcessorNamespace
             return new Enumerator(Processor, Options);
         }
 
-        public class Enumerator : EnumeratorBase<EncounterSibling>
+        internal struct DocumentReferenceSibling
         {
-            private Dictionary<string, ResourceSiblingsContainer<EncounterSibling>>.Enumerator enumerator;
+        }
+
+        public class Enumerator : EnumeratorBase<ResourceEncounterAdapter.EncounterSibling>
+        {
+            private Dictionary<string, ResourceSiblingsContainer<ResourceEncounterAdapter.EncounterSibling>>.Enumerator enumerator;
 
             public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
                 : base(processor, options)
@@ -217,7 +217,7 @@ namespace ResourceProcessorNamespace
                 enumerator = processor.Encounters.GetEnumerator();
             }
 
-            protected override EncounterSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
+            protected override ResourceEncounterAdapter.EncounterSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
 
             protected override bool InitializerMoveNext()
             {
@@ -229,7 +229,7 @@ namespace ResourceProcessorNamespace
                 return LoadFHIRExampleFileS();
             }
 
-            protected override void InitializeFHIRExample(DocumentReference.Rootobject json, EncounterSibling initializer)
+            protected override void InitializeFHIRExample(DocumentReference.Rootobject json, ResourceEncounterAdapter.EncounterSibling initializer)
             {
                 InitializeFHIRExampleS(json, initializer);
             }
@@ -240,7 +240,7 @@ namespace ResourceProcessorNamespace
                 return JsonSerializer.Deserialize<DocumentReference.Rootobject>(text);
             }
 
-            private static void InitializeFHIRExampleS(DocumentReference.Rootobject json, EncounterSibling initializer)
+            private static void InitializeFHIRExampleS(DocumentReference.Rootobject json, ResourceEncounterAdapter.EncounterSibling initializer)
             {
                 json.id = Guid.NewGuid().ToString();
                 if (initializer.SubjectRef != null)
@@ -284,7 +284,7 @@ namespace ResourceProcessorNamespace
             public static int GetResourceSize()
             {
                 DocumentReference.Rootobject json = LoadFHIRExampleFileS();
-                EncounterSibling initializer = default(EncounterSibling);
+                ResourceEncounterAdapter.EncounterSibling initializer = default(ResourceEncounterAdapter.EncounterSibling);
                 initializer.Id = Guid.NewGuid().ToString();
                 initializer.SubjectRef = ResourceGroupProcessor.PatientPrefix + Guid.NewGuid().ToString();
                 initializer.ParticipantRef = ResourceGroupProcessor.PractitionerPrefix + Guid.NewGuid().ToString();

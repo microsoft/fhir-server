@@ -7,12 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct OrganizationSibling
-    {
-        public string Id;
-    }
-
-    internal class OrganizationAdapter : ResourceAdapterBase<Organization.Rootobject, OrganizationSibling>
+    internal class ResourceOrganizationAdapter : ResourceAdapterBase<Organization.Rootobject, ResourceOrganizationAdapter.OrganizationSibling>
     {
         public override OrganizationSibling CreateOriginal(ResourceGroupProcessor processor, Organization.Rootobject json)
         {
@@ -55,6 +50,11 @@ namespace ResourceProcessorNamespace
         {
             select = true;
             return true;
+        }
+
+        internal struct OrganizationSibling
+        {
+            public string Id;
         }
     }
 }

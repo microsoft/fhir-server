@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct ImagingStudySibling
-    {
-    }
-
-    internal class ImagingStudyAdapter : ResourceAdapterBase<ImagingStudy.Rootobject, ImagingStudySibling>
+    internal class ResourceImagingStudyAdapter : ResourceAdapterBase<ImagingStudy.Rootobject, ResourceImagingStudyAdapter.ImagingStudySibling>
     {
         public override ImagingStudySibling CreateOriginal(ResourceGroupProcessor processor, ImagingStudy.Rootobject json)
         {
@@ -69,6 +65,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct ImagingStudySibling
+        {
         }
     }
 }

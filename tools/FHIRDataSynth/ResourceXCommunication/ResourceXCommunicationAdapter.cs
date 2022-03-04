@@ -11,11 +11,7 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct CommunicationSibling
-    {
-    }
-
-    internal class CommunicationAdapter : ResourceAdapterBase<Communication.Rootobject, CommunicationSibling>
+    internal class ResourceXCommunicationAdapter : ResourceAdapterBase<Communication.Rootobject, ResourceXCommunicationAdapter.CommunicationSibling>
     {
         public override CommunicationSibling CreateOriginal(ResourceGroupProcessor processor, Communication.Rootobject json)
         {
@@ -66,9 +62,13 @@ namespace ResourceProcessorNamespace
             return new Enumerator(Processor, Options);
         }
 
-        public class Enumerator : EnumeratorBase<PatientSibling>
+        internal struct CommunicationSibling
         {
-            private Dictionary<string, ResourceSiblingsContainer<PatientSibling>>.Enumerator enumerator;
+        }
+
+        public class Enumerator : EnumeratorBase<ResourcePatientAdapter.PatientSibling>
+        {
+            private Dictionary<string, ResourceSiblingsContainer<ResourcePatientAdapter.PatientSibling>>.Enumerator enumerator;
 
             public Enumerator(ResourceGroupProcessor processor, JsonSerializerOptions options)
                 : base(processor, options)
@@ -76,7 +76,7 @@ namespace ResourceProcessorNamespace
                 enumerator = processor.Patients.GetEnumerator();
             }
 
-            protected override PatientSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
+            protected override ResourcePatientAdapter.PatientSibling InitializerCurrent { get => enumerator.Current.Value.GetOriginal(); }
 
             protected override bool InitializerMoveNext()
             {
@@ -88,7 +88,7 @@ namespace ResourceProcessorNamespace
                 return LoadFHIRExampleFileS();
             }
 
-            protected override void InitializeFHIRExample(Communication.Rootobject json, PatientSibling initializer)
+            protected override void InitializeFHIRExample(Communication.Rootobject json, ResourcePatientAdapter.PatientSibling initializer)
             {
                 InitializeFHIRExampleS(json, initializer);
             }
@@ -99,7 +99,7 @@ namespace ResourceProcessorNamespace
                 return JsonSerializer.Deserialize<Communication.Rootobject>(text);
             }
 
-            private static void InitializeFHIRExampleS(Communication.Rootobject json, PatientSibling initializer)
+            private static void InitializeFHIRExampleS(Communication.Rootobject json, ResourcePatientAdapter.PatientSibling initializer)
             {
                 json.id = Guid.NewGuid().ToString();
                 json.subject.reference = ResourceGroupProcessor.PatientPrefix + initializer.Id;
@@ -108,7 +108,7 @@ namespace ResourceProcessorNamespace
             public static int GetResourceSize()
             {
                 Communication.Rootobject json = LoadFHIRExampleFileS();
-                PatientSibling initializer = default(PatientSibling);
+                ResourcePatientAdapter.PatientSibling initializer = default(ResourcePatientAdapter.PatientSibling);
                 initializer.Id = Guid.NewGuid().ToString();
                 InitializeFHIRExampleS(json, initializer);
                 return JsonSerializer.Serialize(json).Length;

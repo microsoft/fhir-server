@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct ConditionSibling
-    {
-    }
-
-    internal class ConditionAdapter : ResourceAdapterBase<Condition.Rootobject, ConditionSibling>
+    internal class ResourceConditionAdapter : ResourceAdapterBase<Condition.Rootobject, ResourceConditionAdapter.ConditionSibling>
     {
         public override ConditionSibling CreateOriginal(ResourceGroupProcessor processor, Condition.Rootobject json)
         {
@@ -67,6 +63,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct ConditionSibling
+        {
         }
     }
 }

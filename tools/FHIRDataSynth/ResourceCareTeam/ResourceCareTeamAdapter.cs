@@ -7,14 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct CareTeamSibling
-    {
-        public string Id;
-        /*public string encounterRef;
-        public string subjectRef;*/
-    }
-
-    internal class CareTeamAdapter : ResourceAdapterBase<CareTeam.Rootobject, CareTeamSibling>
+    internal class ResourceCareTeamAdapter : ResourceAdapterBase<CareTeam.Rootobject, ResourceCareTeamAdapter.CareTeamSibling>
     {
         public override CareTeamSibling CreateOriginal(ResourceGroupProcessor processor, CareTeam.Rootobject json)
         {
@@ -336,6 +329,13 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct CareTeamSibling
+        {
+            public string Id;
+            /*public string encounterRef;
+            public string subjectRef;*/
         }
     }
 }

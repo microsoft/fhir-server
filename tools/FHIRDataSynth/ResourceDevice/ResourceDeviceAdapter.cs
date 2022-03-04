@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct DeviceSibling
-    {
-    }
-
-    internal class DeviceAdapter : ResourceAdapterBase<Device.Rootobject, DeviceSibling>
+    internal class ResourceDeviceAdapter : ResourceAdapterBase<Device.Rootobject, ResourceDeviceAdapter.DeviceSibling>
     {
         public override DeviceSibling CreateOriginal(ResourceGroupProcessor processor, Device.Rootobject json)
         {
@@ -53,6 +49,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct DeviceSibling
+        {
         }
     }
 }

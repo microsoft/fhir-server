@@ -9,11 +9,7 @@ using System.Text.Json;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct StructureDefinitionSibling
-    {
-    }
-
-    internal class StructureDefinitionAdapter : ResourceAdapterBase<StructureDefinition.Rootobject, StructureDefinitionSibling>
+    internal class ResourceXStructureDefinitionAdapter : ResourceAdapterBase<StructureDefinition.Rootobject, ResourceXStructureDefinitionAdapter.StructureDefinitionSibling>
     {
         public override StructureDefinitionSibling CreateOriginal(ResourceGroupProcessor processor, StructureDefinition.Rootobject json)
         {
@@ -52,6 +48,10 @@ namespace ResourceProcessorNamespace
         public override Enumerator GetEnumerator()
         {
             return new Enumerator(Processor, Options);
+        }
+
+        internal struct StructureDefinitionSibling
+        {
         }
 
         public class Enumerator : EnumeratorBase<int>

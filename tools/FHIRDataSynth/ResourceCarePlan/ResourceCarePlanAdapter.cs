@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct CarePlanSibling
-    {
-    }
-
-    internal class CarePlanAdapter : ResourceAdapterBase<CarePlan.Rootobject, CarePlanSibling>
+    internal class ResourceCarePlanAdapter : ResourceAdapterBase<CarePlan.Rootobject, ResourceCarePlanAdapter.CarePlanSibling>
     {
         public override CarePlanSibling CreateOriginal(ResourceGroupProcessor processor, CarePlan.Rootobject json)
         {
@@ -167,6 +163,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct CarePlanSibling
+        {
         }
     }
 }

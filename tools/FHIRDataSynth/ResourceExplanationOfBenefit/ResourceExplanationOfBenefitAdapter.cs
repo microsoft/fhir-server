@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct ExplanationOfBenefitSibling
-    {
-    }
-
-    internal class ExplanationOfBenefitAdapter : ResourceAdapterBase<ExplanationOfBenefit.Rootobject, ExplanationOfBenefitSibling>
+    internal class ResourceExplanationOfBenefitAdapter : ResourceAdapterBase<ExplanationOfBenefit.Rootobject, ResourceExplanationOfBenefitAdapter.ExplanationOfBenefitSibling>
     {
         public override ExplanationOfBenefitSibling CreateOriginal(ResourceGroupProcessor processor, ExplanationOfBenefit.Rootobject json)
         {
@@ -393,6 +389,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct ExplanationOfBenefitSibling
+        {
         }
     }
 }

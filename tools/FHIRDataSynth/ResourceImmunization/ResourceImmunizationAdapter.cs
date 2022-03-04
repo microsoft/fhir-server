@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct ImmunizationSibling
-    {
-    }
-
-    internal class ImmunizationAdapter : ResourceAdapterBase<Immunization.Rootobject, ImmunizationSibling>
+    internal class ResourceImmunizationAdapter : ResourceAdapterBase<Immunization.Rootobject, ResourceImmunizationAdapter.ImmunizationSibling>
     {
         public override ImmunizationSibling CreateOriginal(ResourceGroupProcessor processor, Immunization.Rootobject json)
         {
@@ -69,6 +65,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct ImmunizationSibling
+        {
         }
     }
 }

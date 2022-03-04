@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct DiagnosticReportSibling
-    {
-    }
-
-    internal class DiagnosticReportAdapter : ResourceAdapterBase<DiagnosticReport.Rootobject, DiagnosticReportSibling>
+    internal class ResourceDiagnosticReportAdapter : ResourceAdapterBase<DiagnosticReport.Rootobject, ResourceDiagnosticReportAdapter.DiagnosticReportSibling>
     {
         public override DiagnosticReportSibling CreateOriginal(ResourceGroupProcessor processor, DiagnosticReport.Rootobject json)
         {
@@ -95,6 +91,10 @@ namespace ResourceProcessorNamespace
 
             select = s;
             return true;
+        }
+
+        internal struct DiagnosticReportSibling
+        {
         }
     }
 }

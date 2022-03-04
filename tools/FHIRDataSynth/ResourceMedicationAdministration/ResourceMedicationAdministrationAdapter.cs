@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct MedicationAdministrationSibling
-    {
-    }
-
-    internal class MedicationAdministrationAdapter : ResourceAdapterBase<MedicationAdministration.Rootobject, MedicationAdministrationSibling>
+    internal class ResourceMedicationAdministrationAdapter : ResourceAdapterBase<MedicationAdministration.Rootobject, ResourceMedicationAdministrationAdapter.MedicationAdministrationSibling>
     {
         public override MedicationAdministrationSibling CreateOriginal(ResourceGroupProcessor processor, MedicationAdministration.Rootobject json)
         {
@@ -69,6 +65,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct MedicationAdministrationSibling
+        {
         }
     }
 }

@@ -7,11 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct SupplyDeliverySibling
-    {
-    }
-
-    internal class SupplyDeliveryAdapter : ResourceAdapterBase<SupplyDelivery.Rootobject, SupplyDeliverySibling>
+    internal class ResourceSupplyDeliveryAdapter : ResourceAdapterBase<SupplyDelivery.Rootobject, ResourceSupplyDeliveryAdapter.SupplyDeliverySibling>
     {
         public override SupplyDeliverySibling CreateOriginal(ResourceGroupProcessor processor, SupplyDelivery.Rootobject json)
         {
@@ -55,6 +51,10 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct SupplyDeliverySibling
+        {
         }
     }
 }

@@ -7,12 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct ClaimSibling
-    {
-        public string Id;
-    }
-
-    internal class ClaimAdapter : ResourceAdapterBase<Claim.Rootobject, ClaimSibling>
+    internal class ResourceClaimAdapter : ResourceAdapterBase<Claim.Rootobject, ResourceClaimAdapter.ClaimSibling>
     {
         public override ClaimSibling CreateOriginal(ResourceGroupProcessor processor, Claim.Rootobject json)
         {
@@ -194,6 +189,11 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct ClaimSibling
+        {
+            public string Id;
         }
     }
 }

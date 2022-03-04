@@ -7,12 +7,7 @@ using System;
 
 namespace ResourceProcessorNamespace
 {
-    internal struct ObservationSibling
-    {
-        public string Id;
-    }
-
-    internal class ObservationAdapter : ResourceAdapterBase<Observation.Rootobject, ObservationSibling>
+    internal class ResourceObservationAdapter : ResourceAdapterBase<Observation.Rootobject, ResourceObservationAdapter.ObservationSibling>
     {
         public override ObservationSibling CreateOriginal(ResourceGroupProcessor processor, Observation.Rootobject json)
         {
@@ -82,6 +77,11 @@ namespace ResourceProcessorNamespace
             }
 
             return true;
+        }
+
+        internal struct ObservationSibling
+        {
+            public string Id;
         }
     }
 }
