@@ -44,16 +44,18 @@ Ensure the following settings are set correctly in your FHIR server:
 - **FhirServer__Operations__Import__Enabled**: True
 - **TaskHosting__Enabled**: True
 - **FhirServer__Operations__Import__MaxRunningProcessingTaskCount**: Not set as default or have value >0. We suggest it has a value >= instance count for performance.
-- **FhirServer__Operations__IntegrationDataStore__StorageAccountUri**: The URL of the Azure Storage Account used as adata source. For example: https://<accountName>.blob.core.windows.net/.<br>
+- **FhirServer__Operations__IntegrationDataStore__StorageAccountUri**: The URL of the Azure Storage Account used as adata source. For example: https://{accountName}.blob.core.windows.net/.<br>
                         **OR**
 - **FhirServer__Operations__IntegrationDataStore__StorageAccountConnection**: The connection string of the Azure Storage Account that's used as a data source.
-- 
+    
 ---
 **NOTE**
 
 There are two ways by which one can set the source storage account to import from. One way would be to use the connection string for the storage account and update the `FhirServer__Operations__IntegrationDataStore__StorageAccountConnection` setting. The FHIR server will use the connection string to connect to the storage account and import data.
 
 The other option would be to use the `FhirServer__Operations__IntegrationDataStore__StorageAccountUri` setting with the URI of the storage account. For this option, we assume that the FHIR server has permissions to contribute data to the corresponding storage account. One way to achieve this (assuming you are running the FHIR server code in the App Service with Managed Identity enabled) would be to give the App Service `Storage Blob Data Contributor` permissions for the storage account of your choice.
+
+With either option, you will specify the input ndjson files. These files can be stored in the same or different containers within the storage account.
 
 ---
 
@@ -151,7 +153,9 @@ Content-Type:application/fhir+json
 
 ### Check import status
 
-Make the REST call with the ```GET``` method to the **callback** link returned in the previous step. You can interpret the response using the following table:
+Make the REST call with the ```GET``` method to the link you can find in the **Content-Location** of the response in the previous step. For OSS deployment, you can look up the info in the TaskInfo table. 
+
+You can interpret the response using the following table:
 
 | Response code      | Reponse body |Description |
 | ----------- | -----------  |-----------  |
