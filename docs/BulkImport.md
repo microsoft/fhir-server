@@ -128,7 +128,7 @@ Content-Type:application/fhir+json
                 },
                 {
                     "name": "etag",
-                    "valueUri": "0x8D92A7342657F4F"
+                    "valueUri": "\"0x8D92A7342657F4F""
                 }
             ]
         },
@@ -200,7 +200,7 @@ Below are some of the important fields in the response body:
 ## Troubleshooting
 
 Below are some errors you may encounter:
-
+   
 ### 200 OK, but error URL in response
 
 **Behavior:** Import operation succeeds and returns ```200 OK```. However, `error.url` are present in the response body. Files present at the `error.url` location contains JSON fragments like in the example below:
@@ -287,6 +287,27 @@ Below are some errors you may encounter:
 **Cause:** SQL server disk is exhausted
 
 **Solution:** Ensure that the storage available on your Azure SQL is at least 3 times that of the sum of your NDJSON files.
+    
+### 404 The requested route was not found
+
+**Behavior:** Import operation fails and returns `404` error. 
+    
+```json
+{
+  "resourceType": "OperationOutcome",
+  "id": "e2e8aff8-418f-4d23-b809-845176e66fb2",
+  "issue": [
+    {
+      "severity": "error",
+      "code": "not-found",
+      "diagnostics": "The requested route was not found."
+    }
+  ]
+}
+```
+**Cause:** Get method is used. 
+    
+**Solution:**: Replace Get methond with Post method.
 
 ## Best practices and tips for increasing throughput
 
