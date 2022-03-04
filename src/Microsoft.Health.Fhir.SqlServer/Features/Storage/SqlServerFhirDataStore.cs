@@ -174,10 +174,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             }
 
                             goto default;
-                        case SqlErrorCodes.MethodNotAllowed:
-                            throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
-                        case SqlErrorCodes.TimeoutExpired:
-                            throw new RequestTimeoutException(Resources.ExecutionTimeoutExpired);
                         case 50400: // TODO: Add this to SQL error codes in AB#88286
                             // The backwards compatibility behavior of Stu3 is to return 412 Precondition Failed instead of a 400 Bad Request
                             if (_modelInfoProvider.Version == FhirSpecification.Stu3)

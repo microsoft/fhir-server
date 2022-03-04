@@ -150,14 +150,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
             }
             catch (SqlException ex)
             {
-                switch (ex.Number)
-                {
-                    case SqlErrorCodes.TimeoutExpired:
-                        throw new TimeoutException(ex.Message, ex);
-                    default:
-                        _logger.LogError(ex, string.Format(Resources.SqlExceptionOccurredWhenFetchingResourceChanges, ex.Number));
-                        throw;
-                }
+                _logger.LogError(ex, string.Format(Resources.SqlExceptionOccurredWhenFetchingResourceChanges, ex.Number));
+                throw;
             }
             catch (Exception ex)
             {
