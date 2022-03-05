@@ -53,7 +53,6 @@ namespace Microsoft.Health.Fhir.Import
             var globalLogPrefix = $"GlobalBlobRange=[{NumberOfBlobsToSkip + 1}-{NumberOfBlobsToImport}]";
             Console.WriteLine($"{globalLogPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
-            var currentBlob = NumberOfBlobsToSkip;
             var blobs = blobContainerClient.GetBlobs().Skip(NumberOfBlobsToSkip).Take(NumberOfBlobsToImport - NumberOfBlobsToSkip).ToList();
             var writers = 0L;
             var epCalls = 0L;
