@@ -311,12 +311,14 @@ namespace FHIRDataSynth
                         if (responseBody == null || responseBody.Length == 0)
                         {
                             resultNotReady = true;
+                            continue;
                         }
 
                         ServerImportResult serverImportResult = JsonSerializer.Deserialize<ServerImportResult>(responseBody);
                         if (serverImportResult.error != null && serverImportResult.error.Length != 0)
                         {
                             error = true;
+                            continue;
                         }
                     }
                 }
