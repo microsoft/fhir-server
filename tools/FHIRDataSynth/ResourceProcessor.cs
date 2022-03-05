@@ -91,6 +91,7 @@ namespace ResourceProcessorNamespace
                 Task<SortedSet<string>> groupDirsTask = GetResourceGroupDirsAsync();
                 groupDirsTask.Wait();
                 SortedSet<string> allResourceGroupDirs = groupDirsTask.Result;
+                allResourceGroupDirs.Remove(null);
                 if (targetProfile.resourceGroupsCount > allResourceGroupDirs.Count)
                 {
                     throw new ArgumentOutOfRangeException($"Resource groups count ({targetProfile.resourceGroupsCount}) in target ratios file is greater than the actual number of resource groups ({allResourceGroupDirs.Count}).");

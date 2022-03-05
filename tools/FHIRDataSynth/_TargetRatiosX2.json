@@ -2,7 +2,7 @@
   "targetRatios": [
     {
       "name": "multiply-x2",
-      "resourceGroupsCount": 4,
+      "resourceGroupsCount": 1,
       "ratios": {
         "AllergyIntolerance": 2.0,
         "CarePlan": 2.0,
