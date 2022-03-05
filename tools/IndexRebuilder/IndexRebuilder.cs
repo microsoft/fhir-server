@@ -29,6 +29,28 @@ namespace IndexRebuilder
             SwitchPartitionsOutAllTables(_rebuildClustered);
             var commands = GetCommandsForRebuildIndexes(_rebuildClustered);
             numberOfTables = commands.Select(_ => _.Item1).Distinct().Count();
+            cancel = RunCommands(commands);
+            if (cancel.IsSet)
+            {
+                return;
+            }
+
+            if (_rebuildClustered) // do other indexes because others were already done before
+            {
+                commands = GetCommandsForRebuildIndexes(false);
+                numberOfTables = commands.Select(_ => _.Item1).Distinct().Count();
+                cancel = RunCommands(commands);
+                if (cancel.IsSet)
+                {
+                    return;
+                }
+            }
+
+            SwitchPartitionsInAllTables();
+        }
+
+        private StoreUtils.CancelRequest RunCommands(IList<Tuple<string, IList<string>>> commands)
+        {
             var cancelInt = new StoreUtils.CancelRequest();
             StoreUtils.ParallelForEach(
                 commands,
@@ -51,15 +73,8 @@ namespace IndexRebuilder
                     }
                 },
                 cancelInt);
-            cancel = new StoreUtils.CancelRequest();
-            if (cancelInt.IsSet)
-            {
-                cancel.Set();
-            }
-            else
-            {
-                SwitchPartitionsInAllTables();
-            }
+
+            return cancelInt;
         }
 
         private IList<Tuple<string, IList<string>>> GetCommandsForRebuildIndexes(bool rebuildClustered) // Item1 is Table name, Items - list of SQL commands in the order they have to be executed
