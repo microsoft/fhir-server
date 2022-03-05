@@ -18,70 +18,97 @@ using Azure.Storage.Blobs.Models;
 using Microsoft.Health.Fhir.Store.Utils;
 using Newtonsoft.Json.Linq;
 
-namespace Import
+namespace Microsoft.Health.Fhir.Import
 {
     internal static class Importer
     {
         private static readonly HttpClient HttpClient = new HttpClient();
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
-        private static readonly string FhirServiceUrl = ConfigurationManager.AppSettings["FhirServiceUrl"];
+        private static readonly string FhirEndpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
+        private static string fhirEndpoint2 = ConfigurationManager.AppSettings["FhirEndpoint2"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
-        private static readonly int Threads = int.Parse(ConfigurationManager.AppSettings["Threads"]);
+        private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
+        private static readonly int ReadThreads = int.Parse(ConfigurationManager.AppSettings["ReadThreads"]);
+        private static readonly int WriteThreads = int.Parse(ConfigurationManager.AppSettings["WriteThreads"]);
         private static readonly int NumberOfBlobsToSkip = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsToSkip"]);
         private static readonly int NumberOfBlobsToImport = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsToImport"]);
+        private static readonly int ReportingPeriodSec = int.Parse(ConfigurationManager.AppSettings["ReportingPeriodSec"]);
+        private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
+        private static readonly bool UseStringJsonParser = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParser"]);
+        private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
+
+        private static long readers = 0L;
+        private static long resourcesRead = 0L;
+        private static Stopwatch swReads = Stopwatch.StartNew();
 
         internal static void Run()
         {
             ServicePointManager.DefaultConnectionLimit = 2048;
 
+            if (string.IsNullOrEmpty(fhirEndpoint2))
+            {
+                fhirEndpoint2 = FhirEndpoint;
+            }
+
+            var globalLogPrefix = $"GlobalBlobRange=[{NumberOfBlobsToSkip + 1}-{NumberOfBlobsToImport}]";
+            Console.WriteLine($"{globalLogPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
             var currentBlob = NumberOfBlobsToSkip;
             var blobs = blobContainerClient.GetBlobs().Skip(NumberOfBlobsToSkip).Take(NumberOfBlobsToImport - NumberOfBlobsToSkip).ToList();
-            const int blobBatchSize = 100; // process 100 blobs as one batch
-            var concurrentRequests = 0;
-            BatchExtensions.ExecuteInParallelBatches(blobs, 1, blobBatchSize, (t, blobBatchInt) =>
+            var writers = 0L;
+            var epCalls = 0L;
+            var waits = 0L;
+            var globalResourceCount = 0L;
+            var swWrites = Stopwatch.StartNew();
+            var swReport = Stopwatch.StartNew();
+            var swReportReads = Stopwatch.StartNew();
+            BatchExtensions.ExecuteInParallelBatches(blobs, ReadThreads, BlobRangeSize, (reader, blobRangeInt) =>
             {
-                var blobBatchIndex = blobBatchInt.Item1;
-                var blobBatch = blobBatchInt.Item2;
-                var logPrefix = $"Threads={Threads}.range=[{NumberOfBlobsToSkip + (blobBatchIndex * blobBatchSize) + 1}-{NumberOfBlobsToSkip + (blobBatchIndex * blobBatchSize) + blobBatch.Count}][{blobBatch.First().Name} {blobBatch.Last().Name}]";
-                Console.WriteLine($"Parall={concurrentRequests}.{logPrefix}: Starting...");
+                var localSw = Stopwatch.StartNew();
+                var localResourceCount = 0L;
+                var blobRangeIndex = blobRangeInt.Item1;
+                var blobRange = blobRangeInt.Item2;
+                var localLogPrefix = $"Reader={reader}.BlobRange=[{NumberOfBlobsToSkip + (blobRangeIndex * BlobRangeSize) + 1}-{NumberOfBlobsToSkip + (blobRangeIndex * BlobRangeSize) + blobRange.Count}]";
+                Console.WriteLine($"{localLogPrefix}: Starting...");
 
-                var sw = Stopwatch.StartNew();
-                var swReport = Stopwatch.StartNew();
-                var resourceCount = 0L;
-                var reportInterval = 60;
-                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobs(blobBatch, logPrefix), Threads, 100, (thread, lineBatch) =>
+                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobRange, localLogPrefix), WriteThreads / ReadThreads, 100, (thread, lineBatch) =>
                 {
+                    Interlocked.Increment(ref writers);
                     foreach (var line in lineBatch.Item2)
                     {
-                        Interlocked.Increment(ref resourceCount);
-                        PutResource(line, ref concurrentRequests);
-                        if (swReport.Elapsed.TotalSeconds > reportInterval)
+                        Interlocked.Increment(ref globalResourceCount);
+                        Interlocked.Increment(ref localResourceCount);
+                        PutResource(line, ref localResourceCount, ref epCalls, ref waits);
+                        if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                         {
                             lock (swReport)
                             {
-                                if (swReport.Elapsed.TotalSeconds > reportInterval)
+                                if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                                 {
-                                    var res = Interlocked.Read(ref resourceCount);
-                                    Console.WriteLine($"Parall={concurrentRequests}.{logPrefix}: Imported resources={res} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(res / sw.Elapsed.TotalSeconds)} res/sec");
+                                    var resWritten = Interlocked.Read(ref globalResourceCount);
+                                    var resRead = Interlocked.Read(ref resourcesRead);
+                                    Console.WriteLine($"{globalLogPrefix}.Readers={Interlocked.Read(ref readers)}.Writers={Interlocked.Read(ref writers)}.EndPointCalls={Interlocked.Read(ref epCalls)}.Waits={Interlocked.Read(ref waits)}: Read={resRead} Written={resWritten} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(resRead / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(resWritten / swWrites.Elapsed.TotalSeconds)} res/sec");
                                     swReport.Restart();
                                 }
                             }
                         }
                     }
+
+                    Interlocked.Decrement(ref writers);
                 });
-                Console.WriteLine($"Parall={concurrentRequests}.{logPrefix}: Completed. Imported resources={resourceCount} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(resourceCount / sw.Elapsed.TotalSeconds)} res/sec");
+                Console.WriteLine($"{localLogPrefix}: Completed writes. Total resources={localResourceCount} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(localResourceCount / localSw.Elapsed.TotalSeconds)} res/sec");
             });
+            Console.WriteLine($"{globalLogPrefix}.Readers={readers}.Writers={writers}.EndPointCalls={epCalls}.Waits={waits}: Total Read={resourcesRead} Total Written={globalResourceCount} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(resourcesRead / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(globalResourceCount / swWrites.Elapsed.TotalSeconds)} res/sec");
         }
 
-        private static IEnumerable<string> GetLinesInBlobs(IList<BlobItem> blobs, string logPrefix)
+        private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
         {
+            Interlocked.Increment(ref readers);
+            swReads.Start(); // just in case it was stopped by decrement logic below
+
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
-            var totalLines = 0L;
-            var sw = Stopwatch.StartNew();
-            var swReport = Stopwatch.StartNew();
-            var reportInterval = 60;
             var lines = 0L;
+            var sw = Stopwatch.StartNew();
             foreach (var blob in blobs)
             {
                 if (blob.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
@@ -89,30 +116,21 @@ namespace Import
                     continue;
                 }
 
-                using (var reader = new StreamReader(blobContainerClient.GetBlobClient(blob.Name).Download().Value.Content))
+                using var reader = new StreamReader(blobContainerClient.GetBlobClient(blob.Name).Download().Value.Content);
+                while (!reader.EndOfStream)
                 {
-                    while (!reader.EndOfStream)
-                    {
-                        yield return reader.ReadLine();
-                        Interlocked.Increment(ref lines);
-                        lines++;
-                        if (swReport.Elapsed.TotalSeconds > reportInterval)
-                        {
-                            lock (swReport)
-                            {
-                                if (swReport.Elapsed.TotalSeconds > reportInterval)
-                                {
-                                    var res = Interlocked.Read(ref lines);
-                                    Console.WriteLine($"{logPrefix}: Read resources={res} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(res / sw.Elapsed.TotalSeconds)} resources/sec");
-                                    swReport.Restart();
-                                }
-                            }
-                        }
-                    }
+                    yield return reader.ReadLine();
+                    lines++;
+                    Interlocked.Increment(ref resourcesRead);
                 }
             }
 
-            Console.WriteLine($"{logPrefix}: Read total resources={totalLines} in secs={(int)sw.Elapsed.TotalSeconds}");
+            if (Interlocked.Decrement(ref readers) == 0)
+            {
+                swReads.Stop();
+            }
+
+            Console.WriteLine($"{logPrefix}: Completed reads. Total lines={lines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(lines / sw.Elapsed.TotalSeconds)} lines/sec");
         }
 
         private static BlobContainerClient GetContainer(string connectionString, string containerName)
@@ -137,25 +155,23 @@ namespace Import
             }
         }
 
-        public static void PutResource(string jsonString, ref int concurrentRequests)
+        private static void PutResource(string jsonString, ref long resourceCount, ref long epCalls, ref long waits)
         {
-            var jsonObject = JObject.Parse(jsonString);
-            if (jsonObject == null || jsonObject["resourceType"] == null)
-            {
-                throw new ArgumentException($"ndjson file is invalid");
-            }
-
+            ParseJson(jsonString, out var resourceType, out var resourceId);
             using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
-            var resourceType = (string)jsonObject["resourceType"];
-            var resourceId = (string)jsonObject["id"];
-            var uri = new Uri(FhirServiceUrl + "/" + resourceType + "/" + resourceId);
-            var bad = false;
+            var fhirEndpoint = resourceCount % 2 == 0 ? FhirEndpoint : fhirEndpoint2;
+            var uri = new Uri(fhirEndpoint + "/" + resourceType + "/" + resourceId);
+            var maxRetries = MaxRetries;
             var retries = 0;
+            var networkError = false;
+            var bad = false;
             do
             {
-                Interlocked.Increment(ref concurrentRequests);
+                bad = false;
+                Interlocked.Increment(ref epCalls);
                 try
                 {
+                    Thread.Sleep(40);
                     var response = HttpClient.PutAsync(uri, content).Result;
                     switch (response.StatusCode)
                     {
@@ -163,28 +179,94 @@ namespace Import
                         case HttpStatusCode.Created:
                             break;
                         default:
-                            Console.WriteLine($"Retries={retries} HttpStatusCode={response.StatusCode} ResourceType={resourceType} ResourceId={resourceId}");
+                            var statusString = response.StatusCode.ToString();
+                            Console.WriteLine($"Retries={retries} Endpoint={fhirEndpoint} HttpStatusCode={statusString} ResourceType={resourceType} ResourceId={resourceId}");
                             bad = true;
+                            if (statusString == "TooManyRequests") // retry overload errors forever
+                            {
+                                maxRetries++;
+                            }
+
                             break;
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Retries={retries} ResourceType={resourceType} ResourceId={resourceId} Error={e.Message}");
+                    networkError = e.Message.Contains("connection attempt failed", StringComparison.OrdinalIgnoreCase) || e.Message.Contains("connected host has failed to respond", StringComparison.OrdinalIgnoreCase);
+                    Console.WriteLine($"Retries={retries} Endpoint={fhirEndpoint} ResourceType={resourceType} ResourceId={resourceId} Error={(networkError ? "network" : e.Message)}");
                     bad = true;
+                    if (networkError) // retry network errors forever
+                    {
+                        maxRetries++;
+                    }
                 }
                 finally
                 {
-                    Interlocked.Decrement(ref concurrentRequests);
+                    Interlocked.Decrement(ref epCalls);
                 }
 
-                if (bad && retries < 50)
+                if (bad && retries < maxRetries)
                 {
                     retries++;
-                    Thread.Sleep(200 * retries);
+                    Interlocked.Increment(ref waits);
+                    Thread.Sleep(networkError ? 1000 : 200 * retries);
+                    Interlocked.Decrement(ref waits);
                 }
             }
-            while (bad && retries < 50);
+            while (bad && retries < maxRetries);
+        }
+
+        private static void ParseJson(string jsonString, out string resourceType, out string resourceId)
+        {
+            if (UseStringJsonParser)
+            {
+                var idStart = jsonString.IndexOf(@"""id"":""", StringComparison.OrdinalIgnoreCase) + 6;
+                var idShort = jsonString.Substring(idStart, 50);
+                var idEnd = idShort.IndexOf(@"""", StringComparison.OrdinalIgnoreCase);
+                resourceId = idShort.Substring(0, idEnd);
+                if (string.IsNullOrEmpty(resourceId))
+                {
+                    throw new ArgumentException("Cannot parse resource id with string parser");
+                }
+
+                var rtShort = jsonString.Substring(17, 30);
+                var rtEnd = rtShort.IndexOf(@"""", StringComparison.OrdinalIgnoreCase);
+                resourceType = rtShort.Substring(0, rtEnd);
+                if (string.IsNullOrEmpty(resourceType))
+                {
+                    throw new ArgumentException("Cannot parse resource type with string parser");
+                }
+
+                if (UseStringJsonParserCompare)
+                {
+                    ParseJsonWithJObject(jsonString, out var jResourceType, out var jResourceId);
+                    if (resourceType != jResourceType)
+                    {
+                        throw new ArgumentException($"{resourceType} != {jResourceType}");
+                    }
+
+                    if (resourceId != jResourceId)
+                    {
+                        throw new ArgumentException($"{resourceId} != {jResourceId}");
+                    }
+                }
+
+                return;
+            }
+
+            ParseJsonWithJObject(jsonString, out resourceType, out resourceId);
+        }
+
+        private static void ParseJsonWithJObject(string jsonString, out string resourceType, out string resourceId)
+        {
+            var jsonObject = JObject.Parse(jsonString);
+            if (jsonObject == null || jsonObject["resourceType"] == null)
+            {
+                throw new ArgumentException($"ndjson file is invalid");
+            }
+
+            resourceType = (string)jsonObject["resourceType"];
+            resourceId = (string)jsonObject["id"];
         }
     }
 }

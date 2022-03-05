@@ -16,4 +16,10 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Store.Utils\Microsoft.Health.Fhir.Store.Utils.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <AssemblyName>Fhir.Import</AssemblyName>
+    <RootNamespace>Microsoft.Health.Fhir.Import</RootNamespace>
+  </PropertyGroup>
+  
 </Project>
