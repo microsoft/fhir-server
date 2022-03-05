@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Import
                                 {
                                     var resWritten = Interlocked.Read(ref globalResourceCount);
                                     var resRead = Interlocked.Read(ref resourcesRead);
-                                    Console.WriteLine($"{globalLogPrefix}.Readers={Interlocked.Read(ref readers)}.Writers={Interlocked.Read(ref writers)}.EndPointCalls={Interlocked.Read(ref epCalls)}.Waits={Interlocked.Read(ref waits)}: Read={resRead} Written={resWritten} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(resRead / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(resWritten / swWrites.Elapsed.TotalSeconds)} res/sec");
+                                    Console.WriteLine($"{globalLogPrefix}.Readers={Interlocked.Read(ref readers)}.Writers={Interlocked.Read(ref writers)}.EndPointCalls={Interlocked.Read(ref epCalls)}.Waits={Interlocked.Read(ref waits)}: reads={resRead} writes={resWritten} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(resRead / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(resWritten / swWrites.Elapsed.TotalSeconds)} res/sec");
                                     swReport.Restart();
                                 }
                             }
@@ -96,9 +96,9 @@ namespace Microsoft.Health.Fhir.Import
 
                     Interlocked.Decrement(ref writers);
                 });
-                Console.WriteLine($"{localLogPrefix}: Completed writes. Total resources={localResourceCount} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(localResourceCount / localSw.Elapsed.TotalSeconds)} res/sec");
+                Console.WriteLine($"{localLogPrefix}: Completed writes. Total={localResourceCount} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(localResourceCount / localSw.Elapsed.TotalSeconds)} res/sec");
             });
-            Console.WriteLine($"{globalLogPrefix}.Readers={readers}.Writers={writers}.EndPointCalls={epCalls}.Waits={waits}: Total Read={resourcesRead} Total Written={globalResourceCount} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(resourcesRead / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(globalResourceCount / swWrites.Elapsed.TotalSeconds)} res/sec");
+            Console.WriteLine($"{globalLogPrefix}.Readers={readers}.Writers={writers}.EndPointCalls={epCalls}.Waits={waits}: total reads={resourcesRead} total writes={globalResourceCount} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(resourcesRead / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(globalResourceCount / swWrites.Elapsed.TotalSeconds)} res/sec");
         }
 
         private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Import
                 swReads.Stop();
             }
 
-            Console.WriteLine($"{logPrefix}: Completed reads. Total lines={lines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(lines / sw.Elapsed.TotalSeconds)} lines/sec");
+            Console.WriteLine($"{logPrefix}: Completed reads. Total={lines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(lines / sw.Elapsed.TotalSeconds)} lines/sec");
         }
 
         private static BlobContainerClient GetContainer(string connectionString, string containerName)
