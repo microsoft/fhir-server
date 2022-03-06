@@ -292,10 +292,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
                     {
                         table2.Merge(table);
                     }
-                    else if (table.TableName.Equals("Dup"))
-                    {
-                        dupTable.Merge(table);
-                    }
                 });
             testFhirDataBulkOperation
                 .BulkMergeResourceAsync(Arg.Any<IEnumerable<SqlBulkCopyDataWrapper>>(), Arg.Any<CancellationToken>())
@@ -323,7 +319,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             {
                 new TestDataGenerator("Table1", 1),
                 new TestDataGenerator("Table2", 2),
-                new TestDupDataGenerator("Dup"),
             };
 
             IOptions<OperationsConfiguration> operationsConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
@@ -360,7 +355,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             Assert.Equal(expectedSucceedCount, importedResources.Count);
             Assert.Equal(expectedSucceedCount, table1.Rows.Count);
             Assert.Equal(expectedSucceedCount * 2, table2.Rows.Count);
-            Assert.Equal(expectedSucceedCount, dupTable.Rows.Count);
             Assert.Equal(expectedFailedCount, errorLogs.Count);
         }
 
