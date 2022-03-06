@@ -23,9 +23,11 @@ namespace Microsoft.Health.Fhir.Import
     internal static class Importer
     {
         private static readonly HttpClient HttpClient = new HttpClient();
+        private static readonly string Endpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
+        private static readonly string Endpoint2 = ConfigurationManager.AppSettings["FhirEndpoint2"];
+        private static readonly string Endpoint3 = ConfigurationManager.AppSettings["FhirEndpoint3"];
+        private static readonly string Endpoint4 = ConfigurationManager.AppSettings["FhirEndpoint4"];
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
-        private static readonly string FhirEndpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
-        private static string fhirEndpoint2 = ConfigurationManager.AppSettings["FhirEndpoint2"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
         private static readonly int ReadThreads = int.Parse(ConfigurationManager.AppSettings["ReadThreads"]);
@@ -37,56 +39,76 @@ namespace Microsoft.Health.Fhir.Import
         private static readonly bool UseStringJsonParser = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParser"]);
         private static readonly bool UseStringJsonParserCompare = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParserCompare"]);
 
+        private static long totalReads = 0L;
         private static long readers = 0L;
-        private static long resourcesRead = 0L;
         private static Stopwatch swReads = Stopwatch.StartNew();
+        private static long totalWrites = 0L;
+        private static long writers = 0L;
+        private static long epCalls = 0L;
+        private static long waits = 0L;
+        private static int numberOfEndpoints = 1;
 
         internal static void Run()
         {
-            ServicePointManager.DefaultConnectionLimit = 2048;
-
-            if (string.IsNullOrEmpty(fhirEndpoint2))
+            if (string.IsNullOrEmpty(Endpoint))
             {
-                fhirEndpoint2 = FhirEndpoint;
+                throw new ArgumentException("FhirEndpoint value is empty");
             }
 
-            var globalLogPrefix = $"GlobalBlobRange=[{NumberOfBlobsToSkip + 1}-{NumberOfBlobsToImport}]";
-            Console.WriteLine($"{globalLogPrefix}: Starting...");
+            if (!string.IsNullOrEmpty(Endpoint2))
+            {
+                numberOfEndpoints++;
+            }
+
+            if (!string.IsNullOrEmpty(Endpoint3))
+            {
+                numberOfEndpoints++;
+            }
+
+            if (!string.IsNullOrEmpty(Endpoint4))
+            {
+                numberOfEndpoints++;
+            }
+
+            var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{NumberOfBlobsToImport}]";
+            Console.WriteLine($"{globalPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
             var blobs = blobContainerClient.GetBlobs().Skip(NumberOfBlobsToSkip).Take(NumberOfBlobsToImport - NumberOfBlobsToSkip).ToList();
-            var writers = 0L;
-            var epCalls = 0L;
-            var waits = 0L;
-            var globalResourceCount = 0L;
             var swWrites = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
             var swReportReads = Stopwatch.StartNew();
+            var currentBlobRanges = new Tuple<int, int>[ReadThreads];
             BatchExtensions.ExecuteInParallelBatches(blobs, ReadThreads, BlobRangeSize, (reader, blobRangeInt) =>
             {
                 var localSw = Stopwatch.StartNew();
-                var localResourceCount = 0L;
+                var writes = 0L;
                 var blobRangeIndex = blobRangeInt.Item1;
-                var blobRange = blobRangeInt.Item2;
-                var localLogPrefix = $"Reader={reader}.BlobRange=[{NumberOfBlobsToSkip + (blobRangeIndex * BlobRangeSize) + 1}-{NumberOfBlobsToSkip + (blobRangeIndex * BlobRangeSize) + blobRange.Count}]";
-                Console.WriteLine($"{localLogPrefix}: Starting...");
+                var blobsInt = blobRangeInt.Item2;
+                var firstBlob = NumberOfBlobsToSkip + (blobRangeIndex * BlobRangeSize) + 1;
+                var lastBlob = NumberOfBlobsToSkip + (blobRangeIndex * BlobRangeSize) + blobsInt.Count;
+                currentBlobRanges[reader] = Tuple.Create(firstBlob, lastBlob);
+                var prefix = $"Reader={reader}.BlobRange=[{firstBlob}-{lastBlob}]";
+                Console.WriteLine($"{prefix}: Starting...");
 
-                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobRange, localLogPrefix), WriteThreads / ReadThreads, 100, (thread, lineBatch) =>
+                BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobsInt, prefix), WriteThreads / ReadThreads, 100, (thread, lineBatch) =>
                 {
                     Interlocked.Increment(ref writers);
                     foreach (var line in lineBatch.Item2)
                     {
-                        Interlocked.Increment(ref globalResourceCount);
-                        Interlocked.Increment(ref localResourceCount);
-                        PutResource(line, ref localResourceCount, ref epCalls, ref waits);
+                        Interlocked.Increment(ref totalWrites);
+                        Interlocked.Increment(ref writes);
+                        PutResource(line, ref writes);
                         if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                         {
                             lock (swReport)
                             {
                                 if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                                 {
-                                    var resWritten = Interlocked.Read(ref globalResourceCount);
-                                    var resRead = Interlocked.Read(ref resourcesRead);
-                                    Console.WriteLine($"{globalLogPrefix}.Readers={Interlocked.Read(ref readers)}.Writers={Interlocked.Read(ref writers)}.EndPointCalls={Interlocked.Read(ref epCalls)}.Waits={Interlocked.Read(ref waits)}: reads={resRead} writes={resWritten} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(resRead / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(resWritten / swWrites.Elapsed.TotalSeconds)} res/sec");
+                                    var currWrites = Interlocked.Read(ref totalWrites);
+                                    var currReads = Interlocked.Read(ref totalReads);
+                                    var minBlob = currentBlobRanges.Min(_ => _.Item1);
+                                    var maxBlob = currentBlobRanges.Max(_ => _.Item2);
+                                    Console.WriteLine($"{globalPrefix}.WorkingBlobRange=[{minBlob}-{maxBlob}].Readers=[{Interlocked.Read(ref readers)}/{ReadThreads}].Writers=[{Interlocked.Read(ref writers)}].EndPointCalls=[{Interlocked.Read(ref epCalls)}].Waits=[{Interlocked.Read(ref waits)}]: reads={currReads} writes={currWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(currReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(currWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
                                     swReport.Restart();
                                 }
                             }
@@ -95,9 +117,9 @@ namespace Microsoft.Health.Fhir.Import
 
                     Interlocked.Decrement(ref writers);
                 });
-                Console.WriteLine($"{localLogPrefix}: Completed writes. Total={localResourceCount} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(localResourceCount / localSw.Elapsed.TotalSeconds)} res/sec");
+                Console.WriteLine($"{prefix}: Completed writes. Total={writes} secs={(int)localSw.Elapsed.TotalSeconds} speed={(int)(writes / localSw.Elapsed.TotalSeconds)} res/sec");
             });
-            Console.WriteLine($"{globalLogPrefix}.Readers={readers}.Writers={writers}.EndPointCalls={epCalls}.Waits={waits}: total reads={resourcesRead} total writes={globalResourceCount} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(resourcesRead / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(globalResourceCount / swWrites.Elapsed.TotalSeconds)} res/sec");
+            Console.WriteLine($"{globalPrefix}.Readers=[{readers}/{ReadThreads}].Writers=[{writers}].EndPointCalls=[{epCalls}].Waits=[{waits}]: total reads={totalReads} total writes={totalWrites} secs={(int)swWrites.Elapsed.TotalSeconds} read-speed={(int)(totalReads / swReads.Elapsed.TotalSeconds)} lines/sec write-speed={(int)(totalWrites / swWrites.Elapsed.TotalSeconds)} res/sec");
         }
 
         private static IEnumerable<string> GetLinesInBlobRange(IList<BlobItem> blobs, string logPrefix)
@@ -120,7 +142,7 @@ namespace Microsoft.Health.Fhir.Import
                 {
                     yield return reader.ReadLine();
                     lines++;
-                    Interlocked.Increment(ref resourcesRead);
+                    Interlocked.Increment(ref totalReads);
                 }
             }
 
@@ -154,11 +176,15 @@ namespace Microsoft.Health.Fhir.Import
             }
         }
 
-        private static void PutResource(string jsonString, ref long resourceCount, ref long epCalls, ref long waits)
+        private static void PutResource(string jsonString, ref long writes)
         {
             ParseJson(jsonString, out var resourceType, out var resourceId);
             using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
-            var fhirEndpoint = resourceCount % 2 == 0 ? FhirEndpoint : fhirEndpoint2;
+            var remainder = Interlocked.Read(ref writes) % numberOfEndpoints;
+            var fhirEndpoint = remainder == 0 ? Endpoint
+                             : remainder == 1 ? Endpoint2
+                             : remainder == 2 ? Endpoint3
+                             : Endpoint4;
             var uri = new Uri(fhirEndpoint + "/" + resourceType + "/" + resourceId);
             var maxRetries = MaxRetries;
             var retries = 0;
