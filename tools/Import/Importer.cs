@@ -81,7 +81,6 @@ namespace Microsoft.Health.Fhir.Import
             blobs = blobs.Skip(NumberOfBlobsToSkip).Take(take).ToList();
             var swWrites = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
-            var swReportReads = Stopwatch.StartNew();
             var currentBlobRanges = new Tuple<int, int>[ReadThreads];
             BatchExtensions.ExecuteInParallelBatches(blobs, ReadThreads, BlobRangeSize, (reader, blobRangeInt) =>
             {
