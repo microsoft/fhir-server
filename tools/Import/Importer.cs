@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Import
         private static readonly int ReadThreads = int.Parse(ConfigurationManager.AppSettings["ReadThreads"]);
         private static readonly int WriteThreads = int.Parse(ConfigurationManager.AppSettings["WriteThreads"]);
         private static readonly int NumberOfBlobsToSkip = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsToSkip"]);
-        private static readonly int NumberOfBlobsToImport = int.Parse(ConfigurationManager.AppSettings["NumberOfBlobsToImport"]);
+        private static readonly int MaxBlobIndexForImport = int.Parse(ConfigurationManager.AppSettings["MaxBlobIndexForImport"]);
         private static readonly int ReportingPeriodSec = int.Parse(ConfigurationManager.AppSettings["ReportingPeriodSec"]);
         private static readonly int MaxRetries = int.Parse(ConfigurationManager.AppSettings["MaxRetries"]);
         private static readonly bool UseStringJsonParser = bool.Parse(ConfigurationManager.AppSettings["UseStringJsonParser"]);
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Import
         private static long writers = 0L;
         private static long epCalls = 0L;
         private static long waits = 0L;
-        private static int numberOfEndpoints = 1;
+        private static List<string> endpoints = new List<string>();
 
         internal static void Run()
         {
@@ -55,25 +55,30 @@ namespace Microsoft.Health.Fhir.Import
                 throw new ArgumentException("FhirEndpoint value is empty");
             }
 
+            endpoints.Add(Endpoint);
+
             if (!string.IsNullOrEmpty(Endpoint2))
             {
-                numberOfEndpoints++;
+                endpoints.Add(Endpoint2);
             }
 
             if (!string.IsNullOrEmpty(Endpoint3))
             {
-                numberOfEndpoints++;
+                endpoints.Add(Endpoint3);
             }
 
             if (!string.IsNullOrEmpty(Endpoint4))
             {
-                numberOfEndpoints++;
+                endpoints.Add(Endpoint4);
             }
 
-            var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{NumberOfBlobsToImport}]";
+            var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
             Console.WriteLine($"{globalPrefix}: Starting...");
             var blobContainerClient = GetContainer(ConnectionString, ContainerName);
-            var blobs = blobContainerClient.GetBlobs().Skip(NumberOfBlobsToSkip).Take(NumberOfBlobsToImport - NumberOfBlobsToSkip).ToList();
+            var blobs = blobContainerClient.GetBlobs().OrderBy(_ => _.Name).Where(_ => _.Name.EndsWith(".ndjson", StringComparison.OrdinalIgnoreCase)).ToList();
+            Console.WriteLine($"Found ndjson blobs={blobs.Count} in {ContainerName}.");
+            var take = MaxBlobIndexForImport == 0 ? blobs.Count : MaxBlobIndexForImport - NumberOfBlobsToSkip;
+            blobs = blobs.Skip(NumberOfBlobsToSkip).Take(take).ToList();
             var swWrites = Stopwatch.StartNew();
             var swReport = Stopwatch.StartNew();
             var swReportReads = Stopwatch.StartNew();
@@ -88,6 +93,7 @@ namespace Microsoft.Health.Fhir.Import
                 var lastBlob = NumberOfBlobsToSkip + (blobRangeIndex * BlobRangeSize) + blobsInt.Count;
                 currentBlobRanges[reader] = Tuple.Create(firstBlob, lastBlob);
                 var prefix = $"Reader={reader}.BlobRange=[{firstBlob}-{lastBlob}]";
+                var incrementor = new IndexIncrementor(endpoints.Count);
                 Console.WriteLine($"{prefix}: Starting...");
 
                 BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobsInt, prefix), WriteThreads / ReadThreads, 100, (thread, lineBatch) =>
@@ -97,7 +103,7 @@ namespace Microsoft.Health.Fhir.Import
                     {
                         Interlocked.Increment(ref totalWrites);
                         Interlocked.Increment(ref writes);
-                        PutResource(line, ref writes);
+                        PutResource(line, incrementor);
                         if (swReport.Elapsed.TotalSeconds > ReportingPeriodSec)
                         {
                             lock (swReport)
@@ -127,23 +133,39 @@ namespace Microsoft.Health.Fhir.Import
             Interlocked.Increment(ref readers);
             swReads.Start(); // just in case it was stopped by decrement logic below
 
-            var blobContainerClient = GetContainer(ConnectionString, ContainerName);
             var lines = 0L;
             var sw = Stopwatch.StartNew();
+            var results = new List<string>();
             foreach (var blob in blobs)
             {
-                if (blob.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                var retries = 0;
+                List<string> resInt;
+            retry:
+                try
                 {
-                    continue;
+                    resInt = new List<string>();
+                    using var reader = new StreamReader(GetContainer(ConnectionString, ContainerName).GetBlobClient(blob.Name).Download().Value.Content);
+                    while (!reader.EndOfStream)
+                    {
+                        resInt.Add(reader.ReadLine());
+                    }
+                }
+                catch (Exception e)
+                {
+                    if (IsNetworkError(e))
+                    {
+                        Console.WriteLine($"Retries={retries} blob={blob.Name} error={e.Message}");
+                        Thread.Sleep(1000);
+                        retries++;
+                        goto retry;
+                    }
+
+                    throw;
                 }
 
-                using var reader = new StreamReader(blobContainerClient.GetBlobClient(blob.Name).Download().Value.Content);
-                while (!reader.EndOfStream)
-                {
-                    yield return reader.ReadLine();
-                    lines++;
-                    Interlocked.Increment(ref totalReads);
-                }
+                results.AddRange(resInt);
+                lines += resInt.Count;
+                Interlocked.Add(ref totalReads, resInt.Count);
             }
 
             if (Interlocked.Decrement(ref readers) == 0)
@@ -152,6 +174,7 @@ namespace Microsoft.Health.Fhir.Import
             }
 
             Console.WriteLine($"{logPrefix}: Completed reads. Total={lines} secs={(int)sw.Elapsed.TotalSeconds} speed={(int)(lines / sw.Elapsed.TotalSeconds)} lines/sec");
+            return results;
         }
 
         private static BlobContainerClient GetContainer(string connectionString, string containerName)
@@ -176,22 +199,19 @@ namespace Microsoft.Health.Fhir.Import
             }
         }
 
-        private static void PutResource(string jsonString, ref long writes)
+        private static void PutResource(string jsonString, IndexIncrementor incrementor)
         {
             ParseJson(jsonString, out var resourceType, out var resourceId);
             using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
-            var remainder = Interlocked.Read(ref writes) % numberOfEndpoints;
-            var fhirEndpoint = remainder == 0 ? Endpoint
-                             : remainder == 1 ? Endpoint2
-                             : remainder == 2 ? Endpoint3
-                             : Endpoint4;
-            var uri = new Uri(fhirEndpoint + "/" + resourceType + "/" + resourceId);
             var maxRetries = MaxRetries;
             var retries = 0;
             var networkError = false;
             var bad = false;
+            string endpoint;
             do
             {
+                endpoint = endpoints[incrementor.Next()];
+                var uri = new Uri(endpoint + "/" + resourceType + "/" + resourceId);
                 bad = false;
                 Interlocked.Increment(ref epCalls);
                 try
@@ -205,7 +225,7 @@ namespace Microsoft.Health.Fhir.Import
                             break;
                         default:
                             var statusString = response.StatusCode.ToString();
-                            Console.WriteLine($"Retries={retries} Endpoint={fhirEndpoint} HttpStatusCode={statusString} ResourceType={resourceType} ResourceId={resourceId}");
+                            Console.WriteLine($"Retries={retries} Endpoint={endpoint} HttpStatusCode={statusString} ResourceType={resourceType} ResourceId={resourceId}");
                             bad = true;
                             if (statusString == "TooManyRequests") // retry overload errors forever
                             {
@@ -217,8 +237,12 @@ namespace Microsoft.Health.Fhir.Import
                 }
                 catch (Exception e)
                 {
-                    networkError = e.Message.Contains("connection attempt failed", StringComparison.OrdinalIgnoreCase) || e.Message.Contains("connected host has failed to respond", StringComparison.OrdinalIgnoreCase);
-                    Console.WriteLine($"Retries={retries} Endpoint={fhirEndpoint} ResourceType={resourceType} ResourceId={resourceId} Error={(networkError ? "network" : e.Message)}");
+                    networkError = IsNetworkError(e);
+                    if (!networkError)
+                    {
+                        Console.WriteLine($"Retries={retries} Endpoint={endpoint} ResourceType={resourceType} ResourceId={resourceId} Error={(networkError ? "network" : e.Message)}");
+                    }
+
                     bad = true;
                     if (networkError) // retry network errors forever
                     {
@@ -239,6 +263,17 @@ namespace Microsoft.Health.Fhir.Import
                 }
             }
             while (bad && retries < maxRetries);
+            if (bad)
+            {
+                Console.WriteLine($"Failed writing ResourceType={resourceType} ResourceId={resourceId}. Retries={retries} Endpoint={endpoint}");
+            }
+        }
+
+        private static bool IsNetworkError(Exception e)
+        {
+            return e.Message.Contains("connection attempt failed", StringComparison.OrdinalIgnoreCase)
+                   || e.Message.Contains("connected host has failed to respond", StringComparison.OrdinalIgnoreCase)
+                   || e.Message.Contains("operation on a socket could not be performed", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void ParseJson(string jsonString, out string resourceType, out string resourceId)
@@ -292,6 +327,29 @@ namespace Microsoft.Health.Fhir.Import
 
             resourceType = (string)jsonObject["resourceType"];
             resourceId = (string)jsonObject["id"];
+        }
+
+        internal class IndexIncrementor
+        {
+            private int _currentIndex;
+            private int _count;
+
+            public IndexIncrementor(int count)
+            {
+                _count = count;
+            }
+
+            public int Next()
+            {
+                var incremented = Interlocked.Increment(ref _currentIndex);
+                var index = incremented % _count;
+                if (index < 0)
+                {
+                    index += _count;
+                }
+
+                return index;
+            }
         }
     }
 }
