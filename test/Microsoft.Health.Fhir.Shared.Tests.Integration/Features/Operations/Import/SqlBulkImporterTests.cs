@@ -275,7 +275,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
         {
             DataTable table1 = new DataTable();
             DataTable table2 = new DataTable();
-            DataTable dupTable = new DataTable();
             List<SqlBulkCopyDataWrapper> importedResources = new List<SqlBulkCopyDataWrapper>();
 
             ISqlImportOperation testFhirDataBulkOperation = Substitute.For<ISqlImportOperation>();
@@ -404,35 +403,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Imp
             {
                 table.Columns.Add(new DataColumn("ResourceSurrogateId", typeof(long)));
                 table.Columns.Add(new DataColumn("Id", typeof(string)));
-            }
-        }
-
-        private class TestDupDataGenerator : TableBulkCopyDataGenerator
-        {
-            private string _tableName;
-
-            public TestDupDataGenerator(string tableName)
-            {
-                _tableName = tableName;
-            }
-
-            internal override string TableName => _tableName;
-
-            internal override void FillDataTable(DataTable table, SqlBulkCopyDataWrapper input)
-            {
-                for (int i = 0; i < 2; ++i)
-                {
-                    DataRow newRow = table.NewRow();
-
-                    FillColumn(newRow, "ResourceSurrogateId", input.ResourceSurrogateId);
-
-                    table.Rows.Add(newRow);
-                }
-            }
-
-            internal override void FillSchema(DataTable table)
-            {
-                table.Columns.Add(new DataColumn("ResourceSurrogateId", typeof(long)));
             }
         }
     }
