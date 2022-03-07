@@ -7,14 +7,17 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
+using Xunit.Sdk;
 using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -194,9 +197,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Array.Sort(expectedResources, (a, b) => string.CompareOrdinal(a.Id, b.Id));
             }
 
-            Assert.Collection(
+            try
+            {
+                Assert.Collection(
                 bundle.Entry.Select(e => e.Resource),
                 expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
+            }
+            catch (XunitException)
+            {
+                var sb = new StringBuilder("Expected count to be ").Append(expectedResources.Length).Append(" but was ").Append(bundle.Entry.Count).AppendLine(" . Contents:");
+                var fhirJsonSerializer = new FhirJsonSerializer(new SerializerSettings() { AppendNewLine = false, Pretty = false });
+                using var sw = new StringWriter(sb);
+
+                sb.AppendLine("Actual collection as below -");
+                foreach (var element in bundle.Entry.Select(e => e.Resource))
+                {
+                    sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
+                }
+
+                sb.AppendLine("Expected Collection as below -");
+                foreach (var element in expectedResources)
+                {
+                    sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
+                }
+
+                throw new XunitException(sb.ToString());
+            }
         }
 
         protected OperationOutcome GetAndValidateOperationOutcome(Bundle bundle)
