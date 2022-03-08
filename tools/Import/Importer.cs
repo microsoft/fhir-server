@@ -223,9 +223,13 @@ namespace Microsoft.Health.Fhir.Import
                         case HttpStatusCode.Created:
                             break;
                         default:
-                            var statusString = response.StatusCode.ToString();
-                            Console.WriteLine($"Retries={retries} Endpoint={endpoint} HttpStatusCode={statusString} ResourceType={resourceType} ResourceId={resourceId}");
                             bad = true;
+                            var statusString = response.StatusCode.ToString();
+                            if (statusString != "BadGateway" || retries > 0) // too many bad gateway messages in the log
+                            {
+                                Console.WriteLine($"Retries={retries} Endpoint={endpoint} HttpStatusCode={statusString} ResourceType={resourceType} ResourceId={resourceId}");
+                            }
+
                             if (statusString == "TooManyRequests") // retry overload errors forever
                             {
                                 maxRetries++;
