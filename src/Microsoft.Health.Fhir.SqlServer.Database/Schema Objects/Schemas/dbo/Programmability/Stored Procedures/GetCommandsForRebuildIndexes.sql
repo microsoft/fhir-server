@@ -35,7 +35,7 @@ BEGIN TRY
     IF @Supported = 0
     BEGIN
       INSERT INTO @Commands
-        SELECT @Tbl, 'ALTER INDEX '+name+' ON dbo.'+@Tbl+' REBUILD', convert(bigint,9e18) FROM sys.indexes WHERE object_id = object_id(@Tbl) AND is_disabled = 1
+        SELECT @Tbl, 'ALTER INDEX '+name+' ON dbo.'+@Tbl+' REBUILD', convert(bigint,9e18) FROM sys.indexes WHERE object_id = object_id(@Tbl) AND (is_disabled = 1 AND index_id > 1 AND @RebuildClustered = 0 OR index_id = 1 AND @RebuildClustered = 1)
       EXECUTE dbo.LogEvent @Process=@SP,@Mode=@Mode,@Status='Info',@Target='@Commands',@Action='Insert',@Rows=@@rowcount,@Text='Not supported tables with disabled indexes'
     END
     ELSE

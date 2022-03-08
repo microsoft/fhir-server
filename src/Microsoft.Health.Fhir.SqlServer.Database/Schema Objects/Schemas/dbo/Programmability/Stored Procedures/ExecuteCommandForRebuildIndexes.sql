@@ -9,6 +9,7 @@ DECLARE @SP varchar(100) = 'ExecuteCommandForRebuildIndexes'
        ,@st datetime
        ,@Retries int = 0
        ,@Action varchar(100)
+       ,@msg varchar(1000)
 
 RetryOnTempdbError:
 
@@ -24,8 +25,13 @@ BEGIN TRY
                   WHEN @Cmd LIKE 'UPDATE STAT%' THEN 'Update statistics'
                   WHEN @Cmd LIKE 'CREATE%INDEX%' THEN 'Create Index'
                   WHEN @Cmd LIKE 'ALTER%INDEX%REBUILD' THEN 'Rebuild Index'
+                  WHEN @Cmd LIKE 'ALTER%TABLE%ADD%' THEN 'Add Constraint'
                 END
-  IF @Action IS NULL RAISERROR('Not supported action',18,127)
+  IF @Action IS NULL 
+  BEGIN
+    SET @msg = 'Not supported command = '+convert(varchar(900),@Cmd)
+    RAISERROR(@msg,18,127)
+  END
 
   IF @Action = 'Create Index' WAITFOR DELAY '00:00:05'
 
