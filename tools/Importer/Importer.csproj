@@ -18,8 +18,8 @@
 
   <PropertyGroup>
     <ServerGarbageCollection>true</ServerGarbageCollection>
-    <AssemblyName>Fhir.Import</AssemblyName>
-    <RootNamespace>Microsoft.Health.Fhir.Import</RootNamespace>
+    <AssemblyName>Fhir.Importer</AssemblyName>
+    <RootNamespace>Microsoft.Health.Fhir.Importer</RootNamespace>
   </PropertyGroup>
   
 </Project>

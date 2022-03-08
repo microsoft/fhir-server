@@ -18,7 +18,7 @@ using Azure.Storage.Blobs.Models;
 using Microsoft.Health.Fhir.Store.Utils;
 using Newtonsoft.Json.Linq;
 
-namespace Microsoft.Health.Fhir.Import
+namespace Microsoft.Health.Fhir.Importer
 {
     internal static class Importer
     {
