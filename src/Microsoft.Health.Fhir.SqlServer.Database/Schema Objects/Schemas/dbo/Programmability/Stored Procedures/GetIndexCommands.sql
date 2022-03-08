@@ -17,7 +17,7 @@ BEGIN TRY
     SELECT Ind
           ,CASE 
              WHEN is_primary_key = 1 
-               THEN 'ALTER TABLE dbo.['+Tbl+'] ADD PRIMARY KEY '+CASE WHEN type = 1 THEN ' CLUSTERED' ELSE '' END -- Skip PK name. We hould use this on maintables. This string can be applied to all component tables with no changes.
+               THEN 'ALTER TABLE dbo.['+Tbl+'] ADD PRIMARY KEY '+CASE WHEN type = 1 THEN ' CLUSTERED' ELSE '' END -- Skip PK name, then this string can be applied to all component tables with no changes.
              ELSE 'CREATE'+CASE WHEN is_unique = 1 THEN ' UNIQUE' ELSE '' END+CASE WHEN type = 1 THEN ' CLUSTERED' ELSE '' END+' INDEX '+Ind+' ON dbo.['+Tbl+']'
            END
           +' ('+KeyCols+')'
