@@ -23,10 +23,7 @@ namespace Microsoft.Health.Fhir.Importer
     internal static class Importer
     {
         private static readonly HttpClient HttpClient = new HttpClient();
-        private static readonly string Endpoint = ConfigurationManager.AppSettings["FhirEndpoint"];
-        private static readonly string Endpoint2 = ConfigurationManager.AppSettings["FhirEndpoint2"];
-        private static readonly string Endpoint3 = ConfigurationManager.AppSettings["FhirEndpoint3"];
-        private static readonly string Endpoint4 = ConfigurationManager.AppSettings["FhirEndpoint4"];
+        private static readonly string Endpoints = ConfigurationManager.AppSettings["FhirEndpoints"];
         private static readonly string ConnectionString = ConfigurationManager.AppSettings["ConnectionString"];
         private static readonly string ContainerName = ConfigurationManager.AppSettings["ContainerName"];
         private static readonly int BlobRangeSize = int.Parse(ConfigurationManager.AppSettings["BlobRangeSize"]);
@@ -46,31 +43,16 @@ namespace Microsoft.Health.Fhir.Importer
         private static long writers = 0L;
         private static long epCalls = 0L;
         private static long waits = 0L;
-        private static List<string> endpoints = new List<string>();
+        private static List<string> endpoints;
 
         internal static void Run()
         {
-            if (string.IsNullOrEmpty(Endpoint))
+            if (string.IsNullOrEmpty(Endpoints))
             {
-                throw new ArgumentException("FhirEndpoint value is empty");
+                throw new ArgumentException("FhirEndpoints value is empty");
             }
 
-            endpoints.Add(Endpoint);
-
-            if (!string.IsNullOrEmpty(Endpoint2))
-            {
-                endpoints.Add(Endpoint2);
-            }
-
-            if (!string.IsNullOrEmpty(Endpoint3))
-            {
-                endpoints.Add(Endpoint3);
-            }
-
-            if (!string.IsNullOrEmpty(Endpoint4))
-            {
-                endpoints.Add(Endpoint4);
-            }
+            endpoints = Endpoints.Split(";", StringSplitOptions.RemoveEmptyEntries).ToList();
 
             var globalPrefix = $"RequestedBlobRange=[{NumberOfBlobsToSkip + 1}-{MaxBlobIndexForImport}]";
             Console.WriteLine($"{globalPrefix}: Starting...");
@@ -200,7 +182,7 @@ namespace Microsoft.Health.Fhir.Importer
 
         private static void PutResource(string jsonString, IndexIncrementor incrementor)
         {
-            ParseJson(jsonString, out var resourceType, out var resourceId);
+            var (resourceType, resourceId) = ParseJson(jsonString);
             using var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
             var maxRetries = MaxRetries;
             var retries = 0;
@@ -225,12 +207,12 @@ namespace Microsoft.Health.Fhir.Importer
                         default:
                             bad = true;
                             var statusString = response.StatusCode.ToString();
-                            if (statusString != "BadGateway" || retries > 0) // too many bad gateway messages in the log
+                            if (response.StatusCode != HttpStatusCode.BadGateway || retries > 0) // too many bad gateway messages in the log
                             {
                                 Console.WriteLine($"Retries={retries} Endpoint={endpoint} HttpStatusCode={statusString} ResourceType={resourceType} ResourceId={resourceId}");
                             }
 
-                            if (statusString == "TooManyRequests") // retry overload errors forever
+                            if (response.StatusCode == HttpStatusCode.TooManyRequests) // retry overload errors forever
                             {
                                 maxRetries++;
                             }
@@ -279,22 +261,22 @@ namespace Microsoft.Health.Fhir.Importer
                    || e.Message.Contains("operation on a socket could not be performed", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static void ParseJson(string jsonString, out string resourceType, out string resourceId)
+        private static (string resourceType, string resourceId) ParseJson(string jsonString)
         {
             if (UseStringJsonParser)
             {
-                var idStart = jsonString.IndexOf(@"""id"":""", StringComparison.OrdinalIgnoreCase) + 6;
+                var idStart = jsonString.IndexOf("\"id\":\"", StringComparison.OrdinalIgnoreCase) + 6;
                 var idShort = jsonString.Substring(idStart, 50);
-                var idEnd = idShort.IndexOf(@"""", StringComparison.OrdinalIgnoreCase);
-                resourceId = idShort.Substring(0, idEnd);
+                var idEnd = idShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+                var resourceId = idShort.Substring(0, idEnd);
                 if (string.IsNullOrEmpty(resourceId))
                 {
                     throw new ArgumentException("Cannot parse resource id with string parser");
                 }
 
                 var rtShort = jsonString.Substring(17, 30);
-                var rtEnd = rtShort.IndexOf(@"""", StringComparison.OrdinalIgnoreCase);
-                resourceType = rtShort.Substring(0, rtEnd);
+                var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
+                var resourceType = rtShort.Substring(0, rtEnd);
                 if (string.IsNullOrEmpty(resourceType))
                 {
                     throw new ArgumentException("Cannot parse resource type with string parser");
@@ -302,7 +284,7 @@ namespace Microsoft.Health.Fhir.Importer
 
                 if (UseStringJsonParserCompare)
                 {
-                    ParseJsonWithJObject(jsonString, out var jResourceType, out var jResourceId);
+                    var (jResourceType, jResourceId) = ParseJsonWithJObject(jsonString);
                     if (resourceType != jResourceType)
                     {
                         throw new ArgumentException($"{resourceType} != {jResourceType}");
@@ -314,13 +296,13 @@ namespace Microsoft.Health.Fhir.Importer
                     }
                 }
 
-                return;
+                return (resourceType, resourceId);
             }
 
-            ParseJsonWithJObject(jsonString, out resourceType, out resourceId);
+            return ParseJsonWithJObject(jsonString);
         }
 
-        private static void ParseJsonWithJObject(string jsonString, out string resourceType, out string resourceId)
+        private static (string resourceType, string resourceId) ParseJsonWithJObject(string jsonString)
         {
             var jsonObject = JObject.Parse(jsonString);
             if (jsonObject == null || jsonObject["resourceType"] == null)
@@ -328,8 +310,7 @@ namespace Microsoft.Health.Fhir.Importer
                 throw new ArgumentException($"ndjson file is invalid");
             }
 
-            resourceType = (string)jsonObject["resourceType"];
-            resourceId = (string)jsonObject["id"];
+            return ((string)jsonObject["resourceType"], (string)jsonObject["id"]);
         }
 
         internal class IndexIncrementor
