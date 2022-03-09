@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.Importer
                 var incrementor = new IndexIncrementor(endpoints.Count);
                 Console.WriteLine($"{prefix}: Starting...");
 
+                // 100 below is a compromise between processing with maximum available threads (value 1) and inefficiency in wrapping single resource in a list.
                 BatchExtensions.ExecuteInParallelBatches(GetLinesInBlobRange(blobsInt, prefix), WriteThreads / ReadThreads, 100, (thread, lineBatch) =>
                 {
                     Interlocked.Increment(ref writers);
@@ -274,7 +275,8 @@ namespace Microsoft.Health.Fhir.Importer
                     throw new ArgumentException("Cannot parse resource id with string parser");
                 }
 
-                var rtShort = jsonString.Substring(17, 30);
+                var rtStart = jsonString.IndexOf("\"resourceType\":\"", StringComparison.OrdinalIgnoreCase) + 16;
+                var rtShort = jsonString.Substring(rtStart, 50);
                 var rtEnd = rtShort.IndexOf("\"", StringComparison.OrdinalIgnoreCase);
                 var resourceType = rtShort.Substring(0, rtEnd);
                 if (string.IsNullOrEmpty(resourceType))
