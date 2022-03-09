@@ -105,7 +105,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.ChangeFeed
                     {
                         lock (ResourceTypeIdToTypeNameMap)
                         {
-                            UpdateResourceTypeMapAsync(sqlCommandWrapper);
+                            if (ResourceTypeIdToTypeNameMap.IsEmpty)
+                            {
+                                UpdateResourceTypeMapAsync(sqlCommandWrapper);
+                            }
                         }
                     }
 
