@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -27,6 +29,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             _searchParamGenerator = searchParamGenerator;
         }
 
+        internal static BulkUriSearchParamTableTypeV1RowComparer Comparer { get; } = new BulkUriSearchParamTableTypeV1RowComparer();
+
         internal override string TableName
         {
             get
@@ -42,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
 
             IEnumerable<BulkUriSearchParamTableTypeV1Row> searchParams = _searchParamGenerator.GenerateRows(new ResourceWrapper[] { input.Resource });
 
-            foreach (BulkUriSearchParamTableTypeV1Row searchParam in searchParams)
+            foreach (BulkUriSearchParamTableTypeV1Row searchParam in Distinct(searchParams))
             {
                 FillDataTable(table, input.ResourceTypeId, input.ResourceSurrogateId, searchParam);
             }
@@ -64,6 +68,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Operations.Import.DataGenerat
             table.Columns.Add(new DataColumn(SearchParamId.Metadata.Name, SearchParamId.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(VLatest.UriSearchParam.Uri.Metadata.Name, VLatest.UriSearchParam.Uri.Metadata.SqlDbType.GetGeneralType()));
             table.Columns.Add(new DataColumn(IsHistory.Metadata.Name, IsHistory.Metadata.SqlDbType.GetGeneralType()));
+        }
+
+        internal static IEnumerable<BulkUriSearchParamTableTypeV1Row> Distinct(IEnumerable<BulkUriSearchParamTableTypeV1Row> input)
+        {
+            return input.Distinct(Comparer);
+        }
+
+        internal class BulkUriSearchParamTableTypeV1RowComparer : IEqualityComparer<BulkUriSearchParamTableTypeV1Row>
+        {
+            public bool Equals(BulkUriSearchParamTableTypeV1Row x, BulkUriSearchParamTableTypeV1Row y)
+            {
+                if (x.SearchParamId != y.SearchParamId)
+                {
+                    return false;
+                }
+
+                if (!string.Equals(x.Uri, y.Uri, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public int GetHashCode(BulkUriSearchParamTableTypeV1Row obj)
+            {
+                int hashCode = obj.SearchParamId.GetHashCode();
+
+                hashCode ^= obj.Uri?.GetHashCode(StringComparison.Ordinal) ?? 0;
+
+                return hashCode.GetHashCode();
+            }
         }
     }
 }
